@@ -18,24 +18,26 @@ func move(src []any, a, b, t int, dst []any) {
 	}
 }
 
-func ttisnumber(v any) bool {
-	return v.(float64) != 0
+func moveMap(src []any, a, b, t int, dst map[uint32]any) {
+	for i := a; i <= b; i++ {
+		dst[uint32(i)] = src[i-a+t]
+	}
 }
 
-func ttisstring(v any) bool {
-	return v.(string) != ""
+func ttisnumber(v any) bool {
+	return reflect.TypeOf(v).Kind() == reflect.Float64
 }
 
 func ttisboolean(v any) bool {
-	return v.(bool)
+	return reflect.TypeOf(v).Kind() == reflect.Bool
 }
 
 func ttisfunction(v any) bool {
-	return v.(func()) != nil
+	return reflect.TypeOf(v).Kind() == reflect.Func
 }
 
 // bit32 extraction
-func extract(n, field, width uint32) uint32 {
+func extract(n, field, width int) uint32 {
 	return uint32(n>>field) & uint32(math.Pow(2, float64(width))-1)
 }
 
@@ -159,7 +161,7 @@ const (
 type LuauSettings struct {
 	VectorCtor       func(...float32) any
 	VectorSize       uint8
-	Extensions       map[uint32]any
+	Extensions       map[any]any
 	AllowProxyErrors bool
 	DecodeOp         func(op uint32) uint32
 }
@@ -177,21 +179,19 @@ var luau_settings = LuauSettings{
 	},
 }
 
-type KVal = any
-
 type Inst struct {
-	A       uint32
-	B       uint32
-	C       uint32
-	D       uint32
-	E       uint32
-	K       KVal
-	K0      KVal
-	K1      KVal
-	K2      KVal
-	KC      uint32
+	A       int
+	B       int
+	C       int
+	D       int
+	E       int
+	K       any
+	K0      any
+	K1      any
+	K2      any
+	KC      int
 	KN      bool
-	aux     uint32
+	aux     int
 	kmode   uint8
 	opcode  uint8
 	opmode  uint8
@@ -202,7 +202,7 @@ type Inst struct {
 
 type Varargs struct {
 	len  uint32
-	list []KVal
+	list []any
 }
 
 type Proto struct {
@@ -214,11 +214,11 @@ type Proto struct {
 	debugname    string
 
 	sizecode  uint32
-	code      []Inst
+	code      []*Inst
 	debugcode []uint8
 
 	sizek uint32
-	k     map[uint32]KVal
+	k     map[int]any
 
 	sizep  uint32
 	protos []uint32
@@ -243,27 +243,27 @@ func luau_deserialise(stream []byte) Deserialise {
 	cursor := uint32(0)
 
 	readByte := func() uint8 {
-		byte := stream[cursor]
+		b := stream[cursor]
 		cursor += 1
-		return byte
+		return b
 	}
 
 	readWord := func() uint32 {
-		word := uint32(stream[cursor]) | uint32(stream[cursor+1])<<8 | uint32(stream[cursor+2])<<16 | uint32(stream[cursor+3])<<24
+		w := uint32(stream[cursor]) | uint32(stream[cursor+1])<<8 | uint32(stream[cursor+2])<<16 | uint32(stream[cursor+3])<<24
 		cursor += 4
-		return word
+		return w
 	}
 
 	readFloat := func() float32 {
-		float := math.Float32frombits(readWord())
+		f := math.Float32frombits(readWord())
 		cursor += 4
-		return float
+		return f
 	}
 
 	readDouble := func() float64 {
-		double := math.Float64frombits(uint64(readWord()) | uint64(readWord())<<32)
+		d := math.Float64frombits(uint64(readWord()) | uint64(readWord())<<32)
 		cursor += 8
-		return double
+		return d
 	}
 
 	readVarInt := func() uint32 {
@@ -271,11 +271,18 @@ func luau_deserialise(stream []byte) Deserialise {
 
 		for i := range 4 {
 			value := readByte()
-			result = result | (uint32(value) << (i * 7))
+			result |= ((uint32(value) & 0x7F) << (i * 7))
 			if value&0x80 == 0 {
 				break
 			}
 		}
+
+		fmt.Println("Read varint", result, "\tc", cursor)
+
+		// DEBUG lmaooo
+		// if cursor == 58 {
+		// 	panic("cursor is 58")
+		// }
 
 		return result
 	}
@@ -289,8 +296,11 @@ func luau_deserialise(stream []byte) Deserialise {
 
 		str := make([]byte, size)
 		for i := range str {
-			str[i] = readByte()
+			str[i] = stream[cursor+uint32(i)]
 		}
+		cursor += size
+
+		fmt.Println("Read string", string(str))
 
 		return string(str)
 	}
@@ -312,7 +322,7 @@ func luau_deserialise(stream []byte) Deserialise {
 		stringList[i] = readString()
 	}
 
-	readInstruction := func(codeList []Inst) bool {
+	readInstruction := func(codeList *[]*Inst) bool {
 		value := luau_settings.DecodeOp(readWord())
 		opcode := uint8(value & 0xFF)
 
@@ -322,7 +332,7 @@ func luau_deserialise(stream []byte) Deserialise {
 		kmode := opinfo.KMode
 		usesAux := opinfo.HasAux
 
-		inst := Inst{
+		inst := &Inst{
 			opcode:  opcode,
 			opname:  opname,
 			opmode:  opmode,
@@ -330,28 +340,29 @@ func luau_deserialise(stream []byte) Deserialise {
 			usesAux: usesAux,
 		}
 
-		codeList = append(codeList, inst)
+		*codeList = append(*codeList, inst)
 
 		if opmode == 1 { /* A */
-			inst.A = uint32(value>>8) & 0xFF
+			inst.A = int(value>>8) & 0xFF
 		} else if opmode == 2 { /* AB */
-			inst.A = uint32(value>>8) & 0xFF
-			inst.B = uint32(value>>16) & 0xFF
+			inst.A = int(value>>8) & 0xFF
+			inst.B = int(value>>16) & 0xFF
 		} else if opmode == 3 { /* ABC */
-			inst.A = uint32(value>>8) & 0xFF
-			inst.B = uint32(value>>16) & 0xFF
-			inst.C = uint32(value>>24) & 0xFF
+			inst.A = int(value>>8) & 0xFF
+			inst.B = int(value>>16) & 0xFF
+			inst.C = int(value>>24) & 0xFF
 		} else if opmode == 4 { /* AD */
-			inst.A = uint32(value>>8) & 0xFF
-			temp := uint32(value>>16) & 0xFFFF
+			inst.A = int(value>>8) & 0xFF
+			temp := int(value>>16) & 0xFFFF
 
+			fmt.Println("Setting D to", temp)
 			if temp < 0x8000 {
 				inst.D = temp
 			} else {
 				inst.D = temp - 0x10000
 			}
 		} else if opmode == 5 { /* AE */
-			temp := uint32(value>>8) & 0xFFFFFF
+			temp := int(value>>8) & 0xFFFFFF
 
 			if temp < 0x800000 {
 				inst.E = temp
@@ -362,15 +373,15 @@ func luau_deserialise(stream []byte) Deserialise {
 
 		if usesAux {
 			aux := readWord()
-			inst.aux = aux
+			inst.aux = int(aux)
 
-			codeList = append(codeList, Inst{value: aux, opname: "auxvalue"})
+			*codeList = append(*codeList, &Inst{value: aux, opname: "auxvalue"})
 		}
 
 		return usesAux
 	}
 
-	checkkmode := func(inst Inst, k map[uint32]KVal) {
+	checkkmode := func(inst *Inst, k map[int]any) {
 		kmode := inst.kmode
 
 		if kmode == 1 { /* AUX */
@@ -382,26 +393,26 @@ func luau_deserialise(stream []byte) Deserialise {
 		} else if kmode == 4 { /* AUX import */
 			extend := inst.aux
 			count := extend >> 30
-			// id0 := (extend >> 20) & 0x3FF
+			id0 := (extend >> 20) & 0x3FF
 
-			// inst.K0 = k[id0]
-			// inst.KC = count
+			inst.K0 = k[id0]
+			inst.KC = count
 			if count == 2 {
 				id1 := (extend >> 10) & 0x3FF
 
 				inst.K1 = k[id1]
 			} else if count == 3 {
 				id1 := (extend >> 10) & 0x3FF
-				// id2 := (extend >> 0) & 0x3FF
+				id2 := (extend >> 0) & 0x3FF
 
 				inst.K1 = k[id1]
-				// inst.K2 = k[id2]
+				inst.K2 = k[id2]
 			}
 		} else if kmode == 5 { /* AUX boolean low 1 bit */
 			inst.K = extract(inst.aux, 0, 1) == 1
 			inst.KN = extract(inst.aux, 31, 1) == 1
 		} else if kmode == 6 { /* AUX number low 24 bits */
-			inst.K = k[extract(inst.aux, 0, 24)] // TODO: 1-based indexing
+			inst.K = k[int(extract(inst.aux, 0, 24))] // TODO: 1-based indexing
 			inst.KN = extract(inst.aux, 31, 1) == 1
 		} else if kmode == 7 { /* B */
 			inst.K = k[inst.B] // TODO: 1-based indexing
@@ -423,10 +434,10 @@ func luau_deserialise(stream []byte) Deserialise {
 		}
 
 		sizecode := readVarInt()
-		codelist := make([]Inst, sizecode)
+		codelist := new([]*Inst)
 
 		skipnext := false
-		for range codelist {
+		for range sizecode {
 			if skipnext {
 				skipnext = false
 				continue
@@ -437,15 +448,15 @@ func luau_deserialise(stream []byte) Deserialise {
 
 		debugcodelist := make([]uint8, sizecode)
 		for i := range sizecode {
-			debugcodelist[i] = codelist[i].opcode
+			debugcodelist[i] = (*codelist)[i].opcode
 		}
 
 		sizek := readVarInt()
-		klist := make(map[uint32]KVal, sizek)
+		klist := make(map[int]any, sizek)
 
-		for i := range klist {
+		for i := range int(sizek) {
 			kt := readByte()
-			var k KVal
+			var k any
 
 			if kt == 0 { /* Nil */
 				k = nil
@@ -462,7 +473,7 @@ func luau_deserialise(stream []byte) Deserialise {
 				k = make([]uint32, dataLength)
 
 				for i := range dataLength {
-					k.(map[uint32]KVal)[i] = readVarInt() // TODO: 1-based indexing
+					k.(map[uint32]any)[i] = readVarInt() // TODO: 1-based indexing
 				}
 			} else if kt == 6 { /* Closure */
 				k = readVarInt()
@@ -481,9 +492,10 @@ func luau_deserialise(stream []byte) Deserialise {
 
 		// -- 2nd pass to replace constant references in the instruction
 		for i := range sizecode {
-			checkkmode(codelist[i], klist)
+			checkkmode((*codelist)[i], klist)
 		}
 
+		fmt.Println("READING SIZEP")
 		sizep := readVarInt()
 		protolist := make([]uint32, sizep)
 
@@ -523,7 +535,7 @@ func luau_deserialise(stream []byte) Deserialise {
 			lastline := uint32(0)
 			for j := range intervals {
 				lastline += readWord()
-				abslineinfo[j] = lastline % (uint32(math.Pow(2, 32))) // TODO: 1-based indexing
+				abslineinfo[j] = uint32(uint64(lastline) % (uint64(math.Pow(2, 32)))) // TODO: 1-based indexing
 			}
 
 			instructionlineinfo = make([]uint32, sizecode)
@@ -558,7 +570,7 @@ func luau_deserialise(stream []byte) Deserialise {
 			debugname:    debugname,
 
 			sizecode:  sizecode,
-			code:      codelist,
+			code:      *codelist,
 			debugcode: debugcodelist,
 
 			sizek: sizek,
@@ -592,7 +604,9 @@ func luau_deserialise(stream []byte) Deserialise {
 		protoList[i] = readProto(i - 1)
 	}
 
-	mainProto := protoList[readVarInt()+1]
+	n := readVarInt()
+	fmt.Println(n)
+	mainProto := protoList[n]
 
 	assert(cursor == uint32(len(stream)), "deserialiser cursor position mismatch")
 
@@ -608,7 +622,7 @@ func luau_deserialise(stream []byte) Deserialise {
 	}
 }
 
-func luau_load(stream []byte, env map[uint32]any) (func(...any) []bool, func()) {
+func luau_load(stream []byte, env map[any]any) (func(...any) []bool, func()) {
 	module := luau_deserialise(stream)
 
 	protolist := module.protoList
@@ -632,18 +646,16 @@ func luau_load(stream []byte, env map[uint32]any) (func(...any) []bool, func()) 
 		store any
 	}
 
-	var luau_wrapclosure func(module Deserialise, proto Proto, upvals []KVal) func(...any) []bool
-	luau_wrapclosure = func(module Deserialise, proto Proto, upvals []KVal) func(...any) []bool {
+	var luau_wrapclosure func(module Deserialise, proto Proto, upvals []any) func(...any) []bool
+	luau_wrapclosure = func(module Deserialise, proto Proto, upvals []any) func(...any) []bool {
 		println("wrapping closure")
 		luau_execute := func(
 			// debugging Debugging,
 			stack []any,
 			protos []uint32,
-			code []Inst,
+			code []*Inst,
 			varargs Varargs,
 		) []bool {
-			println("executing")
-
 			// if "pc" means "program counter" then this makes a lot more sense than I thought
 			top, pc, open_upvalues, generalised_iterators := -1, 1, []*Upval{}, map[Inst]any{}
 			constants := proto.k
@@ -652,11 +664,17 @@ func luau_load(stream []byte, env map[uint32]any) (func(...any) []bool, func()) 
 
 			handlingBreak := false
 			inst, op := Inst{}, uint8(0)
+
+			// a a a a
+			// stayin' alive
 			for alive { // TODO: check go scope bruh
 				if !handlingBreak {
-					inst = code[pc]
+					fmt.Println("EXECUTING PC", pc, len(code))
+					inst = *code[pc-1]
 					op = inst.opcode
 				}
+
+				fmt.Println(pc, "two", inst.D)
 
 				handlingBreak = false
 
@@ -665,6 +683,8 @@ func luau_load(stream []byte, env map[uint32]any) (func(...any) []bool, func()) 
 				// debugging.name = inst.opname
 
 				pc += 1
+
+				fmt.Println("OP", op)
 
 				if op == 0 { /* NOP */
 					// -- Do nothing
@@ -680,11 +700,12 @@ func luau_load(stream []byte, env map[uint32]any) (func(...any) []bool, func()) 
 				} else if op == 4 { /* LOADN */
 					stack[inst.A] = inst.D
 				} else if op == 5 { /* LOADK */
+					fmt.Println("LOADK", inst.K)
 					stack[inst.A] = inst.K
 				} else if op == 6 { /* MOVE */
 					stack[inst.A] = stack[inst.B]
 				} else if op == 7 { /* GETGLOBAL */
-					kv := inst.K.(uint32)
+					kv := inst.K
 
 					stack[inst.A] = extensions[kv]
 					if stack[inst.A] == nil {
@@ -693,20 +714,20 @@ func luau_load(stream []byte, env map[uint32]any) (func(...any) []bool, func()) 
 
 					pc += 1 // -- adjust for aux
 				} else if op == 8 { /* SETGLOBAL */
-					kv := inst.K.(uint32)
+					kv := inst.K
 					env[kv] = stack[inst.A]
 
 					pc += 1 // -- adjust for aux
 				} else if op == 9 { /* GETUPVAL */
 					uv := upvals[inst.B+1].(Upval)
-					stack[inst.A] = uv.store.([]KVal)[uv.index.(uint32)]
+					stack[inst.A] = uv.store.([]any)[uv.index.(uint32)]
 				} else if op == 10 { /* SETUPVAL */
 					uv := upvals[inst.B+1].(Upval)
-					uv.store.([]KVal)[uv.index.(uint32)] = stack[inst.A]
+					uv.store.([]any)[uv.index.(uint32)] = stack[inst.A]
 				} else if op == 11 { /* CLOSEUPVALS */
 					for i, uv := range open_upvalues {
-						if uv.index.(uint32) >= inst.A {
-							uv.value = uv.store.([]KVal)[uv.index.(uint32)]
+						if uv.index.(int) >= inst.A {
+							uv.value = uv.store.([]any)[uv.index.(uint32)]
 							uv.store = uv
 							uv.index = "value" // -- self reference
 							open_upvalues[i] = nil
@@ -714,42 +735,45 @@ func luau_load(stream []byte, env map[uint32]any) (func(...any) []bool, func()) 
 					}
 				} else if op == 12 { /* GETIMPORT */
 					count := inst.KC
-					k0 := inst.K0.(uint32)
-					imp := extensions[k0].(map[uint32]KVal)
+					fmt.Println(inst.K0)
+					k0 := inst.K0
+					imp := extensions[k0]
 					if imp == nil {
-						imp = env[k0].(map[uint32]KVal)
+						imp = env[k0]
 					}
 
 					if count == 1 {
 						stack[inst.A] = imp
 					} else if count == 2 {
-						stack[inst.A] = imp[inst.K1.(uint32)]
+						stack[inst.A] = imp.(map[uint32]any)[inst.K1.(uint32)]
 					} else if count == 3 {
-						stack[inst.A] = imp[inst.K1.(uint32)].(map[uint32]KVal)[inst.K2.(uint32)]
+						stack[inst.A] = imp.(map[uint32]any)[inst.K1.(uint32)].(map[uint32]any)[inst.K2.(uint32)]
 					}
+
+					pc += 1 // -- adjust for aux
 				} else if op == 13 { /* GETTABLE */
-					stack[inst.A] = stack[inst.B].(map[uint32]KVal)[stack[inst.C].(uint32)]
+					stack[inst.A] = stack[inst.B].(map[uint32]any)[stack[inst.C].(uint32)]
 				} else if op == 14 { /* SETTABLE */
-					stack[inst.B].(map[uint32]KVal)[stack[inst.C].(uint32)] = stack[inst.A]
+					stack[inst.B].(map[uint32]any)[stack[inst.C].(uint32)] = stack[inst.A]
 				} else if op == 15 { /* GETTABLEKS */
 					index := inst.K.(uint32)
-					stack[inst.A] = stack[inst.B].(map[uint32]KVal)[index]
+					stack[inst.A] = stack[inst.B].(map[uint32]any)[index]
 
 					pc += 1 // -- adjust for aux
 				} else if op == 16 { /* SETTABLEKS */
 					index := inst.K.(uint32)
-					stack[inst.B].(map[uint32]KVal)[index] = stack[inst.A]
+					stack[inst.B].(map[uint32]any)[index] = stack[inst.A]
 
 					pc += 1 // -- adjust for aux
 				} else if op == 17 { /* GETTABLEN */
-					stack[inst.A] = stack[inst.B].(map[uint32]KVal)[inst.C]
+					stack[inst.A] = stack[inst.B].(map[int]any)[inst.C]
 				} else if op == 18 { /* SETTABLEN */
-					stack[inst.B].(map[uint32]KVal)[inst.C] = stack[inst.A]
+					stack[inst.B].(map[int]any)[inst.C] = stack[inst.A]
 				} else if op == 19 { /* NEWCLOSURE */
 					newPrototype := protolist[protos[inst.D]]
 
 					nups := newPrototype.nups
-					upvalues := make([]KVal, nups)
+					upvalues := make([]any, nups)
 					stack[inst.A] = luau_wrapclosure(module, newPrototype, upvalues)
 
 					for i := range nups {
@@ -796,28 +820,35 @@ func luau_load(stream []byte, env map[uint32]any) (func(...any) []bool, func()) 
 
 					pc += 1 // -- adjust for aux
 
-					stack[A-1] = sb.(map[uint32]KVal)[kv]
+					stack[A-1] = sb.(map[uint32]any)[kv]
 				} else if op == 21 { /* CALL */
 					A, B, C := inst.A, inst.B, inst.C
 
-					var params uint32
+					var params int
 					if B == 0 {
-						params = uint32(top) - A
+						params = (top) - A
 					} else {
 						params = B - 1
 					}
 
-					fn := stack[A].(func(...any) []any)
-					ret_list := fn(stack[A+1 : A+params]...)
+					fmt.Println(A, stack[A])
+					if stack[A] == nil {
+						panic("attempt to call a nil value")
+					}
 
-					ret_num := uint32(len(ret_list))
+					fn := stack[A].(func(...any) []any)
+					fmt.Println("calling with", stack[A+1:A+params+1])
+					ret_list := fn(stack[A+1 : A+params+1]...)
+
+					ret_num := int(len(ret_list))
 
 					if C == 0 {
-						top = int(A + ret_num - 1)
+						top = A + ret_num - 1
 					} else {
 						ret_num = C - 1
 					}
 
+					move(ret_list, 1, ret_num, A, stack)
 				} else if op == 22 { /* RETURN */
 					A, B := int(inst.A), int(inst.B)
 					b := (B - 1)
@@ -829,7 +860,10 @@ func luau_load(stream []byte, env map[uint32]any) (func(...any) []bool, func()) 
 						nresults = B - 1
 					}
 
-					return any(stack).([]bool)[A : A+nresults-1] // TODO: 1-based indexing
+					ret := stack[A:max(A+nresults-1, 0)] // TODO: 1-based indexing
+					fmt.Println(ret)
+
+					return []bool{}
 				} else if op == 23 { /* JUMP */
 					pc += int(inst.D) // TODO: casting overflow?
 				} else if op == 24 { /* JUMPBACK */
@@ -879,29 +913,29 @@ func luau_load(stream []byte, env map[uint32]any) (func(...any) []bool, func()) 
 						pc += int(inst.D) // TODO: casting overflow?
 					}
 				} else if op == 33 { /* ADD */
-					stack[inst.A] = stack[inst.B].(float64) + stack[inst.C].(float64)
+					stack[inst.A] = stack[inst.B].(int) + stack[inst.C].(int)
 				} else if op == 34 { /* SUB */
-					stack[inst.A] = stack[inst.B].(float64) - stack[inst.C].(float64)
+					stack[inst.A] = stack[inst.B].(int) - stack[inst.C].(int)
 				} else if op == 35 { /* MUL */
-					stack[inst.A] = stack[inst.B].(float64) * stack[inst.C].(float64)
+					stack[inst.A] = stack[inst.B].(int) * stack[inst.C].(int)
 				} else if op == 36 { /* DIV */
-					stack[inst.A] = stack[inst.B].(float64) / stack[inst.C].(float64)
+					stack[inst.A] = stack[inst.B].(int) / stack[inst.C].(int)
 				} else if op == 37 { /* MOD */
-					stack[inst.A] = math.Mod(stack[inst.B].(float64), stack[inst.C].(float64))
+					stack[inst.A] = math.Mod(float64(stack[inst.B].(int)), float64(stack[inst.C].(int)))
 				} else if op == 38 { /* POW */
-					stack[inst.A] = math.Pow(stack[inst.B].(float64), stack[inst.C].(float64))
+					stack[inst.A] = math.Pow(float64(stack[inst.B].(int)), float64(stack[inst.C].(int)))
 				} else if op == 39 { /* ADDK */
-					stack[inst.A] = stack[inst.B].(float64) + inst.K.(float64)
+					stack[inst.A] = stack[inst.B].(int) + inst.K.(int)
 				} else if op == 40 { /* SUBK */
-					stack[inst.A] = stack[inst.B].(float64) - inst.K.(float64)
+					stack[inst.A] = stack[inst.B].(int) - inst.K.(int)
 				} else if op == 41 { /* MULK */
-					stack[inst.A] = stack[inst.B].(float64) * inst.K.(float64)
+					stack[inst.A] = stack[inst.B].(int) * inst.K.(int)
 				} else if op == 42 { /* DIVK */
-					stack[inst.A] = stack[inst.B].(float64) / inst.K.(float64)
+					stack[inst.A] = stack[inst.B].(int) / inst.K.(int)
 				} else if op == 43 { /* MODK */
-					stack[inst.A] = math.Mod(stack[inst.B].(float64), inst.K.(float64))
+					stack[inst.A] = math.Mod(float64(stack[inst.B].(int)), float64(inst.K.(int)))
 				} else if op == 44 { /* POWK */
-					stack[inst.A] = math.Pow(stack[inst.B].(float64), inst.K.(float64))
+					stack[inst.A] = math.Pow(float64(stack[inst.B].(int)), float64(inst.K.(int)))
 				} else if op == 45 { /* AND */
 					value := stack[inst.B]
 					if value != nil {
@@ -956,12 +990,12 @@ func luau_load(stream []byte, env map[uint32]any) (func(...any) []bool, func()) 
 				} else if op == 52 { /* LENGTH */
 					stack[inst.A] = len(stack[inst.B].([]any)) // TODO: 1-based indexing
 				} else if op == 53 { /* NEWTABLE */
-					stack[inst.A] = make(map[uint32]KVal)
+					stack[inst.A] = make(map[uint32]any)
 
 					pc += 1 // -- adjust for aux
 				} else if op == 54 { /* DUPTABLE */
-					template := inst.K.(map[uint32]uint32)
-					serialized := make(map[uint32]KVal)
+					template := inst.K.(map[uint32]int)
+					serialized := make(map[uint32]any)
 					for _, id := range template {
 						serialized[constants[id].(uint32)] = nil // TODO: 1-based indexing
 					}
@@ -973,15 +1007,17 @@ func luau_load(stream []byte, env map[uint32]any) (func(...any) []bool, func()) 
 						c = top - B + 1
 					}
 
-					move(stack, B, B+c-1, int(inst.aux), stack[A].([]any))
+					fmt.Println(stack[A])
+
+					moveMap((stack), B, B+c-1, int(inst.aux), stack[A].(map[uint32]any))
 
 					pc += 1 // -- adjust for aux
 				} else if op == 56 { /* FORNPREP */
 					A := inst.A
 
-					limit := stack[A]
+					limit := stack[A].(int)
 					if !ttisnumber(limit) {
-						number := limit.(float64)
+						number := limit
 
 						if number == 0 { // TODO: check nils
 							panic("invalid 'for' limit (number expected)")
@@ -991,9 +1027,9 @@ func luau_load(stream []byte, env map[uint32]any) (func(...any) []bool, func()) 
 						limit = number
 					}
 
-					step := stack[A+1]
+					step := stack[A+1].(int)
 					if !ttisnumber(step) {
-						number := step.(float64)
+						number := step
 
 						if number == 0 { // TODO: check nils
 							panic("invalid 'for' step (number expected)")
@@ -1003,9 +1039,9 @@ func luau_load(stream []byte, env map[uint32]any) (func(...any) []bool, func()) 
 						step = number
 					}
 
-					index := stack[A+2]
+					index := stack[A+2].(int)
 					if !ttisnumber(index) {
-						number := index.(float64)
+						number := index
 
 						if number == 0 { // TODO: check nils
 							panic("invalid 'for' index (number expected)")
@@ -1015,26 +1051,26 @@ func luau_load(stream []byte, env map[uint32]any) (func(...any) []bool, func()) 
 						index = number
 					}
 
-					if step.(float64) > 0 {
-						if index.(float64) > limit.(float64) {
+					if step > 0 {
+						if index > limit {
 							pc += int(inst.D) // TODO: casting overflow?
 						}
-					} else if limit.(float64) > index.(float64) {
+					} else if limit > index {
 						pc += int(inst.D) // TODO: casting overflow?
 					}
 				} else if op == 57 { /* FORNLOOP */
 					A := inst.A
-					limit := stack[A]
-					step := stack[A+1]
-					index := stack[A+2]
+					limit := stack[A].(int)
+					step := stack[A+1].(int)
+					index := stack[A+2].(int) + step
 
-					stack[A+2] = index.(float64)
+					stack[A+2] = index
 
-					if step.(float64) > 0 {
-						if index.(float64) <= limit.(float64) {
+					if step > 0 {
+						if index <= limit {
 							pc += int(inst.D) // TODO: casting overflow?
 						}
-					} else if limit.(float64) <= index.(float64) {
+					} else if limit <= index {
 						pc += int(inst.D) // TODO: casting overflow?
 					}
 				} else if op == 58 { /* FORGLOOP */
@@ -1077,7 +1113,7 @@ func luau_load(stream []byte, env map[uint32]any) (func(...any) []bool, func()) 
 					newPrototype := protolist[inst.K.(uint32)] // TODO: 1-based indexing
 
 					nups := newPrototype.nups
-					upvalues := make([]KVal, nups)
+					upvalues := make([]any, nups)
 					stack[inst.A] = luau_wrapclosure(module, newPrototype, upvalues)
 
 					for i := range nups {
@@ -1132,7 +1168,7 @@ func luau_load(stream []byte, env map[uint32]any) (func(...any) []bool, func()) 
 					iterator := stack[inst.A]
 
 					if !ttisfunction(iterator) {
-						loopInstruction := code[pc+int(inst.D)] // TODO: casting overflow?
+						loopInstruction := *code[pc+int(inst.D)] // TODO: casting overflow?
 						if generalised_iterators[loopInstruction] == nil {
 							gen_iterator := func(args ...any) []any {
 								println("generating iterator", args)
@@ -1192,7 +1228,7 @@ func luau_load(stream []byte, env map[uint32]any) (func(...any) []bool, func()) 
 			}
 
 			for i, uv := range open_upvalues {
-				uv.value = uv.store.([]KVal)[uv.index.(uint32)]
+				uv.value = uv.store.([]any)[uv.index.(uint32)]
 				uv.store = uv
 				uv.index = "value" // -- self reference
 				open_upvalues[i] = nil
@@ -1207,10 +1243,14 @@ func luau_load(stream []byte, env map[uint32]any) (func(...any) []bool, func()) 
 
 		wrapped := func(args ...any) []bool {
 			passed := make([]any, len(args))
+			for i, arg := range args {
+				passed[i] = arg
+			}
+
 			stack := make([]any, proto.maxstacksize)
 			varargs := Varargs{
 				len:  0,
-				list: make([]KVal, 0),
+				list: make([]any, 0),
 			}
 
 			// TODO: test table.move impl
@@ -1230,17 +1270,28 @@ func luau_load(stream []byte, env map[uint32]any) (func(...any) []bool, func()) 
 			// debugging := Debugging{pc: 0, name: "NONE"}
 			// TODO: oh no, this doesn't translate well from Luau at all
 			result := luau_execute( /* debugging, */ stack, proto.protos, proto.code, varargs)
+			result = append([]bool{true}, result...)
+			fmt.Println("RESULT", result)
 
-			// IF IT PANICS IT PANICS GRAAHHHH
-			return result[0:1]
+			return result
 		}
 
 		return wrapped
 	}
 
-	return luau_wrapclosure(module, mainProto, []KVal{}), luau_close
+	return luau_wrapclosure(module, mainProto, []any{}), luau_close
 }
 
+var bytecode = []byte{6, 3, 5, 5, 112, 114, 105, 110, 116, 13, 72, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 33, 33, 5, 104, 101, 108, 108, 111, 5, 119, 111, 114, 108, 100, 1, 33, 0, 1, 10, 0, 0, 1, 0, 0, 39, 65, 0, 0, 0, 12, 0, 1, 0, 0, 0, 0, 64, 5, 1, 2, 0, 21, 0, 2, 1, 4, 0, 1, 0, 4, 3, 1, 0, 4, 1, 10, 0, 4, 2, 1, 0, 56, 1, 6, 0, 12, 4, 1, 0, 0, 0, 0, 64, 6, 5, 3, 0, 21, 4, 2, 1, 35, 0, 0, 3, 57, 1, 250, 255, 12, 1, 1, 0, 0, 0, 0, 64, 6, 2, 0, 0, 21, 1, 2, 1, 53, 1, 0, 0, 3, 0, 0, 0, 5, 2, 3, 0, 5, 3, 4, 0, 5, 4, 5, 0, 55, 1, 2, 4, 1, 0, 0, 0, 6, 2, 1, 0, 2, 3, 0, 0, 2, 4, 0, 0, 76, 2, 5, 0, 12, 7, 1, 0, 0, 0, 0, 64, 6, 8, 5, 0, 6, 9, 6, 0, 21, 7, 3, 1, 58, 2, 250, 255, 2, 0, 0, 0, 22, 0, 1, 0, 6, 3, 1, 4, 0, 0, 0, 64, 3, 2, 3, 3, 3, 4, 3, 5, 0, 1, 0, 1, 24, 0, 1, 0, 0, 0, 3, 1, 0, 0, 0, 1, 0, 0, 0, 1, 254, 5, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 255, 0, 21, 1, 0, 0, 0, 0, 0}
+
 func main() {
-	println("Hello, World!")
+	exec, _ := luau_load(bytecode, map[any]any{
+		"print": func(args ...any) (ret []any) {
+			args = append([]any{"printed:"}, args...)
+			fmt.Println(args...)
+			return
+		},
+	})
+
+	exec()
 }
