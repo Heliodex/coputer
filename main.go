@@ -680,7 +680,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 	luau_wrapclosure = func(module Deserialise, proto Proto, upvals []Upval) func(...any) []any {
 		luau_execute := func(
 			// debugging Debugging,
-			stack []any,
+			stack *[]any,
 			protos []uint32,
 			code []*Inst,
 			varargs Varargs,
@@ -713,9 +713,6 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 				pc += 1
 
 				fmt.Println("OP", op, "PC", pc)
-				for i, v := range stack {
-					fmt.Printf("    [%d] = %v,\n", i, v)
-				}
 
 				if op == 0 { /* NOP */
 					// -- Do nothing
@@ -724,42 +721,42 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					op = debugopcodes[pc]
 					handlingBreak = true
 				} else if op == 2 { /* LOADNIL */
-					stack[inst.A] = nil
+					(*stack)[inst.A] = nil
 				} else if op == 3 { /* LOADB */
-					stack[inst.A] = inst.B == 1
+					(*stack)[inst.A] = inst.B == 1
 					pc += int(inst.C) // TODO: casting overflow?
 				} else if op == 4 { /* LOADN */
-					stack[inst.A] = inst.D
+					(*stack)[inst.A] = inst.D
 				} else if op == 5 { /* LOADK */
 					fmt.Println("LOADK", inst.K)
-					stack[inst.A] = inst.K
+					(*stack)[inst.A] = inst.K
 				} else if op == 6 { /* MOVE */
 					// we should never have to change the size of the stack (proto.maxstacksize)
-					stack[inst.A] = stack[inst.B]
+					(*stack)[inst.A] = (*stack)[inst.B]
 				} else if op == 7 { /* GETGLOBAL */
 					kv := inst.K
 
-					stack[inst.A] = extensions[kv]
-					if stack[inst.A] == nil {
-						stack[inst.A] = env[kv]
+					(*stack)[inst.A] = extensions[kv]
+					if (*stack)[inst.A] == nil {
+						(*stack)[inst.A] = env[kv]
 					}
 
 					pc += 1 // -- adjust for aux
 				} else if op == 8 { /* SETGLOBAL */
 					kv := inst.K
-					env[kv] = stack[inst.A]
+					env[kv] = (*stack)[inst.A]
 
 					pc += 1 // -- adjust for aux
 				} else if op == 9 { /* GETUPVAL */
 					uv := upvals[inst.B]
-					stack[inst.A] = uv.store.([]any)[uv.index.(int)]
+					(*stack)[inst.A] = (*uv.store.(*[]any))[uv.index.(int)]
 				} else if op == 10 { /* SETUPVAL */
 					uv := upvals[inst.B]
-					uv.store.([]any)[uv.index.(int)] = stack[inst.A]
+					(*uv.store.(*[]any))[uv.index.(int)] = (*stack)[inst.A]
 				} else if op == 11 { /* CLOSEUPVALS */
 					for i, uv := range *open_upvalues {
 						if uv.index.(int) >= inst.A {
-							uv.value = uv.store.([]any)[uv.index.(int)]
+							uv.value = (*uv.store.(*[]any))[uv.index.(int)]
 							uv.store = uv
 							uv.index = "value" // -- self reference
 							(*open_upvalues)[i] = nil
@@ -775,38 +772,38 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}
 
 					if count == 1 {
-						stack[inst.A] = imp
+						(*stack)[inst.A] = imp
 					} else if count == 2 {
-						stack[inst.A] = imp.([]any)[inst.K1.(uint32)]
+						(*stack)[inst.A] = imp.([]any)[inst.K1.(uint32)]
 					} else if count == 3 {
-						stack[inst.A] = imp.([]any)[inst.K1.(uint32)].([]any)[inst.K2.(uint32)]
+						(*stack)[inst.A] = imp.([]any)[inst.K1.(uint32)].([]any)[inst.K2.(uint32)]
 					}
 
 					pc += 1 // -- adjust for aux
 				} else if op == 13 { /* GETTABLE */
-					stack[inst.A] = stack[inst.B].([]any)[stack[inst.C].(uint32)]
+					(*stack)[inst.A] = (*stack)[inst.B].([]any)[(*stack)[inst.C].(uint32)]
 				} else if op == 14 { /* SETTABLE */
-					stack[inst.B].([]any)[stack[inst.C].(uint32)] = stack[inst.A]
+					(*stack)[inst.B].([]any)[(*stack)[inst.C].(uint32)] = (*stack)[inst.A]
 				} else if op == 15 { /* GETTABLEKS */
 					index := inst.K.(uint32)
-					stack[inst.A] = stack[inst.B].([]any)[index]
+					(*stack)[inst.A] = (*stack)[inst.B].([]any)[index]
 
 					pc += 1 // -- adjust for aux
 				} else if op == 16 { /* SETTABLEKS */
 					index := inst.K.(uint32)
-					stack[inst.B].([]any)[index] = stack[inst.A]
+					(*stack)[inst.B].([]any)[index] = (*stack)[inst.A]
 
 					pc += 1 // -- adjust for aux
 				} else if op == 17 { /* GETTABLEN */
-					stack[inst.A] = stack[inst.B].(map[int]any)[inst.C+1]
+					(*stack)[inst.A] = (*stack)[inst.B].(map[int]any)[inst.C+1]
 				} else if op == 18 { /* SETTABLEN */
-					stack[inst.B].(map[int]any)[inst.C] = stack[inst.A]
+					(*stack)[inst.B].(map[int]any)[inst.C] = (*stack)[inst.A]
 				} else if op == 19 { /* NEWCLOSURE */
 					newPrototype := protolist[protos[inst.D]-1]
 
 					nups := newPrototype.nups
 					upvalues := make([]Upval, nups)
-					stack[inst.A] = luau_wrapclosure(module, newPrototype, upvalues)
+					(*stack)[inst.A] = luau_wrapclosure(module, newPrototype, upvalues)
 
 					fmt.Println("nups", nups)
 					for i := range nups {
@@ -817,7 +814,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 
 						if t == 0 { /* value */
 							upvalue := Upval{
-								value: stack[pseudo.B],
+								value: (*stack)[pseudo.B],
 								index: "value", // -- self reference
 							}
 							upvalue.store = upvalue
@@ -855,13 +852,13 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 
 					kv := inst.K.(uint32)
 
-					sb := stack[B]
+					sb := (*stack)[B]
 
-					stack[A+1] = sb // TODO: 1-based indexing
+					(*stack)[A+1] = sb // TODO: 1-based indexing
 
 					pc += 1 // -- adjust for aux
 
-					stack[A] = sb.([]any)[kv]
+					(*stack)[A] = sb.([]any)[kv]
 				} else if op == 21 { /* CALL */
 					A, B, C := inst.A, inst.B, inst.C
 
@@ -872,15 +869,15 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						params = B - 1
 					}
 
-					fmt.Println(A, stack[A])
-					if stack[A] == nil {
+					fmt.Println(A, (*stack)[A])
+					if (*stack)[A] == nil {
 						panic("attempt to call a nil value")
 					}
 
-					fn := stack[A].(func(...any) []any)
-					fmt.Println("calling with", stack[A+1:A+params+1])
+					fn := (*stack)[A].(func(...any) []any)
+					fmt.Println("calling with", (*stack)[A+1:A+params+1])
 
-					ret_list := fn(stack[A+1 : A+params+1]...) // not inclusive
+					ret_list := fn((*stack)[A+1 : A+params+1]...) // not inclusive
 
 					ret_num := int(len(ret_list))
 
@@ -890,7 +887,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						ret_num = C - 1
 					}
 
-					move(ret_list, 0, ret_num, A, &stack)
+					move(ret_list, 0, ret_num, A, stack)
 				} else if op == 22 { /* RETURN */
 					A, B := int(inst.A), int(inst.B)
 					b := (B - 1)
@@ -902,45 +899,45 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						nresults = B - 1
 					}
 
-					return stack[A:max(A+nresults, 0)]
+					return (*stack)[A:max(A+nresults, 0)]
 				} else if op == 23 { /* JUMP */
 					pc += int(inst.D) // TODO: casting overflow?
 				} else if op == 24 { /* JUMPBACK */
 					pc += int(inst.D) // TODO: casting overflow?
 				} else if op == 25 { /* JUMPIF */
-					if stack[inst.A] != nil {
+					if (*stack)[inst.A] != nil {
 						pc += int(inst.D) // TODO: casting overflow?
 					}
 				} else if op == 26 { /* JUMPIFNOT */
-					if stack[inst.A] == nil {
+					if (*stack)[inst.A] == nil {
 						pc += int(inst.D) // TODO: casting overflow?
 					}
 				} else if op == 27 { /* JUMPIFEQ */
-					if stack[inst.A] == stack[inst.aux] {
+					if (*stack)[inst.A] == (*stack)[inst.aux] {
 						pc += int(inst.D) // TODO: casting overflow?
 					} else {
 						pc += 1
 					}
 				} else if op == 28 { /* JUMPIFLE */
-					if stack[inst.A].(int) <= stack[inst.aux].(int) {
+					if (*stack)[inst.A].(int) <= (*stack)[inst.aux].(int) {
 						pc += int(inst.D) // TODO: casting overflow?
 					} else {
 						pc += 1
 					}
 				} else if op == 29 { /* JUMPIFLT */
-					if stack[inst.A].(int) < stack[inst.aux].(int) {
+					if (*stack)[inst.A].(int) < (*stack)[inst.aux].(int) {
 						pc += int(inst.D) // TODO: casting overflow?
 					} else {
 						pc += 1
 					}
 				} else if op == 30 { /* JUMPIFNOTEQ */
-					if stack[inst.A] == stack[inst.aux] {
+					if (*stack)[inst.A] == (*stack)[inst.aux] {
 						pc += 1
 					} else {
 						pc += int(inst.D) // TODO: casting overflow?
 					}
 				} else if op == 31 { /* JUMPIFNOTLE */
-					if stack[inst.A].(int) <= stack[inst.aux].(int) {
+					if (*stack)[inst.A].(int) <= (*stack)[inst.aux].(int) {
 						pc += 1
 					} else {
 						pc += int(inst.D) // TODO: casting overflow?
@@ -948,91 +945,91 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 				} else if op == 32 { /* JUMPIFNOTLT */
 					fmt.Println("JINLT")
 
-					if stack[inst.A].(int) < stack[inst.aux].(int) {
+					if (*stack)[inst.A].(int) < (*stack)[inst.aux].(int) {
 						pc += 1
 					} else {
 						pc += int(inst.D) // TODO: casting overflow?
 					}
 				} else if op == 33 { /* ADD */
-					stack[inst.A] = stack[inst.B].(int) + stack[inst.C].(int)
+					(*stack)[inst.A] = (*stack)[inst.B].(int) + (*stack)[inst.C].(int)
 				} else if op == 34 { /* SUB */
-					stack[inst.A] = stack[inst.B].(int) - stack[inst.C].(int)
+					(*stack)[inst.A] = (*stack)[inst.B].(int) - (*stack)[inst.C].(int)
 				} else if op == 35 { /* MUL */
-					stack[inst.A] = stack[inst.B].(int) * stack[inst.C].(int)
+					(*stack)[inst.A] = (*stack)[inst.B].(int) * (*stack)[inst.C].(int)
 				} else if op == 36 { /* DIV */
-					stack[inst.A] = stack[inst.B].(int) / stack[inst.C].(int)
+					(*stack)[inst.A] = (*stack)[inst.B].(int) / (*stack)[inst.C].(int)
 				} else if op == 37 { /* MOD */
-					stack[inst.A] = math.Mod(float64(stack[inst.B].(int)), float64(stack[inst.C].(int)))
+					(*stack)[inst.A] = math.Mod(float64((*stack)[inst.B].(int)), float64((*stack)[inst.C].(int)))
 				} else if op == 38 { /* POW */
-					stack[inst.A] = math.Pow(float64(stack[inst.B].(int)), float64(stack[inst.C].(int)))
+					(*stack)[inst.A] = math.Pow(float64((*stack)[inst.B].(int)), float64((*stack)[inst.C].(int)))
 				} else if op == 39 { /* ADDK */
-					stack[inst.A] = stack[inst.B].(int) + int(inst.K.(float64))
+					(*stack)[inst.A] = (*stack)[inst.B].(int) + int(inst.K.(float64))
 				} else if op == 40 { /* SUBK */
-					stack[inst.A] = stack[inst.B].(int) - int(inst.K.(float64))
+					(*stack)[inst.A] = (*stack)[inst.B].(int) - int(inst.K.(float64))
 				} else if op == 41 { /* MULK */
-					stack[inst.A] = stack[inst.B].(int) * int(inst.K.(float64))
-					fmt.Println("MULK", stack[inst.B], inst.K)
+					(*stack)[inst.A] = (*stack)[inst.B].(int) * int(inst.K.(float64))
+					fmt.Println("MULK", (*stack)[inst.B], inst.K)
 				} else if op == 42 { /* DIVK */
-					stack[inst.A] = stack[inst.B].(int) / int(inst.K.(float64))
+					(*stack)[inst.A] = (*stack)[inst.B].(int) / int(inst.K.(float64))
 				} else if op == 43 { /* MODK */
-					stack[inst.A] = math.Mod(float64(stack[inst.B].(int)), float64(inst.K.(int)))
+					(*stack)[inst.A] = math.Mod(float64((*stack)[inst.B].(int)), float64(inst.K.(int)))
 				} else if op == 44 { /* POWK */
-					stack[inst.A] = math.Pow(float64(stack[inst.B].(int)), float64(inst.K.(int)))
+					(*stack)[inst.A] = math.Pow(float64((*stack)[inst.B].(int)), float64(inst.K.(int)))
 				} else if op == 45 { /* AND */
-					value := stack[inst.B]
+					value := (*stack)[inst.B]
 					if value != nil {
-						stack[inst.A] = stack[inst.C]
-						if stack[inst.A] == nil {
-							stack[inst.A] = false
+						(*stack)[inst.A] = (*stack)[inst.C]
+						if (*stack)[inst.A] == nil {
+							(*stack)[inst.A] = false
 						}
 					} else {
-						stack[inst.A] = value
+						(*stack)[inst.A] = value
 					}
 				} else if op == 46 { /* OR */
-					value := stack[inst.B]
+					value := (*stack)[inst.B]
 					if value != nil {
-						stack[inst.A] = value
+						(*stack)[inst.A] = value
 					} else {
-						stack[inst.A] = stack[inst.C]
-						if stack[inst.A] == nil {
-							stack[inst.A] = false
+						(*stack)[inst.A] = (*stack)[inst.C]
+						if (*stack)[inst.A] == nil {
+							(*stack)[inst.A] = false
 						}
 					}
 				} else if op == 47 { /* ANDK */
-					value := stack[inst.B]
+					value := (*stack)[inst.B]
 					if value != nil {
-						stack[inst.A] = inst.K
-						if stack[inst.A] == nil {
-							stack[inst.A] = false
+						(*stack)[inst.A] = inst.K
+						if (*stack)[inst.A] == nil {
+							(*stack)[inst.A] = false
 						}
 					} else {
-						stack[inst.A] = value
+						(*stack)[inst.A] = value
 					}
 				} else if op == 48 { /* ORK */
-					value := stack[inst.B]
+					value := (*stack)[inst.B]
 					if value != nil {
-						stack[inst.A] = value
+						(*stack)[inst.A] = value
 					} else {
-						stack[inst.A] = inst.K
-						if stack[inst.A] == nil {
-							stack[inst.A] = false
+						(*stack)[inst.A] = inst.K
+						if (*stack)[inst.A] == nil {
+							(*stack)[inst.A] = false
 						}
 					}
 				} else if op == 49 { /* CONCAT */
 					// TODO: optimise w/ stringbuilders
 					s := ""
 					for i := inst.B; i <= inst.C; i++ {
-						s += stack[i].(string)
+						s += (*stack)[i].(string)
 					}
-					stack[inst.A] = s
+					(*stack)[inst.A] = s
 				} else if op == 50 { /* NOT */
-					stack[inst.A] = !stack[inst.B].(bool)
+					(*stack)[inst.A] = !(*stack)[inst.B].(bool)
 				} else if op == 51 { /* MINUS */
-					stack[inst.A] = -stack[inst.B].(float64)
+					(*stack)[inst.A] = -(*stack)[inst.B].(float64)
 				} else if op == 52 { /* LENGTH */
-					stack[inst.A] = len(stack[inst.B].([]any)) // TODO: 1-based indexing
+					(*stack)[inst.A] = len((*stack)[inst.B].([]any)) // TODO: 1-based indexing
 				} else if op == 53 { /* NEWTABLE */
-					stack[inst.A] = []any{}
+					(*stack)[inst.A] = []any{}
 
 					pc += 1 // -- adjust for aux
 				} else if op == 54 { /* DUPTABLE */
@@ -1049,14 +1046,14 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						c = top - B + 1
 					}
 
-					s := stack[A].([]any)
-					move(stack, B, B+c-1, inst.aux, &s)
+					s := (*stack)[A].([]any)
+					move((*stack), B, B+c-1, inst.aux, &s)
 
 					pc += 1 // -- adjust for aux
 				} else if op == 56 { /* FORNPREP */
 					A := inst.A
 
-					limit := stack[A].(int)
+					limit := (*stack)[A].(int)
 					if !ttisnumber(limit) {
 						number := limit
 
@@ -1064,11 +1061,11 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 							panic("invalid 'for' limit (number expected)")
 						}
 
-						stack[A] = number
+						(*stack)[A] = number
 						limit = number
 					}
 
-					step := stack[A+1].(int)
+					step := (*stack)[A+1].(int)
 					if !ttisnumber(step) {
 						number := step
 
@@ -1076,11 +1073,11 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 							panic("invalid 'for' step (number expected)")
 						}
 
-						stack[A+1] = number
+						(*stack)[A+1] = number
 						step = number
 					}
 
-					index := stack[A+2].(int)
+					index := (*stack)[A+2].(int)
 					if !ttisnumber(index) {
 						number := index
 
@@ -1088,7 +1085,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 							panic("invalid 'for' index (number expected)")
 						}
 
-						stack[A+2] = number
+						(*stack)[A+2] = number
 						index = number
 					}
 
@@ -1101,11 +1098,11 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}
 				} else if op == 57 { /* FORNLOOP */
 					A := inst.A
-					limit := stack[A].(int)
-					step := stack[A+1].(int)
-					index := stack[A+2].(int) + step
+					limit := (*stack)[A].(int)
+					step := (*stack)[A+1].(int)
+					index := (*stack)[A+2].(int) + step
 
-					stack[A+2] = index
+					(*stack)[A+2] = index
 
 					if step > 0 {
 						if index <= limit {
@@ -1120,20 +1117,30 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 
 					top = int(A + 6)
 
-					it := stack[A]
+					it := (*stack)[A]
 					fmt.Println("IT", reflect.TypeOf(it), ttisfunction(it))
 
 					if ttisfunction(it) {
-						vals := it.(func(...any) []any)(stack[A+1], stack[A+2])
+						fmt.Println("ARGS", (*stack)[A+1], (*stack)[A+2])
+
+						for i, v := range *stack {
+							fmt.Printf("BEFORE [%d] = %v,\n", i, v)
+						}
+
+						vals := it.(func(...any) []any)((*stack)[A+1], (*stack)[A+2]) // HOW DOES THIS MODIFY THE STACK??
+
+						for i, v := range *stack {
+							fmt.Printf("AFTER  [%d] = %v,\n", i, v)
+						}
 						fmt.Println("VALS", vals)
 
-						move(vals, 0, res, A+3, &stack)
+						move(vals, 0, res, A+3, &(*stack))
 
 						fmt.Println("PC BEFORE", pc)
-						fmt.Println(A+3, stack[A+3])
+						fmt.Println(A+3, (*stack)[A+3])
 
-						if stack[A+3] != nil {
-							stack[A+2] = stack[A+3]
+						if (*stack)[A+3] != nil {
+							(*stack)[A+2] = (*stack)[A+3]
 							pc += int(inst.D) // TODO: casting overflow?
 						} else {
 							pc += 1
@@ -1144,9 +1151,9 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						panic("TODO: implement iterators")
 					}
 				} else if op == 59 { /* FORGPREP_INEXT */
-					if !ttisfunction(stack[inst.A]) {
+					if !ttisfunction((*stack)[inst.A]) {
 						// yaaaaaaaaaaay reflection (i'm dying inside)
-						panic(fmt.Sprintf("attempt to iterate over a %s value", reflect.TypeOf(stack[inst.A]))) // -- FORGPREP_INEXT encountered non-function value
+						panic(fmt.Sprintf("attempt to iterate over a %s value", reflect.TypeOf((*stack)[inst.A]))) // -- FORGPREP_INEXT encountered non-function value
 					}
 
 					pc += int(inst.D) // TODO: casting overflow?
@@ -1154,8 +1161,8 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					/* Skipped */
 					pc += 1 // adjust for aux
 				} else if op == 61 { /* FORGPREP_NEXT */
-					if !ttisfunction(stack[inst.A]) {
-						panic(fmt.Sprintf("attempt to iterate over a %s value", reflect.TypeOf(stack[inst.A]))) // -- FORGPREP_NEXT encountered non-function value
+					if !ttisfunction((*stack)[inst.A]) {
+						panic(fmt.Sprintf("attempt to iterate over a %s value", reflect.TypeOf((*stack)[inst.A]))) // -- FORGPREP_NEXT encountered non-function value
 					}
 
 					pc += int(inst.D) // TODO: casting overflow?
@@ -1168,13 +1175,13 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						top = A + b - 1
 					}
 
-					move(varargs.list, 0, b, A, &stack)
+					move(varargs.list, 0, b, A, stack)
 				} else if op == 64 { /* DUPCLOSURE */
 					newPrototype := protolist[inst.K.(uint32)] // TODO: 1-based indexing
 
 					nups := newPrototype.nups
 					upvalues := make([]Upval, nups)
-					stack[inst.A] = luau_wrapclosure(module, newPrototype, upvalues)
+					(*stack)[inst.A] = luau_wrapclosure(module, newPrototype, upvalues)
 
 					for i := range nups {
 						pseudo := code[pc]
@@ -1183,7 +1190,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						t := pseudo.A
 						if t == 0 { /* value */
 							upvalue := Upval{
-								value: stack[pseudo.B],
+								value: (*stack)[pseudo.B],
 								index: "value", // -- self reference
 							}
 							upvalue.store = upvalue
@@ -1199,7 +1206,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					/* Handled by wrapper */
 				} else if op == 66 { /* LOADKX */
 					kv := inst.K.(uint32)
-					stack[inst.A] = kv
+					(*stack)[inst.A] = kv
 
 					pc += 1 // -- adjust for aux
 				} else if op == 67 { /* JUMPX */
@@ -1212,9 +1219,9 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					/* Handled by CLOSURE */
 					panic("encountered unhandled CAPTURE")
 				} else if op == 71 { /* SUBRK */
-					stack[inst.A] = inst.K.(float64) - stack[inst.C].(float64)
+					(*stack)[inst.A] = inst.K.(float64) - (*stack)[inst.C].(float64)
 				} else if op == 72 { /* DIVRK */
-					stack[inst.A] = inst.K.(float64) / stack[inst.C].(float64)
+					(*stack)[inst.A] = inst.K.(float64) / (*stack)[inst.C].(float64)
 				} else if op == 73 { /* FASTCALL1 */
 					/* Skipped */
 				} else if op == 74 { /* FASTCALL2 */
@@ -1225,7 +1232,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					pc += 1 // adjust for aux
 				} else if op == 76 { /* FORGPREP */
 					// ohhh no
-					iterator := stack[inst.A]
+					iterator := (*stack)[inst.A]
 
 					if !ttisfunction(iterator) {
 						loopInstruction := *code[pc+int(inst.D)] // TODO: casting overflow?
@@ -1251,7 +1258,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 				} else if op == 77 { /* JUMPXEQKNIL */
 					kn := inst.KN
 
-					if (stack[inst.A] == nil) != kn {
+					if ((*stack)[inst.A] == nil) != kn {
 						pc += int(inst.D) // TODO: casting overflow?
 					} else {
 						pc += 1
@@ -1259,7 +1266,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 				} else if op == 78 { /* JUMPXEQKB */
 					kv := inst.K.(bool)
 					kn := inst.KN
-					ra := stack[inst.A]
+					ra := (*stack)[inst.A]
 
 					if ttisboolean(ra) && (ra.(bool) == kv) != kn {
 						pc += int(inst.D) // TODO: casting overflow?
@@ -1269,7 +1276,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 				} else if op == 79 { /* JUMPXEQKN */
 					kv := inst.K.(uint32)
 					kn := inst.KN
-					ra := stack[inst.A].(uint32)
+					ra := (*stack)[inst.A].(uint32)
 
 					if (ra == kv) != kn {
 						pc += int(inst.D) // TODO: casting overflow?
@@ -1279,7 +1286,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 				} else if op == 80 { /* JUMPXEQKS */
 					kv := inst.K.(uint32)
 					kn := inst.KN
-					ra := stack[inst.A].(uint32)
+					ra := (*stack)[inst.A].(uint32)
 
 					if (ra == kv) != kn {
 						pc += int(inst.D) // TODO: casting overflow?
@@ -1287,16 +1294,16 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						pc += 1
 					}
 				} else if op == 81 { /* IDIV */
-					stack[inst.A] = stack[inst.B].(uint32) / stack[inst.C].(uint32)
+					(*stack)[inst.A] = (*stack)[inst.B].(uint32) / (*stack)[inst.C].(uint32)
 				} else if op == 82 { /* IDIVK */
-					stack[inst.A] = stack[inst.B].(uint32) / inst.K.(uint32)
+					(*stack)[inst.A] = (*stack)[inst.B].(uint32) / inst.K.(uint32)
 				} else {
 					panic(fmt.Sprintf("Unsupported Opcode: %s op: %d", inst.opname, op))
 				}
 			}
 
 			for i, uv := range *open_upvalues {
-				uv.value = uv.store.([]any)[uv.index.(int)]
+				uv.value = (*uv.store.(*[]any))[uv.index.(int)]
 				uv.store = uv
 				uv.index = "value" // -- self reference
 				(*open_upvalues)[i] = nil
@@ -1309,24 +1316,19 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 			return []any{}
 		}
 
-		wrapped := func(args ...any) []any {
-			passed := make([]any, len(args))
-			for i, arg := range args {
-				passed[i] = arg
-			}
-
+		wrapped := func(passed ...any) []any {
 			stack := make([]any, proto.maxstacksize)
 			fmt.Println("MAX STACK SIZE", proto.maxstacksize)
 			varargs := Varargs{
 				len:  0,
-				list: make([]any, 0),
+				list: []any{},
 			}
 
 			// TODO: test table.move impl
 			move(passed, 0, int(proto.numparams), 1, &stack)
 
 			n := uint8(len(passed))
-			if proto.numparams < uint8(n) {
+			if proto.numparams < n {
 				start := proto.numparams + 1
 				l := n - proto.numparams
 				varargs.len = uint32(l)
@@ -1334,13 +1336,11 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 				// expand varargs list
 				varargs.list = make([]any, l)
 
-				move(passed, int(start), int(start+l-1), 1, &varargs.list)
+				move(passed, int(start)-1, int(start+l)-2, 0, &varargs.list)
 			}
 
-			passed = nil
-
 			// TODO: dee bugg ingg
-			result := luau_execute(stack, proto.protos, proto.code, varargs)
+			result := luau_execute(&stack, proto.protos, proto.code, varargs)
 			fmt.Println("RESULT", result)
 
 			return result
