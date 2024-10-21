@@ -170,8 +170,8 @@ var opList = []Operator{
 }
 
 const (
-	LUA_MULTRET                = -1
-	LUA_GENERALISED_TERMINATOR = -2
+	LUAU_MULTRET                = -1
+	LUAU_GENERALISED_TERMINATOR = -2
 )
 
 type LuauSettings struct {
@@ -255,13 +255,13 @@ type Deserialise struct {
 }
 
 func luau_deserialise(stream []byte) Deserialise {
-	fmt.Println("deserialising")
+	// fmt.Println("deserialising")
 	cursor := uint32(0)
 
 	readByte := func() uint8 {
 		b := stream[cursor]
 		cursor += 1
-		fmt.Println("readByte", b, "at", cursor)
+		// fmt.Println("readByte", b, "at", cursor)
 		return b
 	}
 
@@ -272,14 +272,14 @@ func luau_deserialise(stream []byte) Deserialise {
 	readWord := func() uint32 {
 		w := word()
 		cursor += 4
-		fmt.Println("readWord", w, "at", cursor)
+		// fmt.Println("readWord", w, "at", cursor)
 		return w
 	}
 
 	readFloat := func() float32 {
 		f := math.Float32frombits(word())
 		cursor += 4
-		fmt.Println("readFloat", f, "at", cursor)
+		// fmt.Println("readFloat", f, "at", cursor)
 		return f
 	}
 
@@ -290,7 +290,7 @@ func luau_deserialise(stream []byte) Deserialise {
 		cursor += 4
 
 		d := math.Float64frombits(uint64(word1) | uint64(word2)<<32)
-		fmt.Println("readDouble", d, "at", cursor)
+		// fmt.Println("readDouble", d, "at", cursor)
 		return d
 	}
 
@@ -374,7 +374,7 @@ func luau_deserialise(stream []byte) Deserialise {
 			inst.A = int(value>>8) & 0xFF
 			temp := int(value>>16) & 0xFFFF
 
-			fmt.Println("Setting D to", temp)
+			// fmt.Println("Setting D to", temp)
 			if temp < 0x8000 {
 				inst.D = temp
 			} else {
@@ -477,7 +477,7 @@ func luau_deserialise(stream []byte) Deserialise {
 			kt := readByte()
 			var k any
 
-			fmt.Println("ktype", kt)
+			// fmt.Println("ktype", kt)
 
 			if kt == 0 { /* Nil */
 				k = nil
@@ -514,12 +514,12 @@ func luau_deserialise(stream []byte) Deserialise {
 		}
 
 		// -- 2nd pass to replace constant references in the instruction
-		fmt.Println("klist", klist)
+		// fmt.Println("klist", klist)
 		for i := range sizecode {
 			checkkmode((*codelist)[i], klist)
 		}
 
-		fmt.Println("READING SIZEP")
+		// fmt.Println("READING SIZEP")
 		sizep := readVarInt()
 		protos := make([]uint32, sizep)
 
@@ -626,12 +626,10 @@ func luau_deserialise(stream []byte) Deserialise {
 
 	for i := range protoCount {
 		protoList[i] = readProto(i - 1)
-		fmt.Println("read proto", protoList[i].nups)
+		// fmt.Println("read proto", protoList[i].nups)
 	}
 
-	n := readVarInt()
-	fmt.Println(n)
-	mainProto := protoList[n]
+	mainProto := protoList[readVarInt()]
 
 	assert(cursor == uint32(len(stream)), "deserialiser cursor position mismatch")
 
@@ -674,8 +672,6 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 		store any
 	}
 
-	loops := 0
-
 	var luau_wrapclosure func(module Deserialise, proto Proto, upvals []Upval) func(...any) []any
 	luau_wrapclosure = func(module Deserialise, proto Proto, upvals []Upval) func(...any) []any {
 		luau_execute := func(
@@ -698,16 +694,9 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 			// stayin' alive
 			for alive { // TODO: check go scope bruh
 				if !handlingBreak {
-					fmt.Println("EXECUTING PC", pc, len(code)) //, "-- previous op", op)
 					inst = *code[pc-1]
 					op = inst.opcode
 				}
-
-				loops++
-				if loops > 54 {
-					panic("yeet")
-				}
-
 				handlingBreak = false
 
 				pc += 1
@@ -724,11 +713,11 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					(*stack)[inst.A] = nil
 				} else if op == 3 { /* LOADB */
 					(*stack)[inst.A] = inst.B == 1
-					pc += int(inst.C) // TODO: casting overflow?
+					pc += inst.C
 				} else if op == 4 { /* LOADN */
 					(*stack)[inst.A] = inst.D
 				} else if op == 5 { /* LOADK */
-					fmt.Println("LOADK", inst.K)
+					// fmt.Println("LOADK", inst.K)
 					(*stack)[inst.A] = inst.K
 				} else if op == 6 { /* MOVE */
 					// we should never have to change the size of the stack (proto.maxstacksize)
@@ -764,7 +753,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}
 				} else if op == 12 { /* GETIMPORT */
 					count := inst.KC
-					fmt.Println(inst.K0)
+					// fmt.Println(inst.K0)
 					k0 := inst.K0
 					imp := extensions[k0]
 					if imp == nil {
@@ -875,7 +864,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}
 
 					fn := (*stack)[A].(func(...any) []any)
-					fmt.Println("calling with", (*stack)[A+1:A+params+1])
+					// fmt.Println("calling with", (*stack)[A+1:A+params+1])
 
 					ret_list := fn((*stack)[A+1 : A+params+1]...) // not inclusive
 
@@ -889,11 +878,11 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 
 					move(ret_list, 0, ret_num, A, stack)
 				} else if op == 22 { /* RETURN */
-					A, B := int(inst.A), int(inst.B)
+					A, B := inst.A, inst.B
 					b := (B - 1)
 
 					var nresults int
-					if b == LUA_MULTRET {
+					if b == LUAU_MULTRET {
 						nresults = top - A + 1
 					} else {
 						nresults = B - 1
@@ -1033,21 +1022,37 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 
 					pc += 1 // -- adjust for aux
 				} else if op == 54 { /* DUPTABLE */
-					template := inst.K.(map[uint32]int)
-					serialized := make([]any, len(template))
+					template := inst.K.([]int)
+					serialised := make([]any, len(template))
 					for _, id := range template {
-						serialized[constants[id].(uint32)] = nil // TODO: 1-based indexing
+						serialised[constants[id].(uint32)] = nil // TODO: 1-based indexing
 					}
 				} else if op == 55 { /* SETLIST */
-					A, B := int(inst.A), int(inst.B)
-					c := int(inst.C) - 1
+					A, B := inst.A, inst.B
+					c := inst.C - 1
 
-					if c == LUA_MULTRET {
+					if c == LUAU_MULTRET {
 						c = top - B + 1
 					}
 
 					s := (*stack)[A].([]any)
-					move((*stack), B, B+c-1, inst.aux, &s)
+					// expand s
+					for range c {
+						s = append(s, nil)
+					}
+
+					for i, v := range *stack {
+						fmt.Printf("    [%d] = %v\n", i, v)
+					}
+
+					move((*stack), B, B+c, inst.aux-1, &s)
+					fmt.Println(inst.aux)
+
+					for i, v := range s {
+						fmt.Printf("    [%d] = %v\n", i, v)
+					}
+
+					// panic("yeah")
 
 					pc += 1 // -- adjust for aux
 				} else if op == 56 { /* FORNPREP */
@@ -1121,22 +1126,10 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					fmt.Println("IT", reflect.TypeOf(it), ttisfunction(it))
 
 					if ttisfunction(it) {
-						fmt.Println("ARGS", (*stack)[A+1], (*stack)[A+2])
-
-						for i, v := range *stack {
-							fmt.Printf("BEFORE [%d] = %v,\n", i, v)
-						}
-
-						vals := it.(func(...any) []any)((*stack)[A+1], (*stack)[A+2]) // HOW DOES THIS MODIFY THE STACK??
-
-						for i, v := range *stack {
-							fmt.Printf("AFTER  [%d] = %v,\n", i, v)
-						}
-						fmt.Println("VALS", vals)
+						vals := it.(func(...any) []any)((*stack)[A+1], (*stack)[A+2])
 
 						move(vals, 0, res, A+3, &(*stack))
 
-						fmt.Println("PC BEFORE", pc)
 						fmt.Println(A+3, (*stack)[A+3])
 
 						if (*stack)[A+3] != nil {
@@ -1145,7 +1138,6 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						} else {
 							pc += 1
 						}
-						fmt.Println("PC AFTER", pc)
 					} else {
 						// bruh
 						panic("TODO: implement iterators")
@@ -1170,7 +1162,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					A := inst.A
 					b := inst.B - 1
 
-					if b == LUA_MULTRET {
+					if b == LUAU_MULTRET {
 						b = int(varargs.len)
 						top = A + b - 1
 					}
@@ -1346,14 +1338,14 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 			return result
 		}
 
-		fmt.Println("wrapping closure")
+		// fmt.Println("wrapping closure")
 		return wrapped
 	}
 
 	return luau_wrapclosure(module, mainProto, []Upval{}), luau_close
 }
 
-var bytecode = []byte{6, 3, 2, 8, 105, 116, 101, 114, 97, 116, 111, 114, 5, 112, 114, 105, 110, 116, 0, 2, 7, 0, 1, 0, 0, 0, 21, 9, 0, 0, 0, 39, 0, 0, 0, 10, 0, 0, 0, 9, 0, 0, 0, 4, 1, 5, 0, 32, 1, 3, 0, 0, 0, 0, 0, 2, 0, 0, 0, 22, 0, 2, 0, 9, 0, 0, 0, 9, 2, 0, 0, 41, 1, 2, 1, 9, 3, 0, 0, 41, 2, 3, 2, 9, 4, 0, 0, 41, 3, 4, 3, 9, 5, 0, 0, 41, 4, 5, 4, 9, 6, 0, 0, 41, 5, 6, 5, 22, 0, 7, 0, 6, 2, 0, 0, 0, 0, 0, 0, 240, 63, 2, 0, 0, 0, 0, 0, 0, 0, 64, 2, 0, 0, 0, 0, 0, 0, 8, 64, 2, 0, 0, 0, 0, 0, 0, 16, 64, 2, 0, 0, 0, 0, 0, 0, 20, 64, 2, 0, 0, 0, 0, 0, 0, 24, 64, 0, 2, 1, 1, 24, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 18, 0, 0, 1, 0, 0, 21, 65, 0, 0, 0, 4, 0, 1, 0, 19, 1, 0, 0, 70, 1, 0, 0, 6, 2, 1, 0, 2, 3, 0, 0, 2, 4, 0, 0, 76, 2, 9, 0, 12, 11, 1, 0, 0, 0, 0, 64, 6, 12, 5, 0, 6, 13, 6, 0, 6, 14, 7, 0, 6, 15, 8, 0, 6, 16, 9, 0, 6, 17, 10, 0, 21, 11, 7, 1, 58, 2, 246, 255, 6, 0, 0, 0, 11, 0, 0, 0, 22, 0, 1, 0, 2, 3, 2, 4, 0, 0, 0, 64, 1, 0, 1, 0, 1, 24, 0, 0, 1, 0, 8, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 3, 0, 1, 0, 0, 0, 0, 1}
+var bytecode = []byte{6, 3, 10, 3, 97, 100, 100, 5, 112, 114, 105, 110, 116, 13, 72, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 33, 33, 5, 104, 101, 108, 108, 111, 5, 119, 111, 114, 108, 100, 1, 33, 1, 120, 1, 121, 5, 101, 114, 114, 111, 114, 16, 84, 104, 105, 115, 32, 105, 115, 32, 97, 110, 32, 101, 114, 114, 111, 114, 0, 2, 3, 2, 0, 0, 0, 0, 2, 33, 2, 0, 1, 22, 2, 2, 0, 0, 0, 21, 1, 1, 24, 0, 0, 22, 0, 0, 0, 0, 10, 0, 0, 1, 0, 0, 66, 65, 0, 0, 0, 12, 0, 1, 0, 0, 0, 0, 64, 5, 1, 2, 0, 21, 0, 2, 1, 4, 0, 1, 0, 4, 3, 1, 0, 4, 1, 10, 0, 4, 2, 1, 0, 56, 1, 6, 0, 12, 4, 1, 0, 0, 0, 0, 64, 6, 5, 3, 0, 21, 4, 2, 1, 35, 0, 0, 3, 57, 1, 250, 255, 12, 1, 1, 0, 0, 0, 0, 64, 6, 2, 0, 0, 21, 1, 2, 1, 53, 1, 0, 0, 3, 0, 0, 0, 5, 2, 3, 0, 5, 3, 4, 0, 5, 4, 5, 0, 55, 1, 2, 4, 1, 0, 0, 0, 6, 2, 1, 0, 2, 3, 0, 0, 2, 4, 0, 0, 76, 2, 5, 0, 12, 7, 1, 0, 0, 0, 0, 64, 6, 8, 5, 0, 6, 9, 6, 0, 21, 7, 3, 1, 58, 2, 250, 255, 2, 0, 0, 0, 64, 2, 6, 0, 12, 3, 1, 0, 0, 0, 0, 64, 6, 4, 2, 0, 4, 5, 1, 0, 4, 6, 2, 0, 21, 4, 3, 0, 21, 3, 0, 1, 53, 3, 2, 0, 0, 0, 0, 0, 4, 4, 1, 0, 16, 4, 3, 153, 7, 0, 0, 0, 4, 4, 2, 0, 16, 4, 3, 152, 8, 0, 0, 0, 12, 4, 1, 0, 0, 0, 0, 64, 15, 5, 3, 153, 7, 0, 0, 0, 15, 6, 3, 152, 8, 0, 0, 0, 21, 4, 3, 1, 12, 4, 10, 0, 0, 0, 144, 64, 5, 5, 11, 0, 21, 4, 2, 1, 22, 0, 1, 0, 12, 3, 2, 4, 0, 0, 0, 64, 3, 3, 3, 4, 3, 5, 3, 6, 6, 0, 3, 7, 3, 8, 3, 9, 4, 0, 0, 144, 64, 3, 10, 1, 0, 1, 0, 1, 24, 0, 1, 0, 0, 0, 3, 1, 0, 0, 0, 1, 0, 0, 0, 1, 254, 5, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 255, 0, 5, 4, 0, 0, 0, 0, 0, 0, 3, 0, 2, 0, 0, 1, 0, 0, 2, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1}
 
 func main() {
 	deserialised := luau_deserialise(bytecode)
@@ -1363,6 +1355,9 @@ func main() {
 			args = append([]any{"printed:"}, args...)
 			fmt.Println(args...)
 			return
+		},
+		"error": func(args ...any) (ret []any) {
+			panic(args)
 		},
 	})
 
