@@ -6,12 +6,6 @@ import (
 	"reflect"
 )
 
-func assert(condition bool, message string) {
-	if !condition {
-		panic(message)
-	}
-}
-
 func move(src []any, a, b, t int, dst *[]any) {
 	if b < a {
 		return
@@ -77,10 +71,9 @@ func extract(n, field, width int) uint32 {
 // HasAux boolean specifies whether the instruction is followed up with an AUX word, which may be used to execute the instruction.
 
 type Operator struct {
-	Name   string
-	Mode   uint8
-	KMode  uint8
-	HasAux bool
+	Name        string
+	Mode, KMode uint8
+	HasAux      bool
 }
 
 var opList = []Operator{
@@ -196,24 +189,15 @@ var luau_settings = LuauSettings{
 }
 
 type Inst struct {
-	A       int
-	B       int
-	C       int
-	D       int
-	E       int
-	K       any
-	K0      any
-	K1      any
-	K2      any
-	KC      int
-	KN      bool
-	aux     int
-	kmode   uint8
-	opcode  uint8
-	opmode  uint8
-	opname  string
-	usesAux bool
-	value   uint32
+	A, B, C, D, E         int
+	K, K0, K1, K2         any
+	KC                    int
+	KN                    bool
+	aux                   int
+	kmode, opcode, opmode uint8
+	opname                string
+	usesAux               bool
+	value                 uint32
 }
 
 type Varargs struct {
@@ -222,12 +206,10 @@ type Varargs struct {
 }
 
 type Proto struct {
-	maxstacksize uint8
-	numparams    uint8
-	nups         uint8
-	isvararg     bool
-	linedefined  uint32
-	debugname    string
+	maxstacksize, numparams, nups uint8
+	isvararg                      bool
+	linedefined                   uint32
+	debugname                     string
 
 	sizecode  uint32
 	code      []*Inst
@@ -346,31 +328,30 @@ func luau_deserialise(stream []byte) Deserialise {
 		opcode := uint8(value & 0xFF)
 
 		opinfo := opList[opcode]
-		opname := opinfo.Name
 		opmode := opinfo.Mode
-		kmode := opinfo.KMode
 		usesAux := opinfo.HasAux
 
 		inst := &Inst{
 			opcode:  opcode,
-			opname:  opname,
+			opname:  opinfo.Name,
 			opmode:  opmode,
-			kmode:   kmode,
+			kmode:   opinfo.KMode,
 			usesAux: usesAux,
 		}
 
 		*codeList = append(*codeList, inst)
 
-		if opmode == 1 { /* A */
+		switch opmode {
+		case 1: /* A */
 			inst.A = int(value>>8) & 0xFF
-		} else if opmode == 2 { /* AB */
+		case 2: /* AB */
 			inst.A = int(value>>8) & 0xFF
 			inst.B = int(value>>16) & 0xFF
-		} else if opmode == 3 { /* ABC */
+		case 3: /* ABC */
 			inst.A = int(value>>8) & 0xFF
 			inst.B = int(value>>16) & 0xFF
 			inst.C = int(value>>24) & 0xFF
-		} else if opmode == 4 { /* AD */
+		case 4: /* AD */
 			inst.A = int(value>>8) & 0xFF
 			temp := int(value>>16) & 0xFFFF
 
@@ -380,7 +361,7 @@ func luau_deserialise(stream []byte) Deserialise {
 			} else {
 				inst.D = temp - 0x10000
 			}
-		} else if opmode == 5 { /* AE */
+		case 5: /* AE */
 			temp := int(value>>8) & 0xFFFFFF
 
 			if temp < 0x800000 {
@@ -401,16 +382,15 @@ func luau_deserialise(stream []byte) Deserialise {
 	}
 
 	checkkmode := func(inst *Inst, k []any) {
-		kmode := inst.kmode
-
-		if kmode == 1 { /* AUX */
+		switch inst.kmode {
+		case 1: /* AUX */
 			inst.K = k[inst.aux]
-		} else if kmode == 2 { /* C */
+		case 2: /* C */
 			inst.K = k[inst.C]
 			fmt.Println("SET K TO", inst.K, "FROM", inst.C)
-		} else if kmode == 3 { /* D */
+		case 3: /* D */
 			inst.K = k[inst.D]
-		} else if kmode == 4 { /* AUX import */
+		case 4: /* AUX import */
 			extend := inst.aux
 			count := extend >> 30
 			inst.KC = count
@@ -426,15 +406,15 @@ func luau_deserialise(stream []byte) Deserialise {
 				id2 := extend & 0x3FF
 				inst.K2 = k[id2]
 			}
-		} else if kmode == 5 { /* AUX boolean low 1 bit */
+		case 5: /* AUX boolean low 1 bit */
 			inst.K = extract(inst.aux, 0, 1) == 1
 			inst.KN = extract(inst.aux, 31, 1) == 1
-		} else if kmode == 6 { /* AUX number low 24 bits */
+		case 6: /* AUX number low 24 bits */
 			inst.K = k[int(extract(inst.aux, 0, 24))] // TODO: 1-based indexing
 			inst.KN = extract(inst.aux, 31, 1) == 1
-		} else if kmode == 7 { /* B */
+		case 7: /* B */
 			inst.K = k[inst.B] // TODO: 1-based indexing
-		} else if kmode == 8 { /* AUX number low 16 bits */
+		case 8: /* AUX number low 16 bits */
 			inst.K = inst.aux & 0xF
 		}
 	}
@@ -478,26 +458,27 @@ func luau_deserialise(stream []byte) Deserialise {
 
 			// fmt.Println("ktype", kt)
 
-			if kt == 0 { /* Nil */
+			switch kt {
+			case 0: /* Nil */
 				k = nil
-			} else if kt == 1 { /* Bool */
+			case 1: /* Bool */
 				k = readByte() != 0
-			} else if kt == 2 { /* Number */
+			case 2: /* Number */
 				k = readDouble()
-			} else if kt == 3 { /* String */
+			case 3: /* String */
 				k = stringList[readVarInt()-1] // TODO: 1-based indexing
-			} else if kt == 4 { /* Function */
+			case 4: /* Function */
 				k = readWord()
-			} else if kt == 5 { /* Table */
+			case 5: /* Table */
 				dataLength := readVarInt()
 				k = make([]uint32, dataLength)
 
 				for i := range dataLength {
 					k.([]any)[i] = readVarInt() // TODO: 1-based indexing
 				}
-			} else if kt == 6 { /* Closure */
+			case 6: /* Closure */
 				k = readVarInt()
-			} else if kt == 7 { /* Vector */
+			case 7: /* Vector */
 				x, y, z, w := readFloat(), readFloat(), readFloat(), readFloat()
 
 				if luau_settings.VectorSize == 4 {
@@ -505,7 +486,7 @@ func luau_deserialise(stream []byte) Deserialise {
 				} else {
 					k = luau_settings.VectorCtor(x, y, z)
 				}
-			} else {
+			default:
 				panic(fmt.Sprintf("Unknown ktype %d", kt))
 			}
 
@@ -531,10 +512,10 @@ func luau_deserialise(stream []byte) Deserialise {
 		debugnameindex := readVarInt()
 		var debugname string
 
-		if debugnameindex != 0 {
-			debugname = stringList[debugnameindex-1] // TODO: 1-based indexing
-		} else {
+		if debugnameindex == 0 {
 			debugname = "(??)"
+		} else {
+			debugname = stringList[debugnameindex-1] // TODO: 1-based indexing
 		}
 
 		// -- lineinfo
@@ -550,15 +531,15 @@ func luau_deserialise(stream []byte) Deserialise {
 			abslineinfo := make([]uint32, intervals)
 
 			lastoffset := uint32(0)
-			for j := range sizecode {
+			for i := range sizecode {
 				lastoffset += uint32(readByte()) // TODO: type convs?
-				lineinfo[j] = lastoffset
+				lineinfo[i] = lastoffset
 			}
 
 			lastline := uint32(0)
-			for j := range intervals {
+			for i := range intervals {
 				lastline += readWord()
-				abslineinfo[j] = uint32(uint64(lastline) % (uint64(math.Pow(2, 32)))) // TODO: 1-based indexing
+				abslineinfo[i] = uint32(uint64(lastline) % (uint64(math.Pow(2, 32)))) // TODO: 1-based indexing
 			}
 
 			instructionlineinfo = make([]uint32, sizecode)
@@ -630,7 +611,10 @@ func luau_deserialise(stream []byte) Deserialise {
 
 	mainProto := protoList[readVarInt()]
 
-	assert(cursor == uint32(len(stream)), "deserialiser cursor position mismatch")
+	if cursor != uint32(len(stream)) {
+		panic("deserialiser cursor position mismatch")
+	}
+
 
 	mainProto.debugname = "(main)"
 
@@ -695,26 +679,27 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 
 				fmt.Println("OP", op, "PC", pc)
 
-				if op == 0 { /* NOP */
+				switch op {
+				case 0: /* NOP */
 					// -- Do nothing
-				} else if op == 1 { /* BREAK */
+				case 1: /* BREAK */
 					pc -= 1
 					op = debugopcodes[pc]
 					handlingBreak = true
-				} else if op == 2 { /* LOADNIL */
+				case 2: /* LOADNIL */
 					(*stack)[inst.A] = nil
-				} else if op == 3 { /* LOADB */
+				case 3: /* LOADB */
 					(*stack)[inst.A] = inst.B == 1
 					pc += inst.C
-				} else if op == 4 { /* LOADN */
+				case 4: /* LOADN */
 					(*stack)[inst.A] = inst.D
-				} else if op == 5 { /* LOADK */
+				case 5: /* LOADK */
 					// fmt.Println("LOADK", inst.K)
 					(*stack)[inst.A] = inst.K
-				} else if op == 6 { /* MOVE */
+				case 6: /* MOVE */
 					// we should never have to change the size of the stack (proto.maxstacksize)
 					(*stack)[inst.A] = (*stack)[inst.B]
-				} else if op == 7 { /* GETGLOBAL */
+				case 7: /* GETGLOBAL */
 					kv := inst.K
 
 					(*stack)[inst.A] = extensions[kv]
@@ -723,18 +708,18 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}
 
 					pc += 1 // -- adjust for aux
-				} else if op == 8 { /* SETGLOBAL */
+				case 8: /* SETGLOBAL */
 					kv := inst.K
 					env[kv] = (*stack)[inst.A]
 
 					pc += 1 // -- adjust for aux
-				} else if op == 9 { /* GETUPVAL */
+				case 9: /* GETUPVAL */
 					uv := upvals[inst.B]
 					(*stack)[inst.A] = (*uv.store.(*[]any))[uv.index.(int)]
-				} else if op == 10 { /* SETUPVAL */
+				case 10: /* SETUPVAL */
 					uv := upvals[inst.B]
 					(*uv.store.(*[]any))[uv.index.(int)] = (*stack)[inst.A]
-				} else if op == 11 { /* CLOSEUPVALS */
+				case 11: /* CLOSEUPVALS */
 					for i, uv := range *open_upvalues {
 						if uv.index.(int) < inst.A {
 							continue
@@ -744,7 +729,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						uv.index = "value" // -- self reference
 						(*open_upvalues)[i] = nil
 					}
-				} else if op == 12 { /* GETIMPORT */
+				case 12: /* GETIMPORT */
 					count := inst.KC
 					// fmt.Println(inst.K0)
 					k0 := inst.K0
@@ -762,25 +747,25 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}
 
 					pc += 1 // -- adjust for aux
-				} else if op == 13 { /* GETTABLE */
+				case 13: /* GETTABLE */
 					(*stack)[inst.A] = (*stack)[inst.B].([]any)[(*stack)[inst.C].(uint32)]
-				} else if op == 14 { /* SETTABLE */
+				case 14: /* SETTABLE */
 					(*stack)[inst.B].([]any)[(*stack)[inst.C].(uint32)] = (*stack)[inst.A]
-				} else if op == 15 { /* GETTABLEKS */
+				case 15: /* GETTABLEKS */
 					index := inst.K.(uint32)
 					(*stack)[inst.A] = (*stack)[inst.B].([]any)[index]
 
 					pc += 1 // -- adjust for aux
-				} else if op == 16 { /* SETTABLEKS */
+				case 16: /* SETTABLEKS */
 					index := inst.K.(uint32)
 					(*stack)[inst.B].([]any)[index] = (*stack)[inst.A]
 
 					pc += 1 // -- adjust for aux
-				} else if op == 17 { /* GETTABLEN */
+				case 17: /* GETTABLEN */
 					(*stack)[inst.A] = (*stack)[inst.B].(map[int]any)[inst.C+1]
-				} else if op == 18 { /* SETTABLEN */
+				case 18: /* SETTABLEN */
 					(*stack)[inst.B].(map[int]any)[inst.C] = (*stack)[inst.A]
-				} else if op == 19 { /* NEWCLOSURE */
+				case 19: /* NEWCLOSURE */
 					newPrototype := protolist[protos[inst.D]-1]
 
 					nups := newPrototype.nups
@@ -828,7 +813,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 							upvalues[i] = upvals[pseudo.B]
 						}
 					}
-				} else if op == 20 { /* NAMECALL */
+				case 20: /* NAMECALL */
 					A := inst.A
 					B := inst.B
 
@@ -841,7 +826,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					pc += 1 // -- adjust for aux
 
 					(*stack)[A] = sb.([]any)[kv]
-				} else if op == 21 { /* CALL */
+				case 21: /* CALL */
 					for i, v := range *stack {
 						fmt.Printf("    [%d] = %v\n", i, v)
 					}
@@ -874,7 +859,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}
 
 					move(ret_list, 0, ret_num, A, stack)
-				} else if op == 22 { /* RETURN */
+				case 22: /* RETURN */
 					A, B := inst.A, inst.B
 					b := (B - 1)
 
@@ -886,80 +871,80 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}
 
 					return (*stack)[A:max(A+nresults, 0)]
-				} else if op == 23 { /* JUMP */
+				case 23: /* JUMP */
 					pc += inst.D
-				} else if op == 24 { /* JUMPBACK */
+				case 24: /* JUMPBACK */
 					pc += inst.D
-				} else if op == 25 { /* JUMPIF */
+				case 25: /* JUMPIF */
 					if (*stack)[inst.A] != nil {
 						pc += inst.D
 					}
-				} else if op == 26 { /* JUMPIFNOT */
+				case 26: /* JUMPIFNOT */
 					if (*stack)[inst.A] == nil {
 						pc += inst.D
 					}
-				} else if op == 27 { /* JUMPIFEQ */
+				case 27: /* JUMPIFEQ */
 					if (*stack)[inst.A] == (*stack)[inst.aux] {
 						pc += inst.D
 					} else {
 						pc += 1
 					}
-				} else if op == 28 { /* JUMPIFLE */
+				case 28: /* JUMPIFLE */
 					if (*stack)[inst.A].(int) <= (*stack)[inst.aux].(int) {
 						pc += inst.D
 					} else {
 						pc += 1
 					}
-				} else if op == 29 { /* JUMPIFLT */
+				case 29: /* JUMPIFLT */
 					if (*stack)[inst.A].(int) < (*stack)[inst.aux].(int) {
 						pc += inst.D
 					} else {
 						pc += 1
 					}
-				} else if op == 30 { /* JUMPIFNOTEQ */
+				case 30: /* JUMPIFNOTEQ */
 					if (*stack)[inst.A] == (*stack)[inst.aux] {
 						pc += 1
 					} else {
 						pc += inst.D
 					}
-				} else if op == 31 { /* JUMPIFNOTLE */
+				case 31: /* JUMPIFNOTLE */
 					if (*stack)[inst.A].(int) <= (*stack)[inst.aux].(int) {
 						pc += 1
 					} else {
 						pc += inst.D
 					}
-				} else if op == 32 { /* JUMPIFNOTLT */
+				case 32: /* JUMPIFNOTLT */
 					if (*stack)[inst.A].(int) < (*stack)[inst.aux].(int) {
 						pc += 1
 					} else {
 						pc += inst.D
 					}
-				} else if op == 33 { /* ADD */
+				case 33: /* ADD */
 					(*stack)[inst.A] = (*stack)[inst.B].(int) + (*stack)[inst.C].(int)
-				} else if op == 34 { /* SUB */
+				case 34: /* SUB */
 					(*stack)[inst.A] = (*stack)[inst.B].(int) - (*stack)[inst.C].(int)
-				} else if op == 35 { /* MUL */
+				case 35: /* MUL */
 					(*stack)[inst.A] = (*stack)[inst.B].(int) * (*stack)[inst.C].(int)
-				} else if op == 36 { /* DIV */
+				case 36: /* DIV */
 					(*stack)[inst.A] = (*stack)[inst.B].(int) / (*stack)[inst.C].(int)
-				} else if op == 37 { /* MOD */
+				case 37: /* MOD */
 					(*stack)[inst.A] = math.Mod(float64((*stack)[inst.B].(int)), float64((*stack)[inst.C].(int)))
-				} else if op == 38 { /* POW */
+				case 38: /* POW */
 					(*stack)[inst.A] = math.Pow(float64((*stack)[inst.B].(int)), float64((*stack)[inst.C].(int)))
-				} else if op == 39 { /* ADDK */
+				case 39: /* ADDK */
 					(*stack)[inst.A] = (*stack)[inst.B].(int) + int(inst.K.(float64))
-				} else if op == 40 { /* SUBK */
+				case 40: /* SUBK */
 					(*stack)[inst.A] = (*stack)[inst.B].(int) - int(inst.K.(float64))
-				} else if op == 41 { /* MULK */
+				case 41: /* MULK */
 					(*stack)[inst.A] = (*stack)[inst.B].(int) * int(inst.K.(float64))
 					// fmt.Println("MULK", (*stack)[inst.B], inst.K)
-				} else if op == 42 { /* DIVK */
+				case 42: /* DIVK */
 					(*stack)[inst.A] = (*stack)[inst.B].(int) / int(inst.K.(float64))
-				} else if op == 43 { /* MODK */
+				case 43: /* MODK */
 					(*stack)[inst.A] = math.Mod(float64((*stack)[inst.B].(int)), float64(inst.K.(int)))
-				} else if op == 44 { /* POWK */
+				case 44: /* POWK */
 					(*stack)[inst.A] = math.Pow(float64((*stack)[inst.B].(int)), float64(inst.K.(int)))
-				} else if op == 45 { /* AND */
+				case 45: /* AND */
 					value := (*stack)[inst.B]
 					if value != nil {
 						(*stack)[inst.A] = (*stack)[inst.C]
@@ -969,7 +954,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					} else {
 						(*stack)[inst.A] = value
 					}
-				} else if op == 46 { /* OR */
+				case 46: /* OR */
 					value := (*stack)[inst.B]
 					if value != nil {
 						(*stack)[inst.A] = value
@@ -979,7 +964,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 							(*stack)[inst.A] = false
 						}
 					}
-				} else if op == 47 { /* ANDK */
+				case 47: /* ANDK */
 					value := (*stack)[inst.B]
 					if value != nil {
 						(*stack)[inst.A] = inst.K
@@ -989,7 +974,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					} else {
 						(*stack)[inst.A] = value
 					}
-				} else if op == 48 { /* ORK */
+				case 48: /* ORK */
 					value := (*stack)[inst.B]
 					if value != nil {
 						(*stack)[inst.A] = value
@@ -999,30 +984,30 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 							(*stack)[inst.A] = false
 						}
 					}
-				} else if op == 49 { /* CONCAT */
+				case 49: /* CONCAT */
 					// TODO: optimise w/ stringbuilders
 					s := ""
 					for i := inst.B; i <= inst.C; i++ {
 						s += (*stack)[i].(string)
 					}
 					(*stack)[inst.A] = s
-				} else if op == 50 { /* NOT */
+				case 50: /* NOT */
 					(*stack)[inst.A] = !(*stack)[inst.B].(bool)
-				} else if op == 51 { /* MINUS */
+				case 51: /* MINUS */
 					(*stack)[inst.A] = -(*stack)[inst.B].(float64)
-				} else if op == 52 { /* LENGTH */
+				case 52: /* LENGTH */
 					(*stack)[inst.A] = len((*stack)[inst.B].([]any)) // TODO: 1-based indexing
-				} else if op == 53 { /* NEWTABLE */
+				case 53: /* NEWTABLE */
 					(*stack)[inst.A] = []any{}
 
 					pc += 1 // -- adjust for aux
-				} else if op == 54 { /* DUPTABLE */
+				case 54: /* DUPTABLE */
 					template := inst.K.([]int)
 					serialised := make([]any, len(template))
 					for _, id := range template {
 						serialised[constants[id].(uint32)] = nil // TODO: 1-based indexing
 					}
-				} else if op == 55 { /* SETLIST */
+				case 55: /* SETLIST */
 					A, B := inst.A, inst.B
 					c := inst.C - 1
 
@@ -1041,7 +1026,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					(*stack)[A] = s
 
 					pc += 1 // -- adjust for aux
-				} else if op == 56 { /* FORNPREP */
+				case 56: /* FORNPREP */
 					A := inst.A
 
 					limit := (*stack)[A].(int)
@@ -1087,7 +1072,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					} else if limit > index {
 						pc += inst.D
 					}
-				} else if op == 57 { /* FORNLOOP */
+				case 57: /* FORNLOOP */
 					A := inst.A
 					limit := (*stack)[A].(int)
 					step := (*stack)[A+1].(int)
@@ -1102,7 +1087,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					} else if limit <= index {
 						pc += inst.D
 					}
-				} else if op == 58 { /* FORGLOOP */
+				case 58: /* FORGLOOP */
 					A := inst.A
 					res := inst.K.(int)
 
@@ -1150,23 +1135,23 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 							pc += inst.D
 						}
 					}
-				} else if op == 59 { /* FORGPREP_INEXT */
+				case 59: /* FORGPREP_INEXT */
 					if !ttisfunction((*stack)[inst.A]) {
 						// yaaaaaaaaaaay reflection (i'm dying inside)
 						panic(fmt.Sprintf("attempt to iterate over a %s value", reflect.TypeOf((*stack)[inst.A]))) // -- FORGPREP_INEXT encountered non-function value
 					}
 
 					pc += inst.D
-				} else if op == 60 { /* FASTCALL3 */
+				case 60: /* FASTCALL3 */
 					/* Skipped */
 					pc += 1 // adjust for aux
-				} else if op == 61 { /* FORGPREP_NEXT */
+				case 61: /* FORGPREP_NEXT */
 					if !ttisfunction((*stack)[inst.A]) {
 						panic(fmt.Sprintf("attempt to iterate over a %s value", reflect.TypeOf((*stack)[inst.A]))) // -- FORGPREP_NEXT encountered non-function value
 					}
 
 					pc += inst.D
-				} else if op == 63 { /* GETVARARGS */
+				case 63: /* GETVARARGS */
 					A := inst.A
 					b := inst.B - 1
 
@@ -1176,7 +1161,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}
 
 					move(varargs.list, 0, b, A, stack)
-				} else if op == 64 { /* DUPCLOSURE */
+				case 64: /* DUPCLOSURE */
 					newPrototype := protolist[inst.K.(uint32)] // TODO: 1-based indexing
 
 					nups := newPrototype.nups
@@ -1202,35 +1187,35 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 							upvalues[i] = upvals[pseudo.B]
 						}
 					}
-				} else if op == 65 { /* PREPVARARGS */
+				case 65: /* PREPVARARGS */
 					/* Handled by wrapper */
-				} else if op == 66 { /* LOADKX */
+				case 66: /* LOADKX */
 					kv := inst.K.(uint32)
 					(*stack)[inst.A] = kv
 
 					pc += 1 // -- adjust for aux
-				} else if op == 67 { /* JUMPX */
+				case 67: /* JUMPX */
 					pc += inst.E
-				} else if op == 68 { /* FASTCALL */
+				case 68: /* FASTCALL */
 					/* Skipped */
-				} else if op == 69 { /* COVERAGE */
+				case 69: /* COVERAGE */
 					inst.E += 1
-				} else if op == 70 { /* CAPTURE */
+				case 70: /* CAPTURE */
 					/* Handled by CLOSURE */
 					panic("encountered unhandled CAPTURE")
-				} else if op == 71 { /* SUBRK */
+				case 71: /* SUBRK */
 					(*stack)[inst.A] = inst.K.(float64) - (*stack)[inst.C].(float64)
-				} else if op == 72 { /* DIVRK */
+				case 72: /* DIVRK */
 					(*stack)[inst.A] = inst.K.(float64) / (*stack)[inst.C].(float64)
-				} else if op == 73 { /* FASTCALL1 */
+				case 73: /* FASTCALL1 */
 					/* Skipped */
-				} else if op == 74 { /* FASTCALL2 */
-					/* Skipped */
-					pc += 1 // adjust for aux
-				} else if op == 75 { /* FASTCALL2K */
+				case 74: /* FASTCALL2 */
 					/* Skipped */
 					pc += 1 // adjust for aux
-				} else if op == 76 { /* FORGPREP */
+				case 75: /* FASTCALL2K */
+					/* Skipped */
+					pc += 1 // adjust for aux
+				case 76: /* FORGPREP */
 					// ohhh no
 					iterator := (*stack)[inst.A]
 
@@ -1268,7 +1253,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}
 
 					pc += inst.D
-				} else if op == 77 { /* JUMPXEQKNIL */
+				case 77: /* JUMPXEQKNIL */
 					kn := inst.KN
 
 					if ((*stack)[inst.A] == nil) != kn {
@@ -1276,7 +1261,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					} else {
 						pc += 1
 					}
-				} else if op == 78 { /* JUMPXEQKB */
+				case 78: /* JUMPXEQKB */
 					kv := inst.K.(bool)
 					kn := inst.KN
 					ra := (*stack)[inst.A]
@@ -1286,7 +1271,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					} else {
 						pc += 1
 					}
-				} else if op == 79 { /* JUMPXEQKN */
+				case 79: /* JUMPXEQKN */
 					kv := inst.K.(uint32)
 					kn := inst.KN
 					ra := (*stack)[inst.A].(uint32)
@@ -1296,7 +1281,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					} else {
 						pc += 1
 					}
-				} else if op == 80 { /* JUMPXEQKS */
+				case 80: /* JUMPXEQKS */
 					kv := inst.K.(uint32)
 					kn := inst.KN
 					ra := (*stack)[inst.A].(uint32)
@@ -1306,11 +1291,11 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					} else {
 						pc += 1
 					}
-				} else if op == 81 { /* IDIV */
+				case 81: /* IDIV */
 					(*stack)[inst.A] = (*stack)[inst.B].(uint32) / (*stack)[inst.C].(uint32)
-				} else if op == 82 { /* IDIVK */
+				case 82: /* IDIVK */
 					(*stack)[inst.A] = (*stack)[inst.B].(uint32) / inst.K.(uint32)
-				} else {
+				default:
 					panic(fmt.Sprintf("Unsupported Opcode: %s op: %d", inst.opname, op))
 				}
 			}
