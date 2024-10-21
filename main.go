@@ -58,15 +58,15 @@ func extract(n, field, width int) uint32 {
 }
 
 // opList contains information about the instruction, each instruction is defined in this format:
-// { OP_NAME, OP_MODE, K_MODE, HAS_AUX }
-// OP_MODE specifies what type of registers the instruction uses if any
+// { Name, Mode, KMode, HasAux }
+// Mode specifies what type of registers the instruction uses if any
 //		0 = NONE
 //		1 = A
 //		2 = AB
 //		3 = ABC
 //		4 = AD
 //		5 = AE
-// K_MODE specifies if the instruction has a register that holds a constant table index, which will be directly converted to the constant in the 2nd pass
+// KMode specifies if the instruction has a register that holds a constant table index, which will be directly converted to the constant in the 2nd pass
 //		0 = NONE
 //		1 = AUX
 //		2 = C
@@ -74,7 +74,7 @@ func extract(n, field, width int) uint32 {
 //		4 = AUX import
 //		5 = AUX boolean low 1 bit
 //		6 = AUX number low 24 bits
-// HAS_AUX boolean specifies whether the instruction is followed up with an AUX word, which may be used to execute the instruction.
+// HasAux boolean specifies whether the instruction is followed up with an AUX word, which may be used to execute the instruction.
 
 type Operator struct {
 	Name   string
@@ -470,7 +470,6 @@ func luau_deserialise(stream []byte) Deserialise {
 		}
 
 		sizek := readVarInt()
-		// klist := make(map[int]any, sizek)
 		klist := make([]any, sizek)
 
 		for i := range int(sizek) {
@@ -646,8 +645,9 @@ func luau_deserialise(stream []byte) Deserialise {
 }
 
 type Iterator struct {
-	yieldChannel chan any
-	closeChannel chan bool
+	running bool
+	args    chan any
+	resume  chan any
 }
 
 func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func()) {
@@ -659,13 +659,6 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 		alive = false
 	}
 
-	type Debugging struct {
-		pc     int
-		top    int
-		name   string
-		reason string
-	}
-
 	type Upval struct {
 		value any
 		index any
@@ -675,7 +668,6 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 	var luau_wrapclosure func(module Deserialise, proto Proto, upvals []Upval) func(...any) []any
 	luau_wrapclosure = func(module Deserialise, proto Proto, upvals []Upval) func(...any) []any {
 		luau_execute := func(
-			// debugging Debugging,
 			stack *[]any,
 			protos []uint32,
 			code []*Inst,
@@ -744,12 +736,13 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					(*uv.store.(*[]any))[uv.index.(int)] = (*stack)[inst.A]
 				} else if op == 11 { /* CLOSEUPVALS */
 					for i, uv := range *open_upvalues {
-						if uv.index.(int) >= inst.A {
-							uv.value = (*uv.store.(*[]any))[uv.index.(int)]
-							uv.store = uv
-							uv.index = "value" // -- self reference
-							(*open_upvalues)[i] = nil
+						if uv.index.(int) < inst.A {
+							continue
 						}
+						uv.value = (*uv.store.(*[]any))[uv.index.(int)]
+						uv.store = uv
+						uv.index = "value" // -- self reference
+						(*open_upvalues)[i] = nil
 					}
 				} else if op == 12 { /* GETIMPORT */
 					count := inst.KC
@@ -849,6 +842,10 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 
 					(*stack)[A] = sb.([]any)[kv]
 				} else if op == 21 { /* CALL */
+					for i, v := range *stack {
+						fmt.Printf("    [%d] = %v\n", i, v)
+					}
+
 					A, B, C := inst.A, inst.B, inst.C
 
 					var params int
@@ -890,32 +887,32 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 
 					return (*stack)[A:max(A+nresults, 0)]
 				} else if op == 23 { /* JUMP */
-					pc += int(inst.D) // TODO: casting overflow?
+					pc += inst.D
 				} else if op == 24 { /* JUMPBACK */
-					pc += int(inst.D) // TODO: casting overflow?
+					pc += inst.D
 				} else if op == 25 { /* JUMPIF */
 					if (*stack)[inst.A] != nil {
-						pc += int(inst.D) // TODO: casting overflow?
+						pc += inst.D
 					}
 				} else if op == 26 { /* JUMPIFNOT */
 					if (*stack)[inst.A] == nil {
-						pc += int(inst.D) // TODO: casting overflow?
+						pc += inst.D
 					}
 				} else if op == 27 { /* JUMPIFEQ */
 					if (*stack)[inst.A] == (*stack)[inst.aux] {
-						pc += int(inst.D) // TODO: casting overflow?
+						pc += inst.D
 					} else {
 						pc += 1
 					}
 				} else if op == 28 { /* JUMPIFLE */
 					if (*stack)[inst.A].(int) <= (*stack)[inst.aux].(int) {
-						pc += int(inst.D) // TODO: casting overflow?
+						pc += inst.D
 					} else {
 						pc += 1
 					}
 				} else if op == 29 { /* JUMPIFLT */
 					if (*stack)[inst.A].(int) < (*stack)[inst.aux].(int) {
-						pc += int(inst.D) // TODO: casting overflow?
+						pc += inst.D
 					} else {
 						pc += 1
 					}
@@ -923,21 +920,19 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					if (*stack)[inst.A] == (*stack)[inst.aux] {
 						pc += 1
 					} else {
-						pc += int(inst.D) // TODO: casting overflow?
+						pc += inst.D
 					}
 				} else if op == 31 { /* JUMPIFNOTLE */
 					if (*stack)[inst.A].(int) <= (*stack)[inst.aux].(int) {
 						pc += 1
 					} else {
-						pc += int(inst.D) // TODO: casting overflow?
+						pc += inst.D
 					}
 				} else if op == 32 { /* JUMPIFNOTLT */
-					fmt.Println("JINLT")
-
 					if (*stack)[inst.A].(int) < (*stack)[inst.aux].(int) {
 						pc += 1
 					} else {
-						pc += int(inst.D) // TODO: casting overflow?
+						pc += inst.D
 					}
 				} else if op == 33 { /* ADD */
 					(*stack)[inst.A] = (*stack)[inst.B].(int) + (*stack)[inst.C].(int)
@@ -957,7 +952,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					(*stack)[inst.A] = (*stack)[inst.B].(int) - int(inst.K.(float64))
 				} else if op == 41 { /* MULK */
 					(*stack)[inst.A] = (*stack)[inst.B].(int) * int(inst.K.(float64))
-					fmt.Println("MULK", (*stack)[inst.B], inst.K)
+					// fmt.Println("MULK", (*stack)[inst.B], inst.K)
 				} else if op == 42 { /* DIVK */
 					(*stack)[inst.A] = (*stack)[inst.B].(int) / int(inst.K.(float64))
 				} else if op == 43 { /* MODK */
@@ -1041,18 +1036,9 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						s = append(s, nil)
 					}
 
-					for i, v := range *stack {
-						fmt.Printf("    [%d] = %v\n", i, v)
-					}
-
 					move((*stack), B, B+c, inst.aux-1, &s)
 					fmt.Println(inst.aux)
-
-					for i, v := range s {
-						fmt.Printf("    [%d] = %v\n", i, v)
-					}
-
-					// panic("yeah")
+					(*stack)[A] = s
 
 					pc += 1 // -- adjust for aux
 				} else if op == 56 { /* FORNPREP */
@@ -1096,10 +1082,10 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 
 					if step > 0 {
 						if index > limit {
-							pc += int(inst.D) // TODO: casting overflow?
+							pc += inst.D
 						}
 					} else if limit > index {
-						pc += int(inst.D) // TODO: casting overflow?
+						pc += inst.D
 					}
 				} else if op == 57 { /* FORNLOOP */
 					A := inst.A
@@ -1111,10 +1097,10 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 
 					if step > 0 {
 						if index <= limit {
-							pc += int(inst.D) // TODO: casting overflow?
+							pc += inst.D
 						}
 					} else if limit <= index {
-						pc += int(inst.D) // TODO: casting overflow?
+						pc += inst.D
 					}
 				} else if op == 58 { /* FORGLOOP */
 					A := inst.A
@@ -1134,13 +1120,35 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 
 						if (*stack)[A+3] != nil {
 							(*stack)[A+2] = (*stack)[A+3]
-							pc += int(inst.D) // TODO: casting overflow?
+							pc += inst.D
 						} else {
 							pc += 1
 						}
 					} else {
-						// bruh
-						panic("TODO: implement iterators")
+						for i, v := range *stack {
+							fmt.Printf("    [%d] = %v\n", i, v)
+						}
+
+						iter := *generalised_iterators[inst]
+
+						if !iter.running {
+							args := []any{it, (*stack)[A+1], (*stack)[A+2]}
+							fmt.Println("-1- sending thru the wire", args)
+							iter.args <- args
+							fmt.Println("-1- sent")
+						}
+						vals := <-iter.resume
+						fmt.Println("-1- received!", vals)
+
+						if vals == LUAU_GENERALISED_TERMINATOR {
+							delete(generalised_iterators, inst)
+							pc += 1
+						} else {
+							move(vals.([]any), 1, inst.D, A+2, stack)
+
+							(*stack)[A+2] = (*stack)[A+3]
+							pc += inst.D
+						}
 					}
 				} else if op == 59 { /* FORGPREP_INEXT */
 					if !ttisfunction((*stack)[inst.A]) {
@@ -1148,7 +1156,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						panic(fmt.Sprintf("attempt to iterate over a %s value", reflect.TypeOf((*stack)[inst.A]))) // -- FORGPREP_INEXT encountered non-function value
 					}
 
-					pc += int(inst.D) // TODO: casting overflow?
+					pc += inst.D
 				} else if op == 60 { /* FASTCALL3 */
 					/* Skipped */
 					pc += 1 // adjust for aux
@@ -1157,7 +1165,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						panic(fmt.Sprintf("attempt to iterate over a %s value", reflect.TypeOf((*stack)[inst.A]))) // -- FORGPREP_NEXT encountered non-function value
 					}
 
-					pc += int(inst.D) // TODO: casting overflow?
+					pc += inst.D
 				} else if op == 63 { /* GETVARARGS */
 					A := inst.A
 					b := inst.B - 1
@@ -1202,7 +1210,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 
 					pc += 1 // -- adjust for aux
 				} else if op == 67 { /* JUMPX */
-					pc += int(inst.E) // TODO: casting overflow?
+					pc += inst.E
 				} else if op == 68 { /* FASTCALL */
 					/* Skipped */
 				} else if op == 69 { /* COVERAGE */
@@ -1227,31 +1235,44 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					iterator := (*stack)[inst.A]
 
 					if !ttisfunction(iterator) {
-						loopInstruction := *code[pc+int(inst.D)] // TODO: casting overflow?
+						loopInstruction := *code[pc+inst.D-1]
 						if generalised_iterators[loopInstruction] == nil {
-							// c := &Iterator{
-							// 	yieldChannel: make(chan any),
-							// 	closeChannel: make(chan bool),
-							// }
+							c := &Iterator{
+								args:   make(chan any),
+								resume: make(chan any),
+							}
 
-							panic("TODO: implement iterators") // gotta be the hardest part
-							// go func(args ...any) (a []any) {
-							// 	fmt.Println("generating iterator", args)
-							// 	const max = 200
-							// 	return
-							// }()
+							go func() {
+								args := (<-c.args).([]any)
+								c.args = nil // we're done here
+								c.running = true
+								fmt.Println("-2- generating iterator", args)
 
-							// TODO: coroutines
-							// generalised_iterators[loopInstruction] = c
+								// const max = 200
+								for i, v := range args[0].([]any) {
+									if !c.running {
+										return
+									}
+									fmt.Println("-2- yielding", i+1, v)
+									c.resume <- []any{i + 1, v}
+									fmt.Println("-2- yielded!")
+								}
+
+								fmt.Println("-2- closing")
+								c.resume <- LUAU_GENERALISED_TERMINATOR
+								fmt.Println("-2- closed")
+							}()
+
+							generalised_iterators[loopInstruction] = c
 						}
 					}
 
-					pc += int(inst.D) // TODO: casting overflow?
+					pc += inst.D
 				} else if op == 77 { /* JUMPXEQKNIL */
 					kn := inst.KN
 
 					if ((*stack)[inst.A] == nil) != kn {
-						pc += int(inst.D) // TODO: casting overflow?
+						pc += inst.D
 					} else {
 						pc += 1
 					}
@@ -1261,7 +1282,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					ra := (*stack)[inst.A]
 
 					if ttisboolean(ra) && (ra.(bool) == kv) != kn {
-						pc += int(inst.D) // TODO: casting overflow?
+						pc += inst.D
 					} else {
 						pc += 1
 					}
@@ -1271,7 +1292,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					ra := (*stack)[inst.A].(uint32)
 
 					if (ra == kv) != kn {
-						pc += int(inst.D) // TODO: casting overflow?
+						pc += inst.D
 					} else {
 						pc += 1
 					}
@@ -1281,7 +1302,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					ra := (*stack)[inst.A].(uint32)
 
 					if (ra == kv) != kn {
-						pc += int(inst.D) // TODO: casting overflow?
+						pc += inst.D
 					} else {
 						pc += 1
 					}
@@ -1302,8 +1323,8 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 			}
 
 			for i := range generalised_iterators {
-				// TODO: close the coroutines using channels or something I have no idea
-				generalised_iterators[i] = nil
+				generalised_iterators[i].running = false
+				delete(generalised_iterators, i)
 			}
 			return []any{}
 		}
