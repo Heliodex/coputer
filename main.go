@@ -34,6 +34,10 @@ func move(src []any, a, b, t int, dst *[]any) {
 	*dst = ret
 }
 
+func moveMap(src []any, a, b, t int, dst *map[any]any) {
+	panic("WAT")
+}
+
 func ttisnumber(v any) bool {
 	return reflect.TypeOf(v).Kind() == reflect.Float64
 }
@@ -615,7 +619,6 @@ func luau_deserialise(stream []byte) Deserialise {
 		panic("deserialiser cursor position mismatch")
 	}
 
-
 	mainProto.debugname = "(main)"
 
 	return Deserialise{
@@ -731,20 +734,24 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}
 				case 12: /* GETIMPORT */
 					count := inst.KC
-					// fmt.Println(inst.K0)
 					k0 := inst.K0
 					imp := extensions[k0]
 					if imp == nil {
 						imp = env[k0]
 					}
 
-					if count == 1 {
+					switch count {
+					case 1:
 						(*stack)[inst.A] = imp
-					} else if count == 2 {
-						(*stack)[inst.A] = imp.([]any)[inst.K1.(uint32)]
-					} else if count == 3 {
-						(*stack)[inst.A] = imp.([]any)[inst.K1.(uint32)].([]any)[inst.K2.(uint32)]
+					case 2:
+						(*stack)[inst.A] = imp.([]any)[inst.K1.(uint32)-1]
+					case 3:
+						(*stack)[inst.A] = imp.([]any)[inst.K1.(uint32)-1].([]any)[inst.K2.(uint32)-1]
 					}
+
+					// for i, v := range *stack {
+					// 	fmt.Printf("aa    [%d] = %v\n", i, v)
+					// }
 
 					pc += 1 // -- adjust for aux
 				case 13: /* GETTABLE */
@@ -757,8 +764,8 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 
 					pc += 1 // -- adjust for aux
 				case 16: /* SETTABLEKS */
-					index := inst.K.(uint32)
-					(*stack)[inst.B].([]any)[index] = (*stack)[inst.A]
+					index := inst.K
+					(*stack)[inst.B].(map[any]any)[index] = (*stack)[inst.A]
 
 					pc += 1 // -- adjust for aux
 				case 17: /* GETTABLEN */
@@ -827,10 +834,6 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 
 					(*stack)[A] = sb.([]any)[kv]
 				case 21: /* CALL */
-					for i, v := range *stack {
-						fmt.Printf("    [%d] = %v\n", i, v)
-					}
-
 					A, B, C := inst.A, inst.B, inst.C
 
 					var params int
@@ -846,7 +849,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}
 
 					fn := (*stack)[A].(func(...any) []any)
-					// fmt.Println("calling with", (*stack)[A+1:A+params+1])
+					fmt.Println("calling with", (*stack)[A+1:A+params+1])
 
 					ret_list := fn((*stack)[A+1 : A+params+1]...) // not inclusive
 
@@ -920,6 +923,11 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						pc += inst.D
 					}
 				case 33: /* ADD */
+					fmt.Println("ADD", inst.A, inst.B, inst.C)
+					for i, v := range *stack {
+						fmt.Printf("    [%d] = %v\n", i, v)
+					}
+
 					(*stack)[inst.A] = (*stack)[inst.B].(int) + (*stack)[inst.C].(int)
 				case 34: /* SUB */
 					(*stack)[inst.A] = (*stack)[inst.B].(int) - (*stack)[inst.C].(int)
@@ -998,7 +1006,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 				case 52: /* LENGTH */
 					(*stack)[inst.A] = len((*stack)[inst.B].([]any)) // TODO: 1-based indexing
 				case 53: /* NEWTABLE */
-					(*stack)[inst.A] = []any{}
+					(*stack)[inst.A] = map[any]any{}
 
 					pc += 1 // -- adjust for aux
 				case 54: /* DUPTABLE */
@@ -1015,13 +1023,9 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						c = top - B + 1
 					}
 
-					s := (*stack)[A].([]any)
-					// expand s
-					for range c {
-						s = append(s, nil)
-					}
+					s := (*stack)[A].(map[any]any)
 
-					move((*stack), B, B+c, inst.aux-1, &s)
+					moveMap((*stack), B, B+c, inst.aux-1, &s)
 					fmt.Println(inst.aux)
 					(*stack)[A] = s
 
@@ -1094,7 +1098,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					top = int(A + 6)
 
 					it := (*stack)[A]
-					fmt.Println("IT", reflect.TypeOf(it), ttisfunction(it))
+					fmt.Println("IT", it, ttisfunction(it))
 
 					if ttisfunction(it) {
 						vals := it.(func(...any) []any)((*stack)[A+1], (*stack)[A+2])
@@ -1110,10 +1114,6 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 							pc += 1
 						}
 					} else {
-						for i, v := range *stack {
-							fmt.Printf("    [%d] = %v\n", i, v)
-						}
-
 						iter := *generalised_iterators[inst]
 
 						if !iter.running {
@@ -1129,10 +1129,11 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 							delete(generalised_iterators, inst)
 							pc += 1
 						} else {
-							move(vals.([]any), 1, inst.D, A+2, stack)
+							move(vals.([]any), 0, res, A+3, stack)
 
 							(*stack)[A+2] = (*stack)[A+3]
 							pc += inst.D
+
 						}
 					}
 				case 59: /* FORGPREP_INEXT */
@@ -1243,9 +1244,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 									fmt.Println("-2- yielded!")
 								}
 
-								fmt.Println("-2- closing")
 								c.resume <- LUAU_GENERALISED_TERMINATOR
-								fmt.Println("-2- closed")
 							}()
 
 							generalised_iterators[loopInstruction] = c
@@ -1323,7 +1322,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 			}
 
 			// TODO: test table.move impl
-			move(passed, 0, int(proto.numparams), 1, &stack)
+			move(passed, 0, int(proto.numparams), 0, &stack)
 
 			n := uint8(len(passed))
 			if proto.numparams < n {
