@@ -34,8 +34,15 @@ func move(src []any, a, b, t int, dst *[]any) {
 	*dst = ret
 }
 
+// ???
 func moveMap(src []any, a, b, t int, dst *map[any]any) {
-	panic("WAT")
+	if b < a {
+		return
+	}
+
+	for i, v := range src[a:min(b, len(src))] {
+		(*dst)[i+t] = v
+	}
 }
 
 func ttisnumber(v any) bool {
@@ -759,8 +766,8 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 				case 14: /* SETTABLE */
 					(*stack)[inst.B].([]any)[(*stack)[inst.C].(uint32)] = (*stack)[inst.A]
 				case 15: /* GETTABLEKS */
-					index := inst.K.(uint32)
-					(*stack)[inst.A] = (*stack)[inst.B].([]any)[index]
+					index := inst.K
+					(*stack)[inst.A] = (*stack)[inst.B].(map[any]any)[index]
 
 					pc += 1 // -- adjust for aux
 				case 16: /* SETTABLEKS */
@@ -1025,8 +1032,8 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 
 					s := (*stack)[A].(map[any]any)
 
-					moveMap((*stack), B, B+c, inst.aux-1, &s)
-					fmt.Println(inst.aux)
+					// one-indexed lol
+					moveMap(*stack, B, B+c, inst.aux, &s)
 					(*stack)[A] = s
 
 					pc += 1 // -- adjust for aux
@@ -1133,7 +1140,6 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 
 							(*stack)[A+2] = (*stack)[A+3]
 							pc += inst.D
-
 						}
 					}
 				case 59: /* FORGPREP_INEXT */
@@ -1235,12 +1241,12 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 								fmt.Println("-2- generating iterator", args)
 
 								// const max = 200
-								for i, v := range args[0].([]any) {
+								for i, v := range args[0].(map[any]any) {
 									if !c.running {
 										return
 									}
-									fmt.Println("-2- yielding", i+1, v)
-									c.resume <- []any{i + 1, v}
+									fmt.Println("-2- yielding", i, v)
+									c.resume <- []any{i, v}
 									fmt.Println("-2- yielded!")
 								}
 
@@ -1362,7 +1368,7 @@ func main() {
 			return
 		},
 		"error": func(args ...any) (ret []any) {
-			panic(args)
+			panic(args[0])
 		},
 	})
 
