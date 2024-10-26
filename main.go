@@ -173,10 +173,7 @@ var opList = []Operator{
 	{"IDIVK", 3, 2, false},
 }
 
-const (
-	LUAU_MULTRET                = -1
-	LUAU_GENERALISED_TERMINATOR = -2
-)
+const LUAU_MULTRET = -1
 
 type LuauSettings struct {
 	VectorCtor       func(...float32) any
@@ -413,7 +410,7 @@ func luau_deserialise(stream []byte) Deserialise {
 				id1 := (extend >> 10) & 0x3FF
 				inst.K1 = k[id1]
 			}
-			if count == 3 {
+			if count == 3 { // >=?
 				id2 := extend & 0x3FF
 				inst.K2 = k[id2]
 			}
@@ -640,8 +637,8 @@ func luau_deserialise(stream []byte) Deserialise {
 
 type Iterator struct {
 	running bool
-	args    chan any
-	resume  chan any
+	args    chan *[]any
+	resume  chan *[]any
 }
 
 func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func()) {
@@ -828,18 +825,14 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						}
 					}
 				case 20: /* NAMECALL */
-					A := inst.A
-					B := inst.B
-
+					A, B := inst.A, inst.B
 					kv := inst.K.(uint32)
 
 					sb := (*stack)[B]
-
 					(*stack)[A+1] = sb // TODO: 1-based indexing
+					(*stack)[A] = sb.([]any)[kv]
 
 					pc += 1 // -- adjust for aux
-
-					(*stack)[A] = sb.([]any)[kv]
 				case 21: /* CALL */
 					A, B, C := inst.A, inst.B, inst.C
 
@@ -859,7 +852,6 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					fmt.Println("calling with", (*stack)[A+1:A+params+1])
 
 					ret_list := fn((*stack)[A+1 : A+params+1]...) // not inclusive
-
 					ret_num := int(len(ret_list))
 
 					if C == 0 {
@@ -873,14 +865,12 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					A, B := inst.A, inst.B
 					b := (B - 1)
 
-					var nresults int
+					// nresults
 					if b == LUAU_MULTRET {
-						nresults = top - A + 1
-					} else {
-						nresults = B - 1
+						b = top - A + 1
 					}
 
-					return (*stack)[A:max(A+nresults, 0)]
+					return (*stack)[A:max(A+b, 0)]
 				case 23: /* JUMP */
 					pc += inst.D
 				case 24: /* JUMPBACK */
@@ -1124,7 +1114,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						iter := *generalised_iterators[inst]
 
 						if !iter.running {
-							args := []any{it, (*stack)[A+1], (*stack)[A+2]}
+							args := &[]any{it, (*stack)[A+1], (*stack)[A+2]}
 							fmt.Println("-1- sending thru the wire", args)
 							iter.args <- args
 							fmt.Println("-1- sent")
@@ -1132,11 +1122,11 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						vals := <-iter.resume
 						fmt.Println("-1- received!", vals)
 
-						if vals == LUAU_GENERALISED_TERMINATOR {
+						if vals == nil {
 							delete(generalised_iterators, inst)
 							pc += 1
 						} else {
-							move(vals.([]any), 0, res, A+3, stack)
+							move(*vals, 0, res, A+3, stack)
 
 							(*stack)[A+2] = (*stack)[A+3]
 							pc += inst.D
@@ -1163,6 +1153,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					b := inst.B - 1
 
 					if b == LUAU_MULTRET {
+						fmt.Println("MULTRET4")
 						b = int(varargs.len)
 						top = A + b - 1
 					}
@@ -1230,27 +1221,26 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						loopInstruction := *code[pc+inst.D-1]
 						if generalised_iterators[loopInstruction] == nil {
 							c := &Iterator{
-								args:   make(chan any),
-								resume: make(chan any),
+								args:   make(chan *[]any),
+								resume: make(chan *[]any),
 							}
 
 							go func() {
-								args := (<-c.args).([]any)
+								args := *<-c.args
 								c.args = nil // we're done here
 								c.running = true
 								fmt.Println("-2- generating iterator", args)
 
-								// const max = 200
 								for i, v := range args[0].(map[any]any) {
 									if !c.running {
 										return
 									}
 									fmt.Println("-2- yielding", i, v)
-									c.resume <- []any{i, v}
+									c.resume <- &[]any{i, v}
 									fmt.Println("-2- yielded!")
 								}
 
-								c.resume <- LUAU_GENERALISED_TERMINATOR
+								c.resume <- nil
 							}()
 
 							generalised_iterators[loopInstruction] = c
