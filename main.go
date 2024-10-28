@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"math"
+	"os"
+	"os/exec"
 	"reflect"
 )
 
@@ -178,6 +180,7 @@ const LUAU_MULTRET = -1
 type LuauSettings struct {
 	VectorCtor       func(...float32) any
 	VectorSize       uint8
+	NamecallHandler  func(kv string, stack *[]any, c1, c2 int) (ok bool, ret []any)
 	Extensions       map[any]any
 	AllowProxyErrors bool
 	DecodeOp         func(op uint32) uint32
@@ -187,8 +190,34 @@ var luau_settings = LuauSettings{
 	VectorCtor: func(...float32) any {
 		panic("vectorCtor was not provided")
 	},
-	VectorSize:       4,
-	Extensions:       nil,
+	VectorSize: 4,
+	NamecallHandler: func(kv string, stack *[]any, c1, c2 int) (ok bool, ret []any) {
+		switch kv {
+		case "format":
+			fmt.Println("kv", kv)
+			for i, v := range *stack {
+				fmt.Printf("    [%d] = %v\n", i, v)
+			}
+			fmt.Println("c1", c1)
+			fmt.Println("c2", c2)
+
+			// get c1 through c2 from stack
+			cstack := (*stack)[c1 : c2+1] // not inclusive again
+			for i, v := range cstack {
+				fmt.Printf("    [%d] = %v\n", i, v)
+			}
+
+			return true, []any{"testing"}
+		}
+		panic(fmt.Sprintf("unknown __namecall: %s", kv))
+	},
+	Extensions: map[any]any{
+		"print": func(args ...any) (ret []any) {
+			args = append([]any{"printed:"}, args...)
+			fmt.Println(args...)
+			return
+		},
+	},
 	AllowProxyErrors: false,
 	DecodeOp: func(op uint32) uint32 {
 		// println("decoding op", op)
@@ -245,13 +274,11 @@ type Deserialise struct {
 }
 
 func luau_deserialise(stream []byte) Deserialise {
-	// fmt.Println("deserialising")
 	cursor := uint32(0)
 
 	readByte := func() uint8 {
 		b := stream[cursor]
 		cursor += 1
-		// fmt.Println("readByte", b, "at", cursor)
 		return b
 	}
 
@@ -262,14 +289,12 @@ func luau_deserialise(stream []byte) Deserialise {
 	readWord := func() uint32 {
 		w := word()
 		cursor += 4
-		// fmt.Println("readWord", w, "at", cursor)
 		return w
 	}
 
 	readFloat := func() float32 {
 		f := math.Float32frombits(word())
 		cursor += 4
-		// fmt.Println("readFloat", f, "at", cursor)
 		return f
 	}
 
@@ -280,7 +305,6 @@ func luau_deserialise(stream []byte) Deserialise {
 		cursor += 4
 
 		d := math.Float64frombits(uint64(word1) | uint64(word2)<<32)
-		// fmt.Println("readDouble", d, "at", cursor)
 		return d
 	}
 
@@ -363,7 +387,6 @@ func luau_deserialise(stream []byte) Deserialise {
 			inst.A = int(value>>8) & 0xFF
 			temp := int(value>>16) & 0xFFFF
 
-			// fmt.Println("Setting D to", temp)
 			if temp < 0x8000 {
 				inst.D = temp
 			} else {
@@ -464,8 +487,6 @@ func luau_deserialise(stream []byte) Deserialise {
 			kt := readByte()
 			var k any
 
-			// fmt.Println("ktype", kt)
-
 			switch kt {
 			case 0: /* Nil */
 				k = nil
@@ -502,12 +523,10 @@ func luau_deserialise(stream []byte) Deserialise {
 		}
 
 		// -- 2nd pass to replace constant references in the instruction
-		// fmt.Println("klist", klist)
 		for i := range sizecode {
 			checkkmode((*codelist)[i], klist)
 		}
 
-		// fmt.Println("READING SIZEP")
 		sizep := readVarInt()
 		protos := make([]uint32, sizep)
 
@@ -614,7 +633,6 @@ func luau_deserialise(stream []byte) Deserialise {
 
 	for i := range protoCount {
 		protoList[i] = readProto(i - 1)
-		// fmt.Println("read proto", protoList[i].nups)
 	}
 
 	mainProto := protoList[readVarInt()]
@@ -701,7 +719,6 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 				case 4: /* LOADN */
 					(*stack)[inst.A] = inst.D
 				case 5: /* LOADK */
-					// fmt.Println("LOADK", inst.K)
 					(*stack)[inst.A] = inst.K
 				case 6: /* MOVE */
 					// we should never have to change the size of the stack (proto.maxstacksize)
@@ -752,10 +769,6 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					case 3:
 						(*stack)[inst.A] = imp.([]any)[inst.K1.(uint32)-1].([]any)[inst.K2.(uint32)-1]
 					}
-
-					// for i, v := range *stack {
-					// 	fmt.Printf("aa    [%d] = %v\n", i, v)
-					// }
 
 					pc += 1 // -- adjust for aux
 				case 13: /* GETTABLE */
@@ -825,14 +838,50 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						}
 					}
 				case 20: /* NAMECALL */
+					fmt.Println("NAMECALL")
+
 					A, B := inst.A, inst.B
-					kv := inst.K.(uint32)
+					kv := inst.K.(string)
+					fmt.Println("kv", kv)
 
 					sb := (*stack)[B]
+					fmt.Println("sb", sb)
 					(*stack)[A+1] = sb // TODO: 1-based indexing
-					(*stack)[A] = sb.([]any)[kv]
 
 					pc += 1 // -- adjust for aux
+
+					// -- Special handling for native namecall behaviour
+					nativeNamecall := luau_settings.NamecallHandler
+
+					callInst := code[pc-1]
+					callOp := callInst.opcode
+
+					// -- Copied from the CALL handler
+					callA, callB, callC := callInst.A, callInst.B, callInst.C
+
+					var params int
+					if callB == 0 {
+						params = top - callA
+					} else {
+						params = callB - 1
+					}
+
+					if ok, ret_list := nativeNamecall(kv, stack, callA+1, callA+params); ok {
+						pc += 1 // -- Skip next CALL instruction
+
+						inst = *callInst
+						op = callOp
+
+						ret_num := len(ret_list)
+
+						if callC == 0 {
+							top = callA + ret_num - 1
+						} else {
+							ret_num = callC - 1
+						}
+
+						move(ret_list, 0, ret_num, callA, stack)
+					}
 				case 21: /* CALL */
 					A, B, C := inst.A, inst.B, inst.C
 
@@ -920,29 +969,23 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						pc += inst.D
 					}
 				case 33: /* ADD */
-					fmt.Println("ADD", inst.A, inst.B, inst.C)
-					for i, v := range *stack {
-						fmt.Printf("    [%d] = %v\n", i, v)
-					}
-
-					(*stack)[inst.A] = (*stack)[inst.B].(int) + (*stack)[inst.C].(int)
+					(*stack)[inst.A] = (*stack)[inst.B].(float64) + (*stack)[inst.C].(float64)
 				case 34: /* SUB */
-					(*stack)[inst.A] = (*stack)[inst.B].(int) - (*stack)[inst.C].(int)
+					(*stack)[inst.A] = (*stack)[inst.B].(float64) - (*stack)[inst.C].(float64)
 				case 35: /* MUL */
-					(*stack)[inst.A] = (*stack)[inst.B].(int) * (*stack)[inst.C].(int)
+					(*stack)[inst.A] = (*stack)[inst.B].(float64) * (*stack)[inst.C].(float64)
 				case 36: /* DIV */
-					(*stack)[inst.A] = (*stack)[inst.B].(int) / (*stack)[inst.C].(int)
+					(*stack)[inst.A] = (*stack)[inst.B].(float64) / (*stack)[inst.C].(float64)
 				case 37: /* MOD */
-					(*stack)[inst.A] = math.Mod(float64((*stack)[inst.B].(int)), float64((*stack)[inst.C].(int)))
+					(*stack)[inst.A] = math.Mod((*stack)[inst.B].(float64), (*stack)[inst.C].(float64))
 				case 38: /* POW */
-					(*stack)[inst.A] = math.Pow(float64((*stack)[inst.B].(int)), float64((*stack)[inst.C].(int)))
+					(*stack)[inst.A] = math.Pow((*stack)[inst.B].(float64), (*stack)[inst.C].(float64))
 				case 39: /* ADDK */
 					(*stack)[inst.A] = (*stack)[inst.B].(int) + int(inst.K.(float64))
 				case 40: /* SUBK */
 					(*stack)[inst.A] = (*stack)[inst.B].(int) - int(inst.K.(float64))
 				case 41: /* MULK */
 					(*stack)[inst.A] = (*stack)[inst.B].(int) * int(inst.K.(float64))
-					// fmt.Println("MULK", (*stack)[inst.B], inst.K)
 				case 42: /* DIVK */
 					(*stack)[inst.A] = (*stack)[inst.B].(int) / int(inst.K.(float64))
 				case 43: /* MODK */
@@ -1339,28 +1382,27 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 			return result
 		}
 
-		// fmt.Println("wrapping closure")
 		return wrapped
 	}
 
 	return luau_wrapclosure(module, mainProto, []Upval{}), luau_close
 }
 
-var bytecode = []byte{6, 3, 10, 3, 97, 100, 100, 5, 112, 114, 105, 110, 116, 13, 72, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 33, 33, 5, 104, 101, 108, 108, 111, 5, 119, 111, 114, 108, 100, 1, 33, 1, 120, 1, 121, 5, 101, 114, 114, 111, 114, 16, 84, 104, 105, 115, 32, 105, 115, 32, 97, 110, 32, 101, 114, 114, 111, 114, 0, 2, 3, 2, 0, 0, 0, 0, 2, 33, 2, 0, 1, 22, 2, 2, 0, 0, 0, 21, 1, 1, 24, 0, 0, 22, 0, 0, 0, 0, 10, 0, 0, 1, 0, 0, 66, 65, 0, 0, 0, 12, 0, 1, 0, 0, 0, 0, 64, 5, 1, 2, 0, 21, 0, 2, 1, 4, 0, 1, 0, 4, 3, 1, 0, 4, 1, 10, 0, 4, 2, 1, 0, 56, 1, 6, 0, 12, 4, 1, 0, 0, 0, 0, 64, 6, 5, 3, 0, 21, 4, 2, 1, 35, 0, 0, 3, 57, 1, 250, 255, 12, 1, 1, 0, 0, 0, 0, 64, 6, 2, 0, 0, 21, 1, 2, 1, 53, 1, 0, 0, 3, 0, 0, 0, 5, 2, 3, 0, 5, 3, 4, 0, 5, 4, 5, 0, 55, 1, 2, 4, 1, 0, 0, 0, 6, 2, 1, 0, 2, 3, 0, 0, 2, 4, 0, 0, 76, 2, 5, 0, 12, 7, 1, 0, 0, 0, 0, 64, 6, 8, 5, 0, 6, 9, 6, 0, 21, 7, 3, 1, 58, 2, 250, 255, 2, 0, 0, 0, 64, 2, 6, 0, 12, 3, 1, 0, 0, 0, 0, 64, 6, 4, 2, 0, 4, 5, 1, 0, 4, 6, 2, 0, 21, 4, 3, 0, 21, 3, 0, 1, 53, 3, 2, 0, 0, 0, 0, 0, 4, 4, 1, 0, 16, 4, 3, 153, 7, 0, 0, 0, 4, 4, 2, 0, 16, 4, 3, 152, 8, 0, 0, 0, 12, 4, 1, 0, 0, 0, 0, 64, 15, 5, 3, 153, 7, 0, 0, 0, 15, 6, 3, 152, 8, 0, 0, 0, 21, 4, 3, 1, 12, 4, 10, 0, 0, 0, 144, 64, 5, 5, 11, 0, 21, 4, 2, 1, 22, 0, 1, 0, 12, 3, 2, 4, 0, 0, 0, 64, 3, 3, 3, 4, 3, 5, 3, 6, 6, 0, 3, 7, 3, 8, 3, 9, 4, 0, 0, 144, 64, 3, 10, 1, 0, 1, 0, 1, 24, 0, 1, 0, 0, 0, 3, 1, 0, 0, 0, 1, 0, 0, 0, 1, 254, 5, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 255, 0, 5, 4, 0, 0, 0, 0, 0, 0, 3, 0, 2, 0, 0, 1, 0, 0, 2, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1}
-
 func main() {
+	fmt.Println("Compiling")
+
+	// execute luau-compile
+	cmd := exec.Command("luau-compile", "--binary", "-O0", "main.luau")
+	// get the output
+	bytecode, err := cmd.Output()
+	if err != nil {
+		fmt.Println("error running luau-compile:", err)
+		os.Exit(1)
+	}
+
 	deserialised := luau_deserialise(bytecode)
 
-	exec, _ := luau_load(deserialised, map[any]any{
-		"print": func(args ...any) (ret []any) {
-			args = append([]any{"printed:"}, args...)
-			fmt.Println(args...)
-			return
-		},
-		"error": func(args ...any) (ret []any) {
-			panic(args[0])
-		},
-	})
+	exec, _ := luau_load(deserialised, map[any]any{})
 
 	exec()
 }
