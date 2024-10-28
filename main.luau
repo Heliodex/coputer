@@ -1,3 +1,3 @@
-print "Hello, world!"
+--!strict
 
-print(`Hi % {0} {1}, world!`)
+print(5 == 5)

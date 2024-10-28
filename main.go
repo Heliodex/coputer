@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
+	"strings"
 )
 
 func move(src []any, a, b, t int, dst *[]any) {
@@ -51,10 +52,6 @@ func ttisnumber(v any) bool {
 	return reflect.TypeOf(v).Kind() == reflect.Float64
 }
 
-func ttisboolean(v any) bool {
-	return reflect.TypeOf(v).Kind() == reflect.Bool
-}
-
 func ttisfunction(v any) bool {
 	return reflect.TypeOf(v).Kind() == reflect.Func
 }
@@ -62,6 +59,51 @@ func ttisfunction(v any) bool {
 // bit32 extraction
 func extract(n, field, width int) uint32 {
 	return uint32(n>>field) & uint32(math.Pow(2, float64(width))-1)
+}
+
+func isalpha(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+}
+
+// Copied directly from BuiltinDefinitions.cpp
+func sub(s string, args []string) string {
+	size := len(s)
+	subbed := 0
+
+	res := strings.Builder{}
+
+	for i := 0; i < size; i++ {
+		if s[i] != '%' {
+			res.WriteByte(s[i])
+			continue
+		}
+
+		i++
+
+		if i < size && s[i] == '%' {
+			res.WriteByte('%')
+			continue
+		}
+
+		// -- we just ignore all characters (including flags/precision) up until first alphabetic character
+		for i < size && !(s[i] > 0 && (isalpha(s[i]) || s[i] == '*')) {
+			i++
+		}
+
+		if i == size {
+			break
+			// } else if s[i] != '*' {
+			// 	panic("unknown format") // none other than * at the moment
+		} else if subbed >= len(args) {
+			res.WriteString("nil") // TODO: idk
+			continue
+		}
+
+		res.WriteString(args[subbed])
+		subbed++
+	}
+
+	return res.String()
 }
 
 // opList contains information about the instruction, each instruction is defined in this format:
@@ -201,13 +243,16 @@ var luau_settings = LuauSettings{
 			fmt.Println("c1", c1)
 			fmt.Println("c2", c2)
 
-			// get c1 through c2 from stack
-			cstack := (*stack)[c1 : c2+1] // not inclusive again
-			for i, v := range cstack {
-				fmt.Printf("    [%d] = %v\n", i, v)
+			str := (*stack)[c1].(string)
+			args := (*stack)[c1+1 : c2+1]
+
+			// convert all args to strings
+			strArgs := make([]string, len(args))
+			for i, v := range args { // not inclusive again
+				strArgs[i] = fmt.Sprintf("%v", v)
 			}
 
-			return true, []any{"testing"}
+			return true, []any{sub(str, strArgs)}
 		}
 		panic(fmt.Sprintf("unknown __namecall: %s", kv))
 	},
@@ -226,9 +271,8 @@ var luau_settings = LuauSettings{
 }
 
 type Inst struct {
-	A, B, C, D, E         int
+	A, B, C, D, E, KC     int
 	K, K0, K1, K2         any
-	KC                    int
 	KN                    bool
 	aux                   int
 	kmode, opcode, opmode uint8
@@ -659,6 +703,139 @@ type Iterator struct {
 	resume  chan *[]any
 }
 
+func arithmetic(op uint8, op1, op2 float64) float64 {
+	switch op {
+	case 33, 39: /* ADD */
+		return op1 + op2
+	case 34, 40: /* SUB */
+		return op1 - op2
+	case 35, 41: /* MUL */
+		return op1 * op2
+	case 36, 42: /* DIV */
+		return op1 / op2
+	case 37, 43: /* MOD */
+		return math.Mod(op1, op2)
+	case 38, 44: /* POW */
+		return math.Pow(op1, op2)
+	case 81, 82: /* IDIV */
+		return math.Floor(op1 / op2)
+	}
+	panic("unknown arithmetic operation")
+}
+
+func truthy(v any) bool {
+	switch v.(type) {
+	case bool:
+		return v.(bool)
+	}
+	return v != nil
+}
+
+func ntf(v any) bool {
+	return v == nil || v == true || v == false
+}
+
+// TODO: test
+func logic(op uint8, value, op1 any) any {
+	switch op {
+	case 45, 47: /* AND */
+		if !truthy(value) {
+			return false
+		}
+	case 46, 48: /* OR */
+		if truthy(value) {
+			return value
+		}
+	default:
+		panic("unknown logic operation")
+	}
+
+	if truthy(op1) {
+		return op1
+	}
+	return false
+}
+
+var jumpops = map[uint8]string{
+	27: "==",
+	28: "<=",
+	29: "<",
+	30: "~=",
+	31: ">",
+	32: ">=",
+}
+
+var goluautype = map[string]string{
+	"float64": "number",
+	"string":  "string",
+	"bool":    "boolean",
+	"nil":     "nil",
+	"map[interface {}]interface {}": "table",
+	"func(...interface {}) []interface {}": "function",
+}
+
+func sfops[T string | float64](op uint8, op1, op2 T) bool {
+	switch op {
+	case 28: /* JUMPIFLE */
+		return op1 <= op2
+	case 29: /* JUMPIFLT */
+		return op1 < op2
+	case 31: /* JUMPIFNOTLE */
+		return op1 > op2
+	case 32: /* JUMPIFNOTLT */
+		return op1 >= op2
+	}
+	panic("unknown floatjump operation")
+}
+
+func invalidCompare(op uint8, t1, t2 string) string {
+	return fmt.Sprintf("attempt to compare %s %s %s", goluautype[t1], jumpops[op], goluautype[t2])
+}
+
+func incomparableType(t string, eq bool) string {
+	return fmt.Sprintf("type %s cannot be compared; this comparison would always return %t", goluautype[t], eq)
+}
+
+func typeOf(v any) string {
+	if v == nil {
+		return "nil"
+	}
+	return reflect.TypeOf(v).String()
+}
+
+func jump(op uint8, op1, op2 any) bool {
+	t1, t2 := typeOf(op1), typeOf(op2)
+	if t1 != t2 {
+		panic(invalidCompare(op, t1, t2)) // Deliberately restricting the ability to compare different types
+	}
+
+	if op == 27 || op == 30 {
+		switch op1.(type) {
+		case float64, string, nil:
+		case bool:
+			panic("stop comparing booleans idiot")
+		default:
+			panic(incomparableType(t1, op == 27)) // Also deliberately restricting the ability to compare types that would always return false
+			// TODO: deep equality for tables?
+		}
+
+		if op == 27 { /* JUMPIFEQ */
+			return op1 == op2
+		}
+		/* JUMPIFNOTEQ */
+		return op1 != op2
+	}
+
+	switch op1.(type) {
+	case float64:
+		return sfops(op, op1.(float64), op2.(float64))
+	case string:
+		return sfops(op, op1.(string), op2.(string))
+	}
+
+	panic(invalidCompare(op, t1, t2))
+}
+
 func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func()) {
 	protolist := module.protoList
 	mainProto := module.mainProto
@@ -912,7 +1089,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					move(ret_list, 0, ret_num, A, stack)
 				case 22: /* RETURN */
 					A, B := inst.A, inst.B
-					b := (B - 1)
+					b := B - 1
 
 					// nresults
 					if b == LUAU_MULTRET {
@@ -920,127 +1097,46 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}
 
 					return (*stack)[A:max(A+b, 0)]
-				case 23: /* JUMP */
-					pc += inst.D
-				case 24: /* JUMPBACK */
+				case 23, 24: /* JUMP, JUMPBACK */
 					pc += inst.D
 				case 25: /* JUMPIF */
-					if (*stack)[inst.A] != nil {
+					if truthy((*stack)[inst.A]) {
 						pc += inst.D
 					}
 				case 26: /* JUMPIFNOT */
-					if (*stack)[inst.A] == nil {
+					if !truthy((*stack)[inst.A]) {
 						pc += inst.D
 					}
-				case 27: /* JUMPIFEQ */
-					if (*stack)[inst.A] == (*stack)[inst.aux] {
-						pc += inst.D
-					} else {
-						pc += 1
-					}
-				case 28: /* JUMPIFLE */
-					if (*stack)[inst.A].(int) <= (*stack)[inst.aux].(int) {
+				case 27, 28, 29, 30, 31, 32: /* jump */
+					if jump(op, (*stack)[inst.A], (*stack)[inst.aux]) {
 						pc += inst.D
 					} else {
 						pc += 1
 					}
-				case 29: /* JUMPIFLT */
-					if (*stack)[inst.A].(int) < (*stack)[inst.aux].(int) {
-						pc += inst.D
-					} else {
-						pc += 1
-					}
-				case 30: /* JUMPIFNOTEQ */
-					if (*stack)[inst.A] == (*stack)[inst.aux] {
-						pc += 1
-					} else {
-						pc += inst.D
-					}
-				case 31: /* JUMPIFNOTLE */
-					if (*stack)[inst.A].(int) <= (*stack)[inst.aux].(int) {
-						pc += 1
-					} else {
-						pc += inst.D
-					}
-				case 32: /* JUMPIFNOTLT */
-					if (*stack)[inst.A].(int) < (*stack)[inst.aux].(int) {
-						pc += 1
-					} else {
-						pc += inst.D
-					}
-				case 33: /* ADD */
-					(*stack)[inst.A] = (*stack)[inst.B].(float64) + (*stack)[inst.C].(float64)
-				case 34: /* SUB */
-					(*stack)[inst.A] = (*stack)[inst.B].(float64) - (*stack)[inst.C].(float64)
-				case 35: /* MUL */
-					(*stack)[inst.A] = (*stack)[inst.B].(float64) * (*stack)[inst.C].(float64)
-				case 36: /* DIV */
-					(*stack)[inst.A] = (*stack)[inst.B].(float64) / (*stack)[inst.C].(float64)
-				case 37: /* MOD */
-					(*stack)[inst.A] = math.Mod((*stack)[inst.B].(float64), (*stack)[inst.C].(float64))
-				case 38: /* POW */
-					(*stack)[inst.A] = math.Pow((*stack)[inst.B].(float64), (*stack)[inst.C].(float64))
-				case 39: /* ADDK */
-					(*stack)[inst.A] = (*stack)[inst.B].(int) + int(inst.K.(float64))
-				case 40: /* SUBK */
-					(*stack)[inst.A] = (*stack)[inst.B].(int) - int(inst.K.(float64))
-				case 41: /* MULK */
-					(*stack)[inst.A] = (*stack)[inst.B].(int) * int(inst.K.(float64))
-				case 42: /* DIVK */
-					(*stack)[inst.A] = (*stack)[inst.B].(int) / int(inst.K.(float64))
-				case 43: /* MODK */
-					(*stack)[inst.A] = math.Mod(float64((*stack)[inst.B].(int)), float64(inst.K.(int)))
-				case 44: /* POWK */
-					(*stack)[inst.A] = math.Pow(float64((*stack)[inst.B].(int)), float64(inst.K.(int)))
-				case 45: /* AND */
-					value := (*stack)[inst.B]
-					if value != nil {
-						(*stack)[inst.A] = (*stack)[inst.C]
-						if (*stack)[inst.A] == nil {
-							(*stack)[inst.A] = false
-						}
-					} else {
-						(*stack)[inst.A] = value
-					}
-				case 46: /* OR */
-					value := (*stack)[inst.B]
-					if value != nil {
-						(*stack)[inst.A] = value
-					} else {
-						(*stack)[inst.A] = (*stack)[inst.C]
-						if (*stack)[inst.A] == nil {
-							(*stack)[inst.A] = false
-						}
-					}
-				case 47: /* ANDK */
-					value := (*stack)[inst.B]
-					if value != nil {
-						(*stack)[inst.A] = inst.K
-						if (*stack)[inst.A] == nil {
-							(*stack)[inst.A] = false
-						}
-					} else {
-						(*stack)[inst.A] = value
-					}
-				case 48: /* ORK */
-					value := (*stack)[inst.B]
-					if value != nil {
-						(*stack)[inst.A] = value
-					} else {
-						(*stack)[inst.A] = inst.K
-						if (*stack)[inst.A] == nil {
-							(*stack)[inst.A] = false
-						}
-					}
+				case 33, 34, 35, 36, 37, 38, 81: /* arithmetic */
+					op1 := (*stack)[inst.B].(float64)
+					op2 := (*stack)[inst.C].(float64)
+
+					(*stack)[inst.A] = arithmetic(op, op1, op2)
+				case 39, 40, 41, 42, 43, 44, 82: /* arithmetik */
+					fmt.Println("ARITHMETIK")
+					op1 := (*stack)[inst.B].(float64)
+					op2 := inst.K.(float64)
+
+					(*stack)[inst.A] = arithmetic(op, op1, op2)
+				case 45, 46: /* logic */
+					(*stack)[inst.A] = logic(op, (*stack)[inst.B], (*stack)[inst.C])
+				case 47, 48: /* logik */
+					fmt.Println("LOGIK")
+					(*stack)[inst.A] = logic(op, (*stack)[inst.B], inst.K)
 				case 49: /* CONCAT */
-					// TODO: optimise w/ stringbuilders
-					s := ""
+					s := strings.Builder{}
 					for i := inst.B; i <= inst.C; i++ {
-						s += (*stack)[i].(string)
+						s.WriteString((*stack)[i].(string))
 					}
-					(*stack)[inst.A] = s
+					(*stack)[inst.A] = s.String()
 				case 50: /* NOT */
-					(*stack)[inst.A] = !(*stack)[inst.B].(bool)
+					(*stack)[inst.A] = !truthy((*stack)[inst.B])
 				case 51: /* MINUS */
 					(*stack)[inst.A] = -(*stack)[inst.B].(float64)
 				case 52: /* LENGTH */
@@ -1196,7 +1292,6 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					b := inst.B - 1
 
 					if b == LUAU_MULTRET {
-						fmt.Println("MULTRET4")
 						b = int(varargs.len)
 						top = A + b - 1
 					}
@@ -1302,9 +1397,9 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 				case 78: /* JUMPXEQKB */
 					kv := inst.K.(bool)
 					kn := inst.KN
-					ra := (*stack)[inst.A]
+					ra, isBool := (*stack)[inst.A].(bool)
 
-					if ttisboolean(ra) && (ra.(bool) == kv) != kn {
+					if isBool && (ra == kv) != kn {
 						pc += inst.D
 					} else {
 						pc += 1
@@ -1329,10 +1424,6 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					} else {
 						pc += 1
 					}
-				case 81: /* IDIV */
-					(*stack)[inst.A] = (*stack)[inst.B].(uint32) / (*stack)[inst.C].(uint32)
-				case 82: /* IDIVK */
-					(*stack)[inst.A] = (*stack)[inst.B].(uint32) / inst.K.(uint32)
 				default:
 					panic(fmt.Sprintf("Unsupported Opcode: %s op: %d", inst.opname, op))
 				}
