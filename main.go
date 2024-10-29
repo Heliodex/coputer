@@ -44,7 +44,7 @@ func moveMap(src []any, a, b, t int, dst *map[any]any) {
 	}
 
 	for i, v := range src[a:min(b, len(src))] {
-		(*dst)[i+t] = v
+		(*dst)[float64(i+t)] = v
 	}
 }
 
@@ -429,20 +429,14 @@ func luau_deserialise(stream []byte) Deserialise {
 			inst.C = int(value>>24) & 0xFF
 		case 4: /* AD */
 			inst.A = int(value>>8) & 0xFF
-			temp := int(value>>16) & 0xFFFF
-
-			if temp < 0x8000 {
-				inst.D = temp
-			} else {
-				inst.D = temp - 0x10000
+			inst.D = int(value>>16) & 0xFFFF
+			if inst.D >= 0x8000 {
+				inst.D -= 0x10000
 			}
 		case 5: /* AE */
-			temp := int(value>>8) & 0xFFFFFF
-
-			if temp < 0x800000 {
-				inst.E = temp
-			} else {
-				inst.E = temp - 0x1000000
+			inst.E = int(value>>8) & 0xFFFFFF
+			if inst.E >= 0x800000 {
+				inst.E -= 0x1000000
 			}
 		}
 
@@ -703,26 +697,6 @@ type Iterator struct {
 	resume  chan *[]any
 }
 
-func arithmetic(op uint8, op1, op2 float64) float64 {
-	switch op {
-	case 33, 39: /* ADD */
-		return op1 + op2
-	case 34, 40: /* SUB */
-		return op1 - op2
-	case 35, 41: /* MUL */
-		return op1 * op2
-	case 36, 42: /* DIV */
-		return op1 / op2
-	case 37, 43: /* MOD */
-		return math.Mod(op1, op2)
-	case 38, 44: /* POW */
-		return math.Pow(op1, op2)
-	case 81, 82: /* IDIV */
-		return math.Floor(op1 / op2)
-	}
-	panic("unknown arithmetic operation")
-}
-
 func truthy(v any) bool {
 	switch v.(type) {
 	case bool:
@@ -765,27 +739,66 @@ var jumpops = map[uint8]string{
 	32: ">=",
 }
 
+var arithops = map[uint8]string{
+	33: "add",
+	34: "sub",
+	35: "mul",
+	36: "div",
+	37: "mod",
+	38: "pow",
+	39: "add",
+	40: "sub",
+	41: "mul",
+	42: "div",
+	43: "mod",
+	44: "pow",
+	81: "idiv",
+	82: "idiv",
+}
+
 var goluautype = map[string]string{
-	"float64": "number",
-	"string":  "string",
-	"bool":    "boolean",
-	"nil":     "nil",
-	"map[interface {}]interface {}": "table",
+	"float64":                              "number",
+	"string":                               "string",
+	"bool":                                 "boolean",
+	"nil":                                  "nil",
+	"map[interface {}]interface {}":        "table",
 	"func(...interface {}) []interface {}": "function",
 }
 
 func sfops[T string | float64](op uint8, op1, op2 T) bool {
-	switch op {
-	case 28: /* JUMPIFLE */
+	switch jumpops[op] {
+	case "<=":
 		return op1 <= op2
-	case 29: /* JUMPIFLT */
+	case "<":
 		return op1 < op2
-	case 31: /* JUMPIFNOTLE */
+	case ">":
 		return op1 > op2
-	case 32: /* JUMPIFNOTLT */
+	case ">=":
 		return op1 >= op2
 	}
+
 	panic("unknown floatjump operation")
+}
+
+func aops(op uint8, op1, op2 float64) float64 {
+	switch arithops[op] {
+	case "add":
+		return op1 + op2
+	case "sub":
+		return op1 - op2
+	case "mul":
+		return op1 * op2
+	case "div":
+		return op1 / op2
+	case "mod":
+		return math.Mod(op1, op2)
+	case "pow":
+		return math.Pow(op1, op2)
+	case "idiv":
+		return math.Floor(op1 / op2)
+	}
+
+	panic("unknown arithmetic operation")
 }
 
 func invalidCompare(op uint8, t1, t2 string) string {
@@ -796,40 +809,53 @@ func incomparableType(t string, eq bool) string {
 	return fmt.Sprintf("type %s cannot be compared; this comparison would always return %t", goluautype[t], eq)
 }
 
+func uncallableType(v string) string {
+	return fmt.Sprintf("attempt to call a %s value", goluautype[v])
+}
+
+func invalidArithmetic(op uint8, t1, t2 string) string {
+	return fmt.Sprintf("attempt to perform arithmetic (%s) on %s and %s", arithops[op], goluautype[t1], goluautype[t2])
+}
+
+func invalidCond(t string) string {
+	return fmt.Sprintf("attempt to compare non-boolean type %s in condition", goluautype[t])
+}
+
 func typeOf(v any) string {
-	if v == nil {
+	if v == nil { // prevent nil pointer dereference
 		return "nil"
 	}
 	return reflect.TypeOf(v).String()
 }
 
-func jump(op uint8, op1, op2 any) bool {
+func arithmetic(op uint8, op1, op2 any) float64 {
 	t1, t2 := typeOf(op1), typeOf(op2)
-	if t1 != t2 {
-		panic(invalidCompare(op, t1, t2)) // Deliberately restricting the ability to compare different types
+	if t1 == "float64" && t2 == "float64" {
+		return aops(op, op1.(float64), op2.(float64))
 	}
 
+	panic(invalidArithmetic(op, t1, t2))
+}
+
+func jump(op uint8, op1, op2 any) bool {
+	t1, t2 := typeOf(op1), typeOf(op2)
 	if op == 27 || op == 30 {
+		tru := op == 27
+
 		switch op1.(type) {
-		case float64, string, nil:
-		case bool:
-			panic("stop comparing booleans idiot")
+		case float64, string, bool, nil:
 		default:
-			panic(incomparableType(t1, op == 27)) // Also deliberately restricting the ability to compare types that would always return false
+			panic(incomparableType(t1, tru)) // Also deliberately restricting the a9bility to compare types that would always return false
 			// TODO: deep equality for tables?
 		}
 
-		if op == 27 { /* JUMPIFEQ */
-			return op1 == op2
-		}
-		/* JUMPIFNOTEQ */
-		return op1 != op2
+		/* JUMPIFEQ, JUMPIFNOTEQ */
+		return (op1 == op2) == tru
 	}
 
-	switch op1.(type) {
-	case float64:
+	if t1 == "float64" && t2 == "float64" {
 		return sfops(op, op1.(float64), op2.(float64))
-	case string:
+	} else if t1 == "string" && t2 == "string" {
 		return sfops(op, op1.(string), op2.(string))
 	}
 
@@ -916,7 +942,17 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					pc += 1 // -- adjust for aux
 				case 9: /* GETUPVAL */
 					uv := upvals[inst.B]
-					(*stack)[inst.A] = (*uv.store.(*[]any))[uv.index.(int)]
+
+					switch i := uv.index.(type) {
+					case int:
+						(*stack)[inst.A] = (*uv.store.(*[]any))[i]
+					case string:
+						if i == "value" {
+							(*stack)[inst.A] = uv.store.(Upval).value
+						}
+					default:
+						panic("unknown upval index type")
+					}
 				case 10: /* SETUPVAL */
 					uv := upvals[inst.B]
 					(*uv.store.(*[]any))[uv.index.(int)] = (*stack)[inst.A]
@@ -949,9 +985,9 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 
 					pc += 1 // -- adjust for aux
 				case 13: /* GETTABLE */
-					(*stack)[inst.A] = (*stack)[inst.B].([]any)[(*stack)[inst.C].(uint32)]
+					(*stack)[inst.A] = (*stack)[inst.B].(map[any]any)[(*stack)[inst.C]]
 				case 14: /* SETTABLE */
-					(*stack)[inst.B].([]any)[(*stack)[inst.C].(uint32)] = (*stack)[inst.A]
+					(*stack)[inst.B].(map[any]any)[(*stack)[inst.C]] = (*stack)[inst.A]
 				case 15: /* GETTABLEKS */
 					index := inst.K
 					(*stack)[inst.A] = (*stack)[inst.B].(map[any]any)[index]
@@ -1070,11 +1106,16 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}
 
 					fmt.Println(A, (*stack)[A])
-					if (*stack)[A] == nil {
-						panic("attempt to call a nil value")
+
+					f := (*stack)[A]
+
+					switch f.(type) {
+					case func(...any) []any:
+					default:
+						panic(uncallableType(typeOf(f)))
 					}
 
-					fn := (*stack)[A].(func(...any) []any)
+					fn := f.(func(...any) []any)
 					fmt.Println("calling with", (*stack)[A+1:A+params+1])
 
 					ret_list := fn((*stack)[A+1 : A+params+1]...) // not inclusive
@@ -1099,12 +1140,13 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					return (*stack)[A:max(A+b, 0)]
 				case 23, 24: /* JUMP, JUMPBACK */
 					pc += inst.D
-				case 25: /* JUMPIF */
-					if truthy((*stack)[inst.A]) {
-						pc += inst.D
+				case 25, 26: /* JUMPIF, JUMPIFNOT */
+					cond := (*stack)[inst.A]
+					if !(cond == true || cond == false) {
+						panic(invalidCond(typeOf(cond)))
 					}
-				case 26: /* JUMPIFNOT */
-					if !truthy((*stack)[inst.A]) {
+
+					if cond == (op == 25) {
 						pc += inst.D
 					}
 				case 27, 28, 29, 30, 31, 32: /* jump */
@@ -1114,16 +1156,10 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						pc += 1
 					}
 				case 33, 34, 35, 36, 37, 38, 81: /* arithmetic */
-					op1 := (*stack)[inst.B].(float64)
-					op2 := (*stack)[inst.C].(float64)
-
-					(*stack)[inst.A] = arithmetic(op, op1, op2)
+					(*stack)[inst.A] = arithmetic(op, (*stack)[inst.B], (*stack)[inst.C])
 				case 39, 40, 41, 42, 43, 44, 82: /* arithmetik */
 					fmt.Println("ARITHMETIK")
-					op1 := (*stack)[inst.B].(float64)
-					op2 := inst.K.(float64)
-
-					(*stack)[inst.A] = arithmetic(op, op1, op2)
+					(*stack)[inst.A] = arithmetic(op, (*stack)[inst.B], inst.K)
 				case 45, 46: /* logic */
 					(*stack)[inst.A] = logic(op, (*stack)[inst.B], (*stack)[inst.C])
 				case 47, 48: /* logik */
@@ -1140,7 +1176,17 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 				case 51: /* MINUS */
 					(*stack)[inst.A] = -(*stack)[inst.B].(float64)
 				case 52: /* LENGTH */
-					(*stack)[inst.A] = len((*stack)[inst.B].([]any)) // TODO: 1-based indexing
+					t := (*stack)[inst.B].(map[any]any)
+
+					length, ok := float64(0), true
+					for {
+						_, ok = t[length + 1]
+						if !ok {
+							break
+						}
+						length++
+					}
+					(*stack)[inst.A] = length
 				case 53: /* NEWTABLE */
 					(*stack)[inst.A] = map[any]any{}
 
@@ -1273,8 +1319,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}
 				case 59: /* FORGPREP_INEXT */
 					if !ttisfunction((*stack)[inst.A]) {
-						// yaaaaaaaaaaay reflection (i'm dying inside)
-						panic(fmt.Sprintf("attempt to iterate over a %s value", reflect.TypeOf((*stack)[inst.A]))) // -- FORGPREP_INEXT encountered non-function value
+						panic(fmt.Sprintf("attempt to iterate over a %s value", typeOf((*stack)[inst.A]))) // -- FORGPREP_INEXT encountered non-function value
 					}
 
 					pc += inst.D
@@ -1283,7 +1328,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					pc += 1 // adjust for aux
 				case 61: /* FORGPREP_NEXT */
 					if !ttisfunction((*stack)[inst.A]) {
-						panic(fmt.Sprintf("attempt to iterate over a %s value", reflect.TypeOf((*stack)[inst.A]))) // -- FORGPREP_NEXT encountered non-function value
+						panic(fmt.Sprintf("attempt to iterate over a %s value", typeOf((*stack)[inst.A]))) // -- FORGPREP_NEXT encountered non-function value
 					}
 
 					pc += inst.D
@@ -1339,10 +1384,9 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 				case 70: /* CAPTURE */
 					/* Handled by CLOSURE */
 					panic("encountered unhandled CAPTURE")
-				case 71: /* SUBRK */
-					(*stack)[inst.A] = inst.K.(float64) - (*stack)[inst.C].(float64)
-				case 72: /* DIVRK */
-					(*stack)[inst.A] = inst.K.(float64) / (*stack)[inst.C].(float64)
+				case 71, 72: /* SUBRK, DIVRK */
+					fmt.Println("ARITHMETIRK")
+					(*stack)[inst.A] = arithmetic(op, inst.K, (*stack)[inst.C])
 				case 73: /* FASTCALL1 */
 					/* Skipped */
 				case 74: /* FASTCALL2 */
