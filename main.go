@@ -228,6 +228,12 @@ type LuauSettings struct {
 	DecodeOp         func(op uint32) uint32
 }
 
+var luau_print = func(args ...any) (ret []any) {
+	args = append([]any{"printed:"}, args...)
+	fmt.Println(args...)
+	return
+}
+
 var luau_settings = LuauSettings{
 	VectorCtor: func(...float32) any {
 		panic("vectorCtor was not provided")
@@ -257,11 +263,7 @@ var luau_settings = LuauSettings{
 		panic(fmt.Sprintf("unknown __namecall: %s", kv))
 	},
 	Extensions: map[any]any{
-		"print": func(args ...any) (ret []any) {
-			args = append([]any{"printed:"}, args...)
-			fmt.Println(args...)
-			return
-		},
+		"print": &luau_print,
 	},
 	AllowProxyErrors: false,
 	DecodeOp: func(op uint32) uint32 {
@@ -698,36 +700,11 @@ type Iterator struct {
 }
 
 func truthy(v any) bool {
-	switch v.(type) {
-	case bool:
-		return v.(bool)
+	b, ok := v.(bool)
+	if ok {
+		return b
 	}
 	return v != nil
-}
-
-func ntf(v any) bool {
-	return v == nil || v == true || v == false
-}
-
-// TODO: test
-func logic(op uint8, value, op1 any) any {
-	switch op {
-	case 45, 47: /* AND */
-		if !truthy(value) {
-			return false
-		}
-	case 46, 48: /* OR */
-		if truthy(value) {
-			return value
-		}
-	default:
-		panic("unknown logic operation")
-	}
-
-	if truthy(op1) {
-		return op1
-	}
-	return false
 }
 
 var jumpops = map[uint8]string{
@@ -837,6 +814,26 @@ func arithmetic(op uint8, op1, op2 any) float64 {
 	panic(invalidArithmetic(op, t1, t2))
 }
 
+func logic(op uint8, value, op1 any) any {
+	switch op {
+	case 45, 47: /* AND */
+		if !truthy(value) {
+			return false
+		}
+	case 46, 48: /* OR */
+		if truthy(value) {
+			return value
+		}
+	default:
+		panic("unknown logic operation")
+	}
+
+	if truthy(op1) {
+		return op1
+	}
+	return false
+}
+
 func jump(op uint8, op1, op2 any) bool {
 	t1, t2 := typeOf(op1), typeOf(op2)
 	if op == 27 || op == 30 {
@@ -845,15 +842,12 @@ func jump(op uint8, op1, op2 any) bool {
 		switch op1.(type) {
 		case float64, string, bool, nil:
 		default:
-			panic(incomparableType(t1, tru)) // Also deliberately restricting the a9bility to compare types that would always return false
-			// TODO: deep equality for tables?
+			panic(incomparableType(t1, tru)) // Also deliberately restricting the ability to compare types that would always return false
 		}
 
 		/* JUMPIFEQ, JUMPIFNOTEQ */
 		return (op1 == op2) == tru
-	}
-
-	if t1 == "float64" && t2 == "float64" {
+	} else if t1 == "float64" && t2 == "float64" {
 		return sfops(op, op1.(float64), op2.(float64))
 	} else if t1 == "string" && t2 == "string" {
 		return sfops(op, op1.(string), op2.(string))
@@ -871,14 +865,19 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 		alive = false
 	}
 
+	type UpvalIndex struct {
+		selfRef bool
+		i       int
+	}
+
 	type Upval struct {
 		value any
-		index any
+		index UpvalIndex
 		store any
 	}
 
-	var luau_wrapclosure func(module Deserialise, proto Proto, upvals []Upval) func(...any) []any
-	luau_wrapclosure = func(module Deserialise, proto Proto, upvals []Upval) func(...any) []any {
+	var luau_wrapclosure func(module Deserialise, proto Proto, upvals []Upval) *func(...any) []any
+	luau_wrapclosure = func(module Deserialise, proto Proto, upvals []Upval) *func(...any) []any {
 		luau_execute := func(
 			stack *[]any,
 			protos []uint32,
@@ -943,27 +942,27 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 				case 9: /* GETUPVAL */
 					uv := upvals[inst.B]
 
-					switch i := uv.index.(type) {
-					case int:
-						(*stack)[inst.A] = (*uv.store.(*[]any))[i]
-					case string:
-						if i == "value" {
-							(*stack)[inst.A] = uv.store.(Upval).value
-						}
-					default:
-						panic("unknown upval index type")
+					if uv.index.selfRef {
+						(*stack)[inst.A] = uv.store.(Upval).value
+					} else {
+						(*stack)[inst.A] = (*uv.store.(*[]any))[uv.index.i]
 					}
 				case 10: /* SETUPVAL */
 					uv := upvals[inst.B]
-					(*uv.store.(*[]any))[uv.index.(int)] = (*stack)[inst.A]
+
+					if !uv.index.selfRef {
+						(*uv.store.(*[]any))[uv.index.i] = (*stack)[inst.A]
+					}
 				case 11: /* CLOSEUPVALS */
 					for i, uv := range *open_upvalues {
-						if uv.index.(int) < inst.A {
+						if uv.index.selfRef {
+							continue
+						} else if uv.index.i < inst.A {
 							continue
 						}
-						uv.value = (*uv.store.(*[]any))[uv.index.(int)]
+						uv.value = (*uv.store.(*[]any))[uv.index.i]
 						uv.store = uv
-						uv.index = "value" // -- self reference
+						uv.index.selfRef = true
 						(*open_upvalues)[i] = nil
 					}
 				case 12: /* GETIMPORT */
@@ -1019,7 +1018,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						if t == 0 { /* value */
 							upvalue := Upval{
 								value: (*stack)[pseudo.B],
-								index: "value", // -- self reference
+								index: UpvalIndex{selfRef: true},
 							}
 							upvalue.store = upvalue
 
@@ -1035,7 +1034,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 
 							if prev == nil {
 								prev = &Upval{
-									index: index,
+									index: UpvalIndex{i: index},
 									store: stack,
 								}
 
@@ -1108,17 +1107,15 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					fmt.Println(A, (*stack)[A])
 
 					f := (*stack)[A]
+					fn, ok := f.(*func(...any) []any)
 
-					switch f.(type) {
-					case func(...any) []any:
-					default:
+					if !ok {
 						panic(uncallableType(typeOf(f)))
 					}
 
-					fn := f.(func(...any) []any)
-					fmt.Println("calling with", (*stack)[A+1:A+params+1])
+					fmt.Println("*calling with", (*stack)[A+1:A+params+1])
 
-					ret_list := fn((*stack)[A+1 : A+params+1]...) // not inclusive
+					ret_list := (*fn)((*stack)[A+1 : A+params+1]...) // not inclusive
 					ret_num := int(len(ret_list))
 
 					if C == 0 {
@@ -1141,12 +1138,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 				case 23, 24: /* JUMP, JUMPBACK */
 					pc += inst.D
 				case 25, 26: /* JUMPIF, JUMPIFNOT */
-					cond := (*stack)[inst.A]
-					if !(cond == true || cond == false) {
-						panic(invalidCond(typeOf(cond)))
-					}
-
-					if cond == (op == 25) {
+					if truthy((*stack)[inst.A]) == (op == 25) {
 						pc += inst.D
 					}
 				case 27, 28, 29, 30, 31, 32: /* jump */
@@ -1172,7 +1164,12 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}
 					(*stack)[inst.A] = s.String()
 				case 50: /* NOT */
-					(*stack)[inst.A] = !truthy((*stack)[inst.B])
+					cond := (*stack)[inst.B]
+					if cond != true && cond != false {
+						panic(invalidCond(typeOf(cond)))
+					}
+
+					(*stack)[inst.A] = !(*stack)[inst.B].(bool)
 				case 51: /* MINUS */
 					(*stack)[inst.A] = -(*stack)[inst.B].(float64)
 				case 52: /* LENGTH */
@@ -1180,7 +1177,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 
 					length, ok := float64(0), true
 					for {
-						_, ok = t[length + 1]
+						_, ok = t[length+1]
 						if !ok {
 							break
 						}
@@ -1357,7 +1354,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						if t == 0 { /* value */
 							upvalue := Upval{
 								value: (*stack)[pseudo.B],
-								index: "value", // -- self reference
+								index: UpvalIndex{selfRef: true},
 							}
 							upvalue.store = upvalue
 
@@ -1441,9 +1438,9 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 				case 78: /* JUMPXEQKB */
 					kv := inst.K.(bool)
 					kn := inst.KN
-					ra, isBool := (*stack)[inst.A].(bool)
+					ra, ok := (*stack)[inst.A].(bool)
 
-					if isBool && (ra == kv) != kn {
+					if ok && (ra == kv) != kn {
 						pc += inst.D
 					} else {
 						pc += 1
@@ -1474,9 +1471,12 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 			}
 
 			for i, uv := range *open_upvalues {
-				uv.value = (*uv.store.(*[]any))[uv.index.(int)]
+				if uv.index.selfRef {
+					continue
+				}
+				uv.value = (*uv.store.(*[]any))[uv.index.i]
 				uv.store = uv
-				uv.index = "value" // -- self reference
+				uv.index.selfRef = true
 				(*open_upvalues)[i] = nil
 			}
 
@@ -1517,10 +1517,10 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 			return result
 		}
 
-		return wrapped
+		return &wrapped
 	}
 
-	return luau_wrapclosure(module, mainProto, []Upval{}), luau_close
+	return *luau_wrapclosure(module, mainProto, []Upval{}), luau_close
 }
 
 func main() {
