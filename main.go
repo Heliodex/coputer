@@ -919,11 +919,11 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					(*stack)[inst.A] = inst.B == 1
 					pc += inst.C
 				case 4: /* LOADN */
-					(*stack)[inst.A] = inst.D
+					(*stack)[inst.A] = float64(inst.D) // never put an int on the stack
 				case 5: /* LOADK */
 					(*stack)[inst.A] = inst.K
 				case 6: /* MOVE */
-					// we should never have to change the size of the stack (proto.maxstacksize)
+					// we should (ALMOST) never have to change the size of the stack (proto.maxstacksize)
 					(*stack)[inst.A] = (*stack)[inst.B]
 				case 7: /* GETGLOBAL */
 					kv := inst.K
@@ -955,9 +955,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}
 				case 11: /* CLOSEUPVALS */
 					for i, uv := range *open_upvalues {
-						if uv.index.selfRef {
-							continue
-						} else if uv.index.i < inst.A {
+						if uv.index.selfRef || uv.index.i < inst.A {
 							continue
 						}
 						uv.value = (*uv.store.(*[]any))[uv.index.i]
@@ -1078,22 +1076,25 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						params = callB - 1
 					}
 
-					if ok, ret_list := nativeNamecall(kv, stack, callA+1, callA+params); ok {
-						pc += 1 // -- Skip next CALL instruction
-
-						inst = *callInst
-						op = callOp
-
-						ret_num := len(ret_list)
-
-						if callC == 0 {
-							top = callA + ret_num - 1
-						} else {
-							ret_num = callC - 1
-						}
-
-						move(ret_list, 0, ret_num, callA, stack)
+					ok, ret_list := nativeNamecall(kv, stack, callA+1, callA+params)
+					if !ok {
+						break
 					}
+
+					pc += 1 // -- Skip next CALL instruction
+
+					inst = *callInst
+					op = callOp
+
+					ret_num := len(ret_list)
+
+					if callC == 0 {
+						top = callA + ret_num - 1
+					} else {
+						ret_num = callC - 1
+					}
+
+					move(ret_list, 0, ret_num, callA, stack)
 				case 21: /* CALL */
 					A, B, C := inst.A, inst.B, inst.C
 
@@ -1150,7 +1151,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 				case 33, 34, 35, 36, 37, 38, 81: /* arithmetic */
 					(*stack)[inst.A] = arithmetic(op, (*stack)[inst.B], (*stack)[inst.C])
 				case 39, 40, 41, 42, 43, 44, 82: /* arithmetik */
-					fmt.Println("ARITHMETIK")
+					fmt.Println("ARITHMETIK", typeOf((*stack)[inst.B]), typeOf(inst.K))
 					(*stack)[inst.A] = arithmetic(op, (*stack)[inst.B], inst.K)
 				case 45, 46: /* logic */
 					(*stack)[inst.A] = logic(op, (*stack)[inst.B], (*stack)[inst.C])
@@ -1175,10 +1176,9 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 				case 52: /* LENGTH */
 					t := (*stack)[inst.B].(map[any]any)
 
-					length, ok := float64(0), true
+					length := float64(0)
 					for {
-						_, ok = t[length+1]
-						if !ok {
+						if _, ok := t[length+1]; !ok {
 							break
 						}
 						length++
@@ -1212,40 +1212,19 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 				case 56: /* FORNPREP */
 					A := inst.A
 
-					limit := (*stack)[A].(int)
-					if !ttisnumber(limit) {
-						number := limit
-
-						if number == 0 { // TODO: check nils
-							panic("invalid 'for' limit (number expected)")
-						}
-
-						(*stack)[A] = number
-						limit = number
+					limit, ok := (*stack)[A].(float64)
+					if !ok {
+						panic("invalid 'for' limit (number expected)")
 					}
 
-					step := (*stack)[A+1].(int)
-					if !ttisnumber(step) {
-						number := step
-
-						if number == 0 { // TODO: check nils
-							panic("invalid 'for' step (number expected)")
-						}
-
-						(*stack)[A+1] = number
-						step = number
+					step, ok := (*stack)[A+1].(float64)
+					if !ok {
+						panic("invalid 'for' step (number expected)")
 					}
 
-					index := (*stack)[A+2].(int)
-					if !ttisnumber(index) {
-						number := index
-
-						if number == 0 { // TODO: check nils
-							panic("invalid 'for' index (number expected)")
-						}
-
-						(*stack)[A+2] = number
-						index = number
+					index, ok := (*stack)[A+2].(float64)
+					if !ok {
+						panic("invalid 'for' index (number expected)")
 					}
 
 					if step > 0 {
@@ -1257,9 +1236,9 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}
 				case 57: /* FORNLOOP */
 					A := inst.A
-					limit := (*stack)[A].(int)
-					step := (*stack)[A+1].(int)
-					index := (*stack)[A+2].(int) + step
+					limit := (*stack)[A].(float64)
+					step := (*stack)[A+1].(float64)
+					index := (*stack)[A+2].(float64) + step
 
 					(*stack)[A+2] = index
 
@@ -1272,15 +1251,15 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}
 				case 58: /* FORGLOOP */
 					A := inst.A
-					res := inst.K.(int)
+					res := int(inst.K.(float64))
 
 					top = int(A + 6)
 
-					it := (*stack)[A]
-					fmt.Println("IT", it, ttisfunction(it))
+					switch it := (*stack)[A].(type) {
+					case *func(...any) []any:
+						fmt.Println("IT func", it)
 
-					if ttisfunction(it) {
-						vals := it.(func(...any) []any)((*stack)[A+1], (*stack)[A+2])
+						vals := (*it)((*stack)[A+1], (*stack)[A+2])
 
 						move(vals, 0, res, A+3, &(*stack))
 
@@ -1292,7 +1271,9 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						} else {
 							pc += 1
 						}
-					} else {
+					default:
+						fmt.Println("IT gen", it)
+
 						iter := *generalised_iterators[inst]
 
 						if !iter.running {
@@ -1314,21 +1295,14 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 							pc += inst.D
 						}
 					}
-				case 59: /* FORGPREP_INEXT */
-					if !ttisfunction((*stack)[inst.A]) {
-						panic(fmt.Sprintf("attempt to iterate over a %s value", typeOf((*stack)[inst.A]))) // -- FORGPREP_INEXT encountered non-function value
+				case 59, 61: /* FORGPREP_INEXT, FORGPREP_NEXT */
+					if _, ok := (*stack)[inst.A].(*func(...any) []any); !ok {
+						panic(fmt.Sprintf("attempt to iterate over a %s value", typeOf((*stack)[inst.A]))) // --  encountered non-function value
 					}
-
 					pc += inst.D
 				case 60: /* FASTCALL3 */
 					/* Skipped */
 					pc += 1 // adjust for aux
-				case 61: /* FORGPREP_NEXT */
-					if !ttisfunction((*stack)[inst.A]) {
-						panic(fmt.Sprintf("attempt to iterate over a %s value", typeOf((*stack)[inst.A]))) // -- FORGPREP_NEXT encountered non-function value
-					}
-
-					pc += inst.D
 				case 63: /* GETVARARGS */
 					A := inst.A
 					b := inst.B - 1
@@ -1392,47 +1366,44 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					(*stack)[inst.A] = arithmetic(op, inst.K, (*stack)[inst.C])
 				case 73: /* FASTCALL1 */
 					/* Skipped */
-				case 74: /* FASTCALL2 */
-					/* Skipped */
-					pc += 1 // adjust for aux
-				case 75: /* FASTCALL2K */
+				case 74, 75: /* FASTCALL2, FASTCALL2K */
 					/* Skipped */
 					pc += 1 // adjust for aux
 				case 76: /* FORGPREP */
-					// ohhh no
-					iterator := (*stack)[inst.A]
-
-					if !ttisfunction(iterator) {
-						loopInstruction := *code[pc+inst.D-1]
-						if generalised_iterators[loopInstruction] == nil {
-							c := &Iterator{
-								args:   make(chan *[]any),
-								resume: make(chan *[]any),
-							}
-
-							go func() {
-								args := *<-c.args
-								c.args = nil // we're done here
-								c.running = true
-								fmt.Println("-2- generating iterator", args)
-
-								for i, v := range args[0].(map[any]any) {
-									if !c.running {
-										return
-									}
-									fmt.Println("-2- yielding", i, v)
-									c.resume <- &[]any{i, v}
-									fmt.Println("-2- yielded!")
-								}
-
-								c.resume <- nil
-							}()
-
-							generalised_iterators[loopInstruction] = c
-						}
+					pc += inst.D
+					if _, ok := (*stack)[inst.A].(*func(...any) []any); ok {
+						break
 					}
 
-					pc += inst.D
+					loopInstruction := *code[pc-1]
+					if generalised_iterators[loopInstruction] != nil {
+						break
+					}
+
+					c := &Iterator{
+						args:   make(chan *[]any),
+						resume: make(chan *[]any),
+					}
+
+					go func() {
+						args := *<-c.args
+						c.args = nil // we're done here
+						c.running = true
+						fmt.Println("-2- generating iterator", args)
+
+						for i, v := range args[0].(map[any]any) {
+							if !c.running {
+								return
+							}
+							fmt.Println("-2- yielding", i, v)
+							c.resume <- &[]any{i, v}
+							fmt.Println("-2- yielded!")
+						}
+
+						c.resume <- nil
+					}()
+
+					generalised_iterators[loopInstruction] = c
 				case 77: /* JUMPXEQKNIL */
 					kn := inst.KN
 
@@ -1451,20 +1422,10 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					} else {
 						pc += 1
 					}
-				case 79: /* JUMPXEQKN */
-					kv := inst.K.(uint32)
+				case 79, 80: /* JUMPXEQKN, JUMPXEQKS */
+					kv := inst.K.(float64)
 					kn := inst.KN
-					ra := (*stack)[inst.A].(uint32)
-
-					if (ra == kv) != kn {
-						pc += inst.D
-					} else {
-						pc += 1
-					}
-				case 80: /* JUMPXEQKS */
-					kv := inst.K.(uint32)
-					kn := inst.KN
-					ra := (*stack)[inst.A].(uint32)
+					ra := (*stack)[inst.A].(float64)
 
 					if (ra == kv) != kn {
 						pc += inst.D
