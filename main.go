@@ -48,14 +48,6 @@ func moveMap(src []any, a, b, t int, dst *map[any]any) {
 	}
 }
 
-func ttisnumber(v any) bool {
-	return reflect.TypeOf(v).Kind() == reflect.Float64
-}
-
-func ttisfunction(v any) bool {
-	return reflect.TypeOf(v).Kind() == reflect.Func
-}
-
 // bit32 extraction
 func extract(n, field, width int) uint32 {
 	return uint32(n>>field) & uint32(math.Pow(2, float64(width))-1)
@@ -228,12 +220,6 @@ type LuauSettings struct {
 	DecodeOp         func(op uint32) uint32
 }
 
-var luau_print = func(args ...any) (ret []any) {
-	args = append([]any{"printed:"}, args...)
-	fmt.Println(args...)
-	return
-}
-
 var luau_settings = LuauSettings{
 	VectorCtor: func(...float32) any {
 		panic("vectorCtor was not provided")
@@ -262,9 +248,7 @@ var luau_settings = LuauSettings{
 		}
 		panic(fmt.Sprintf("unknown __namecall: %s", kv))
 	},
-	Extensions: map[any]any{
-		"print": &luau_print,
-	},
+	Extensions:       map[any]any{},
 	AllowProxyErrors: false,
 	DecodeOp: func(op uint32) uint32 {
 		// println("decoding op", op)
@@ -729,6 +713,7 @@ var arithops = map[uint8]string{
 	42: "div",
 	43: "mod",
 	44: "pow",
+	51: "unm",
 	81: "idiv",
 	82: "idiv",
 }
@@ -794,8 +779,19 @@ func invalidArithmetic(op uint8, t1, t2 string) string {
 	return fmt.Sprintf("attempt to perform arithmetic (%s) on %s and %s", arithops[op], goluautype[t1], goluautype[t2])
 }
 
+func invalidUnm(t1 string) string {
+	return fmt.Sprintf("attempt to perform arithmetic (unm) on %s", goluautype[t1])
+}
+
 func invalidCond(t string) string {
 	return fmt.Sprintf("attempt to compare non-boolean type %s in condition", goluautype[t])
+}
+
+func invalidFor(pos, t string) string {
+	return fmt.Sprintf("invalid 'for' %s (number expected, got %s)", pos, goluautype[t])
+}
+func invalidLength(t string) string {
+	return fmt.Sprintf("attempt to get length of a %s value", goluautype[t])
 }
 
 func typeOf(v any) string {
@@ -1151,7 +1147,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 				case 33, 34, 35, 36, 37, 38, 81: /* arithmetic */
 					(*stack)[inst.A] = arithmetic(op, (*stack)[inst.B], (*stack)[inst.C])
 				case 39, 40, 41, 42, 43, 44, 82: /* arithmetik */
-					fmt.Println("ARITHMETIK", typeOf((*stack)[inst.B]), typeOf(inst.K))
+					fmt.Println("ARITHMETIK")
 					(*stack)[inst.A] = arithmetic(op, (*stack)[inst.B], inst.K)
 				case 45, 46: /* logic */
 					(*stack)[inst.A] = logic(op, (*stack)[inst.B], (*stack)[inst.C])
@@ -1165,25 +1161,36 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}
 					(*stack)[inst.A] = s.String()
 				case 50: /* NOT */
-					cond := (*stack)[inst.B]
-					if cond != true && cond != false {
-						panic(invalidCond(typeOf(cond)))
+					cond, ok := (*stack)[inst.B].(bool)
+					if !ok {
+						panic(invalidCond(typeOf((*stack)[inst.B])))
 					}
 
-					(*stack)[inst.A] = !(*stack)[inst.B].(bool)
+					(*stack)[inst.A] = !cond
 				case 51: /* MINUS */
-					(*stack)[inst.A] = -(*stack)[inst.B].(float64)
-				case 52: /* LENGTH */
-					t := (*stack)[inst.B].(map[any]any)
-
-					length := float64(0)
-					for {
-						if _, ok := t[length+1]; !ok {
-							break
-						}
-						length++
+					op1, ok := (*stack)[inst.B].(float64)
+					if !ok {
+						panic(invalidUnm(typeOf((*stack)[inst.B])))
 					}
-					(*stack)[inst.A] = length
+
+					(*stack)[inst.A] = -op1
+				case 52: /* LENGTH */
+					switch t := (*stack)[inst.B].(type) {
+					case map[any]any:
+						length := float64(0)
+						for {
+							if _, ok := t[length+1]; !ok {
+								break
+							}
+							length++
+						}
+						(*stack)[inst.A] = length
+					case string:
+						(*stack)[inst.A] = float64(len(t))
+					default:
+						panic(invalidLength(typeOf(t)))
+					}
+
 				case 53: /* NEWTABLE */
 					(*stack)[inst.A] = map[any]any{}
 
@@ -1212,19 +1219,19 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 				case 56: /* FORNPREP */
 					A := inst.A
 
+					index, ok := (*stack)[A+2].(float64)
+					if !ok {
+						panic(invalidFor("initial value", typeOf((*stack)[A+2])))
+					}
+
 					limit, ok := (*stack)[A].(float64)
 					if !ok {
-						panic("invalid 'for' limit (number expected)")
+						panic(invalidFor("limit", typeOf((*stack)[A])))
 					}
 
 					step, ok := (*stack)[A+1].(float64)
 					if !ok {
-						panic("invalid 'for' step (number expected)")
-					}
-
-					index, ok := (*stack)[A+2].(float64)
-					if !ok {
-						panic("invalid 'for' index (number expected)")
+						panic(invalidFor("step", typeOf((*stack)[A+1])))
 					}
 
 					if step > 0 {
@@ -1238,15 +1245,15 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					A := inst.A
 					limit := (*stack)[A].(float64)
 					step := (*stack)[A+1].(float64)
-					index := (*stack)[A+2].(float64) + step
+					init := (*stack)[A+2].(float64) + step
 
-					(*stack)[A+2] = index
+					(*stack)[A+2] = init
 
 					if step > 0 {
-						if index <= limit {
+						if init <= limit {
 							pc += inst.D
 						}
-					} else if limit <= index {
+					} else if limit <= init {
 						pc += inst.D
 					}
 				case 58: /* FORGLOOP */
@@ -1504,7 +1511,19 @@ func main() {
 
 	deserialised := luau_deserialise(bytecode)
 
-	exec, _ := luau_load(deserialised, map[any]any{})
+	var output []string
+	luau_print := func(args ...any) (ret []any) {
+		output = append(output, fmt.Sprint(args...))
+		return
+	}
 
+	exec, _ := luau_load(deserialised, map[any]any{
+		"print": &luau_print,
+	})
 	exec()
+
+	fmt.Println()
+	for _, v := range output {
+		fmt.Println(v)
+	}
 }
