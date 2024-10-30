@@ -3,8 +3,6 @@ package main
 import (
 	"fmt"
 	"math"
-	"os"
-	"os/exec"
 	"reflect"
 	"strings"
 )
@@ -790,6 +788,7 @@ func invalidCond(t string) string {
 func invalidFor(pos, t string) string {
 	return fmt.Sprintf("invalid 'for' %s (number expected, got %s)", pos, goluautype[t])
 }
+
 func invalidLength(t string) string {
 	return fmt.Sprintf("attempt to get length of a %s value", goluautype[t])
 }
@@ -1495,35 +1494,4 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 	}
 
 	return *luau_wrapclosure(module, mainProto, []Upval{}), luau_close
-}
-
-func main() {
-	fmt.Println("Compiling")
-
-	// execute luau-compile
-	cmd := exec.Command("luau-compile", "--binary", "-O0", "main.luau")
-	// get the output
-	bytecode, err := cmd.Output()
-	if err != nil {
-		fmt.Println("error running luau-compile:", err)
-		os.Exit(1)
-	}
-
-	deserialised := luau_deserialise(bytecode)
-
-	var output []string
-	luau_print := func(args ...any) (ret []any) {
-		output = append(output, fmt.Sprint(args...))
-		return
-	}
-
-	exec, _ := luau_load(deserialised, map[any]any{
-		"print": &luau_print,
-	})
-	exec()
-
-	fmt.Println()
-	for _, v := range output {
-		fmt.Println(v)
-	}
 }
