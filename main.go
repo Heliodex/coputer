@@ -1338,6 +1338,12 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						top = A + b - 1
 					}
 
+					// MAX STACK SIZE IS A LIE!!!!!!!!!!!!!!!!!!!!!!!
+					// uh, expand the stack
+					for len(*stack) < A+b {
+						*stack = append(*stack, nil)
+					}
+
 					move(varargs.list, 0, b, A, stack)
 				case 64: /* DUPCLOSURE */
 					newPrototype := protolist[inst.K.(uint32)] // TODO: 1-based indexing
@@ -1507,7 +1513,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 				// expand varargs list
 				varargs.list = make([]any, l)
 
-				move(passed, int(start)-1, int(start+l)-2, 0, &varargs.list)
+				move(passed, int(start)-1, int(start+l)-1, 0, &varargs.list)
 			}
 
 			// TODO: dee bugg ingg

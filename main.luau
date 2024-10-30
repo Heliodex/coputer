@@ -1,5 +1,7 @@
 --!strict
 
-local x = 2
+local function print2(...)
+	print { ... }
+end
 
-print( nil and "bruh" or "hello")
+print2(1, 2, 3)
