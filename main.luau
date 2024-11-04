@@ -1,3 +1,0 @@
---!strict
-
-print "Hello World!"
