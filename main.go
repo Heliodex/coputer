@@ -2,10 +2,226 @@ package main
 
 import (
 	"fmt"
+	"iter"
 	"math"
 	"reflect"
 	"strings"
 )
+
+func p2gte(n uint) uint {
+	n--
+	for i := range 5 { // lol copilot is magic
+		n |= n >> (1 << i)
+	}
+	return n + 1
+}
+
+func arrayKey(k any) (uint, bool) {
+	fk, ok := k.(float64)
+	return uint(fk), ok && fk == math.Floor(fk) && fk > 0
+}
+
+type Table struct {
+	array *[]any
+	hash  *map[any]any
+	asize uint
+}
+
+func (t *Table) Len() (len int) {
+	if t.array == nil {
+		return
+	}
+	// return len(*(t.array))
+	for _, v := range *(t.array) {
+		if v == nil {
+			break
+		}
+		len++
+	}
+	return
+}
+
+// "The first step in the rehash is to decide the sizes of the new
+// array part and the new hash part. So, Lua traverses all entries, counting and
+// classifying them, and then chooses as the size of the array part the largest power
+// of 2 such that more than half the elements of the array part are filled."
+// - Lua performance tips, Roberto Ierusalimschy
+func (t *Table) Rehash(nk any, nv any) {
+	var lenArray, lenHash uint
+	arrayExists, hashExists := t.array != nil, t.hash != nil
+
+	if arrayExists {
+		lenArray = uint(len(*(t.array)))
+	}
+	if hashExists {
+		lenHash = uint(len(*(t.hash)))
+	}
+
+	entries := make(map[any]any, lenArray+lenHash)
+	arrayEntries := make([]any, 0)
+
+	// array kvs
+	if arrayExists {
+		for i, v := range *(t.array) {
+			if v == nil {
+				continue
+			}
+			entries[float64(i+1)] = v
+
+			for i >= len(arrayEntries) {
+				arrayEntries = append(arrayEntries, nil)
+			}
+			arrayEntries[i] = v
+		}
+	}
+
+	// hash kvs
+	if hashExists {
+		for k, v := range *(t.hash) {
+			if v == nil {
+				continue
+			}
+			if ak, ok := arrayKey(k); ok {
+				entries[float64(ak)] = v
+				for int(ak) >= len(arrayEntries) {
+					arrayEntries = append(arrayEntries, nil)
+				}
+				arrayEntries[ak] = v
+			} else {
+				entries[k] = v
+			}
+		}
+	}
+
+	// new kv
+	if ank, ok := arrayKey(nk); ok {
+		entries[float64(ank)] = nv
+		for int(ank) >= len(arrayEntries) {
+			arrayEntries = append(arrayEntries, nil)
+		}
+		arrayEntries[ank-1] = nv
+	} else {
+		entries[nk] = nv
+	}
+
+	fmt.Println("ALL ENTRIES", entries)
+
+	// count the number of elements in the table
+	totalSize := uint(len(entries))
+	if totalSize == 0 {
+		t.array = nil
+		t.hash = nil
+		t.asize = 0
+		return
+	}
+
+	maxP2 := p2gte(totalSize)
+	lenArrayEntries := uint(len(arrayEntries))
+
+	var maxToFill, intsFilled uint
+
+	// halve the size of the array until more than half of the spaces are filled
+	for {
+		fmt.Println("halving", maxP2, "until", maxToFill, lenArrayEntries)
+		intsFilled = 0
+		maxToFill = min(maxP2, totalSize, lenArrayEntries)
+		for _, v := range arrayEntries[:maxToFill] {
+			if v != nil {
+				intsFilled++
+			}
+		}
+		fmt.Println("INTSFILLED", intsFilled)
+
+		if intsFilled > maxP2/2 || maxP2 == 0 {
+			break
+		}
+		maxP2 >>= 1
+	}
+
+	if maxP2 > 0 {
+		t.asize = maxP2
+
+		// fill the new array
+		newArray := make([]any, maxP2)
+		copy(newArray, arrayEntries[:maxToFill]) // birh
+		t.array = &newArray
+
+		for i, v := range newArray {
+			// remove from entries
+			if v != nil {
+				fmt.Println("DELETING", float64(i+1), entries[float64(i+1)])
+				delete(entries, float64(i+1))
+			}
+		}
+		fmt.Println("Remaining", entries)
+	}
+
+	t.hash = &entries
+
+	fmt.Println()
+	fmt.Println("REHASHED")
+	fmt.Println("ARRAY", t.array)
+	fmt.Println("HASH", entries)
+	fmt.Println("ASIZE", t.asize)
+	fmt.Println()
+}
+
+func (t *Table) Set(i any, v any) {
+	if fi, ok := i.(float64); ok && fi == math.Floor(fi) {
+		if t.array == nil {
+			t.array = &[]any{}
+		}
+
+		ii := uint(fi)
+		if 1 <= ii && ii <= t.asize {
+			(*(t.array))[ii-1] = v
+			return
+		} else if ii > t.asize {
+			t.Rehash(float64(ii), v)
+			return
+		}
+	}
+
+	if t.hash == nil {
+		t.hash = &map[any]any{}
+	}
+	(*(t.hash))[i] = v
+}
+
+func (t *Table) Get(i any) any {
+	if fi, ok := i.(float64); ok && fi == math.Floor(fi) {
+		ii := uint(fi)
+		if 1 <= ii && ii <= t.asize {
+			return (*(t.array))[ii-1]
+		}
+	}
+	return (*(t.hash))[i]
+}
+
+// 1.23 goes hard
+func (t *Table) Iter() iter.Seq2[any, any] {
+	return func(yield func(any, any) bool) {
+		if t.array != nil {
+			for i, v := range *(t.array) {
+				// fmt.Println("YIELDING1", i, v)
+				if v == nil {
+					break
+				}
+				if !yield(i+1, v) {
+					return
+				}
+			}
+		}
+		if t.hash != nil {
+			for k, v := range *(t.hash) {
+				// fmt.Println("YIELDING2", k, v)
+				if !yield(k, v) {
+					return
+				}
+			}
+		}
+	}
+}
 
 func move(src []any, a, b, t int, dst *[]any) {
 	if b < a {
@@ -32,13 +248,13 @@ func move(src []any, a, b, t int, dst *[]any) {
 }
 
 // ???
-func moveMap(src []any, a, b, t int, dst *map[any]any) {
+func moveTable(src []any, a, b, t int, dst *Table) {
 	if b < a {
 		return
 	}
 
 	for i, v := range src[a:min(b, len(src))] {
-		(*dst)[float64(i+t)] = v
+		dst.Set(float64(i+t), v)
 	}
 }
 
@@ -904,7 +1120,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 
 				pc += 1
 
-				// fmt.Println("OP", op, "PC", pc)
+				fmt.Println("OP", op, "PC", pc)
 
 				switch op {
 				case 0: /* NOP */
@@ -983,38 +1199,38 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					pc += 1 // -- adjust for aux
 				case 13: /* GETTABLE */
 					index := (*stack)[inst.C]
-					t, ok := (*stack)[inst.B].(map[any]any)
+					t, ok := (*stack)[inst.B].(*Table)
 					if !ok {
 						panic(invalidIndex(typeOf((*stack)[inst.B]), index))
 					}
 
-					(*stack)[inst.A] = t[index]
+					(*stack)[inst.A] = t.Get(index)
 				case 14: /* SETTABLE */
 					index := (*stack)[inst.C]
-					t, ok := (*stack)[inst.B].(map[any]any)
+					t, ok := (*stack)[inst.B].(*Table)
 					if !ok {
 						panic(invalidIndex(typeOf((*stack)[inst.B]), index))
 					}
 
-					t[index] = (*stack)[inst.A]
+					t.Set(index, (*stack)[inst.A])
 				case 15: /* GETTABLEKS */
 					index := inst.K
-					t, ok := (*stack)[inst.B].(map[any]any)
+					t, ok := (*stack)[inst.B].(*Table)
 					if !ok {
 						panic(invalidIndex(typeOf((*stack)[inst.B]), index))
 					}
 
-					(*stack)[inst.A] = t[index]
+					(*stack)[inst.A] = t.Get(index)
 
 					pc += 1 // -- adjust for aux
 				case 16: /* SETTABLEKS */
 					index := inst.K
-					t, ok := (*stack)[inst.B].(map[any]any)
+					t, ok := (*stack)[inst.B].(*Table)
 					if !ok {
 						panic(invalidIndex(typeOf((*stack)[inst.B]), index))
 					}
 
-					t[index] = (*stack)[inst.A]
+					t.Set(index, (*stack)[inst.A])
 
 					pc += 1 // -- adjust for aux
 				case 17: /* GETTABLEN */
@@ -1076,7 +1292,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					kv := inst.K.(string)
 					// fmt.Println("kv", kv)
 
-					sb := (*stack)[B].(map[any]any)
+					sb := (*stack)[B].(*Table)
 					// fmt.Println("sb", sb)
 					(*stack)[A+1] = sb // TODO: 1-based indexing
 
@@ -1098,7 +1314,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 
 					ok, ret_list := luau_settings.NamecallHandler(kv, stack, callA+1, callA+params)
 					if !ok {
-						(*stack)[A] = sb[kv]
+						(*stack)[A] = sb.Get(kv)
 						break
 					}
 
@@ -1200,15 +1416,8 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					(*stack)[inst.A] = -op1
 				case 52: /* LENGTH */
 					switch t := (*stack)[inst.B].(type) {
-					case map[any]any:
-						length := float64(0)
-						for {
-							if _, ok := t[length+1]; !ok {
-								break
-							}
-							length++
-						}
-						(*stack)[inst.A] = length
+					case *Table:
+						(*stack)[inst.A] = t.Len()
 					case string:
 						(*stack)[inst.A] = float64(len(t))
 					default:
@@ -1216,14 +1425,14 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}
 
 				case 53: /* NEWTABLE */
-					(*stack)[inst.A] = map[any]any{}
+					(*stack)[inst.A] = &Table{}
 
 					pc += 1 // -- adjust for aux
 				case 54: /* DUPTABLE */
 					template := inst.K.([]uint32)
-					serialised := make(map[any]any, len(template))
+					serialised := &Table{}
 					for _, id := range template {
-						serialised[constants[id]] = nil // TODO: 1-based indexing
+						serialised.Set(constants[id], nil)
 					}
 					(*stack)[inst.A] = serialised
 				case 55: /* SETLIST */
@@ -1234,10 +1443,10 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						c = top - B + 1
 					}
 
-					s := (*stack)[A].(map[any]any)
+					s := (*stack)[A].(*Table)
 
 					// one-indexed lol
-					moveMap(*stack, B, B+c, inst.aux, &s)
+					moveTable(*stack, B, B+c, inst.aux, s)
 					(*stack)[A] = s
 
 					pc += 1 // -- adjust for aux
@@ -1310,9 +1519,9 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 
 						if !iter.running {
 							args := &[]any{it, (*stack)[A+1], (*stack)[A+2]}
-							fmt.Println("-1- sending thru the wire", args)
+							// fmt.Println("-1- sending thru the wire", args)
 							iter.args <- args
-							fmt.Println("-1- sent")
+							// fmt.Println("-1- sent")
 						}
 						vals := <-iter.resume
 						fmt.Println("-1- received!", vals)
@@ -1423,13 +1632,13 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						c.running = true
 						fmt.Println("-2- generating iterator", args)
 
-						for i, v := range args[0].(map[any]any) {
+						for i, v := range args[0].(*Table).Iter() {
 							if !c.running {
 								return
 							}
 							fmt.Println("-2- yielding", i, v)
 							c.resume <- &[]any{i, v}
-							fmt.Println("-2- yielded!")
+							// fmt.Println("-2- yielded!")
 						}
 
 						c.resume <- nil
