@@ -5,6 +5,7 @@ import (
 	"iter"
 	"math"
 	"reflect"
+	"slices"
 	"strings"
 )
 
@@ -16,9 +17,9 @@ func p2gte(n uint) uint {
 	return n + 1
 }
 
-func arrayKey(k any) (uint, bool) {
+func arrayKey(k any) (int, bool) {
 	fk, ok := k.(float64)
-	return uint(fk), ok && fk == math.Floor(fk) && fk > 0
+	return int(fk), ok && fk == math.Floor(fk) && fk > 0
 }
 
 type Table struct {
@@ -83,7 +84,7 @@ func (t *Table) Rehash(nk any, nv any) {
 			}
 			if ak, ok := arrayKey(k); ok {
 				entries[float64(ak)] = v
-				for int(ak) >= len(arrayEntries) {
+				for ak >= len(arrayEntries) {
 					arrayEntries = append(arrayEntries, nil)
 				}
 				arrayEntries[ak] = v
@@ -94,11 +95,13 @@ func (t *Table) Rehash(nk any, nv any) {
 	}
 
 	// new kv
+	fmt.Println("new nknv", nk, nv)
 	if ank, ok := arrayKey(nk); ok {
 		entries[float64(ank)] = nv
-		for int(ank) >= len(arrayEntries) {
+		for ank >= len(arrayEntries) {
 			arrayEntries = append(arrayEntries, nil)
 		}
+		fmt.Println("setting array", ank, ank-1)
 		arrayEntries[ank-1] = nv
 	} else {
 		entries[nk] = nv
@@ -172,11 +175,11 @@ func (t *Table) Set(i any, v any) {
 			t.array = &[]any{}
 		}
 
-		ii := uint(fi)
-		if 1 <= ii && ii <= t.asize {
+		ii := int(fi)
+		if 1 <= ii && ii <= int(t.asize) {
 			(*(t.array))[ii-1] = v
 			return
-		} else if ii > t.asize {
+		} else if ii > int(t.asize) {
 			t.Rehash(float64(ii), v)
 			return
 		}
@@ -203,7 +206,6 @@ func (t *Table) Iter() iter.Seq2[any, any] {
 	return func(yield func(any, any) bool) {
 		if t.array != nil {
 			for i, v := range *(t.array) {
-				// fmt.Println("YIELDING1", i, v)
 				if v == nil {
 					break
 				}
@@ -213,9 +215,17 @@ func (t *Table) Iter() iter.Seq2[any, any] {
 			}
 		}
 		if t.hash != nil {
-			for k, v := range *(t.hash) {
-				// fmt.Println("YIELDING2", k, v)
-				if !yield(k, v) {
+			hash := *(t.hash)
+			// order keys in map
+			keys := make([]any, 0, len(hash))
+			for k := range hash {
+				keys = append(keys, k)
+			}
+			slices.SortFunc(keys, func(a, b any) int {
+				return strings.Compare(fmt.Sprint(a), fmt.Sprint(b))
+			})
+			for _, k := range keys {
+				if !yield(k, (hash)[k]) {
 					return
 				}
 			}
@@ -438,13 +448,6 @@ var luau_settings = LuauSettings{
 	NamecallHandler: func(kv string, stack *[]any, c1, c2 int) (ok bool, ret []any) {
 		switch kv {
 		case "format":
-			fmt.Println("kv", kv)
-			for i, v := range *stack {
-				fmt.Printf("    [%d] = %v\n", i, v)
-			}
-			fmt.Println("c1", c1)
-			fmt.Println("c2", c2)
-
 			str := (*stack)[c1].(string)
 			args := (*stack)[c1+1 : c2+1]
 
@@ -456,8 +459,7 @@ var luau_settings = LuauSettings{
 
 			return true, []any{sub(str, strArgs)}
 		}
-		// panic(fmt.Sprintf("unknown __namecall: %s", kv))
-		return false, []any{}
+		return
 	},
 	Extensions:       map[any]any{},
 	AllowProxyErrors: false,
@@ -1197,40 +1199,30 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}
 
 					pc += 1 // -- adjust for aux
-				case 13: /* GETTABLE */
+				case 13, 14: /* GETTABLE, SETTABLE */
 					index := (*stack)[inst.C]
 					t, ok := (*stack)[inst.B].(*Table)
 					if !ok {
 						panic(invalidIndex(typeOf((*stack)[inst.B]), index))
 					}
 
-					(*stack)[inst.A] = t.Get(index)
-				case 14: /* SETTABLE */
-					index := (*stack)[inst.C]
-					t, ok := (*stack)[inst.B].(*Table)
-					if !ok {
-						panic(invalidIndex(typeOf((*stack)[inst.B]), index))
+					if op == 13 {
+						(*stack)[inst.A] = t.Get(index)
+					} else {
+						t.Set(index, (*stack)[inst.A])
 					}
-
-					t.Set(index, (*stack)[inst.A])
-				case 15: /* GETTABLEKS */
+				case 15, 16: /* GETTABLEKS, SETTABLEKS */
 					index := inst.K
 					t, ok := (*stack)[inst.B].(*Table)
 					if !ok {
 						panic(invalidIndex(typeOf((*stack)[inst.B]), index))
 					}
 
-					(*stack)[inst.A] = t.Get(index)
-
-					pc += 1 // -- adjust for aux
-				case 16: /* SETTABLEKS */
-					index := inst.K
-					t, ok := (*stack)[inst.B].(*Table)
-					if !ok {
-						panic(invalidIndex(typeOf((*stack)[inst.B]), index))
+					if op == 15 {
+						(*stack)[inst.A] = t.Get(index)
+					} else {
+						t.Set(index, (*stack)[inst.A])
 					}
-
-					t.Set(index, (*stack)[inst.A])
 
 					pc += 1 // -- adjust for aux
 				case 17: /* GETTABLEN */
@@ -1286,21 +1278,21 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						}
 					}
 				case 20: /* NAMECALL */
-					// fmt.Println("NAMECALL")
+					fmt.Println("NAMECALL")
 
 					A, B := inst.A, inst.B
 					kv := inst.K.(string)
 					// fmt.Println("kv", kv)
 
-					sb := (*stack)[B].(*Table)
-					// fmt.Println("sb", sb)
+					sb := (*stack)[B]
+					fmt.Println("sb", sb)
 					(*stack)[A+1] = sb // TODO: 1-based indexing
 
-					pc += 1 // -- adjust for aux
-
 					// -- Special handling for native namecall behaviour
-					callInst := code[pc-1]
+					callInst := code[pc]
 					callOp := callInst.opcode
+
+					pc += 1 // -- adjust for aux
 
 					// -- Copied from the CALL handler
 					callA, callB, callC := callInst.A, callInst.B, callInst.C
@@ -1314,7 +1306,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 
 					ok, ret_list := luau_settings.NamecallHandler(kv, stack, callA+1, callA+params)
 					if !ok {
-						(*stack)[A] = sb.Get(kv)
+						(*stack)[A] = (*stack)[B].(*Table).Get(kv)
 						break
 					}
 

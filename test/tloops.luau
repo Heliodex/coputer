@@ -13,7 +13,7 @@ local table = {
 	key = "test",
 	key1 = "test2",
 	-- hash keys
-	-- [-1] = "test3",
+	[-1] = "test3",
 	-- [0] = "test4",
 	-- [9] = "test5",
 	-- [10] = "test6",
