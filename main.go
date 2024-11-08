@@ -433,11 +433,11 @@ const LUAU_MULTRET = -1
 
 type LuauSettings struct {
 	VectorCtor       func(...float32) any
-	VectorSize       uint8
 	NamecallHandler  func(kv string, stack *[]any, c1, c2 int) (ok bool, ret []any)
-	Extensions       map[any]any
-	AllowProxyErrors bool
 	DecodeOp         func(op uint32) uint32
+	Extensions       map[any]any
+	VectorSize       uint8
+	AllowProxyErrors bool
 }
 
 var luau_settings = LuauSettings{
@@ -470,14 +470,12 @@ var luau_settings = LuauSettings{
 }
 
 type Inst struct {
-	A, B, C, D, E, KC     int
-	K, K0, K1, K2         any
-	KN                    bool
-	aux                   int
-	kmode, opcode, opmode uint8
-	opname                string
-	usesAux               bool
-	value                 uint32
+	K, K0, K1, K2          any
+	opname                 string
+	A, B, C, D, E, KC, aux int
+	value                  uint32
+	kmode, opcode, opmode  uint8
+	KN, usesAux            bool
 }
 
 type Varargs struct {
@@ -486,34 +484,29 @@ type Varargs struct {
 }
 
 type Proto struct {
-	maxstacksize, numparams, nups uint8
-	isvararg                      bool
-	linedefined                   uint32
-	debugname                     string
-
-	sizecode  uint32
-	code      []*Inst
-	debugcode []uint8
-
-	sizek uint32
-	k     []any
-
-	sizep  uint32
-	protos []uint32
-
+	debugname           string
+	linedefined         uint32
+	sizecode            uint32
+	sizek               uint32
+	sizep               uint32
+	bytecodeid          uint32
+	maxstacksize        uint8
+	isvararg            bool
+	nups                uint8
 	lineinfoenabled     bool
+	numparams           uint8
+	k                   []any
+	code                []*Inst
 	instructionlineinfo []uint32
-
-	bytecodeid uint32
+	protos              []uint32
+	debugcode           []uint8
 }
 
 type Deserialise struct {
-	stringList []string
-	protoList  []Proto
-
-	mainProto Proto
-
 	typesVersion uint8
+	mainProto    Proto
+	stringList   []string
+	protoList    []Proto
 }
 
 func luau_deserialise(stream []byte) Deserialise {
@@ -891,9 +884,8 @@ func luau_deserialise(stream []byte) Deserialise {
 }
 
 type Iterator struct {
-	running bool
-	args    chan *[]any
-	resume  chan *[]any
+	args, resume chan *[]any
+	running      bool
 }
 
 func truthy(v any) bool {
