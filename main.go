@@ -28,6 +28,7 @@ type Table struct {
 	asize uint
 }
 
+// O(n) length? *scoffs*
 func (t *Table) Len() (len int) {
 	if t.array == nil {
 		return
@@ -170,17 +171,18 @@ func (t *Table) Rehash(nk any, nv any) {
 }
 
 func (t *Table) Set(i any, v any) {
-	if fi, ok := i.(float64); ok && fi == math.Floor(fi) {
+	fi, ok := i.(float64)
+
+	if ok && fi == math.Floor(fi) {
 		if t.array == nil {
 			t.array = &[]any{}
 		}
 
-		ii := int(fi)
-		if 1 <= ii && ii <= int(t.asize) {
+		if ii := int(fi); 1 <= ii && ii <= int(t.asize) {
 			(*(t.array))[ii-1] = v
 			return
 		} else if ii > int(t.asize) {
-			t.Rehash(float64(ii), v)
+			t.Rehash(fi, v)
 			return
 		}
 	}
@@ -222,6 +224,9 @@ func (t *Table) Iter() iter.Seq2[any, any] {
 				keys = append(keys, k)
 			}
 			slices.SortFunc(keys, func(a, b any) int {
+				// It doesn't have to be pretty for map keys
+				// (in fact, the reference implementation of Luau has a rather insane sort order)
+				// It just has to be DETERMINISTIC
 				return strings.Compare(fmt.Sprint(a), fmt.Sprint(b))
 			})
 			for _, k := range keys {
@@ -247,8 +252,7 @@ func move(src []any, a, b, t int, dst *[]any) {
 		ret[i+t] = v
 	}
 
-	tl := len(s1) + len(s2)
-	if tl < len(*dst) {
+	if tl := len(s1) + len(s2); tl < len(*dst) {
 		for i, v := range (*dst)[t+b:] {
 			ret[i+tl] = v
 		}
@@ -436,7 +440,7 @@ type LuauSettings struct {
 	NamecallHandler func(kv string, stack *[]any, c1, c2 int) (ok bool, ret []any)
 	// DecodeOp        func(op uint32) uint32
 	Extensions map[any]any
-	VectorSize uint8
+	// VectorSize uint8
 	// AllowProxyErrors bool
 }
 
@@ -465,7 +469,7 @@ var luau_settings = LuauSettings{
 	// 	return op
 	// },
 	Extensions: map[any]any{},
-	VectorSize: 4,
+	// VectorSize: 4,
 	// AllowProxyErrors: false,
 }
 
@@ -723,13 +727,7 @@ func luau_deserialise(data []byte) Deserialised {
 			case 6: // Closure
 				k = rVarInt()
 			case 7: // Vector
-				x, y, z, w := rFloat32(), rFloat32(), rFloat32(), rFloat32()
-
-				if luau_settings.VectorSize == 4 {
-					k = luau_settings.VectorCtor(x, y, z, w)
-				} else {
-					k = luau_settings.VectorCtor(x, y, z)
-				}
+				k = luau_settings.VectorCtor(rFloat32(), rFloat32(), rFloat32(), rFloat32())
 			default:
 				panic(fmt.Sprintf("Unknown ktype %d", kt))
 			}
@@ -1065,7 +1063,7 @@ func luau_load(module Deserialised, env map[any]any) (func(...any) []any, func()
 
 			pc += 1
 
-			fmt.Println("OP", op, "PC", pc)
+			// fmt.Println("OP", op, "PC", pc)
 
 			switch op {
 			case 0: // NOP
@@ -1166,9 +1164,9 @@ func luau_load(module Deserialised, env map[any]any) (func(...any) []any, func()
 
 				pc += 1 // -- adjust for aux
 			case 17: // GETTABLEN
-				(*stack)[inst.A] = (*stack)[inst.B].(map[int]any)[inst.C+1]
+				(*stack)[inst.A] = (*stack)[inst.B].(*Table).Get(inst.C + 1)
 			case 18: // SETTABLEN
-				(*stack)[inst.B].(map[int]any)[inst.C] = (*stack)[inst.A]
+				(*stack)[inst.B].(*Table).Set(float64(inst.C+1), (*stack)[inst.A])
 			case 19: // NEWCLOSURE
 				newPrototype := protolist[protos[inst.D]-1]
 
@@ -1271,7 +1269,7 @@ func luau_load(module Deserialised, env map[any]any) (func(...any) []any, func()
 					params = B - 1
 				}
 
-				fmt.Println(A, (*stack)[A])
+				// fmt.Println(A, (*stack)[A])
 
 				f := (*stack)[A]
 				fn, ok := f.(*func(...any) []any)
@@ -1279,7 +1277,7 @@ func luau_load(module Deserialised, env map[any]any) (func(...any) []any, func()
 					panic(uncallableType(typeOf(f)))
 				}
 
-				fmt.Println("*calling with", (*stack)[A+1:A+params+1])
+				// fmt.Println("*calling with", (*stack)[A+1:A+params+1])
 
 				ret_list := (*fn)((*stack)[A+1 : A+params+1]...) // not inclusive
 				ret_num := int(len(ret_list))
@@ -1619,7 +1617,7 @@ func luau_load(module Deserialised, env map[any]any) (func(...any) []any, func()
 			maxstacksize, numparams := proto.maxstacksize, proto.numparams
 
 			stack := make([]any, maxstacksize)
-			fmt.Println("MAX STACK SIZE", maxstacksize)
+			// fmt.Println("MAX STACK SIZE", maxstacksize)
 			varargs := Varargs{[]any{}, 0}
 
 			move(passed, 0, int(numparams), 0, &stack)

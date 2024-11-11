@@ -1,5 +1,10 @@
--- local j = {}
--- local k = function() end
+local j = {}
+local k = function() end
+
+local pointerKeys = {
+	[j] = "tkey",
+	[k] = "fkey",
+}
 
 local table = {
 	"this",
@@ -9,22 +14,15 @@ local table = {
 	"of",
 	"a",
 	"table",
+	[8] = "gov",
 	-- string keys
-	key = "test",
-	key1 = "test2",
-	-- hash keys
-	[-1] = "test3",
-	-- [0] = "test4",
-	-- [9] = "test5",
-	-- [10] = "test6",
-	-- [3.14159] = "pi",
-	-- [j] = "tkey",
-	-- [k] = "fkey",
+	key = "test3",
 }
 
 for i, v in table do
 	print(i, v)
 end
 
+print(#pointerKeys)
 print(#table)
--- print(table[j], table[k])
+print(pointerKeys[j], pointerKeys[k])
