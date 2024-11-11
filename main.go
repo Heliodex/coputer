@@ -495,10 +495,9 @@ type Proto struct {
 	isvararg, lineinfoenabled                       bool
 }
 
-type Deserialise struct {
-	mainProto  Proto
-	stringList []string
-	protoList  []Proto
+type Deserialised struct {
+	mainProto Proto
+	protoList []Proto
 }
 
 func checkkmode(inst *Inst, k []any) {
@@ -539,82 +538,88 @@ func checkkmode(inst *Inst, k []any) {
 	}
 }
 
-func luau_deserialise(stream []byte) Deserialise {
-	var cursor uint32
+type Stream struct {
+	data []byte
+	pos  uint32
+}
 
-	readByte := func() uint8 {
-		b := stream[cursor]
-		cursor += 1
-		return b
-	}
+func (s *Stream) rByte() uint8 {
+	b := s.data[s.pos]
+	s.pos += 1
+	return b
+}
 
-	word := func() uint32 {
-		return uint32(stream[cursor]) | uint32(stream[cursor+1])<<8 | uint32(stream[cursor+2])<<16 | uint32(stream[cursor+3])<<24
-	}
+func (s *Stream) rWord() uint32 {
+	w := uint32(s.data[s.pos]) |
+		uint32(s.data[s.pos+1])<<8 |
+		uint32(s.data[s.pos+2])<<16 |
+		uint32(s.data[s.pos+3])<<24
+	s.pos += 4
+	return w
+}
 
-	readWord := func() uint32 {
-		w := word()
-		cursor += 4
-		return w
-	}
+func (s *Stream) rFloat32() float32 {
+	return math.Float32frombits(s.rWord())
+}
 
-	readFloat := func() float32 {
-		w := word()
-		cursor += 4
-		return math.Float32frombits(w)
-	}
+func (s *Stream) rFloat64() float64 {
+	return math.Float64frombits(uint64(s.rWord()) | uint64(s.rWord())<<32)
+}
 
-	readDouble := func() float64 {
-		word1 := word()
-		cursor += 4
-		word2 := word()
-		cursor += 4
-		return math.Float64frombits(uint64(word1) | uint64(word2)<<32)
-	}
-
-	readVarInt := func() (result uint32) {
-		for i := range 4 {
-			value := readByte()
-			result |= ((uint32(value) & 0x7F) << (i * 7))
-			if value&0x80 == 0 {
-				break
-			}
+func (s *Stream) rVarInt() (result uint32) {
+	for i := range 4 {
+		value := uint32(s.rByte())
+		result |= ((value & 0x7F) << (i * 7))
+		if value&0x80 == 0 {
+			break
 		}
-		return
+	}
+	return
+}
+
+func (s *Stream) rString() string {
+	size := s.rVarInt()
+	if size == 0 {
+		return ""
 	}
 
-	readString := func() string {
-		size := readVarInt()
-		if size == 0 {
-			return ""
-		}
-
-		str := make([]byte, size)
-		for i := range size {
-			str[i] = stream[cursor+uint32(i)]
-		}
-		cursor += size
-
-		return string(str)
+	str := make([]byte, size)
+	for i := range size {
+		str[i] = s.data[s.pos+uint32(i)]
 	}
+	s.pos += size
 
-	if luauVersion := readByte(); luauVersion == 0 {
+	return string(str)
+}
+
+func (s *Stream) CheckEnd() {
+	if s.pos != uint32(len(s.data)) {
+		panic("deserialiser position mismatch")
+	}
+}
+
+func luau_deserialise(data []byte) Deserialised {
+	stream := Stream{data: data}
+
+	rByte, rWord, rFloat32, rFloat64, rVarInt, rString := stream.rByte, stream.rWord, stream.rFloat32, stream.rFloat64, stream.rVarInt, stream.rString
+
+	if luauVersion := rByte(); luauVersion == 0 {
 		panic("the provided bytecode is an error message")
 	} else if luauVersion != 6 {
 		panic("the version of the provided bytecode is unsupported")
-	} else if readByte() != 3 { // types version
+	} else if rByte() != 3 { // types version
 		panic("the types version of the provided bytecode is unsupported")
 	}
 
-	stringCount := readVarInt()
+	stringCount := rVarInt()
 	stringList := make([]string, stringCount)
 	for i := range stringCount {
-		stringList[i] = readString()
+		stringList[i] = rString()
 	}
 
 	readInstruction := func(codeList *[]*Inst) (usesAux bool) {
 		// value := luau_settings.DecodeOp(readWord())
-		value := readWord()
+		value := rWord()
 		opcode := uint8(value & 0xFF)
 
 		opinfo := opList[opcode]
@@ -655,7 +660,7 @@ func luau_deserialise(stream []byte) Deserialise {
 		}
 
 		if usesAux {
-			aux := readWord()
+			aux := rWord()
 			inst.aux = int(aux)
 
 			*codeList = append(*codeList, &Inst{
@@ -667,15 +672,15 @@ func luau_deserialise(stream []byte) Deserialise {
 	}
 
 	readProto := func(bytecodeid uint32) Proto {
-		maxstacksize := readByte()
-		numparams := readByte()
-		nups := readByte()
-		isvararg := readByte() != 0
+		maxstacksize := rByte()
+		numparams := rByte()
+		nups := rByte()
+		isvararg := rByte() != 0
 
-		readByte()             // -- flags
-		cursor += readVarInt() // typesize
+		rByte()                 // -- flags
+		stream.pos += rVarInt() // typesize
 
-		sizecode := readVarInt()
+		sizecode := rVarInt()
 		codelist := new([]*Inst)
 
 		skipnext := false
@@ -692,33 +697,33 @@ func luau_deserialise(stream []byte) Deserialise {
 			debugcodelist[i] = (*codelist)[i].opcode
 		}
 
-		sizek := readVarInt()
+		sizek := rVarInt()
 		klist := make([]any, sizek)
 
 		for i := range sizek {
 			var k any
-			switch kt := readByte(); kt {
+			switch kt := rByte(); kt {
 			case 0: // Nil
 				k = nil
 			case 1: // Bool
-				k = readByte() != 0
+				k = rByte() != 0
 			case 2: // Number
-				k = readDouble()
+				k = rFloat64()
 			case 3: // String
-				k = stringList[readVarInt()-1] // TODO: 1-based indexing
+				k = stringList[rVarInt()-1] // TODO: 1-based indexing
 			case 4: // Function
-				k = readWord()
+				k = rWord()
 			case 5: // Table
-				dataLength := readVarInt()
+				dataLength := rVarInt()
 				k = make([]uint32, dataLength)
 
 				for j := range dataLength {
-					k.([]uint32)[j] = readVarInt() // TODO: 1-based indexing
+					k.([]uint32)[j] = rVarInt() // TODO: 1-based indexing
 				}
 			case 6: // Closure
-				k = readVarInt()
+				k = rVarInt()
 			case 7: // Vector
-				x, y, z, w := readFloat(), readFloat(), readFloat(), readFloat()
+				x, y, z, w := rFloat32(), rFloat32(), rFloat32(), rFloat32()
 
 				if luau_settings.VectorSize == 4 {
 					k = luau_settings.VectorCtor(x, y, z, w)
@@ -737,46 +742,45 @@ func luau_deserialise(stream []byte) Deserialise {
 			checkkmode((*codelist)[i], klist)
 		}
 
-		sizep := readVarInt()
+		sizep := rVarInt()
 		protos := make([]uint32, sizep)
 		for i := range sizep {
-			protos[i] = readVarInt() + 1 // TODO: 1-based indexing
+			protos[i] = rVarInt() + 1 // TODO: 1-based indexing
 		}
 
-		linedefined := readVarInt()
+		linedefined := rVarInt()
 
 		var debugname string
-		if debugnameindex := readVarInt(); debugnameindex == 0 {
+		if debugnameindex := rVarInt(); debugnameindex == 0 {
 			debugname = "(??)"
 		} else {
 			debugname = stringList[debugnameindex-1] // TODO: 1-based indexing
 		}
 
 		// -- lineinfo
-		lineinfoenabled := readByte() != 0
+		lineinfoenabled := rByte() != 0
 		var instructionlineinfo []uint32
 
 		if lineinfoenabled {
-			linegaplog2 := readByte()
+			linegaplog2 := rByte()
 			intervals := uint32((sizecode-1)>>linegaplog2) + 1
 
 			lineinfo := make([]uint32, sizecode)
 			abslineinfo := make([]uint32, intervals)
 
-			lastoffset := uint32(0)
+			var lastoffset uint32
 			for i := range sizecode {
-				lastoffset += uint32(readByte()) // TODO: type convs?
+				lastoffset += uint32(rByte()) // TODO: type convs?
 				lineinfo[i] = lastoffset
 			}
 
-			lastline := uint32(0)
+			var lastline uint32
 			for i := range intervals {
-				lastline += readWord()
+				lastline += rWord()
 				abslineinfo[i] = uint32(uint64(lastline) % (uint64(math.Pow(2, 32)))) // TODO: 1-based indexing
 			}
 
 			instructionlineinfo = make([]uint32, sizecode)
-
 			for i := range sizecode {
 				// -- p->abslineinfo[pc >> p->linegaplog2] + p->lineinfo[pc];
 				instructionlineinfo = append(instructionlineinfo, abslineinfo[i>>linegaplog2]+lineinfo[i]) // TODO: 1-based indexing
@@ -784,17 +788,16 @@ func luau_deserialise(stream []byte) Deserialise {
 		}
 
 		// -- debuginfo
-		if readByte() != 0 {
+		if rByte() != 0 {
 			fmt.Println("DEBUGINFO")
-			for range readVarInt() { // sizel
-				readVarInt()
-				readVarInt()
-				readVarInt()
-				readByte()
+			for range rVarInt() { // sizel
+				rVarInt()
+				rVarInt()
+				rVarInt()
+				rByte()
 			}
-			sizeupvalues := readVarInt()
-			for range sizeupvalues {
-				readVarInt()
+			for range rVarInt() { // sizeupvalues
+				rVarInt()
 			}
 		}
 
@@ -822,33 +825,34 @@ func luau_deserialise(stream []byte) Deserialise {
 	}
 
 	// userdataRemapping (not used in VM, left unused)
-	index := readByte()
+	index := rByte()
 	for index != 0 {
-		readVarInt()
-		index = readByte()
+		rVarInt()
+		index = rByte()
 	}
 
-	protoCount := readVarInt()
+	protoCount := rVarInt()
 	protoList := make([]Proto, protoCount)
-
 	for i := range protoCount {
 		protoList[i] = readProto(i - 1)
 	}
 
-	mainProto := protoList[readVarInt()]
-
-	if cursor != uint32(len(stream)) {
-		panic("deserialiser cursor position mismatch")
-	}
-
+	mainProto := protoList[rVarInt()]
 	mainProto.debugname = "(main)"
+	stream.CheckEnd()
 
-	return Deserialise{mainProto, stringList, protoList}
+	return Deserialised{mainProto, protoList}
 }
 
 type Iterator struct {
 	args, resume chan *[]any
 	running      bool
+}
+
+type Upval struct {
+	value, store any
+	index        int
+	selfRef      bool
 }
 
 func truthy(v any) bool {
@@ -1029,611 +1033,611 @@ func jump(op uint8, op1, op2 any) bool {
 	panic(invalidCompare(op, t1, t2))
 }
 
-func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func()) {
+func luau_load(module Deserialised, env map[any]any) (func(...any) []any, func()) {
 	protolist := module.protoList
 	alive := true
 
-	type Upval struct {
-		value, store any
-		index        int
-		selfRef      bool
-	}
-
 	var luau_wrapclosure func(proto Proto, upvals []Upval) *func(...any) []any
-	luau_wrapclosure = func(proto Proto, upvals []Upval) *func(...any) []any {
-		luau_execute := func(
-			stack *[]any,
-			protos []uint32,
-			code []*Inst,
-			varargs Varargs,
-		) []any {
-			top, pc, open_upvalues, generalised_iterators := -1, 1, new([]*Upval), map[Inst]*Iterator{}
-			extensions := luau_settings.Extensions
 
-			handlingBreak := false
-			inst, op := Inst{}, uint8(0)
+	luau_execute := func(
+		proto Proto,
+		upvals []Upval,
+		stack *[]any,
+		protos []uint32,
+		code []*Inst,
+		varargs Varargs,
+	) []any {
+		top, pc, open_upvalues, generalised_iterators := -1, 1, new([]*Upval), map[Inst]*Iterator{}
+		extensions := luau_settings.Extensions
 
-			// a a a a
-			// stayin' alive
-			for alive { // TODO: check go scope bruh
-				if !handlingBreak {
-					inst = *code[pc-1]
-					op = inst.opcode
+		var handlingBreak bool
+		var inst Inst
+		var op uint8
+
+		// a a a a
+		// stayin' alive
+		for alive { // TODO: check go scope bruh
+			if !handlingBreak {
+				inst = *code[pc-1]
+				op = inst.opcode
+			}
+			handlingBreak = false
+
+			pc += 1
+
+			fmt.Println("OP", op, "PC", pc)
+
+			switch op {
+			case 0: // NOP
+				// -- Do nothing
+			case 1: // BREAK
+				pc -= 1
+				op = proto.debugcode[pc]
+				handlingBreak = true
+			case 2: // LOADNIL
+				(*stack)[inst.A] = nil
+			case 3: // LOADB
+				(*stack)[inst.A] = inst.B == 1
+				pc += inst.C
+			case 4: // LOADN
+				(*stack)[inst.A] = float64(inst.D) // never put an int on the stack
+			case 5: // LOADK
+				(*stack)[inst.A] = inst.K
+			case 6: // MOVE
+				// we should (ALMOST) never have to change the size of the stack (proto.maxstacksize)
+				(*stack)[inst.A] = (*stack)[inst.B]
+			case 7: // GETGLOBAL
+				kv := inst.K
+
+				(*stack)[inst.A] = extensions[kv]
+				if (*stack)[inst.A] == nil {
+					(*stack)[inst.A] = env[kv]
 				}
-				handlingBreak = false
 
-				pc += 1
+				pc += 1 // -- adjust for aux
+			case 8: // SETGLOBAL
+				kv := inst.K
+				env[kv] = (*stack)[inst.A]
 
-				fmt.Println("OP", op, "PC", pc)
+				pc += 1 // -- adjust for aux
+			case 9: // GETUPVAL
+				if uv := upvals[inst.B]; uv.selfRef {
+					(*stack)[inst.A] = uv.store.(Upval).value
+				} else {
+					fmt.Println("GETTING UPVAL", uv.store)
 
-				switch op {
-				case 0: // NOP
-					// -- Do nothing
-				case 1: // BREAK
-					pc -= 1
-					op = proto.debugcode[pc]
-					handlingBreak = true
-				case 2: // LOADNIL
-					(*stack)[inst.A] = nil
-				case 3: // LOADB
-					(*stack)[inst.A] = inst.B == 1
-					pc += inst.C
-				case 4: // LOADN
-					(*stack)[inst.A] = float64(inst.D) // never put an int on the stack
-				case 5: // LOADK
-					(*stack)[inst.A] = inst.K
-				case 6: // MOVE
-					// we should (ALMOST) never have to change the size of the stack (proto.maxstacksize)
-					(*stack)[inst.A] = (*stack)[inst.B]
-				case 7: // GETGLOBAL
-					kv := inst.K
-
-					(*stack)[inst.A] = extensions[kv]
-					if (*stack)[inst.A] == nil {
-						(*stack)[inst.A] = env[kv]
+					(*stack)[inst.A] = (*uv.store.(*[]any))[uv.index]
+				}
+			case 10: // SETUPVAL
+				if uv := upvals[inst.B]; !uv.selfRef {
+					(*uv.store.(*[]any))[uv.index] = (*stack)[inst.A]
+				}
+			case 11: // CLOSEUPVALS
+				for i, uv := range *open_upvalues {
+					if uv.selfRef || uv.index < inst.A {
+						continue
 					}
+					uv.value = (*uv.store.(*[]any))[uv.index]
+					uv.store = uv
+					uv.selfRef = true
+					(*open_upvalues)[i] = nil
+				}
+			case 12: // GETIMPORT
+				k0 := inst.K0
+				imp := extensions[k0]
+				if imp == nil {
+					imp = env[k0]
+				}
 
-					pc += 1 // -- adjust for aux
-				case 8: // SETGLOBAL
-					kv := inst.K
-					env[kv] = (*stack)[inst.A]
+				switch inst.KC { // count
+				case 1:
+					(*stack)[inst.A] = imp
+				case 2:
+					(*stack)[inst.A] = imp.([]any)[inst.K1.(uint32)-1]
+				case 3:
+					(*stack)[inst.A] = imp.([]any)[inst.K1.(uint32)-1].([]any)[inst.K2.(uint32)-1]
+				}
 
-					pc += 1 // -- adjust for aux
-				case 9: // GETUPVAL
-					if uv := upvals[inst.B]; uv.selfRef {
-						(*stack)[inst.A] = uv.store.(Upval).value
-					} else {
-						fmt.Println("GETTING UPVAL", uv.store)
+				pc += 1 // -- adjust for aux
+			case 13, 14: // GETTABLE, SETTABLE
+				index := (*stack)[inst.C]
+				t, ok := (*stack)[inst.B].(*Table)
+				if !ok {
+					panic(invalidIndex(typeOf((*stack)[inst.B]), index))
+				}
 
-						(*stack)[inst.A] = (*uv.store.(*[]any))[uv.index]
-					}
-				case 10: // SETUPVAL
-					if uv := upvals[inst.B]; !uv.selfRef {
-						(*uv.store.(*[]any))[uv.index] = (*stack)[inst.A]
-					}
-				case 11: // CLOSEUPVALS
-					for i, uv := range *open_upvalues {
-						if uv.selfRef || uv.index < inst.A {
-							continue
+				if op == 13 {
+					(*stack)[inst.A] = t.Get(index)
+				} else {
+					t.Set(index, (*stack)[inst.A])
+				}
+			case 15, 16: // GETTABLEKS, SETTABLEKS
+				index := inst.K
+				t, ok := (*stack)[inst.B].(*Table)
+				if !ok {
+					panic(invalidIndex(typeOf((*stack)[inst.B]), index))
+				}
+
+				if op == 15 {
+					(*stack)[inst.A] = t.Get(index)
+				} else {
+					t.Set(index, (*stack)[inst.A])
+				}
+
+				pc += 1 // -- adjust for aux
+			case 17: // GETTABLEN
+				(*stack)[inst.A] = (*stack)[inst.B].(map[int]any)[inst.C+1]
+			case 18: // SETTABLEN
+				(*stack)[inst.B].(map[int]any)[inst.C] = (*stack)[inst.A]
+			case 19: // NEWCLOSURE
+				newPrototype := protolist[protos[inst.D]-1]
+
+				nups := newPrototype.nups
+				upvalues := make([]Upval, nups)
+				(*stack)[inst.A] = luau_wrapclosure(newPrototype, upvalues)
+
+				fmt.Println("nups", nups)
+				for i := range nups {
+					switch pseudo := code[pc-1]; pseudo.A {
+					case 0: // -- value
+						upvalue := Upval{
+							value:   (*stack)[pseudo.B],
+							selfRef: true,
 						}
-						uv.value = (*uv.store.(*[]any))[uv.index]
-						uv.store = uv
-						uv.selfRef = true
-						(*open_upvalues)[i] = nil
-					}
-				case 12: // GETIMPORT
-					k0 := inst.K0
-					imp := extensions[k0]
-					if imp == nil {
-						imp = env[k0]
-					}
+						upvalue.store = upvalue
 
-					switch inst.KC { // count
-					case 1:
-						(*stack)[inst.A] = imp
-					case 2:
-						(*stack)[inst.A] = imp.([]any)[inst.K1.(uint32)-1]
-					case 3:
-						(*stack)[inst.A] = imp.([]any)[inst.K1.(uint32)-1].([]any)[inst.K2.(uint32)-1]
-					}
+						upvalues[i] = upvalue
+					case 1: // -- reference
+						index := pseudo.B
+						fmt.Println("index", index, len(*open_upvalues))
 
-					pc += 1 // -- adjust for aux
-				case 13, 14: // GETTABLE, SETTABLE
-					index := (*stack)[inst.C]
-					t, ok := (*stack)[inst.B].(*Table)
-					if !ok {
-						panic(invalidIndex(typeOf((*stack)[inst.B]), index))
-					}
-
-					if op == 13 {
-						(*stack)[inst.A] = t.Get(index)
-					} else {
-						t.Set(index, (*stack)[inst.A])
-					}
-				case 15, 16: // GETTABLEKS, SETTABLEKS
-					index := inst.K
-					t, ok := (*stack)[inst.B].(*Table)
-					if !ok {
-						panic(invalidIndex(typeOf((*stack)[inst.B]), index))
-					}
-
-					if op == 15 {
-						(*stack)[inst.A] = t.Get(index)
-					} else {
-						t.Set(index, (*stack)[inst.A])
-					}
-
-					pc += 1 // -- adjust for aux
-				case 17: // GETTABLEN
-					(*stack)[inst.A] = (*stack)[inst.B].(map[int]any)[inst.C+1]
-				case 18: // SETTABLEN
-					(*stack)[inst.B].(map[int]any)[inst.C] = (*stack)[inst.A]
-				case 19: // NEWCLOSURE
-					newPrototype := protolist[protos[inst.D]-1]
-
-					nups := newPrototype.nups
-					upvalues := make([]Upval, nups)
-					(*stack)[inst.A] = luau_wrapclosure(newPrototype, upvalues)
-
-					fmt.Println("nups", nups)
-					for i := range nups {
-						switch pseudo := code[pc-1]; pseudo.A {
-						case 0: // -- value
-							upvalue := Upval{
-								value:   (*stack)[pseudo.B],
-								selfRef: true,
-							}
-							upvalue.store = upvalue
-
-							upvalues[i] = upvalue
-						case 1: // -- reference
-							index := pseudo.B
-							fmt.Println("index", index, len(*open_upvalues))
-
-							var prev *Upval
-							if index < len(*open_upvalues) {
-								prev = (*open_upvalues)[index]
-							}
-
-							if prev == nil {
-								prev = &Upval{
-									store: stack,
-									index: index,
-								}
-
-								for len(*open_upvalues) <= index {
-									*open_upvalues = append(*open_upvalues, nil)
-								}
-								(*open_upvalues)[index] = prev
-							}
-
-							upvalues[i] = *prev
-						case 2: // -- upvalue
-							upvalues[i] = upvals[pseudo.B]
+						var prev *Upval
+						if index < len(*open_upvalues) {
+							prev = (*open_upvalues)[index]
 						}
-						pc += 1
+
+						if prev == nil {
+							prev = &Upval{
+								store: stack,
+								index: index,
+							}
+
+							for len(*open_upvalues) <= index {
+								*open_upvalues = append(*open_upvalues, nil)
+							}
+							(*open_upvalues)[index] = prev
+						}
+
+						upvalues[i] = *prev
+					case 2: // -- upvalue
+						upvalues[i] = upvals[pseudo.B]
 					}
-				case 20: // NAMECALL
-					fmt.Println("NAMECALL")
+					pc += 1
+				}
+			case 20: // NAMECALL
+				fmt.Println("NAMECALL")
 
-					A, B := inst.A, inst.B
-					kv := inst.K.(string)
-					// fmt.Println("kv", kv)
+				A, B := inst.A, inst.B
+				kv := inst.K.(string)
+				// fmt.Println("kv", kv)
 
-					sb := (*stack)[B]
-					fmt.Println("sb", sb)
-					(*stack)[A+1] = sb // TODO: 1-based indexing
+				sb := (*stack)[B]
+				fmt.Println("sb", sb)
+				(*stack)[A+1] = sb // TODO: 1-based indexing
 
-					// -- Special handling for native namecall behaviour
-					callInst := code[pc]
-					callOp := callInst.opcode
+				// -- Special handling for native namecall behaviour
+				callInst := code[pc]
+				callOp := callInst.opcode
 
-					pc += 1 // -- adjust for aux
+				pc += 1 // -- adjust for aux
 
-					// -- Copied from the CALL handler
-					callA, callB, callC := callInst.A, callInst.B, callInst.C
+				// -- Copied from the CALL handler
+				callA, callB, callC := callInst.A, callInst.B, callInst.C
 
-					var params int
-					if callB == 0 {
-						params = top - callA
-					} else {
-						params = callB - 1
-					}
+				var params int
+				if callB == 0 {
+					params = top - callA
+				} else {
+					params = callB - 1
+				}
 
-					ok, ret_list := luau_settings.NamecallHandler(kv, stack, callA+1, callA+params)
-					if !ok {
-						(*stack)[A] = (*stack)[B].(*Table).Get(kv)
-						break
-					}
+				ok, ret_list := luau_settings.NamecallHandler(kv, stack, callA+1, callA+params)
+				if !ok {
+					(*stack)[A] = (*stack)[B].(*Table).Get(kv)
+					break
+				}
 
-					pc += 1 // -- Skip next CALL instruction
+				pc += 1 // -- Skip next CALL instruction
 
-					inst = *callInst
-					op = callOp
+				inst = *callInst
+				op = callOp
 
-					ret_num := len(ret_list)
+				ret_num := len(ret_list)
 
-					if callC == 0 {
-						top = callA + ret_num - 1
-					} else {
-						ret_num = callC - 1
-					}
+				if callC == 0 {
+					top = callA + ret_num - 1
+				} else {
+					ret_num = callC - 1
+				}
 
-					move(ret_list, 0, ret_num, callA, stack)
-				case 21: // CALL
-					A, B, C := inst.A, inst.B, inst.C
+				move(ret_list, 0, ret_num, callA, stack)
+			case 21: // CALL
+				A, B, C := inst.A, inst.B, inst.C
 
-					var params int
-					if B == 0 {
-						params = top - A
-					} else {
-						params = B - 1
-					}
+				var params int
+				if B == 0 {
+					params = top - A
+				} else {
+					params = B - 1
+				}
 
-					fmt.Println(A, (*stack)[A])
+				fmt.Println(A, (*stack)[A])
 
-					f := (*stack)[A]
-					fn, ok := f.(*func(...any) []any)
-					if !ok {
-						panic(uncallableType(typeOf(f)))
-					}
+				f := (*stack)[A]
+				fn, ok := f.(*func(...any) []any)
+				if !ok {
+					panic(uncallableType(typeOf(f)))
+				}
 
-					fmt.Println("*calling with", (*stack)[A+1:A+params+1])
+				fmt.Println("*calling with", (*stack)[A+1:A+params+1])
 
-					ret_list := (*fn)((*stack)[A+1 : A+params+1]...) // not inclusive
-					ret_num := int(len(ret_list))
+				ret_list := (*fn)((*stack)[A+1 : A+params+1]...) // not inclusive
+				ret_num := int(len(ret_list))
 
-					if C == 0 {
-						top = A + ret_num - 1
-					} else {
-						ret_num = C - 1
-					}
+				if C == 0 {
+					top = A + ret_num - 1
+				} else {
+					ret_num = C - 1
+				}
 
-					move(ret_list, 0, ret_num, A, stack)
-				case 22: // RETURN
-					A, B := inst.A, inst.B
-					b := B - 1
+				move(ret_list, 0, ret_num, A, stack)
+			case 22: // RETURN
+				A, B := inst.A, inst.B
+				b := B - 1
 
-					// nresults
-					if b == LUAU_MULTRET {
-						b = top - A + 1
-					}
+				// nresults
+				if b == LUAU_MULTRET {
+					b = top - A + 1
+				}
 
-					return (*stack)[A:max(A+b, 0)]
-				case 23, 24: // JUMP, JUMPBACK
+				return (*stack)[A:max(A+b, 0)]
+			case 23, 24: // JUMP, JUMPBACK
+				pc += inst.D
+			case 25, 26: // JUMPIF, JUMPIFNOT
+				if truthy((*stack)[inst.A]) == (op == 25) {
 					pc += inst.D
-				case 25, 26: // JUMPIF, JUMPIFNOT
-					if truthy((*stack)[inst.A]) == (op == 25) {
-						pc += inst.D
-					}
-				case 27, 28, 29, 30, 31, 32: // jump
-					if jump(op, (*stack)[inst.A], (*stack)[inst.aux]) {
-						pc += inst.D
-					} else {
-						pc += 1
-					}
-				case 33, 34, 35, 36, 37, 38, 81: // arithmetic
-					(*stack)[inst.A] = arithmetic(op, (*stack)[inst.B], (*stack)[inst.C])
-				case 39, 40, 41, 42, 43, 44, 82: // arithmetik
-					(*stack)[inst.A] = arithmetic(op, (*stack)[inst.B], inst.K)
-				case 45, 46: // logic
-					(*stack)[inst.A] = logic(op, (*stack)[inst.B], (*stack)[inst.C])
-				case 47, 48: // logik
-					fmt.Println("LOGIK")
-					(*stack)[inst.A] = logic(op, (*stack)[inst.B], inst.K)
-				case 49: // CONCAT
-					s := strings.Builder{}
-					for i := inst.B; i <= inst.C; i++ {
-						s.WriteString((*stack)[i].(string))
-					}
-					(*stack)[inst.A] = s.String()
-				case 50: // NOT
-					cond, ok := (*stack)[inst.B].(bool)
-					if !ok {
-						panic(invalidCond(typeOf((*stack)[inst.B])))
-					}
-
-					(*stack)[inst.A] = !cond
-				case 51: // MINUS
-					op1, ok := (*stack)[inst.B].(float64)
-					if !ok {
-						panic(invalidUnm(typeOf((*stack)[inst.B])))
-					}
-
-					(*stack)[inst.A] = -op1
-				case 52: // LENGTH
-					switch t := (*stack)[inst.B].(type) {
-					case *Table:
-						(*stack)[inst.A] = t.Len()
-					case string:
-						(*stack)[inst.A] = float64(len(t))
-					default:
-						panic(invalidLength(typeOf(t)))
-					}
-				case 53: // NEWTABLE
-					(*stack)[inst.A] = &Table{}
-
-					pc += 1 // -- adjust for aux
-				case 54: // DUPTABLE
-					template := inst.K.([]uint32)
-					serialised := &Table{}
-					for _, id := range template {
-						serialised.Set(proto.k[id], nil) // constants
-					}
-					(*stack)[inst.A] = serialised
-				case 55: // SETLIST
-					A, B := inst.A, inst.B
-					c := inst.C - 1
-
-					if c == LUAU_MULTRET {
-						c = top - B + 1
-					}
-
-					s := (*stack)[A].(*Table)
-
-					// one-indexed lol
-					moveTable(*stack, B, B+c, inst.aux, s)
-					(*stack)[A] = s
-
-					pc += 1 // -- adjust for aux
-				case 56: // FORNPREP
-					A := inst.A
-
-					index, ok := (*stack)[A+2].(float64)
-					if !ok {
-						panic(invalidFor("initial value", typeOf((*stack)[A+2])))
-					}
-
-					limit, ok := (*stack)[A].(float64)
-					if !ok {
-						panic(invalidFor("limit", typeOf((*stack)[A])))
-					}
-
-					step, ok := (*stack)[A+1].(float64)
-					if !ok {
-						panic(invalidFor("step", typeOf((*stack)[A+1])))
-					}
-
-					if step > 0 {
-						if index > limit {
-							pc += inst.D
-						}
-					} else if limit > index {
-						pc += inst.D
-					}
-				case 57: // FORNLOOP
-					A := inst.A
-					limit := (*stack)[A].(float64)
-					step := (*stack)[A+1].(float64)
-					init := (*stack)[A+2].(float64) + step
-
-					(*stack)[A+2] = init
-
-					if step > 0 {
-						if init <= limit {
-							pc += inst.D
-						}
-					} else if limit <= init {
-						pc += inst.D
-					}
-				case 58: // FORGLOOP
-					A := inst.A
-					res := inst.K.(int)
-
-					top = int(A + 6)
-
-					switch it := (*stack)[A].(type) {
-					case *func(...any) []any:
-						fmt.Println("IT func", it)
-
-						vals := (*it)((*stack)[A+1], (*stack)[A+2])
-
-						move(vals, 0, res, A+3, stack)
-
-						fmt.Println(A+3, (*stack)[A+3])
-
-						if (*stack)[A+3] != nil {
-							(*stack)[A+2] = (*stack)[A+3]
-							pc += inst.D
-						} else {
-							pc += 1
-						}
-					default:
-						fmt.Println("IT gen", it)
-
-						iter := *generalised_iterators[inst]
-
-						if !iter.running {
-							args := &[]any{it, (*stack)[A+1], (*stack)[A+2]}
-							// fmt.Println("-1- sending thru the wire", args)
-							iter.args <- args
-							// fmt.Println("-1- sent")
-						}
-						vals := <-iter.resume
-						fmt.Println("-1- received!", vals)
-
-						if vals == nil {
-							delete(generalised_iterators, inst)
-							pc += 1
-						} else {
-							move(*vals, 0, res, A+3, stack)
-
-							(*stack)[A+2] = (*stack)[A+3]
-							pc += inst.D
-						}
-					}
-				case 59, 61: // FORGPREP_INEXT, FORGPREP_NEXT
-					if _, ok := (*stack)[inst.A].(*func(...any) []any); !ok {
-						panic(fmt.Sprintf("attempt to iterate over a %s value", typeOf((*stack)[inst.A]))) // --  encountered non-function value
-					}
+				}
+			case 27, 28, 29, 30, 31, 32: // jump
+				if jump(op, (*stack)[inst.A], (*stack)[inst.aux]) {
 					pc += inst.D
-				case 60: // FASTCALL3
-					// Skipped
-					pc += 1 // adjust for aux
-				case 63: // GETVARARGS
-					A := inst.A
-					b := inst.B - 1
+				} else {
+					pc += 1
+				}
+			case 33, 34, 35, 36, 37, 38, 81: // arithmetic
+				(*stack)[inst.A] = arithmetic(op, (*stack)[inst.B], (*stack)[inst.C])
+			case 39, 40, 41, 42, 43, 44, 82: // arithmetik
+				(*stack)[inst.A] = arithmetic(op, (*stack)[inst.B], inst.K)
+			case 45, 46: // logic
+				(*stack)[inst.A] = logic(op, (*stack)[inst.B], (*stack)[inst.C])
+			case 47, 48: // logik
+				fmt.Println("LOGIK")
+				(*stack)[inst.A] = logic(op, (*stack)[inst.B], inst.K)
+			case 49: // CONCAT
+				s := strings.Builder{}
+				for i := inst.B; i <= inst.C; i++ {
+					s.WriteString((*stack)[i].(string))
+				}
+				(*stack)[inst.A] = s.String()
+			case 50: // NOT
+				cond, ok := (*stack)[inst.B].(bool)
+				if !ok {
+					panic(invalidCond(typeOf((*stack)[inst.B])))
+				}
 
-					if b == LUAU_MULTRET {
-						b = int(varargs.len)
-						top = A + b - 1
+				(*stack)[inst.A] = !cond
+			case 51: // MINUS
+				op1, ok := (*stack)[inst.B].(float64)
+				if !ok {
+					panic(invalidUnm(typeOf((*stack)[inst.B])))
+				}
+
+				(*stack)[inst.A] = -op1
+			case 52: // LENGTH
+				switch t := (*stack)[inst.B].(type) {
+				case *Table:
+					(*stack)[inst.A] = t.Len()
+				case string:
+					(*stack)[inst.A] = float64(len(t))
+				default:
+					panic(invalidLength(typeOf(t)))
+				}
+			case 53: // NEWTABLE
+				(*stack)[inst.A] = &Table{}
+
+				pc += 1 // -- adjust for aux
+			case 54: // DUPTABLE
+				template := inst.K.([]uint32)
+				serialised := &Table{}
+				for _, id := range template {
+					serialised.Set(proto.k[id], nil) // constants
+				}
+				(*stack)[inst.A] = serialised
+			case 55: // SETLIST
+				A, B := inst.A, inst.B
+				c := inst.C - 1
+
+				if c == LUAU_MULTRET {
+					c = top - B + 1
+				}
+
+				s := (*stack)[A].(*Table)
+
+				// one-indexed lol
+				moveTable(*stack, B, B+c, inst.aux, s)
+				(*stack)[A] = s
+
+				pc += 1 // -- adjust for aux
+			case 56: // FORNPREP
+				A := inst.A
+
+				index, ok := (*stack)[A+2].(float64)
+				if !ok {
+					panic(invalidFor("initial value", typeOf((*stack)[A+2])))
+				}
+
+				limit, ok := (*stack)[A].(float64)
+				if !ok {
+					panic(invalidFor("limit", typeOf((*stack)[A])))
+				}
+
+				step, ok := (*stack)[A+1].(float64)
+				if !ok {
+					panic(invalidFor("step", typeOf((*stack)[A+1])))
+				}
+
+				if step > 0 {
+					if index > limit {
+						pc += inst.D
 					}
-
-					// MAX STACK SIZE IS A LIE!!!!!!!!!!!!!!!!!!!!!!!
-					// uh, expand the stack
-					for len(*stack) < A+b {
-						*stack = append(*stack, nil)
-					}
-
-					move(varargs.list, 0, b, A, stack)
-				case 64: // DUPCLOSURE
-					newPrototype := protolist[inst.K.(uint32)] // TODO: 1-based indexing
-
-					nups := newPrototype.nups
-					upvalues := make([]Upval, nups)
-					(*stack)[inst.A] = luau_wrapclosure(newPrototype, upvalues)
-
-					for i := range nups {
-						pseudo := code[pc-1]
-						pc += 1
-
-						t := pseudo.A
-						if t == 0 { // value
-							upvalue := Upval{
-								value:   (*stack)[pseudo.B],
-								selfRef: true,
-							}
-							upvalue.store = upvalue
-							upvalues[i] = upvalue
-
-							// -- references dont get handled by DUPCLOSURE
-						} else if t == 2 { // upvalue
-							upvalues[i] = upvals[pseudo.B]
-						}
-					}
-				case 65: // PREPVARARGS
-					// Handled by wrapper
-				case 66: // LOADKX
-					kv := inst.K.(uint32)
-					(*stack)[inst.A] = kv
-
-					pc += 1 // -- adjust for aux
-				case 67: // JUMPX
-					pc += inst.E
-				case 68: // FASTCALL
-					// Skipped
-				case 69: // COVERAGE
-					inst.E += 1
-				case 70: // CAPTURE
-					// Handled by CLOSURE
-					panic("encountered unhandled CAPTURE")
-				case 71, 72: // SUBRK, DIVRK
-					fmt.Println("ARITHMETIRK")
-					(*stack)[inst.A] = arithmetic(op, inst.K, (*stack)[inst.C])
-				case 73: // FASTCALL1
-					// Skipped
-				case 74, 75: // FASTCALL2, FASTCALL2K
-					// Skipped
-					pc += 1 // adjust for aux
-				case 76: // FORGPREP
+				} else if limit > index {
 					pc += inst.D
-					if _, ok := (*stack)[inst.A].(*func(...any) []any); ok {
-						break
+				}
+			case 57: // FORNLOOP
+				A := inst.A
+				limit := (*stack)[A].(float64)
+				step := (*stack)[A+1].(float64)
+				init := (*stack)[A+2].(float64) + step
+
+				(*stack)[A+2] = init
+
+				if step > 0 {
+					if init <= limit {
+						pc += inst.D
 					}
+				} else if limit <= init {
+					pc += inst.D
+				}
+			case 58: // FORGLOOP
+				A := inst.A
+				res := inst.K.(int)
 
-					loopInstruction := *code[pc-1]
-					if generalised_iterators[loopInstruction] != nil {
-						break
-					}
+				top = int(A + 6)
 
-					c := &Iterator{
-						args:   make(chan *[]any),
-						resume: make(chan *[]any),
-					}
+				switch it := (*stack)[A].(type) {
+				case *func(...any) []any:
+					fmt.Println("IT func", it)
 
-					go func() {
-						args := *<-c.args
-						c.args = nil // we're done here
-						c.running = true
-						fmt.Println("-2- generating iterator", args)
+					vals := (*it)((*stack)[A+1], (*stack)[A+2])
 
-						for i, v := range args[0].(*Table).Iter() {
-							if !c.running {
-								return
-							}
-							fmt.Println("-2- yielding", i, v)
-							c.resume <- &[]any{i, v}
-							// fmt.Println("-2- yielded!")
-						}
+					move(vals, 0, res, A+3, stack)
 
-						c.resume <- nil
-					}()
+					fmt.Println(A+3, (*stack)[A+3])
 
-					generalised_iterators[loopInstruction] = c
-				case 77, 78, 79, 80: // JUMPXEQKNIL, JUMPXEQKB, JUMPXEQKN, JUMPXEQKS
-					var jmp bool
-					if op == 77 {
-						jmp = ((*stack)[inst.A] == nil) != inst.KN
-					} else if op == 78 {
-						kv := inst.K.(bool)
-						ra, ok := (*stack)[inst.A].(bool)
-
-						jmp = ok && (ra == kv) != inst.KN
-					} else if op == 79 || op == 80 {
-						kv := inst.K.(float64)
-						ra := (*stack)[inst.A].(float64)
-
-						jmp = (ra == kv) != inst.KN
-					}
-
-					if jmp {
+					if (*stack)[A+3] != nil {
+						(*stack)[A+2] = (*stack)[A+3]
 						pc += inst.D
 					} else {
 						pc += 1
 					}
 				default:
-					panic(fmt.Sprintf("Unsupported Opcode: %s op: %d", inst.opname, op))
-				}
-			}
+					fmt.Println("IT gen", it)
 
-			for i, uv := range *open_upvalues {
-				if uv.selfRef {
-					continue
-				}
-				uv.value = (*uv.store.(*[]any))[uv.index]
-				uv.store = uv
-				uv.selfRef = true
-				(*open_upvalues)[i] = nil
-			}
+					iter := *generalised_iterators[inst]
 
-			for i := range generalised_iterators {
-				generalised_iterators[i].running = false
-				delete(generalised_iterators, i)
+					if !iter.running {
+						args := &[]any{it, (*stack)[A+1], (*stack)[A+2]}
+						// fmt.Println("-1- sending thru the wire", args)
+						iter.args <- args
+						// fmt.Println("-1- sent")
+					}
+					vals := <-iter.resume
+					fmt.Println("-1- received!", vals)
+
+					if vals == nil {
+						delete(generalised_iterators, inst)
+						pc += 1
+					} else {
+						move(*vals, 0, res, A+3, stack)
+
+						(*stack)[A+2] = (*stack)[A+3]
+						pc += inst.D
+					}
+				}
+			case 59, 61: // FORGPREP_INEXT, FORGPREP_NEXT
+				if _, ok := (*stack)[inst.A].(*func(...any) []any); !ok {
+					panic(fmt.Sprintf("attempt to iterate over a %s value", typeOf((*stack)[inst.A]))) // --  encountered non-function value
+				}
+				pc += inst.D
+			case 60: // FASTCALL3
+				// Skipped
+				pc += 1 // adjust for aux
+			case 63: // GETVARARGS
+				A := inst.A
+				b := inst.B - 1
+
+				if b == LUAU_MULTRET {
+					b = int(varargs.len)
+					top = A + b - 1
+				}
+
+				// MAX STACK SIZE IS A LIE!!!!!!!!!!!!!!!!!!!!!!!
+				// uh, expand the stack
+				for len(*stack) < A+b {
+					*stack = append(*stack, nil)
+				}
+
+				move(varargs.list, 0, b, A, stack)
+			case 64: // DUPCLOSURE
+				newPrototype := protolist[inst.K.(uint32)] // TODO: 1-based indexing
+
+				nups := newPrototype.nups
+				upvalues := make([]Upval, nups)
+				(*stack)[inst.A] = luau_wrapclosure(newPrototype, upvalues)
+
+				for i := range nups {
+					pseudo := code[pc-1]
+					pc += 1
+
+					t := pseudo.A
+					if t == 0 { // value
+						upvalue := Upval{
+							value:   (*stack)[pseudo.B],
+							selfRef: true,
+						}
+						upvalue.store = upvalue
+						upvalues[i] = upvalue
+
+						// -- references dont get handled by DUPCLOSURE
+					} else if t == 2 { // upvalue
+						upvalues[i] = upvals[pseudo.B]
+					}
+				}
+			case 65: // PREPVARARGS
+				// Handled by wrapper
+			case 66: // LOADKX
+				kv := inst.K.(uint32)
+				(*stack)[inst.A] = kv
+
+				pc += 1 // -- adjust for aux
+			case 67: // JUMPX
+				pc += inst.E
+			case 68: // FASTCALL
+				// Skipped
+			case 69: // COVERAGE
+				inst.E += 1
+			case 70: // CAPTURE
+				// Handled by CLOSURE
+				panic("encountered unhandled CAPTURE")
+			case 71, 72: // SUBRK, DIVRK
+				fmt.Println("ARITHMETIRK")
+				(*stack)[inst.A] = arithmetic(op, inst.K, (*stack)[inst.C])
+			case 73: // FASTCALL1
+				// Skipped
+			case 74, 75: // FASTCALL2, FASTCALL2K
+				// Skipped
+				pc += 1 // adjust for aux
+			case 76: // FORGPREP
+				pc += inst.D
+				if _, ok := (*stack)[inst.A].(*func(...any) []any); ok {
+					break
+				}
+
+				loopInstruction := *code[pc-1]
+				if generalised_iterators[loopInstruction] != nil {
+					break
+				}
+
+				c := &Iterator{
+					args:   make(chan *[]any),
+					resume: make(chan *[]any),
+				}
+
+				go func() {
+					args := *<-c.args
+					c.args = nil // we're done here
+					c.running = true
+					fmt.Println("-2- generating iterator", args)
+
+					for i, v := range args[0].(*Table).Iter() {
+						if !c.running {
+							return
+						}
+						fmt.Println("-2- yielding", i, v)
+						c.resume <- &[]any{i, v}
+						// fmt.Println("-2- yielded!")
+					}
+
+					c.resume <- nil
+				}()
+
+				generalised_iterators[loopInstruction] = c
+			case 77, 78, 79, 80: // JUMPXEQKNIL, JUMPXEQKB, JUMPXEQKN, JUMPXEQKS
+				var jmp bool
+				if op == 77 {
+					jmp = ((*stack)[inst.A] == nil) != inst.KN
+				} else if op == 78 {
+					kv := inst.K.(bool)
+					ra, ok := (*stack)[inst.A].(bool)
+
+					jmp = ok && (ra == kv) != inst.KN
+				} else if op == 79 || op == 80 {
+					kv := inst.K.(float64)
+					ra := (*stack)[inst.A].(float64)
+
+					jmp = (ra == kv) != inst.KN
+				}
+
+				if jmp {
+					pc += inst.D
+				} else {
+					pc += 1
+				}
+			default:
+				panic(fmt.Sprintf("Unsupported Opcode: %s op: %d", inst.opname, op))
 			}
-			return []any{}
 		}
 
+		for i, uv := range *open_upvalues {
+			if uv.selfRef {
+				continue
+			}
+			uv.value = (*uv.store.(*[]any))[uv.index]
+			uv.store = uv
+			uv.selfRef = true
+			(*open_upvalues)[i] = nil
+		}
+
+		for i := range generalised_iterators {
+			generalised_iterators[i].running = false
+			delete(generalised_iterators, i)
+		}
+		return []any{}
+	}
+
+	luau_wrapclosure = func(proto Proto, upvals []Upval) *func(...any) []any {
 		wrapped := func(passed ...any) []any {
-			stack := make([]any, proto.maxstacksize)
-			fmt.Println("MAX STACK SIZE", proto.maxstacksize)
+			maxstacksize, numparams := proto.maxstacksize, proto.numparams
+
+			stack := make([]any, maxstacksize)
+			fmt.Println("MAX STACK SIZE", maxstacksize)
 			varargs := Varargs{[]any{}, 0}
 
-			move(passed, 0, int(proto.numparams), 0, &stack)
+			move(passed, 0, int(numparams), 0, &stack)
 
 			n := uint8(len(passed))
-			if proto.numparams < n {
-				start := proto.numparams + 1
-				l := n - proto.numparams
+			if numparams < n {
+				start := int(numparams + 1)
+				l := int(n - numparams)
 				varargs.len = uint32(l)
 
 				// expand varargs list
 				varargs.list = make([]any, l)
 
-				move(passed, int(start)-1, int(start+l)-1, 0, &varargs.list)
+				move(passed, start-1, start+l-1, 0, &varargs.list)
 			}
 
 			// TODO: dee bugg ingg
-			result := luau_execute(&stack, proto.protos, proto.code, varargs)
+			result := luau_execute(proto, upvals, &stack, proto.protos, proto.code, varargs)
 			// fmt.Println("RESULT", result)
 
 			return result
