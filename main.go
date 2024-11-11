@@ -432,19 +432,18 @@ var opList = []Operator{
 const LUAU_MULTRET = -1
 
 type LuauSettings struct {
-	VectorCtor       func(...float32) any
-	NamecallHandler  func(kv string, stack *[]any, c1, c2 int) (ok bool, ret []any)
-	DecodeOp         func(op uint32) uint32
-	Extensions       map[any]any
-	VectorSize       uint8
-	AllowProxyErrors bool
+	VectorCtor      func(...float32) any
+	NamecallHandler func(kv string, stack *[]any, c1, c2 int) (ok bool, ret []any)
+	// DecodeOp        func(op uint32) uint32
+	Extensions map[any]any
+	VectorSize uint8
+	// AllowProxyErrors bool
 }
 
 var luau_settings = LuauSettings{
 	VectorCtor: func(...float32) any {
 		panic("vectorCtor was not provided")
 	},
-	VectorSize: 4,
 	NamecallHandler: func(kv string, stack *[]any, c1, c2 int) (ok bool, ret []any) {
 		switch kv {
 		case "format":
@@ -461,12 +460,13 @@ var luau_settings = LuauSettings{
 		}
 		return
 	},
-	Extensions:       map[any]any{},
-	AllowProxyErrors: false,
-	DecodeOp: func(op uint32) uint32 {
-		// println("decoding op", op)
-		return op
-	},
+	// DecodeOp: func(op uint32) uint32 {
+	// 	// println("decoding op", op)
+	// 	return op
+	// },
+	Extensions: map[any]any{},
+	VectorSize: 4,
+	// AllowProxyErrors: false,
 }
 
 type Inst struct {
@@ -479,38 +479,68 @@ type Inst struct {
 }
 
 type Varargs struct {
-	len  uint32
 	list []any
+	len  uint32
 }
 
 type Proto struct {
-	debugname           string
-	linedefined         uint32
-	sizecode            uint32
-	sizek               uint32
-	sizep               uint32
-	bytecodeid          uint32
-	maxstacksize        uint8
-	isvararg            bool
-	nups                uint8
-	lineinfoenabled     bool
-	numparams           uint8
-	k                   []any
-	code                []*Inst
-	instructionlineinfo []uint32
-	protos              []uint32
-	debugcode           []uint8
+	debugname                   string
+	k                           []any
+	code                        []*Inst
+	instructionlineinfo, protos []uint32
+	debugcode                   []uint8
+
+	linedefined, sizecode, sizek, sizep, bytecodeid uint32
+	maxstacksize, numparams, nups                   uint8
+	isvararg, lineinfoenabled                       bool
 }
 
 type Deserialise struct {
-	typesVersion uint8
-	mainProto    Proto
-	stringList   []string
-	protoList    []Proto
+	mainProto  Proto
+	stringList []string
+	protoList  []Proto
+}
+
+func checkkmode(inst *Inst, k []any) {
+	switch inst.kmode {
+	case 1: // AUX
+		inst.K = k[inst.aux]
+	case 2: // C
+		inst.K = k[inst.C]
+		// fmt.Println("SET K TO", inst.K, "FROM", inst.C)
+	case 3: // D
+		inst.K = k[inst.D]
+	case 4: // AUX import
+		extend := inst.aux
+		count := extend >> 30
+		inst.KC = count
+
+		id0 := (extend >> 20) & 0x3FF
+		inst.K0 = k[id0]
+
+		if count >= 2 {
+			id1 := (extend >> 10) & 0x3FF
+			inst.K1 = k[id1]
+		}
+		if count == 3 { // >=?
+			id2 := extend & 0x3FF
+			inst.K2 = k[id2]
+		}
+	case 5: // AUX boolean low 1 bit
+		inst.K = extract(inst.aux, 0, 1) == 1
+		inst.KN = extract(inst.aux, 31, 1) == 1
+	case 6: // AUX number low 24 bits
+		inst.K = k[int(extract(inst.aux, 0, 24))] // TODO: 1-based indexing
+		inst.KN = extract(inst.aux, 31, 1) == 1
+	case 7: // B
+		inst.K = k[inst.B] // TODO: 1-based indexing
+	case 8: // AUX number low 16 bits
+		inst.K = inst.aux & 0xF
+	}
 }
 
 func luau_deserialise(stream []byte) Deserialise {
-	cursor := uint32(0)
+	var cursor uint32
 
 	readByte := func() uint8 {
 		b := stream[cursor]
@@ -560,7 +590,7 @@ func luau_deserialise(stream []byte) Deserialise {
 		}
 
 		str := make([]byte, size)
-		for i := range str {
+		for i := range size {
 			str[i] = stream[cursor+uint32(i)]
 		}
 		cursor += size
@@ -568,35 +598,34 @@ func luau_deserialise(stream []byte) Deserialise {
 		return string(str)
 	}
 
-	luauVersion := readByte()
-	typesVersion := uint8(0)
-	if luauVersion == 0 {
+	if luauVersion := readByte(); luauVersion == 0 {
 		panic("the provided bytecode is an error message")
 	} else if luauVersion != 6 {
 		panic("the version of the provided bytecode is unsupported")
+	} else if readByte() != 3 { // types version
+		panic("the types version of the provided bytecode is unsupported")
 	}
 
-	typesVersion = readByte()
 	stringCount := readVarInt()
 	stringList := make([]string, stringCount)
-
-	for i := range stringList {
+	for i := range stringCount {
 		stringList[i] = readString()
 	}
 
-	readInstruction := func(codeList *[]*Inst) bool {
-		value := luau_settings.DecodeOp(readWord())
+	readInstruction := func(codeList *[]*Inst) (usesAux bool) {
+		// value := luau_settings.DecodeOp(readWord())
+		value := readWord()
 		opcode := uint8(value & 0xFF)
 
 		opinfo := opList[opcode]
 		opmode := opinfo.Mode
-		usesAux := opinfo.HasAux
+		usesAux = opinfo.HasAux
 
 		inst := &Inst{
-			opcode:  opcode,
 			opname:  opinfo.Name,
-			opmode:  opmode,
 			kmode:   opinfo.KMode,
+			opcode:  opcode,
+			opmode:  opmode,
 			usesAux: usesAux,
 		}
 
@@ -629,48 +658,12 @@ func luau_deserialise(stream []byte) Deserialise {
 			aux := readWord()
 			inst.aux = int(aux)
 
-			*codeList = append(*codeList, &Inst{value: aux, opname: "auxvalue"})
+			*codeList = append(*codeList, &Inst{
+				opname: "auxvalue",
+				value:  aux,
+			})
 		}
-
-		return usesAux
-	}
-
-	checkkmode := func(inst *Inst, k []any) {
-		switch inst.kmode {
-		case 1: // AUX
-			inst.K = k[inst.aux]
-		case 2: // C
-			inst.K = k[inst.C]
-			// fmt.Println("SET K TO", inst.K, "FROM", inst.C)
-		case 3: // D
-			inst.K = k[inst.D]
-		case 4: // AUX import
-			extend := inst.aux
-			count := extend >> 30
-			inst.KC = count
-
-			id0 := (extend >> 20) & 0x3FF
-			inst.K0 = k[id0]
-
-			if count >= 2 {
-				id1 := (extend >> 10) & 0x3FF
-				inst.K1 = k[id1]
-			}
-			if count == 3 { // >=?
-				id2 := extend & 0x3FF
-				inst.K2 = k[id2]
-			}
-		case 5: // AUX boolean low 1 bit
-			inst.K = extract(inst.aux, 0, 1) == 1
-			inst.KN = extract(inst.aux, 31, 1) == 1
-		case 6: // AUX number low 24 bits
-			inst.K = k[int(extract(inst.aux, 0, 24))] // TODO: 1-based indexing
-			inst.KN = extract(inst.aux, 31, 1) == 1
-		case 7: // B
-			inst.K = k[inst.B] // TODO: 1-based indexing
-		case 8: // AUX number low 16 bits
-			inst.K = inst.aux & 0xF
-		}
+		return
 	}
 
 	readProto := func(bytecodeid uint32) Proto {
@@ -702,11 +695,9 @@ func luau_deserialise(stream []byte) Deserialise {
 		sizek := readVarInt()
 		klist := make([]any, sizek)
 
-		for i := range int(sizek) {
-			kt := readByte()
+		for i := range sizek {
 			var k any
-
-			switch kt {
+			switch kt := readByte(); kt {
 			case 0: // Nil
 				k = nil
 			case 1: // Bool
@@ -721,8 +712,8 @@ func luau_deserialise(stream []byte) Deserialise {
 				dataLength := readVarInt()
 				k = make([]uint32, dataLength)
 
-				for i := range dataLength {
-					k.([]uint32)[i] = readVarInt() // TODO: 1-based indexing
+				for j := range dataLength {
+					k.([]uint32)[j] = readVarInt() // TODO: 1-based indexing
 				}
 			case 6: // Closure
 				k = readVarInt()
@@ -748,17 +739,14 @@ func luau_deserialise(stream []byte) Deserialise {
 
 		sizep := readVarInt()
 		protos := make([]uint32, sizep)
-
 		for i := range sizep {
 			protos[i] = readVarInt() + 1 // TODO: 1-based indexing
 		}
 
 		linedefined := readVarInt()
 
-		debugnameindex := readVarInt()
 		var debugname string
-
-		if debugnameindex == 0 {
+		if debugnameindex := readVarInt(); debugnameindex == 0 {
 			debugname = "(??)"
 		} else {
 			debugname = stringList[debugnameindex-1] // TODO: 1-based indexing
@@ -770,7 +758,6 @@ func luau_deserialise(stream []byte) Deserialise {
 
 		if lineinfoenabled {
 			linegaplog2 := readByte()
-
 			intervals := uint32((sizecode-1)>>linegaplog2) + 1
 
 			lineinfo := make([]uint32, sizecode)
@@ -798,8 +785,8 @@ func luau_deserialise(stream []byte) Deserialise {
 
 		// -- debuginfo
 		if readByte() != 0 {
-			sizel := readVarInt()
-			for range sizel {
+			fmt.Println("DEBUGINFO")
+			for range readVarInt() { // sizel
 				readVarInt()
 				readVarInt()
 				readVarInt()
@@ -812,39 +799,33 @@ func luau_deserialise(stream []byte) Deserialise {
 		}
 
 		return Proto{
-			maxstacksize: maxstacksize,
-			numparams:    numparams,
-			nups:         nups,
-			isvararg:     isvararg,
-			linedefined:  linedefined,
-			debugname:    debugname,
+			debugname,
+			klist,
+			*codelist,
+			instructionlineinfo,
+			protos,
+			debugcodelist,
 
-			sizecode:  sizecode,
-			code:      *codelist,
-			debugcode: debugcodelist,
+			linedefined,
+			sizecode,
+			sizek,
+			sizep,
+			bytecodeid,
 
-			sizek: sizek,
-			k:     klist,
+			maxstacksize,
+			numparams,
+			nups,
 
-			sizep:  sizep,
-			protos: protos,
-
-			lineinfoenabled:     lineinfoenabled,
-			instructionlineinfo: instructionlineinfo,
-
-			bytecodeid: bytecodeid,
+			isvararg,
+			lineinfoenabled,
 		}
 	}
 
 	// userdataRemapping (not used in VM, left unused)
-	if typesVersion == 3 {
-		index := readByte()
-
-		for index != 0 {
-			readVarInt()
-
-			index = readByte()
-		}
+	index := readByte()
+	for index != 0 {
+		readVarInt()
+		index = readByte()
 	}
 
 	protoCount := readVarInt()
@@ -862,14 +843,7 @@ func luau_deserialise(stream []byte) Deserialise {
 
 	mainProto.debugname = "(main)"
 
-	return Deserialise{
-		stringList: stringList,
-		protoList:  protoList,
-
-		mainProto: mainProto,
-
-		typesVersion: typesVersion,
-	}
+	return Deserialise{mainProto, stringList, protoList}
 }
 
 type Iterator struct {
@@ -912,7 +886,7 @@ var arithops = map[uint8]string{
 	82: "idiv",
 }
 
-var goluautype = map[string]string{
+var luautype = map[string]string{
 	"float64":                               "number",
 	"string":                                "string",
 	"bool":                                  "boolean",
@@ -958,43 +932,43 @@ func aops(op uint8, op1, op2 float64) float64 {
 }
 
 func invalidCompare(op uint8, t1, t2 string) string {
-	return fmt.Sprintf("attempt to compare %s %s %s", goluautype[t1], jumpops[op], goluautype[t2])
+	return fmt.Sprintf("attempt to compare %s %s %s", luautype[t1], jumpops[op], luautype[t2])
 }
 
 func incomparableType(t string, eq bool) string {
-	return fmt.Sprintf("type %s cannot be compared; this comparison would always return %t", goluautype[t], eq)
+	return fmt.Sprintf("type %s cannot be compared; this comparison would always return %t", luautype[t], eq)
 }
 
 func uncallableType(v string) string {
-	return fmt.Sprintf("attempt to call a %s value", goluautype[v])
+	return fmt.Sprintf("attempt to call a %s value", luautype[v])
 }
 
 func invalidArithmetic(op uint8, t1, t2 string) string {
-	return fmt.Sprintf("attempt to perform arithmetic (%s) on %s and %s", arithops[op], goluautype[t1], goluautype[t2])
+	return fmt.Sprintf("attempt to perform arithmetic (%s) on %s and %s", arithops[op], luautype[t1], luautype[t2])
 }
 
 func invalidUnm(t1 string) string {
-	return fmt.Sprintf("attempt to perform arithmetic (unm) on %s", goluautype[t1])
+	return fmt.Sprintf("attempt to perform arithmetic (unm) on %s", luautype[t1])
 }
 
 func invalidCond(t string) string {
-	return fmt.Sprintf("attempt to compare non-boolean type %s in condition", goluautype[t])
+	return fmt.Sprintf("attempt to compare non-boolean type %s in condition", luautype[t])
 }
 
 func invalidFor(pos, t string) string {
-	return fmt.Sprintf("invalid 'for' %s (number expected, got %s)", pos, goluautype[t])
+	return fmt.Sprintf("invalid 'for' %s (number expected, got %s)", pos, luautype[t])
 }
 
 func invalidLength(t string) string {
-	return fmt.Sprintf("attempt to get length of a %s value", goluautype[t])
+	return fmt.Sprintf("attempt to get length of a %s value", luautype[t])
 }
 
 func invalidIndex(t1 string, val any) string {
-	t2 := goluautype[typeOf(val)]
+	t2 := luautype[typeOf(val)]
 	if t2 == "string" {
 		t2 = fmt.Sprintf("'%v'", val)
 	}
-	panic(fmt.Sprintf("attempt to index %v with %v", goluautype[t1], t2))
+	panic(fmt.Sprintf("attempt to index %v with %v", luautype[t1], t2))
 }
 
 func typeOf(v any) string {
@@ -1058,9 +1032,6 @@ func jump(op uint8, op1, op2 any) bool {
 func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func()) {
 	protolist := module.protoList
 	alive := true
-	luau_close := func() {
-		alive = false
-	}
 
 	type Upval struct {
 		value, store any
@@ -1520,12 +1491,10 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 
 					nups := newPrototype.nups
 					upvalues := make([]Upval, nups)
-					fmt.Println("NEW CLOSURE", upvalues)
 					(*stack)[inst.A] = luau_wrapclosure(newPrototype, upvalues)
-					fmt.Println("finished")
 
 					for i := range nups {
-						pseudo := code[pc]
+						pseudo := code[pc-1]
 						pc += 1
 
 						t := pseudo.A
@@ -1535,7 +1504,6 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 								selfRef: true,
 							}
 							upvalue.store = upvalue
-
 							upvalues[i] = upvalue
 
 							// -- references dont get handled by DUPCLOSURE
@@ -1648,12 +1616,8 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 		wrapped := func(passed ...any) []any {
 			stack := make([]any, proto.maxstacksize)
 			fmt.Println("MAX STACK SIZE", proto.maxstacksize)
-			varargs := Varargs{
-				len:  0,
-				list: []any{},
-			}
+			varargs := Varargs{[]any{}, 0}
 
-			// TODO: test table.move impl
 			move(passed, 0, int(proto.numparams), 0, &stack)
 
 			n := uint8(len(passed))
@@ -1678,5 +1642,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 		return &wrapped
 	}
 
-	return *luau_wrapclosure(module.mainProto, []Upval{}), luau_close
+	return *luau_wrapclosure(module.mainProto, []Upval{}), func() {
+		alive = false
+	}
 }
