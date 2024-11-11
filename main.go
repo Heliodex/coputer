@@ -529,9 +529,9 @@ func luau_deserialise(stream []byte) Deserialise {
 	}
 
 	readFloat := func() float32 {
-		f := math.Float32frombits(word())
+		w := word()
 		cursor += 4
-		return f
+		return math.Float32frombits(w)
 	}
 
 	readDouble := func() float64 {
@@ -539,14 +539,10 @@ func luau_deserialise(stream []byte) Deserialise {
 		cursor += 4
 		word2 := word()
 		cursor += 4
-
-		d := math.Float64frombits(uint64(word1) | uint64(word2)<<32)
-		return d
+		return math.Float64frombits(uint64(word1) | uint64(word2)<<32)
 	}
 
-	readVarInt := func() uint32 {
-		result := uint32(0)
-
+	readVarInt := func() (result uint32) {
 		for i := range 4 {
 			value := readByte()
 			result |= ((uint32(value) & 0x7F) << (i * 7))
@@ -554,13 +550,11 @@ func luau_deserialise(stream []byte) Deserialise {
 				break
 			}
 		}
-
-		return result
+		return
 	}
 
 	readString := func() string {
 		size := readVarInt()
-
 		if size == 0 {
 			return ""
 		}
@@ -578,12 +572,11 @@ func luau_deserialise(stream []byte) Deserialise {
 	typesVersion := uint8(0)
 	if luauVersion == 0 {
 		panic("the provided bytecode is an error message")
-	} else if luauVersion < 3 || luauVersion > 6 {
+	} else if luauVersion != 6 {
 		panic("the version of the provided bytecode is unsupported")
-	} else if luauVersion >= 4 {
-		typesVersion = readByte()
 	}
 
+	typesVersion = readByte()
 	stringCount := readVarInt()
 	stringList := make([]string, stringCount)
 
@@ -610,22 +603,22 @@ func luau_deserialise(stream []byte) Deserialise {
 		*codeList = append(*codeList, inst)
 
 		switch opmode {
-		case 1: /* A */
+		case 1: // A
 			inst.A = int(value>>8) & 0xFF
-		case 2: /* AB */
+		case 2: // AB
 			inst.A = int(value>>8) & 0xFF
 			inst.B = int(value>>16) & 0xFF
-		case 3: /* ABC */
+		case 3: // ABC
 			inst.A = int(value>>8) & 0xFF
 			inst.B = int(value>>16) & 0xFF
 			inst.C = int(value>>24) & 0xFF
-		case 4: /* AD */
+		case 4: // AD
 			inst.A = int(value>>8) & 0xFF
 			inst.D = int(value>>16) & 0xFFFF
 			if inst.D >= 0x8000 {
 				inst.D -= 0x10000
 			}
-		case 5: /* AE */
+		case 5: // AE
 			inst.E = int(value>>8) & 0xFFFFFF
 			if inst.E >= 0x800000 {
 				inst.E -= 0x1000000
@@ -644,14 +637,14 @@ func luau_deserialise(stream []byte) Deserialise {
 
 	checkkmode := func(inst *Inst, k []any) {
 		switch inst.kmode {
-		case 1: /* AUX */
+		case 1: // AUX
 			inst.K = k[inst.aux]
-		case 2: /* C */
+		case 2: // C
 			inst.K = k[inst.C]
 			// fmt.Println("SET K TO", inst.K, "FROM", inst.C)
-		case 3: /* D */
+		case 3: // D
 			inst.K = k[inst.D]
-		case 4: /* AUX import */
+		case 4: // AUX import
 			extend := inst.aux
 			count := extend >> 30
 			inst.KC = count
@@ -667,15 +660,15 @@ func luau_deserialise(stream []byte) Deserialise {
 				id2 := extend & 0x3FF
 				inst.K2 = k[id2]
 			}
-		case 5: /* AUX boolean low 1 bit */
+		case 5: // AUX boolean low 1 bit
 			inst.K = extract(inst.aux, 0, 1) == 1
 			inst.KN = extract(inst.aux, 31, 1) == 1
-		case 6: /* AUX number low 24 bits */
+		case 6: // AUX number low 24 bits
 			inst.K = k[int(extract(inst.aux, 0, 24))] // TODO: 1-based indexing
 			inst.KN = extract(inst.aux, 31, 1) == 1
-		case 7: /* B */
+		case 7: // B
 			inst.K = k[inst.B] // TODO: 1-based indexing
-		case 8: /* AUX number low 16 bits */
+		case 8: // AUX number low 16 bits
 			inst.K = inst.aux & 0xF
 		}
 	}
@@ -686,11 +679,8 @@ func luau_deserialise(stream []byte) Deserialise {
 		nups := readByte()
 		isvararg := readByte() != 0
 
-		if luauVersion >= 4 {
-			readByte() //-- flags
-			typesize := readVarInt()
-			cursor += typesize
-		}
+		readByte()             // -- flags
+		cursor += readVarInt() // typesize
 
 		sizecode := readVarInt()
 		codelist := new([]*Inst)
@@ -701,7 +691,6 @@ func luau_deserialise(stream []byte) Deserialise {
 				skipnext = false
 				continue
 			}
-
 			skipnext = readInstruction(codelist)
 		}
 
@@ -718,26 +707,26 @@ func luau_deserialise(stream []byte) Deserialise {
 			var k any
 
 			switch kt {
-			case 0: /* Nil */
+			case 0: // Nil
 				k = nil
-			case 1: /* Bool */
+			case 1: // Bool
 				k = readByte() != 0
-			case 2: /* Number */
+			case 2: // Number
 				k = readDouble()
-			case 3: /* String */
+			case 3: // String
 				k = stringList[readVarInt()-1] // TODO: 1-based indexing
-			case 4: /* Function */
+			case 4: // Function
 				k = readWord()
-			case 5: /* Table */
+			case 5: // Table
 				dataLength := readVarInt()
 				k = make([]uint32, dataLength)
 
 				for i := range dataLength {
 					k.([]uint32)[i] = readVarInt() // TODO: 1-based indexing
 				}
-			case 6: /* Closure */
+			case 6: // Closure
 				k = readVarInt()
-			case 7: /* Vector */
+			case 7: // Vector
 				x, y, z, w := readFloat(), readFloat(), readFloat(), readFloat()
 
 				if luau_settings.VectorSize == 4 {
@@ -1026,11 +1015,11 @@ func arithmetic(op uint8, op1, op2 any) float64 {
 
 func logic(op uint8, value, op1 any) any {
 	switch op {
-	case 45, 47: /* AND */
+	case 45, 47: // AND
 		if !truthy(value) {
 			return false
 		}
-	case 46, 48: /* OR */
+	case 46, 48: // OR
 		if truthy(value) {
 			return value
 		}
@@ -1055,7 +1044,7 @@ func jump(op uint8, op1, op2 any) bool {
 			panic(incomparableType(t1, tru)) // Also deliberately restricting the ability to compare types that would always return false
 		}
 
-		/* JUMPIFEQ, JUMPIFNOTEQ */
+		// JUMPIFEQ, JUMPIFNOTEQ
 		return (op1 == op2) == tru
 	} else if t1 == "float64" && t2 == "float64" {
 		return sfops(op, op1.(float64), op2.(float64))
@@ -1068,36 +1057,26 @@ func jump(op uint8, op1, op2 any) bool {
 
 func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func()) {
 	protolist := module.protoList
-	mainProto := module.mainProto
-
 	alive := true
 	luau_close := func() {
 		alive = false
 	}
 
-	type UpvalIndex struct {
-		selfRef bool
-		i       int
-	}
-
 	type Upval struct {
-		value any
-		index UpvalIndex
-		store any
+		value, store any
+		index        int
+		selfRef      bool
 	}
 
-	var luau_wrapclosure func(module Deserialise, proto Proto, upvals []Upval) *func(...any) []any
-	luau_wrapclosure = func(module Deserialise, proto Proto, upvals []Upval) *func(...any) []any {
+	var luau_wrapclosure func(proto Proto, upvals []Upval) *func(...any) []any
+	luau_wrapclosure = func(proto Proto, upvals []Upval) *func(...any) []any {
 		luau_execute := func(
 			stack *[]any,
 			protos []uint32,
 			code []*Inst,
 			varargs Varargs,
 		) []any {
-			// if "pc" means "program counter" then this makes a lot more sense than I thought
 			top, pc, open_upvalues, generalised_iterators := -1, 1, new([]*Upval), map[Inst]*Iterator{}
-			constants := proto.k
-			debugopcodes := proto.debugcode
 			extensions := luau_settings.Extensions
 
 			handlingBreak := false
@@ -1117,25 +1096,25 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 				fmt.Println("OP", op, "PC", pc)
 
 				switch op {
-				case 0: /* NOP */
+				case 0: // NOP
 					// -- Do nothing
-				case 1: /* BREAK */
+				case 1: // BREAK
 					pc -= 1
-					op = debugopcodes[pc]
+					op = proto.debugcode[pc]
 					handlingBreak = true
-				case 2: /* LOADNIL */
+				case 2: // LOADNIL
 					(*stack)[inst.A] = nil
-				case 3: /* LOADB */
+				case 3: // LOADB
 					(*stack)[inst.A] = inst.B == 1
 					pc += inst.C
-				case 4: /* LOADN */
+				case 4: // LOADN
 					(*stack)[inst.A] = float64(inst.D) // never put an int on the stack
-				case 5: /* LOADK */
+				case 5: // LOADK
 					(*stack)[inst.A] = inst.K
-				case 6: /* MOVE */
+				case 6: // MOVE
 					// we should (ALMOST) never have to change the size of the stack (proto.maxstacksize)
 					(*stack)[inst.A] = (*stack)[inst.B]
-				case 7: /* GETGLOBAL */
+				case 7: // GETGLOBAL
 					kv := inst.K
 
 					(*stack)[inst.A] = extensions[kv]
@@ -1144,44 +1123,41 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}
 
 					pc += 1 // -- adjust for aux
-				case 8: /* SETGLOBAL */
+				case 8: // SETGLOBAL
 					kv := inst.K
 					env[kv] = (*stack)[inst.A]
 
 					pc += 1 // -- adjust for aux
-				case 9: /* GETUPVAL */
-					uv := upvals[inst.B]
-
-					if uv.index.selfRef {
+				case 9: // GETUPVAL
+					if uv := upvals[inst.B]; uv.selfRef {
 						(*stack)[inst.A] = uv.store.(Upval).value
 					} else {
-						(*stack)[inst.A] = (*uv.store.(*[]any))[uv.index.i]
-					}
-				case 10: /* SETUPVAL */
-					uv := upvals[inst.B]
+						fmt.Println("GETTING UPVAL", uv.store)
 
-					if !uv.index.selfRef {
-						(*uv.store.(*[]any))[uv.index.i] = (*stack)[inst.A]
+						(*stack)[inst.A] = (*uv.store.(*[]any))[uv.index]
 					}
-				case 11: /* CLOSEUPVALS */
+				case 10: // SETUPVAL
+					if uv := upvals[inst.B]; !uv.selfRef {
+						(*uv.store.(*[]any))[uv.index] = (*stack)[inst.A]
+					}
+				case 11: // CLOSEUPVALS
 					for i, uv := range *open_upvalues {
-						if uv.index.selfRef || uv.index.i < inst.A {
+						if uv.selfRef || uv.index < inst.A {
 							continue
 						}
-						uv.value = (*uv.store.(*[]any))[uv.index.i]
+						uv.value = (*uv.store.(*[]any))[uv.index]
 						uv.store = uv
-						uv.index.selfRef = true
+						uv.selfRef = true
 						(*open_upvalues)[i] = nil
 					}
-				case 12: /* GETIMPORT */
-					count := inst.KC
+				case 12: // GETIMPORT
 					k0 := inst.K0
 					imp := extensions[k0]
 					if imp == nil {
 						imp = env[k0]
 					}
 
-					switch count {
+					switch inst.KC { // count
 					case 1:
 						(*stack)[inst.A] = imp
 					case 2:
@@ -1191,7 +1167,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}
 
 					pc += 1 // -- adjust for aux
-				case 13, 14: /* GETTABLE, SETTABLE */
+				case 13, 14: // GETTABLE, SETTABLE
 					index := (*stack)[inst.C]
 					t, ok := (*stack)[inst.B].(*Table)
 					if !ok {
@@ -1203,7 +1179,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					} else {
 						t.Set(index, (*stack)[inst.A])
 					}
-				case 15, 16: /* GETTABLEKS, SETTABLEKS */
+				case 15, 16: // GETTABLEKS, SETTABLEKS
 					index := inst.K
 					t, ok := (*stack)[inst.B].(*Table)
 					if !ok {
@@ -1217,33 +1193,29 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}
 
 					pc += 1 // -- adjust for aux
-				case 17: /* GETTABLEN */
+				case 17: // GETTABLEN
 					(*stack)[inst.A] = (*stack)[inst.B].(map[int]any)[inst.C+1]
-				case 18: /* SETTABLEN */
+				case 18: // SETTABLEN
 					(*stack)[inst.B].(map[int]any)[inst.C] = (*stack)[inst.A]
-				case 19: /* NEWCLOSURE */
+				case 19: // NEWCLOSURE
 					newPrototype := protolist[protos[inst.D]-1]
 
 					nups := newPrototype.nups
 					upvalues := make([]Upval, nups)
-					(*stack)[inst.A] = luau_wrapclosure(module, newPrototype, upvalues)
+					(*stack)[inst.A] = luau_wrapclosure(newPrototype, upvalues)
 
-					// fmt.Println("nups", nups)
+					fmt.Println("nups", nups)
 					for i := range nups {
-						pseudo := code[pc-1]
-						t := pseudo.A
-
-						pc += 1
-
-						if t == 0 { /* value */
+						switch pseudo := code[pc-1]; pseudo.A {
+						case 0: // -- value
 							upvalue := Upval{
-								value: (*stack)[pseudo.B],
-								index: UpvalIndex{selfRef: true},
+								value:   (*stack)[pseudo.B],
+								selfRef: true,
 							}
 							upvalue.store = upvalue
 
 							upvalues[i] = upvalue
-						} else if t == 1 { /* reference */
+						case 1: // -- reference
 							index := pseudo.B
 							fmt.Println("index", index, len(*open_upvalues))
 
@@ -1254,8 +1226,8 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 
 							if prev == nil {
 								prev = &Upval{
-									index: UpvalIndex{i: index},
 									store: stack,
+									index: index,
 								}
 
 								for len(*open_upvalues) <= index {
@@ -1265,11 +1237,12 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 							}
 
 							upvalues[i] = *prev
-						} else if t == 2 { /* upvalue */
+						case 2: // -- upvalue
 							upvalues[i] = upvals[pseudo.B]
 						}
+						pc += 1
 					}
-				case 20: /* NAMECALL */
+				case 20: // NAMECALL
 					fmt.Println("NAMECALL")
 
 					A, B := inst.A, inst.B
@@ -1316,7 +1289,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}
 
 					move(ret_list, 0, ret_num, callA, stack)
-				case 21: /* CALL */
+				case 21: // CALL
 					A, B, C := inst.A, inst.B, inst.C
 
 					var params int
@@ -1326,16 +1299,15 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 						params = B - 1
 					}
 
-					// fmt.Println(A, (*stack)[A])
+					fmt.Println(A, (*stack)[A])
 
 					f := (*stack)[A]
 					fn, ok := f.(*func(...any) []any)
-
 					if !ok {
 						panic(uncallableType(typeOf(f)))
 					}
 
-					// fmt.Println("*calling with", (*stack)[A+1:A+params+1])
+					fmt.Println("*calling with", (*stack)[A+1:A+params+1])
 
 					ret_list := (*fn)((*stack)[A+1 : A+params+1]...) // not inclusive
 					ret_num := int(len(ret_list))
@@ -1347,7 +1319,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}
 
 					move(ret_list, 0, ret_num, A, stack)
-				case 22: /* RETURN */
+				case 22: // RETURN
 					A, B := inst.A, inst.B
 					b := B - 1
 
@@ -1357,48 +1329,48 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}
 
 					return (*stack)[A:max(A+b, 0)]
-				case 23, 24: /* JUMP, JUMPBACK */
+				case 23, 24: // JUMP, JUMPBACK
 					pc += inst.D
-				case 25, 26: /* JUMPIF, JUMPIFNOT */
+				case 25, 26: // JUMPIF, JUMPIFNOT
 					if truthy((*stack)[inst.A]) == (op == 25) {
 						pc += inst.D
 					}
-				case 27, 28, 29, 30, 31, 32: /* jump */
+				case 27, 28, 29, 30, 31, 32: // jump
 					if jump(op, (*stack)[inst.A], (*stack)[inst.aux]) {
 						pc += inst.D
 					} else {
 						pc += 1
 					}
-				case 33, 34, 35, 36, 37, 38, 81: /* arithmetic */
+				case 33, 34, 35, 36, 37, 38, 81: // arithmetic
 					(*stack)[inst.A] = arithmetic(op, (*stack)[inst.B], (*stack)[inst.C])
-				case 39, 40, 41, 42, 43, 44, 82: /* arithmetik */
+				case 39, 40, 41, 42, 43, 44, 82: // arithmetik
 					(*stack)[inst.A] = arithmetic(op, (*stack)[inst.B], inst.K)
-				case 45, 46: /* logic */
+				case 45, 46: // logic
 					(*stack)[inst.A] = logic(op, (*stack)[inst.B], (*stack)[inst.C])
-				case 47, 48: /* logik */
+				case 47, 48: // logik
 					fmt.Println("LOGIK")
 					(*stack)[inst.A] = logic(op, (*stack)[inst.B], inst.K)
-				case 49: /* CONCAT */
+				case 49: // CONCAT
 					s := strings.Builder{}
 					for i := inst.B; i <= inst.C; i++ {
 						s.WriteString((*stack)[i].(string))
 					}
 					(*stack)[inst.A] = s.String()
-				case 50: /* NOT */
+				case 50: // NOT
 					cond, ok := (*stack)[inst.B].(bool)
 					if !ok {
 						panic(invalidCond(typeOf((*stack)[inst.B])))
 					}
 
 					(*stack)[inst.A] = !cond
-				case 51: /* MINUS */
+				case 51: // MINUS
 					op1, ok := (*stack)[inst.B].(float64)
 					if !ok {
 						panic(invalidUnm(typeOf((*stack)[inst.B])))
 					}
 
 					(*stack)[inst.A] = -op1
-				case 52: /* LENGTH */
+				case 52: // LENGTH
 					switch t := (*stack)[inst.B].(type) {
 					case *Table:
 						(*stack)[inst.A] = t.Len()
@@ -1407,19 +1379,18 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					default:
 						panic(invalidLength(typeOf(t)))
 					}
-
-				case 53: /* NEWTABLE */
+				case 53: // NEWTABLE
 					(*stack)[inst.A] = &Table{}
 
 					pc += 1 // -- adjust for aux
-				case 54: /* DUPTABLE */
+				case 54: // DUPTABLE
 					template := inst.K.([]uint32)
 					serialised := &Table{}
 					for _, id := range template {
-						serialised.Set(constants[id], nil)
+						serialised.Set(proto.k[id], nil) // constants
 					}
 					(*stack)[inst.A] = serialised
-				case 55: /* SETLIST */
+				case 55: // SETLIST
 					A, B := inst.A, inst.B
 					c := inst.C - 1
 
@@ -1434,7 +1405,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					(*stack)[A] = s
 
 					pc += 1 // -- adjust for aux
-				case 56: /* FORNPREP */
+				case 56: // FORNPREP
 					A := inst.A
 
 					index, ok := (*stack)[A+2].(float64)
@@ -1459,7 +1430,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					} else if limit > index {
 						pc += inst.D
 					}
-				case 57: /* FORNLOOP */
+				case 57: // FORNLOOP
 					A := inst.A
 					limit := (*stack)[A].(float64)
 					step := (*stack)[A+1].(float64)
@@ -1474,7 +1445,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					} else if limit <= init {
 						pc += inst.D
 					}
-				case 58: /* FORGLOOP */
+				case 58: // FORGLOOP
 					A := inst.A
 					res := inst.K.(int)
 
@@ -1520,15 +1491,15 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 							pc += inst.D
 						}
 					}
-				case 59, 61: /* FORGPREP_INEXT, FORGPREP_NEXT */
+				case 59, 61: // FORGPREP_INEXT, FORGPREP_NEXT
 					if _, ok := (*stack)[inst.A].(*func(...any) []any); !ok {
 						panic(fmt.Sprintf("attempt to iterate over a %s value", typeOf((*stack)[inst.A]))) // --  encountered non-function value
 					}
 					pc += inst.D
-				case 60: /* FASTCALL3 */
-					/* Skipped */
+				case 60: // FASTCALL3
+					// Skipped
 					pc += 1 // adjust for aux
-				case 63: /* GETVARARGS */
+				case 63: // GETVARARGS
 					A := inst.A
 					b := inst.B - 1
 
@@ -1544,57 +1515,59 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}
 
 					move(varargs.list, 0, b, A, stack)
-				case 64: /* DUPCLOSURE */
+				case 64: // DUPCLOSURE
 					newPrototype := protolist[inst.K.(uint32)] // TODO: 1-based indexing
 
 					nups := newPrototype.nups
 					upvalues := make([]Upval, nups)
-					(*stack)[inst.A] = luau_wrapclosure(module, newPrototype, upvalues)
+					fmt.Println("NEW CLOSURE", upvalues)
+					(*stack)[inst.A] = luau_wrapclosure(newPrototype, upvalues)
+					fmt.Println("finished")
 
 					for i := range nups {
 						pseudo := code[pc]
 						pc += 1
 
 						t := pseudo.A
-						if t == 0 { /* value */
+						if t == 0 { // value
 							upvalue := Upval{
-								value: (*stack)[pseudo.B],
-								index: UpvalIndex{selfRef: true},
+								value:   (*stack)[pseudo.B],
+								selfRef: true,
 							}
 							upvalue.store = upvalue
 
 							upvalues[i] = upvalue
 
 							// -- references dont get handled by DUPCLOSURE
-						} else if t == 2 { /* upvalue */
+						} else if t == 2 { // upvalue
 							upvalues[i] = upvals[pseudo.B]
 						}
 					}
-				case 65: /* PREPVARARGS */
-					/* Handled by wrapper */
-				case 66: /* LOADKX */
+				case 65: // PREPVARARGS
+					// Handled by wrapper
+				case 66: // LOADKX
 					kv := inst.K.(uint32)
 					(*stack)[inst.A] = kv
 
 					pc += 1 // -- adjust for aux
-				case 67: /* JUMPX */
+				case 67: // JUMPX
 					pc += inst.E
-				case 68: /* FASTCALL */
-					/* Skipped */
-				case 69: /* COVERAGE */
+				case 68: // FASTCALL
+					// Skipped
+				case 69: // COVERAGE
 					inst.E += 1
-				case 70: /* CAPTURE */
-					/* Handled by CLOSURE */
+				case 70: // CAPTURE
+					// Handled by CLOSURE
 					panic("encountered unhandled CAPTURE")
-				case 71, 72: /* SUBRK, DIVRK */
+				case 71, 72: // SUBRK, DIVRK
 					fmt.Println("ARITHMETIRK")
 					(*stack)[inst.A] = arithmetic(op, inst.K, (*stack)[inst.C])
-				case 73: /* FASTCALL1 */
-					/* Skipped */
-				case 74, 75: /* FASTCALL2, FASTCALL2K */
-					/* Skipped */
+				case 73: // FASTCALL1
+					// Skipped
+				case 74, 75: // FASTCALL2, FASTCALL2K
+					// Skipped
 					pc += 1 // adjust for aux
-				case 76: /* FORGPREP */
+				case 76: // FORGPREP
 					pc += inst.D
 					if _, ok := (*stack)[inst.A].(*func(...any) []any); ok {
 						break
@@ -1629,30 +1602,23 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 					}()
 
 					generalised_iterators[loopInstruction] = c
-				case 77: /* JUMPXEQKNIL */
-					kn := inst.KN
+				case 77, 78, 79, 80: // JUMPXEQKNIL, JUMPXEQKB, JUMPXEQKN, JUMPXEQKS
+					var jmp bool
+					if op == 77 {
+						jmp = ((*stack)[inst.A] == nil) != inst.KN
+					} else if op == 78 {
+						kv := inst.K.(bool)
+						ra, ok := (*stack)[inst.A].(bool)
 
-					if ((*stack)[inst.A] == nil) != kn {
-						pc += inst.D
-					} else {
-						pc += 1
+						jmp = ok && (ra == kv) != inst.KN
+					} else if op == 79 || op == 80 {
+						kv := inst.K.(float64)
+						ra := (*stack)[inst.A].(float64)
+
+						jmp = (ra == kv) != inst.KN
 					}
-				case 78: /* JUMPXEQKB */
-					kv := inst.K.(bool)
-					kn := inst.KN
-					ra, ok := (*stack)[inst.A].(bool)
 
-					if ok && (ra == kv) != kn {
-						pc += inst.D
-					} else {
-						pc += 1
-					}
-				case 79, 80: /* JUMPXEQKN, JUMPXEQKS */
-					kv := inst.K.(float64)
-					kn := inst.KN
-					ra := (*stack)[inst.A].(float64)
-
-					if (ra == kv) != kn {
+					if jmp {
 						pc += inst.D
 					} else {
 						pc += 1
@@ -1663,12 +1629,12 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 			}
 
 			for i, uv := range *open_upvalues {
-				if uv.index.selfRef {
+				if uv.selfRef {
 					continue
 				}
-				uv.value = (*uv.store.(*[]any))[uv.index.i]
+				uv.value = (*uv.store.(*[]any))[uv.index]
 				uv.store = uv
-				uv.index.selfRef = true
+				uv.selfRef = true
 				(*open_upvalues)[i] = nil
 			}
 
@@ -1681,7 +1647,7 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 
 		wrapped := func(passed ...any) []any {
 			stack := make([]any, proto.maxstacksize)
-			// fmt.Println("MAX STACK SIZE", proto.maxstacksize)
+			fmt.Println("MAX STACK SIZE", proto.maxstacksize)
 			varargs := Varargs{
 				len:  0,
 				list: []any{},
@@ -1712,5 +1678,5 @@ func luau_load(module Deserialise, env map[any]any) (func(...any) []any, func())
 		return &wrapped
 	}
 
-	return *luau_wrapclosure(module, mainProto, []Upval{}), luau_close
+	return *luau_wrapclosure(module.mainProto, []Upval{}), luau_close
 }
