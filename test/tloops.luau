@@ -1,7 +1,7 @@
 local j = {}
 local k = function() end
 
-local pointerKeys = {
+local pointerKeys: { [any]: any } = {
 	[j] = "tkey",
 	[k] = "fkey",
 }
