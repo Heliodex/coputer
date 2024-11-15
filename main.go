@@ -23,9 +23,20 @@ func arrayKey(k any) (int, bool) {
 }
 
 type Table struct {
-	array *[]any
-	hash  *map[any]any
-	asize uint
+	array    *[]any
+	hash     *map[any]any
+	asize    uint
+	readonly bool
+}
+
+type Function func(...any) []any
+
+func NewTable(hash map[any]any) *Table {
+	return &Table{
+		hash:     &hash,
+		asize:    0,
+		readonly: true,
+	}
 }
 
 // O(n) length? *scoffs*
@@ -49,6 +60,10 @@ func (t *Table) Len() (len int) {
 // of 2 such that more than half the elements of the array part are filled."
 // - Lua performance tips, Roberto Ierusalimschy
 func (t *Table) Rehash(nk any, nv any) {
+	if t.readonly {
+		panic("attempt to modify readonly table")
+	}
+
 	var lenArray, lenHash uint
 	arrayExists, hashExists := t.array != nil, t.hash != nil
 
@@ -171,6 +186,10 @@ func (t *Table) Rehash(nk any, nv any) {
 }
 
 func (t *Table) Set(i any, v any) {
+	if t.readonly {
+		panic("attempt to modify readonly table")
+	}
+
 	fi, ok := i.(float64)
 
 	if ok && fi == math.Floor(fi) {
@@ -439,7 +458,7 @@ type LuauSettings struct {
 	VectorCtor      func(...float32) any
 	NamecallHandler func(kv string, stack *[]any, c1, c2 int) (ok bool, ret []any)
 	// DecodeOp        func(op uint32) uint32
-	Extensions map[any]any
+	Extensions *Table
 	// VectorSize uint8
 	// AllowProxyErrors bool
 }
@@ -468,7 +487,9 @@ var luau_settings = LuauSettings{
 	// 	// println("decoding op", op)
 	// 	return op
 	// },
-	Extensions: map[any]any{},
+	Extensions: NewTable(map[any]any{
+		"math": libmath,
+	}),
 	// VectorSize: 4,
 	// AllowProxyErrors: false,
 }
@@ -764,14 +785,13 @@ func luau_deserialise(data []byte) Deserialised {
 			intervals := uint32((sizecode-1)>>linegaplog2) + 1
 
 			lineinfo := make([]uint32, sizecode)
-			abslineinfo := make([]uint32, intervals)
-
 			var lastoffset uint32
 			for i := range sizecode {
 				lastoffset += uint32(rByte()) // TODO: type convs?
 				lineinfo[i] = lastoffset
 			}
 
+			abslineinfo := make([]uint32, intervals)
 			var lastline uint32
 			for i := range intervals {
 				lastline += rWord()
@@ -854,8 +874,7 @@ type Upval struct {
 }
 
 func truthy(v any) bool {
-	b, ok := v.(bool)
-	if ok {
+	if b, ok := v.(bool); ok {
 		return b
 	}
 	return v != nil
@@ -889,12 +908,12 @@ var arithops = map[uint8]string{
 }
 
 var luautype = map[string]string{
-	"float64":                               "number",
-	"string":                                "string",
-	"bool":                                  "boolean",
-	"nil":                                   "nil",
-	"map[interface {}]interface {}":         "table",
-	"*func(...interface {}) []interface {}": "function",
+	"float64":        "number",
+	"string":         "string",
+	"bool":           "boolean",
+	"nil":            "nil",
+	"*main.Table":    "table",
+	"*main.Function": "function",
 }
 
 func sfops[T string | float64](op uint8, op1, op2 T) bool {
@@ -1031,11 +1050,11 @@ func jump(op uint8, op1, op2 any) bool {
 	panic(invalidCompare(op, t1, t2))
 }
 
-func luau_load(module Deserialised, env map[any]any) (func(...any) []any, func()) {
+func luau_load(module Deserialised, env map[any]any) (Function, func()) {
 	protolist := module.protoList
 	alive := true
 
-	var luau_wrapclosure func(proto Proto, upvals []Upval) *func(...any) []any
+	var luau_wrapclosure func(proto Proto, upvals []Upval) *Function
 
 	luau_execute := func(
 		proto Proto,
@@ -1054,7 +1073,7 @@ func luau_load(module Deserialised, env map[any]any) (func(...any) []any, func()
 
 		// a a a a
 		// stayin' alive
-		for alive { // TODO: check go scope bruh
+		for alive {
 			if !handlingBreak {
 				inst = *code[pc-1]
 				op = inst.opcode
@@ -1087,7 +1106,7 @@ func luau_load(module Deserialised, env map[any]any) (func(...any) []any, func()
 			case 7: // GETGLOBAL
 				kv := inst.K
 
-				(*stack)[inst.A] = extensions[kv]
+				(*stack)[inst.A] = extensions.Get(kv)
 				if (*stack)[inst.A] == nil {
 					(*stack)[inst.A] = env[kv]
 				}
@@ -1122,7 +1141,7 @@ func luau_load(module Deserialised, env map[any]any) (func(...any) []any, func()
 				}
 			case 12: // GETIMPORT
 				k0 := inst.K0
-				imp := extensions[k0]
+				imp := extensions.Get(k0)
 				if imp == nil {
 					imp = env[k0]
 				}
@@ -1131,9 +1150,11 @@ func luau_load(module Deserialised, env map[any]any) (func(...any) []any, func()
 				case 1:
 					(*stack)[inst.A] = imp
 				case 2:
-					(*stack)[inst.A] = imp.([]any)[inst.K1.(uint32)-1]
+					t := imp.(*Table)
+					(*stack)[inst.A] = t.Get(inst.K1)
 				case 3:
-					(*stack)[inst.A] = imp.([]any)[inst.K1.(uint32)-1].([]any)[inst.K2.(uint32)-1]
+					t := imp.(*Table)
+					(*stack)[inst.A] = t.Get(inst.K1).([]any)[inst.K2.(uint32)-1]
 				}
 
 				pc += 1 // -- adjust for aux
@@ -1153,6 +1174,7 @@ func luau_load(module Deserialised, env map[any]any) (func(...any) []any, func()
 				index := inst.K
 				t, ok := (*stack)[inst.B].(*Table)
 				if !ok {
+					fmt.Println("indexing", typeOf((*stack)[inst.B]), "with", index)
 					panic(invalidIndex(typeOf((*stack)[inst.B]), index))
 				}
 
@@ -1213,15 +1235,13 @@ func luau_load(module Deserialised, env map[any]any) (func(...any) []any, func()
 					pc += 1
 				}
 			case 20: // NAMECALL
-				fmt.Println("NAMECALL")
+				// fmt.Println("NAMECALL")
 
 				A, B := inst.A, inst.B
 				kv := inst.K.(string)
 				// fmt.Println("kv", kv)
 
-				sb := (*stack)[B]
-				fmt.Println("sb", sb)
-				(*stack)[A+1] = sb // TODO: 1-based indexing
+				(*stack)[A+1] = (*stack)[B]
 
 				// -- Special handling for native namecall behaviour
 				callInst := code[pc]
@@ -1272,13 +1292,12 @@ func luau_load(module Deserialised, env map[any]any) (func(...any) []any, func()
 				// fmt.Println(A, (*stack)[A])
 
 				f := (*stack)[A]
-				fn, ok := f.(*func(...any) []any)
+				fn, ok := f.(*Function)
 				if !ok {
 					panic(uncallableType(typeOf(f)))
 				}
 
 				// fmt.Println("*calling with", (*stack)[A+1:A+params+1])
-
 				ret_list := (*fn)((*stack)[A+1 : A+params+1]...) // not inclusive
 				ret_num := int(len(ret_list))
 
@@ -1422,10 +1441,10 @@ func luau_load(module Deserialised, env map[any]any) (func(...any) []any, func()
 				top = int(A + 6)
 
 				switch it := (*stack)[A].(type) {
-				case *func(...any) []any:
+				case *Function:
 					fmt.Println("IT func", it)
 
-					vals := (*it)((*stack)[A+1], (*stack)[A+2])
+					vals := (*it)([]any{(*stack)[A+1], (*stack)[A+2]})
 
 					move(vals, 0, res, A+3, stack)
 
@@ -1438,7 +1457,7 @@ func luau_load(module Deserialised, env map[any]any) (func(...any) []any, func()
 						pc += 1
 					}
 				default:
-					fmt.Println("IT gen", it)
+					// fmt.Println("IT gen", it)
 
 					iter := *generalised_iterators[inst]
 
@@ -1449,7 +1468,7 @@ func luau_load(module Deserialised, env map[any]any) (func(...any) []any, func()
 						// fmt.Println("-1- sent")
 					}
 					vals := <-iter.resume
-					fmt.Println("-1- received!", vals)
+					// fmt.Println("-1- received!", vals)
 
 					if vals == nil {
 						delete(generalised_iterators, inst)
@@ -1462,8 +1481,8 @@ func luau_load(module Deserialised, env map[any]any) (func(...any) []any, func()
 					}
 				}
 			case 59, 61: // FORGPREP_INEXT, FORGPREP_NEXT
-				if _, ok := (*stack)[inst.A].(*func(...any) []any); !ok {
-					panic(fmt.Sprintf("attempt to iterate over a %s value", typeOf((*stack)[inst.A]))) // --  encountered non-function value
+				if _, ok := (*stack)[inst.A].(*Function); !ok {
+					panic(fmt.Sprintf("attempt to iterate over a %s value", typeOf((*stack)[inst.A]))) // -- encountered non-function value
 				}
 				pc += inst.D
 			case 60: // FASTCALL3
@@ -1513,8 +1532,7 @@ func luau_load(module Deserialised, env map[any]any) (func(...any) []any, func()
 			case 65: // PREPVARARGS
 				// Handled by wrapper
 			case 66: // LOADKX
-				kv := inst.K.(uint32)
-				(*stack)[inst.A] = kv
+				(*stack)[inst.A] = inst.K.(uint32) // kv
 
 				pc += 1 // -- adjust for aux
 			case 67: // JUMPX
@@ -1536,7 +1554,7 @@ func luau_load(module Deserialised, env map[any]any) (func(...any) []any, func()
 				pc += 1 // adjust for aux
 			case 76: // FORGPREP
 				pc += inst.D
-				if _, ok := (*stack)[inst.A].(*func(...any) []any); ok {
+				if _, ok := (*stack)[inst.A].(*Function); ok {
 					break
 				}
 
@@ -1554,13 +1572,13 @@ func luau_load(module Deserialised, env map[any]any) (func(...any) []any, func()
 					args := *<-c.args
 					c.args = nil // we're done here
 					c.running = true
-					fmt.Println("-2- generating iterator", args)
+					// fmt.Println("-2- generating iterator", args)
 
 					for i, v := range args[0].(*Table).Iter() {
 						if !c.running {
 							return
 						}
-						fmt.Println("-2- yielding", i, v)
+						// fmt.Println("-2- yielding", i, v)
 						c.resume <- &[]any{i, v}
 						// fmt.Println("-2- yielded!")
 					}
@@ -1612,8 +1630,8 @@ func luau_load(module Deserialised, env map[any]any) (func(...any) []any, func()
 		return []any{}
 	}
 
-	luau_wrapclosure = func(proto Proto, upvals []Upval) *func(...any) []any {
-		wrapped := func(passed ...any) []any {
+	luau_wrapclosure = func(proto Proto, upvals []Upval) *Function {
+		wrapped := Function(func(passed ...any) []any {
 			maxstacksize, numparams := proto.maxstacksize, proto.numparams
 
 			stack := make([]any, maxstacksize)
@@ -1639,7 +1657,7 @@ func luau_load(module Deserialised, env map[any]any) (func(...any) []any, func()
 			// fmt.Println("RESULT", result)
 
 			return result
-		}
+		})
 
 		return &wrapped
 	}

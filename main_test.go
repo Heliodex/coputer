@@ -45,7 +45,7 @@ func litecode(t *testing.T, f string, o int) string {
 	deserialised := luau_deserialise(bytecode)
 
 	b := strings.Builder{}
-	luau_print := func(args ...any) (ret []any) {
+	luau_print := Function(func(args ...any) (ret []any) {
 		// b.WriteString(fmt.Sprint(args...))
 		for i, arg := range args {
 			b.WriteString(luauPrint(arg))
@@ -55,7 +55,7 @@ func litecode(t *testing.T, f string, o int) string {
 		}
 		b.WriteString("\r\n") // yeah
 		return
-	}
+	})
 
 	fn, _ := luau_load(deserialised, map[any]any{
 		"print": &luau_print,
