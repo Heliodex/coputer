@@ -82,8 +82,14 @@ func TestConformance(t *testing.T) {
 		return
 	}
 
+	// onlyTest := "libmath.luau"
+
 	for _, f := range files {
 		name := f.Name()
+		// if name != onlyTest {
+		// 	continue
+		// }
+
 		fmt.Println(" -- Testing", name, "--")
 
 		og, err := luau(name)

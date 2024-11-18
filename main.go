@@ -1082,7 +1082,7 @@ func luau_load(module Deserialised, env map[any]any) (Function, func()) {
 
 			pc += 1
 
-			// fmt.Println("OP", op, "PC", pc)
+			fmt.Println("OP", op, "PC", pc)
 
 			switch op {
 			case 0: // NOP
@@ -1113,10 +1113,18 @@ func luau_load(module Deserialised, env map[any]any) (Function, func()) {
 
 				pc += 1 // -- adjust for aux
 			case 8: // SETGLOBAL
+				// LOL
 				kv := inst.K
-				env[kv] = (*stack)[inst.A]
+				if _, ok := kv.(string); ok {
+					if extensions.Get(kv) != nil {
+						panic(fmt.Sprintf("attempt to redefine global '%s'", kv))
+					}
+					panic(fmt.Sprintf("attempt to set global '%s'", kv))
+				}
 
-				pc += 1 // -- adjust for aux
+				// env[kv] = (*stack)[inst.A]
+
+				// pc += 1 // -- adjust for aux
 			case 9: // GETUPVAL
 				if uv := upvals[inst.B]; uv.selfRef {
 					(*stack)[inst.A] = uv.store.(Upval).value
