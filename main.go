@@ -111,19 +111,19 @@ func (t *Table) Rehash(nk any, nv any) {
 	}
 
 	// new kv
-	fmt.Println("new nknv", nk, nv)
+	// fmt.Println("new nknv", nk, nv)
 	if ank, ok := arrayKey(nk); ok {
 		entries[float64(ank)] = nv
 		for ank >= len(arrayEntries) {
 			arrayEntries = append(arrayEntries, nil)
 		}
-		fmt.Println("setting array", ank, ank-1)
+		// fmt.Println("setting array", ank, ank-1)
 		arrayEntries[ank-1] = nv
 	} else {
 		entries[nk] = nv
 	}
 
-	fmt.Println("ALL ENTRIES", entries)
+	// fmt.Println("ALL ENTRIES", entries)
 
 	// count the number of elements in the table
 	totalSize := uint(len(entries))
@@ -141,7 +141,7 @@ func (t *Table) Rehash(nk any, nv any) {
 
 	// halve the size of the array until more than half of the spaces are filled
 	for {
-		fmt.Println("halving", maxP2, "until", maxToFill, lenArrayEntries)
+		// fmt.Println("halving", maxP2, "until", maxToFill, lenArrayEntries)
 		intsFilled = 0
 		maxToFill = min(maxP2, totalSize, lenArrayEntries)
 		for _, v := range arrayEntries[:maxToFill] {
@@ -149,7 +149,7 @@ func (t *Table) Rehash(nk any, nv any) {
 				intsFilled++
 			}
 		}
-		fmt.Println("INTSFILLED", intsFilled)
+		// fmt.Println("INTSFILLED", intsFilled)
 
 		if intsFilled > maxP2/2 || maxP2 == 0 {
 			break
@@ -168,11 +168,11 @@ func (t *Table) Rehash(nk any, nv any) {
 		for i, v := range newArray {
 			// remove from entries
 			if v != nil {
-				fmt.Println("DELETING", float64(i+1), entries[float64(i+1)])
+				// fmt.Println("DELETING", float64(i+1), entries[float64(i+1)])
 				delete(entries, float64(i+1))
 			}
 		}
-		fmt.Println("Remaining", entries)
+		// fmt.Println("Remaining", entries)
 	}
 
 	t.hash = &entries
@@ -1082,7 +1082,7 @@ func luau_load(module Deserialised, env map[any]any) (Function, func()) {
 
 			pc += 1
 
-			fmt.Println("OP", op, "PC", pc)
+			// fmt.Println("OP", op, "PC", pc)
 
 			switch op {
 			case 0: // NOP
