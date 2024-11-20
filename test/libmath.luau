@@ -46,3 +46,32 @@ print(math.log(5))
 print(math.log(5, 2))
 print(math.log10(50_000))
 print(math.log10(100_000))
+print(math.modf(5))
+print(math.modf(x))
+
+print(math.noise(1))
+print(math.noise(1, 2))
+print(math.noise(1, 2, 3))
+print(math.noise(1.158))
+print(math.noise(-1.158))
+print(math.noise(1.158, 5.723))
+print(math.noise(1.158, 6))
+print(math.noise(291.158, 296))
+print(math.noise(-291.158, -296))
+print(math.noise(5e5 / 7, 5e6 / 9))
+
+print(math.pow(5, 2))
+print(math.pow(5, 2.5))
+print(math.round(x))
+print(math.sign(0))
+print(math.sign(-0))
+print(math.sign(1))
+print(math.sign(-1))
+
+print(math.sqrt(25))
+print(math.sqrt(24))
+
+print(math.huge)
+
+print(math.map(0.5, 0, 1, 6, 99))
+
