@@ -30,6 +30,8 @@ func luauPrint(a any) string {
 			return fmt.Sprintf("%.0e", v)
 		}
 		return fmt.Sprint(v)
+	case nil:
+		return "nil"
 	}
 	return fmt.Sprint(a)
 }
@@ -82,7 +84,7 @@ func TestConformance(t *testing.T) {
 		return
 	}
 
-	// onlyTest := "libmath.luau"
+	// onlyTest := "libtable.luau"
 
 	for _, f := range files {
 		name := f.Name()

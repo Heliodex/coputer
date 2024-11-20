@@ -31,7 +31,11 @@ type Table struct {
 
 type Function func(...any) []any
 
-func NewTable(hash map[any]any) *Table {
+func NewTable(toHash [][2]any) *Table {
+	hash := map[any]any{}
+	for _, v := range toHash {
+		hash[v[0]] = v[1]
+	}
 	return &Table{
 		hash:     &hash,
 		asize:    0,
@@ -177,12 +181,12 @@ func (t *Table) Rehash(nk any, nv any) {
 
 	t.hash = &entries
 
-	fmt.Println()
-	fmt.Println("REHASHED")
-	fmt.Println("ARRAY", t.array)
-	fmt.Println("HASH", entries)
-	fmt.Println("ASIZE", t.asize)
-	fmt.Println()
+	// fmt.Println()
+	// fmt.Println("REHASHED")
+	// fmt.Println("ARRAY", t.array)
+	// fmt.Println("HASH", entries)
+	// fmt.Println("ASIZE", t.asize)
+	// fmt.Println()
 }
 
 func (t *Table) Set(i any, v any) {
@@ -458,7 +462,7 @@ type LuauSettings struct {
 	VectorCtor      func(...float32) any
 	NamecallHandler func(kv string, stack *[]any, c1, c2 int) (ok bool, ret []any)
 	// DecodeOp        func(op uint32) uint32
-	Extensions *Table
+	Extensions map[any]any
 	// VectorSize uint8
 	// AllowProxyErrors bool
 }
@@ -487,9 +491,10 @@ var luau_settings = LuauSettings{
 	// 	// println("decoding op", op)
 	// 	return op
 	// },
-	Extensions: NewTable(map[any]any{
+	Extensions: map[any]any{
 		"math": libmath,
-	}),
+		"table": libtable,
+	},
 	// VectorSize: 4,
 	// AllowProxyErrors: false,
 }
@@ -1106,7 +1111,7 @@ func luau_load(module Deserialised, env map[any]any) (Function, func()) {
 			case 7: // GETGLOBAL
 				kv := inst.K
 
-				(*stack)[inst.A] = extensions.Get(kv)
+				(*stack)[inst.A] = extensions[kv]
 				if (*stack)[inst.A] == nil {
 					(*stack)[inst.A] = env[kv]
 				}
@@ -1116,7 +1121,7 @@ func luau_load(module Deserialised, env map[any]any) (Function, func()) {
 				// LOL
 				kv := inst.K
 				if _, ok := kv.(string); ok {
-					if extensions.Get(kv) != nil {
+					if extensions[kv] != nil {
 						panic(fmt.Sprintf("attempt to redefine global '%s'", kv))
 					}
 					panic(fmt.Sprintf("attempt to set global '%s'", kv))
@@ -1149,7 +1154,7 @@ func luau_load(module Deserialised, env map[any]any) (Function, func()) {
 				}
 			case 12: // GETIMPORT
 				k0 := inst.K0
-				imp := extensions.Get(k0)
+				imp := extensions[k0]
 				if imp == nil {
 					imp = env[k0]
 				}
@@ -1194,7 +1199,7 @@ func luau_load(module Deserialised, env map[any]any) (Function, func()) {
 
 				pc += 1 // -- adjust for aux
 			case 17: // GETTABLEN
-				(*stack)[inst.A] = (*stack)[inst.B].(*Table).Get(inst.C + 1)
+				(*stack)[inst.A] = (*stack)[inst.B].(*Table).Get(float64(inst.C + 1))
 			case 18: // SETTABLEN
 				(*stack)[inst.B].(*Table).Set(float64(inst.C+1), (*stack)[inst.A])
 			case 19: // NEWCLOSURE

@@ -1,112 +1,57 @@
 package main
 
 import (
-	"fmt"
 	"math"
-	"reflect"
 )
-
-func invalidNumArgs(fn string, nx int, tx string) string {
-	return fmt.Sprintf("missing argument #%d to '%s' (%s expected)", nx, fn, luautype[tx])
-}
-
-func invalidArgType(i int, fn string, tx, tg string) string {
-	return fmt.Sprintf("invalid argument #%d to '%s' (%s expected, got %s)", i, fn, luautype[tx], luautype[tg])
-}
-
-func MakeFunction(name string, fn any) *Function {
-	vfn, tfn := reflect.ValueOf(fn), reflect.TypeOf(fn)
-	if tfn.Kind() != reflect.Func {
-		panic("protected item is not a function")
-	}
-
-	argCount := tfn.NumIn()
-	variadic := tfn.IsVariadic()
-
-	newFn := Function(func(args ...any) (rets []any) {
-		l := len(args)
-		if (!variadic && l < argCount) || (variadic && l < argCount-1) {
-			missingArg := tfn.In(l).String()
-			// fmt.Println("missingArg", missingArg)
-			panic(invalidNumArgs(name, argCount, missingArg))
-		}
-
-		ml := min(l, argCount)
-
-		vargs := make([]reflect.Value, ml)
-		for i := range ml {
-			a := args[i]
-
-			var ta, ra reflect.Type
-			if variadic && i >= argCount-1 {
-				// fmt.Println("in varidaci", args, args[i])
-				vargs[i], ta, ra = reflect.ValueOf(args[i]), reflect.TypeOf(args[i]), tfn.In(argCount-1).Elem()
-			} else {
-				vargs[i], ta, ra = reflect.ValueOf(a), reflect.TypeOf(a), tfn.In(i)
-			}
-
-			if ta != ra {
-				panic(invalidArgType(i+1, name, ra.String(), ta.String()))
-			}
-		}
-
-		ret := vfn.Call(vargs)
-		for _, v := range ret {
-			rets = append(rets, v.Interface())
-		}
-		return
-	})
-	return &newFn
-}
 
 // functions
 
-var math_clamp = MakeFunction("clamp", func(x, min, max float64) float64 {
+func math_clamp(x, min, max float64) float64 {
 	if x < min {
 		return min
 	} else if x > max {
 		return max
 	}
 	return x
-})
+}
 
-var math_deg = MakeFunction("deg", func(x float64) float64 {
+func math_deg(x float64) float64 {
 	return x * 180 / math.Pi
-})
+}
 
-var math_frexp = MakeFunction("frexp", func(x float64) (float64, float64) {
+func math_frexp(x float64) (float64, float64) {
 	frac, exp := math.Frexp(x)
 	return frac, float64(exp)
-})
+}
 
-var math_ldexp = MakeFunction("ldexp", func(x, e float64) float64 {
+func math_ldexp(x, e float64) float64 {
 	return math.Ldexp(x, int(e))
-})
+}
 
-var math_log = MakeFunction("log", func(x float64, base ...float64) float64 {
+func math_log(x float64, base ...float64) float64 {
 	if len(base) == 0 {
 		return math.Log(x)
 	}
 	return math.Log(x) / math.Log(base[0])
-})
+}
 
-var math_map = MakeFunction("map", func(x, inmin, inmax, outmin, outmax float64) float64 {
+func math_map(x, inmin, inmax, outmin, outmax float64) float64 {
 	return outmin + (x-inmin)*(outmax-outmin)/(inmax-inmin)
-})
+}
 
-var math_max = MakeFunction("max", func(first float64, rest ...float64) float64 {
+func math_max(first float64, rest ...float64) float64 {
 	for _, arg := range rest {
 		first = math.Max(first, arg)
 	}
 	return first
-})
+}
 
-var math_min = MakeFunction("min", func(first float64, rest ...float64) float64 {
+func math_min(first float64, rest ...float64) float64 {
 	for _, arg := range rest {
 		first = math.Min(first, arg)
 	}
 	return first
-})
+}
 
 // lmathlib.cpp
 var kPerlinHash = [257]int{
@@ -179,7 +124,7 @@ func perlin(x, y, z float32) float64 {
 	return float64(lerp(w, lerp(v, la, lb), lerp(v, la1, lb1)))
 }
 
-var math_noise = MakeFunction("noise", func(x float64, rest ...float64) float64 {
+func math_noise(x float64, rest ...float64) float64 {
 	var y, z float64
 	if len(rest) > 0 {
 		y = rest[0]
@@ -189,55 +134,55 @@ var math_noise = MakeFunction("noise", func(x float64, rest ...float64) float64 
 	}
 
 	return perlin(float32(x), float32(y), float32(z))
-})
+}
 
-var math_rad = MakeFunction("rad", func(x float64) float64 {
+func math_rad(x float64) float64 {
 	return x * math.Pi / 180
-})
+}
 
-var math_sign = MakeFunction("sign", func(x float64) float64 {
+func math_sign(x float64) float64 {
 	if x > 0 {
 		return 1
 	} else if x < 0 {
 		return -1
 	}
 	return 0
-})
+}
 
-var libmath = NewTable(map[any]any{
-	"abs":   MakeFunction("abs", math.Abs),
-	"acos":  MakeFunction("acos", math.Acos),
-	"asin":  MakeFunction("asin", math.Asin),
-	"atan":  MakeFunction("atan", math.Atan),
-	"atan2": MakeFunction("atan2", math.Atan2),
-	"ceil":  MakeFunction("ceil", math.Ceil),
-	"clamp": math_clamp,
-	"cos":   MakeFunction("cos", math.Cos),
-	"cosh":  MakeFunction("cosh", math.Cosh),
-	"deg":   math_deg,
-	"exp":   MakeFunction("exp", math.Exp),
-	"floor": MakeFunction("floor", math.Floor),
-	"fmod":  MakeFunction("fmod", math.Mod),
-	"frexp": math_frexp,
-	"ldexp": math_ldexp,
-	"log":   math_log,
-	"log10": MakeFunction("log10", math.Log10),
-	"map":   math_map,
-	"max":   math_max,
-	"min":   math_min,
-	"modf":  MakeFunction("modf", math.Modf),
-	"noise": math_noise,
-	"pow":   MakeFunction("pow", math.Pow),
-	"rad":   math_rad,
+var libmath = NewTable([][2]any{
+	MakeFn("abs", math.Abs),
+	MakeFn("acos", math.Acos),
+	MakeFn("asin", math.Asin),
+	MakeFn("atan", math.Atan),
+	MakeFn("atan2", math.Atan2),
+	MakeFn("ceil", math.Ceil),
+	MakeFn("clamp", math_clamp),
+	MakeFn("cos", math.Cos),
+	MakeFn("cosh", math.Cosh),
+	MakeFn("deg", math_deg),
+	MakeFn("exp", math.Exp),
+	MakeFn("floor", math.Floor),
+	MakeFn("fmod", math.Mod),
+	MakeFn("frexp", math_frexp),
+	MakeFn("ldexp", math_ldexp),
+	MakeFn("log", math_log),
+	MakeFn("log10", math.Log10),
+	MakeFn("map", math_map), // w00t
+	MakeFn("max", math_max),
+	MakeFn("min", math_min),
+	MakeFn("modf", math.Modf),
+	MakeFn("noise", math_noise),
+	MakeFn("pow", math.Pow),
+	MakeFn("rad", math_rad),
 	// math.random and randomseed removed because we want determinism
-	"round": MakeFunction("round", math.Round),
-	"sign":  math_sign,
-	"sin":   MakeFunction("sin", math.Sin),
-	"sinh":  MakeFunction("sinh", math.Sinh),
-	"sqrt":  MakeFunction("sqrt", math.Sqrt),
-	"tan":   MakeFunction("tan", math.Tan),
-	"tanh":  MakeFunction("tanh", math.Tanh),
+	MakeFn("round", math.Round),
+	MakeFn("sign", math_sign),
+	MakeFn("sin", math.Sin),
+	MakeFn("sinh", math.Sinh),
+	MakeFn("sqrt", math.Sqrt),
+	MakeFn("tan", math.Tan),
+	MakeFn("tanh", math.Tanh),
 
-	"huge": math.Inf(1),
-	"pi":   math.Pi,
+	{"huge", math.Inf(1)},
+	{"pi", math.Pi},
 })

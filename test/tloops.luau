@@ -23,6 +23,7 @@ for i, v in table do
 	print(i, v)
 end
 
+print(table[1]) -- why
 print(#pointerKeys)
 print(#table)
 print(pointerKeys[j], pointerKeys[k])
