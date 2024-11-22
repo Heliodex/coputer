@@ -2,16 +2,22 @@ package main
 
 import "strings"
 
-func table_clear(t *Table) {
+func table_clear(args *Args) []any {
+	t := args.GetTable()
+
 	for i := range *t.array {
 		(*t.array)[i] = nil
 	}
 	for k := range *t.hash {
 		(*t.hash)[k] = nil
 	}
+
+	return []any{}
 }
 
-func table_clone(t *Table) *Table {
+func table_clone(args *Args) []any {
+	t := args.GetTable()
+
 	a2 := make([]any, len(*t.array))
 	copy(a2, *t.array)
 
@@ -20,29 +26,21 @@ func table_clone(t *Table) *Table {
 		h2[k] = v
 	}
 
-	return &Table{
+	return []any{&Table{
 		array: &a2,
 		hash:  &h2,
 		asize: t.asize,
-	}
+	}}
 }
 
-func table_concat(t *Table, args ...any) string {
-	sep, i, j := "", 1., t.Len()
-
-	switch len(args) {
-	case 3:
-		j = args[2].(float64)
-		fallthrough
-	case 2:
-		i = args[1].(float64)
-		fallthrough
-	case 1:
-		sep = args[0].(string)
-	}
+func table_concat(args *Args) []any {
+	t := args.GetTable()
+	sep := args.GetString("")
+	i := args.GetNumber(1)
+	j := args.GetNumber(t.Len())
 
 	if i > j {
-		return ""
+		return []any{""}
 	}
 
 	b := strings.Builder{}
@@ -58,7 +56,7 @@ func table_concat(t *Table, args ...any) string {
 		}
 	}
 
-	return b.String()
+	return []any{b.String()}
 }
 
 var libtable = NewTable([][2]any{

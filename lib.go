@@ -1,9 +1,7 @@
 package main
 
-import (
-	"fmt"
-	"reflect"
-)
+import "fmt"
+
 
 func invalidNumArgs(fn string, nx int, tx string) string {
 	return fmt.Sprintf("missing argument #%d to '%s' (%s expected)", nx, fn, luautype[tx])
@@ -13,47 +11,52 @@ func invalidArgType(i int, fn string, tx, tg string) string {
 	return fmt.Sprintf("invalid argument #%d to '%s' (%s expected, got %s)", i, fn, luautype[tx], luautype[tg])
 }
 
-func MakeFn(name string, fn any) [2]any {
-	vfn, tfn := reflect.ValueOf(fn), reflect.TypeOf(fn)
-	if tfn.Kind() != reflect.Func {
-		panic("protected item is not a function")
+type Args struct {
+	args []any
+	name string
+	pos  int
+}
+
+func getArg[T any](args *Args, optionalValue []T) T {
+	var possibleArg any
+
+	if args.pos >= len(args.args) {
+		if len(optionalValue) == 0 {
+			panic(invalidNumArgs(args.name, args.pos, typeOf(args.args[args.pos-1])))
+		}
+		possibleArg = optionalValue[0]
+	} else {
+		possibleArg = args.args[args.pos]
 	}
 
-	argCount := tfn.NumIn()
-	variadic := tfn.IsVariadic()
+	args.pos++
+	arg, ok := possibleArg.(T)
+	if !ok {
+		panic(invalidArgType(args.pos, args.name, typeOf(arg), typeOf(possibleArg)))
+	}
+	return arg
+}
 
-	newFn := Function(func(args ...any) (rets []any) {
-		l := len(args)
-		if (!variadic && l < argCount) || (variadic && l < argCount-1) {
-			missingArg := tfn.In(l).String()
-			// fmt.Println("missingArg", missingArg)
-			panic(invalidNumArgs(name, argCount, missingArg))
-		}
+func (a *Args) GetNumber(optionalValue ...float64) float64 {
+	return getArg[float64](a, optionalValue)
+}
 
-		ml := min(l, argCount)
+func (a *Args) GetString(optionalValue ...string) string {
+	return getArg[string](a, optionalValue)
+}
 
-		vargs := make([]reflect.Value, ml)
-		for i := range ml {
-			a := args[i]
+func (a *Args) GetTable(optionalValue ...*Table) *Table {
+	return getArg[*Table](a, optionalValue)
+}
 
-			var ta, ra reflect.Type
-			if variadic && i >= argCount-1 {
-				// fmt.Println("in varidaci", args, args[i])
-				vargs[i], ta, ra = reflect.ValueOf(args[i]), reflect.TypeOf(args[i]), tfn.In(argCount-1).Elem()
-			} else {
-				vargs[i], ta, ra = reflect.ValueOf(a), reflect.TypeOf(a), tfn.In(i)
-			}
-
-			if ta != ra {
-				panic(invalidArgType(i+1, name, ra.String(), ta.String()))
-			}
-		}
-
-		ret := vfn.Call(vargs)
-		for _, v := range ret {
-			rets = append(rets, v.Interface())
-		}
-		return
+// Reflection don't scale
+func MakeFn(name string, fn func(args *Args) []any) [2]any {
+	fn2 := Function(func(vargs ...any) []any {
+		return fn(&Args{
+			args: vargs,
+			name: name,
+		})
 	})
-	return [2]any{name, &newFn}
+
+	return [2]any{name, &fn2}
 }

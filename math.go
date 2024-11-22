@@ -1,56 +1,127 @@
 package main
 
-import (
-	"math"
-)
+import "math"
 
-// functions
+func math_abs(args *Args) []any {
+	x := args.GetNumber()
+	return []any{math.Abs(x)}
+}
 
-func math_clamp(x, min, max float64) float64 {
+func math_acos(args *Args) []any {
+	x := args.GetNumber()
+	return []any{math.Acos(x)}
+}
+
+func math_asin(args *Args) []any {
+	x := args.GetNumber()
+	return []any{math.Asin(x)}
+}
+
+func math_atan(args *Args) []any {
+	x := args.GetNumber()
+	return []any{math.Atan(x)}
+}
+
+func math_atan2(args *Args) []any {
+	y, x := args.GetNumber(), args.GetNumber()
+	return []any{math.Atan2(y, x)}
+}
+
+func math_ceil(args *Args) []any {
+	x := args.GetNumber()
+	return []any{math.Ceil(x)}
+}
+
+func math_clamp(args *Args) []any {
+	x, min, max := args.GetNumber(), args.GetNumber(), args.GetNumber()
 	if x < min {
-		return min
+		return []any{min}
 	} else if x > max {
-		return max
+		return []any{max}
 	}
-	return x
+	return []any{x}
 }
 
-func math_deg(x float64) float64 {
-	return x * 180 / math.Pi
+func math_cos(args *Args) []any {
+	x := args.GetNumber()
+	return []any{math.Cos(x)}
 }
 
-func math_frexp(x float64) (float64, float64) {
+func math_cosh(args *Args) []any {
+	x := args.GetNumber()
+	return []any{math.Cosh(x)}
+}
+
+func math_deg(args *Args) []any {
+	x := args.GetNumber()
+	return []any{x * 180 / math.Pi}
+}
+
+func math_exp(args *Args) []any {
+	x := args.GetNumber()
+	return []any{math.Exp(x)}
+}
+
+func math_floor(args *Args) []any {
+	x := args.GetNumber()
+	return []any{math.Floor(x)}
+}
+
+func math_fmod(args *Args) []any {
+	x, y := args.GetNumber(), args.GetNumber()
+	return []any{math.Mod(x, y)}
+}
+
+func math_frexp(args *Args) []any {
+	x := args.GetNumber()
 	frac, exp := math.Frexp(x)
-	return frac, float64(exp)
+	return []any{frac, float64(exp)}
 }
 
-func math_ldexp(x, e float64) float64 {
-	return math.Ldexp(x, int(e))
+func math_ldexp(args *Args) []any {
+	x, e := args.GetNumber(), args.GetNumber()
+	return []any{math.Ldexp(x, int(e))}
 }
 
-func math_log(x float64, base ...float64) float64 {
-	if len(base) == 0 {
-		return math.Log(x)
+func math_log(args *Args) []any {
+	x := args.GetNumber()
+	if len(args.args) > 1 {
+		base := args.GetNumber()
+		return []any{math.Log(x) / math.Log(base)}
 	}
-	return math.Log(x) / math.Log(base[0])
+	return []any{math.Log(x)}
 }
 
-func math_map(x, inmin, inmax, outmin, outmax float64) float64 {
-	return outmin + (x-inmin)*(outmax-outmin)/(inmax-inmin)
+func math_log10(args *Args) []any {
+	x := args.GetNumber()
+	return []any{math.Log10(x)}
 }
 
-func math_max(first float64, rest ...float64) float64 {
-	for _, arg := range rest {
-		first = math.Max(first, arg)
+func math_map(args *Args) []any {
+	x, inmin, inmax, outmin, outmax := args.GetNumber(), args.GetNumber(), args.GetNumber(), args.GetNumber(), args.GetNumber()
+	return []any{outmin + (x-inmin)*(outmax-outmin)/(inmax-inmin)}
+}
+
+func math_max(args *Args) []any {
+	first := args.GetNumber()
+	for range args.args {
+		first = math.Max(first, args.GetNumber())
 	}
-	return first
+	return []any{first}
 }
 
-func math_min(first float64, rest ...float64) float64 {
-	for _, arg := range rest {
-		first = math.Min(first, arg)
+func math_min(args *Args) []any {
+	first := args.GetNumber()
+	for range args.args {
+		first = math.Min(first, args.GetNumber())
 	}
-	return first
+	return []any{first}
+}
+
+func math_modf(args *Args) []any {
+	x := args.GetNumber()
+	int, frac := math.Modf(x)
+	return []any{int, frac}
 }
 
 // lmathlib.cpp
@@ -124,64 +195,94 @@ func perlin(x, y, z float32) float64 {
 	return float64(lerp(w, lerp(v, la, lb), lerp(v, la1, lb1)))
 }
 
-func math_noise(x float64, rest ...float64) float64 {
-	var y, z float64
-	if len(rest) > 0 {
-		y = rest[0]
-	}
-	if len(rest) > 1 {
-		z = rest[1]
-	}
-
-	return perlin(float32(x), float32(y), float32(z))
+func math_noise(args *Args) []any {
+	x, y, z := args.GetNumber(), args.GetNumber(0), args.GetNumber(0)
+	return []any{perlin(float32(x), float32(y), float32(z))}
 }
 
-func math_rad(x float64) float64 {
-	return x * math.Pi / 180
+func math_pow(args *Args) []any {
+	x, y := args.GetNumber(), args.GetNumber()
+	return []any{math.Pow(x, y)}
 }
 
-func math_sign(x float64) float64 {
+func math_rad(args *Args) []any {
+	x := args.GetNumber()
+	return []any{x * math.Pi / 180}
+}
+
+func math_round(args *Args) []any {
+	x := args.GetNumber()
+	return []any{math.Round(x)}
+}
+
+func math_sign(args *Args) []any {
+	x := args.GetNumber()
 	if x > 0 {
-		return 1
+		return []any{1}
 	} else if x < 0 {
-		return -1
+		return []any{-1}
 	}
-	return 0
+	return []any{0}
+}
+
+func math_sin(args *Args) []any {
+	x := args.GetNumber()
+	return []any{math.Sin(x)}
+}
+
+func math_sinh(args *Args) []any {
+	x := args.GetNumber()
+	return []any{math.Sinh(x)}
+}
+
+func math_sqrt(args *Args) []any {
+	x := args.GetNumber()
+	return []any{math.Sqrt(x)}
+}
+
+func math_tan(args *Args) []any {
+	x := args.GetNumber()
+	return []any{math.Tan(x)}
+}
+
+func math_tanh(args *Args) []any {
+	x := args.GetNumber()
+	return []any{math.Tanh(x)}
 }
 
 var libmath = NewTable([][2]any{
-	MakeFn("abs", math.Abs),
-	MakeFn("acos", math.Acos),
-	MakeFn("asin", math.Asin),
-	MakeFn("atan", math.Atan),
-	MakeFn("atan2", math.Atan2),
-	MakeFn("ceil", math.Ceil),
+	MakeFn("abs", math_abs),
+	MakeFn("acos", math_acos),
+	MakeFn("asin", math_asin),
+	MakeFn("atan", math_atan),
+	MakeFn("atan2", math_atan2),
+	MakeFn("ceil", math_ceil),
 	MakeFn("clamp", math_clamp),
-	MakeFn("cos", math.Cos),
-	MakeFn("cosh", math.Cosh),
+	MakeFn("cos", math_cos),
+	MakeFn("cosh", math_cosh),
 	MakeFn("deg", math_deg),
-	MakeFn("exp", math.Exp),
-	MakeFn("floor", math.Floor),
-	MakeFn("fmod", math.Mod),
+	MakeFn("exp", math_exp),
+	MakeFn("floor", math_floor),
+	MakeFn("fmod", math_fmod),
 	MakeFn("frexp", math_frexp),
 	MakeFn("ldexp", math_ldexp),
 	MakeFn("log", math_log),
-	MakeFn("log10", math.Log10),
+	MakeFn("log10", math_log10),
 	MakeFn("map", math_map), // w00t
 	MakeFn("max", math_max),
 	MakeFn("min", math_min),
-	MakeFn("modf", math.Modf),
+	MakeFn("modf", math_modf),
 	MakeFn("noise", math_noise),
-	MakeFn("pow", math.Pow),
+	MakeFn("pow", math_pow),
 	MakeFn("rad", math_rad),
 	// math.random and randomseed removed because we want determinism
-	MakeFn("round", math.Round),
+	MakeFn("round", math_round),
 	MakeFn("sign", math_sign),
-	MakeFn("sin", math.Sin),
-	MakeFn("sinh", math.Sinh),
-	MakeFn("sqrt", math.Sqrt),
-	MakeFn("tan", math.Tan),
-	MakeFn("tanh", math.Tanh),
+	MakeFn("sin", math_sin),
+	MakeFn("sinh", math_sinh),
+	MakeFn("sqrt", math_sqrt),
+	MakeFn("tan", math_tan),
+	MakeFn("tanh", math_tanh),
 
 	{"huge", math.Inf(1)},
 	{"pi", math.Pi},
