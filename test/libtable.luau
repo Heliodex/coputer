@@ -12,3 +12,18 @@ end
 tt()
 table.clear(t)
 tt()
+
+print()
+
+t[2] = "two"
+local t2 = t
+local t3 = table.clone(t)
+t2[2] = "three"
+t3[2] = "four"
+
+print(t[2])
+print(t2[2])
+print(t3[2])
+
+print(table.concat(t))
+print(table.concat(t, ", "))

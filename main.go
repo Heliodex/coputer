@@ -44,7 +44,7 @@ func NewTable(toHash [][2]any) *Table {
 }
 
 // O(n) length? *scoffs*
-func (t *Table) Len() (len int) {
+func (t *Table) Len() (len float64) {
 	if t.array == nil {
 		return
 	}
