@@ -48,8 +48,8 @@ func (t *Table) Len() (len float64) {
 	if t.array == nil {
 		return
 	}
-	// return len(*(t.array))
-	for _, v := range *(t.array) {
+	// return len(*t.array)
+	for _, v := range *t.array {
 		if v == nil {
 			break
 		}
@@ -72,10 +72,10 @@ func (t *Table) Rehash(nk any, nv any) {
 	arrayExists, hashExists := t.array != nil, t.hash != nil
 
 	if arrayExists {
-		lenArray = uint(len(*(t.array)))
+		lenArray = uint(len(*t.array))
 	}
 	if hashExists {
-		lenHash = uint(len(*(t.hash)))
+		lenHash = uint(len(*t.hash))
 	}
 
 	entries := make(map[any]any, lenArray+lenHash)
@@ -83,7 +83,7 @@ func (t *Table) Rehash(nk any, nv any) {
 
 	// array kvs
 	if arrayExists {
-		for i, v := range *(t.array) {
+		for i, v := range *t.array {
 			if v == nil {
 				continue
 			}
@@ -98,7 +98,7 @@ func (t *Table) Rehash(nk any, nv any) {
 
 	// hash kvs
 	if hashExists {
-		for k, v := range *(t.hash) {
+		for k, v := range *t.hash {
 			if v == nil {
 				continue
 			}
@@ -200,7 +200,7 @@ func (t *Table) Set(i any, v any) {
 		}
 
 		if ii := int(fi); 1 <= ii && ii <= int(t.asize) {
-			(*(t.array))[ii-1] = v
+			(*t.array)[ii-1] = v
 			return
 		} else if ii > int(t.asize) {
 			t.Rehash(fi, v)
@@ -212,24 +212,27 @@ func (t *Table) Set(i any, v any) {
 	if t.hash == nil {
 		t.hash = &map[any]any{}
 	}
-	(*(t.hash))[i] = v
+	(*t.hash)[i] = v
 }
 
 func (t *Table) Get(i any) any {
 	if fi, ok := i.(float64); ok && fi == math.Floor(fi) {
 		ii := uint(fi)
 		if 1 <= ii && ii <= t.asize {
-			return (*(t.array))[ii-1]
+			return (*t.array)[ii-1]
 		}
 	}
-	return (*(t.hash))[i]
+	if t.hash != nil {
+		return (*t.hash)[i]
+	}
+	return nil
 }
 
 // 1.23 goes hard
 func (t *Table) Iter() iter.Seq2[any, any] {
 	return func(yield func(any, any) bool) {
 		if t.array != nil {
-			for i, v := range *(t.array) {
+			for i, v := range *t.array {
 				if v == nil {
 					continue
 				}
@@ -238,23 +241,25 @@ func (t *Table) Iter() iter.Seq2[any, any] {
 				}
 			}
 		}
-		if t.hash != nil {
-			hash := *(t.hash)
-			// order keys in map
-			keys := make([]any, 0, len(hash))
-			for k := range hash {
-				keys = append(keys, k)
-			}
-			slices.SortFunc(keys, func(a, b any) int {
-				// It doesn't have to be pretty for map keys
-				// (in fact, the reference implementation of Luau has a rather insane sort order)
-				// It just has to be DETERMINISTIC
-				return strings.Compare(fmt.Sprint(a), fmt.Sprint(b))
-			})
-			for _, k := range keys {
-				if !yield(k, (hash)[k]) {
-					return
-				}
+
+		if t.hash == nil {
+			return
+		}
+		hash := *t.hash
+		// order keys in map
+		keys := make([]any, 0, len(hash))
+		for k := range hash {
+			keys = append(keys, k)
+		}
+		slices.SortFunc(keys, func(a, b any) int {
+			// It doesn't have to be pretty for map keys
+			// (in fact, the reference implementation of Luau has a rather insane sort order)
+			// It just has to be DETERMINISTIC
+			return strings.Compare(fmt.Sprint(a), fmt.Sprint(b))
+		})
+		for _, k := range keys {
+			if !yield(k, hash[k]) {
+				return
 			}
 		}
 	}

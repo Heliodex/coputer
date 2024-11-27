@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-func table_clear(args *Args) []any {
+func table_clear(args Args) {
 	t := args.GetTable()
 
 	for i := range *t.array {
@@ -14,11 +14,9 @@ func table_clear(args *Args) []any {
 	for k := range *t.hash {
 		(*t.hash)[k] = nil
 	}
-
-	return []any{}
 }
 
-func table_clone(args *Args) []any {
+func table_clone(args Args) Ret {
 	t := args.GetTable()
 
 	a2 := make([]any, len(*t.array))
@@ -29,21 +27,21 @@ func table_clone(args *Args) []any {
 		h2[k] = v
 	}
 
-	return []any{&Table{
+	return &Table{
 		array: &a2,
 		hash:  &h2,
 		asize: t.asize,
-	}}
+	}
 }
 
-func table_concat(args *Args) []any {
+func table_concat(args Args) Ret {
 	t := args.GetTable()
 	sep := args.GetString("")
 	i := args.GetNumber(1)
 	j := args.GetNumber(t.Len())
 
 	if i > j {
-		return []any{""}
+		return ""
 	}
 
 	b := strings.Builder{}
@@ -59,10 +57,10 @@ func table_concat(args *Args) []any {
 		}
 	}
 
-	return []any{b.String()}
+	return b.String()
 }
 
-func table_create(args *Args) []any {
+func table_create(args Args) Ret {
 	count := uint(args.GetNumber())
 
 	array := make([]any, count)
@@ -80,23 +78,23 @@ func table_create(args *Args) []any {
 		}
 	}
 
-	return []any{t}
+	return t
 }
 
-func table_find(args *Args) []any {
+func table_find(args Args) Ret {
 	haystack := args.GetTable()
 	needle := args.GetAny()
 	init := args.GetNumber(1)
 
 	for i := init; i < haystack.Len(); i++ {
 		if haystack.Get(i) == needle {
-			return []any{i}
+			return i
 		}
 	}
-	return []any{nil}
+	return nil
 }
 
-func table_insert(args *Args) []any {
+func table_insert(args Args) {
 	t := args.GetTable()
 	args.CheckNextArg()
 
@@ -106,25 +104,36 @@ func table_insert(args *Args) []any {
 		fmt.Println("2args")
 		t.Set(l+1, value)
 	} else {
-		pos, value := int(args.GetNumber()), args.GetAny()
+		pos, value := uint(args.GetNumber()), args.GetAny()
 		fmt.Println("3args")
 
-		arr := t.array
-		// bump array indices after pos
-		for i := int(l); i >= pos; i-- {
-			(*arr)[i] = (*arr)[i-1]
+		if t.array == nil {
+			arr := make([]any, pos)
+			arr[pos-1] = value
+			t.array = &arr
+			t.asize = pos
+			return
 		}
-		(*arr)[pos-1] = value
-	}
 
-	return []any{}
+		// bump array indices after pos
+		for i := uint(l); i >= pos; i-- {
+			(*t.array)[i] = (*t.array)[i-1]
+		}
+		(*t.array)[pos-1] = value
+	}
+}
+
+func table_isfrozen(args Args) Ret {
+	t := args.GetTable()
+	return t.readonly
 }
 
 var libtable = NewTable([][2]any{
-	MakeFn("clear", table_clear),
-	MakeFn("clone", table_clone),
-	MakeFn("concat", table_concat),
-	MakeFn("create", table_create),
-	MakeFn("find", table_find),
-	MakeFn("insert", table_insert),
+	MakeFn0("clear", table_clear),
+	MakeFn1("clone", table_clone),
+	MakeFn1("concat", table_concat),
+	MakeFn1("create", table_create),
+	MakeFn1("find", table_find),
+	MakeFn0("insert", table_insert),
+	MakeFn1("isfrozen", table_isfrozen),
 })

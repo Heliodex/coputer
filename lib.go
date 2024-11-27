@@ -16,6 +16,11 @@ type Args struct {
 	pos  int
 }
 
+type (
+	Ret  any
+	Rets []any
+)
+
 func getArg[T any](args *Args, optionalValue []T) T {
 	var possibleArg any
 
@@ -59,13 +64,33 @@ func (args *Args) GetAny(optionalValue ...any) any {
 }
 
 // Reflection don't scale
-func MakeFn(name string, fn func(args *Args) []any) [2]any {
+func MakeFn(name string, fn func(args Args) Rets) [2]any {
 	fn2 := Function(func(vargs ...any) []any {
-		return fn(&Args{
+		return fn(Args{
 			args: vargs,
 			name: name,
 		})
 	})
+	return [2]any{name, &fn2}
+}
 
+func MakeFn1(name string, fn func(args Args) Ret) [2]any {
+	fn2 := Function(func(vargs ...any) []any {
+		return []any{fn(Args{
+			args: vargs,
+			name: name,
+		})}
+	})
+	return [2]any{name, &fn2}
+}
+
+func MakeFn0(name string, fn func(args Args)) [2]any {
+	fn2 := Function(func(vargs ...any) []any {
+		fn(Args{
+			args: vargs,
+			name: name,
+		})
+		return []any{}
+	})
 	return [2]any{name, &fn2}
 }

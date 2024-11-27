@@ -28,6 +28,11 @@ print(t3[2])
 print(table.concat(t))
 print(table.concat(t, ", "))
 
+local c = { "hello", "to", "the", "world" }
+
+print(table.concat(c))
+print(table.concat(c, ", "))
+
 local f = {}
 table.insert(f, 1, 1)
 print(f[1])
@@ -38,3 +43,6 @@ table.insert(g, 3, "z")
 for i, v in g do
 	print(i, v)
 end
+
+print(table.isfrozen(math))
+print(table.isfrozen({}))
