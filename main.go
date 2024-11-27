@@ -194,9 +194,7 @@ func (t *Table) Set(i any, v any) {
 		panic("attempt to modify readonly table")
 	}
 
-	fi, ok := i.(float64)
-
-	if ok && fi == math.Floor(fi) {
+	if fi, ok := i.(float64); ok && fi == math.Floor(fi) {
 		if t.array == nil {
 			t.array = &[]any{}
 		}
@@ -210,6 +208,7 @@ func (t *Table) Set(i any, v any) {
 		}
 	}
 
+	// fmt.Println("setting hash", i, v)
 	if t.hash == nil {
 		t.hash = &map[any]any{}
 	}
@@ -232,7 +231,7 @@ func (t *Table) Iter() iter.Seq2[any, any] {
 		if t.array != nil {
 			for i, v := range *(t.array) {
 				if v == nil {
-					break
+					continue
 				}
 				if !yield(i+1, v) {
 					return
@@ -492,7 +491,7 @@ var luau_settings = LuauSettings{
 	// 	return op
 	// },
 	Extensions: map[any]any{
-		"math": libmath,
+		"math":  libmath,
 		"table": libtable,
 	},
 	// VectorSize: 4,
@@ -533,7 +532,9 @@ type Deserialised struct {
 func checkkmode(inst *Inst, k []any) {
 	switch inst.kmode {
 	case 1: // AUX
-		inst.K = k[inst.aux]
+		if inst.aux < len(k) { // sometimes huge for some reason
+			inst.K = k[inst.aux]
+		}
 	case 2: // C
 		inst.K = k[inst.C]
 		// fmt.Println("SET K TO", inst.K, "FROM", inst.C)

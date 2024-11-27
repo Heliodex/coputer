@@ -1,5 +1,11 @@
 local x = 5.5
 
+local nan = 0/0
+local inf = 1/0
+
+print(nan)
+print(inf)
+
 print(math.floor(x))
 print(math.floor(-x))
 print(math.abs(-x))
@@ -24,6 +30,13 @@ print(math.max(50))
 print(math.min(1, 99, 56, 22))
 print(math.min(50))
 
+print(math.max(1, 99, 56, 22, inf))
+print(math.max(1, 99, 56, 22, -inf))
+print(math.max(1, 99, 56, 22, nan))
+print(math.min(1, 99, 56, 22, inf))
+print(math.min(1, 99, 56, 22, -inf))
+print(math.min(1, 99, 56, 22, nan))
+
 print(math.deg(math.pi))
 print(math.deg(math.pi * x))
 print(math.fmod(5, 2))
@@ -44,8 +57,10 @@ print(math.ldexp(-5, 3))
 
 print(math.log(5))
 print(math.log(5, 2))
-print(math.log10(50_000))
-print(math.log10(100_000))
+-- print(math.log10(50_000))
+-- print(math.log10(100_000))
+print(math.log(50_000, 10))
+print(math.log(100_000, 10))
 print(math.modf(5))
 print(math.modf(x))
 

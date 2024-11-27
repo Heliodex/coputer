@@ -92,28 +92,34 @@ func math_log(args *Args) []any {
 	return []any{math.Log(x)}
 }
 
-func math_log10(args *Args) []any {
-	x := args.GetNumber()
-	return []any{math.Log10(x)}
-}
+// Deprecated
+// func math_log10(args *Args) []any {
+// 	x := args.GetNumber()
+// 	return []any{math.Log10(x)}
+// }
 
 func math_map(args *Args) []any {
 	x, inmin, inmax, outmin, outmax := args.GetNumber(), args.GetNumber(), args.GetNumber(), args.GetNumber(), args.GetNumber()
 	return []any{outmin + (x-inmin)*(outmax-outmin)/(inmax-inmin)}
 }
 
+// Go builtin math.Min and math.Max funciions don't handle nans and infs the same way
 func math_max(args *Args) []any {
 	first := args.GetNumber()
-	for range args.args {
-		first = math.Max(first, args.GetNumber())
+	for range len(args.args) - 1 {
+		if n := args.GetNumber(); n > first {
+			first = n
+		}
 	}
 	return []any{first}
 }
 
 func math_min(args *Args) []any {
 	first := args.GetNumber()
-	for range args.args {
-		first = math.Min(first, args.GetNumber())
+	for range len(args.args) - 1 {
+		if n := args.GetNumber(); n < first {
+			first = n
+		}
 	}
 	return []any{first}
 }
@@ -216,8 +222,7 @@ func math_round(args *Args) []any {
 }
 
 func math_sign(args *Args) []any {
-	x := args.GetNumber()
-	if x > 0 {
+	if x := args.GetNumber(); x > 0 {
 		return []any{1}
 	} else if x < 0 {
 		return []any{-1}
@@ -267,7 +272,7 @@ var libmath = NewTable([][2]any{
 	MakeFn("frexp", math_frexp),
 	MakeFn("ldexp", math_ldexp),
 	MakeFn("log", math_log),
-	MakeFn("log10", math_log10),
+	// MakeFn("log10", math_log10), // deprecated
 	MakeFn("map", math_map), // w00t
 	MakeFn("max", math_max),
 	MakeFn("min", math_min),

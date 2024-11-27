@@ -26,6 +26,8 @@ func luauPrint(a any) string {
 			return "inf"
 		} else if v == math.Inf(-1) {
 			return "-inf"
+		} else if math.IsNaN(v) {
+			return "nan"
 		} else if v > math.Pow10(50) {
 			return fmt.Sprintf("%.0e", v)
 		}
@@ -107,9 +109,9 @@ func TestConformance(t *testing.T) {
 		}
 		fmt.Println()
 
-		for _, o := range outputs {
+		for i, o := range outputs {
 			if o != og {
-				t.Errorf("output mismatch:\n-- Expected\n%s\n-- Got\n%s", og, o)
+				t.Errorf("%d output mismatch:\n-- Expected\n%s\n-- Got\n%s", i, og, o)
 				return
 			}
 		}

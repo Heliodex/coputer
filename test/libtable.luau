@@ -27,3 +27,14 @@ print(t3[2])
 
 print(table.concat(t))
 print(table.concat(t, ", "))
+
+local f = {}
+table.insert(f, 1, 1)
+print(f[1])
+
+local g = { "a", "b", "c", "d", "e", [7] = "g" }
+table.insert(g, 3, "z")
+
+for i, v in g do
+	print(i, v)
+end

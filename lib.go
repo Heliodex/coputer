@@ -2,7 +2,6 @@ package main
 
 import "fmt"
 
-
 func invalidNumArgs(fn string, nx int, tx string) string {
 	return fmt.Sprintf("missing argument #%d to '%s' (%s expected)", nx, fn, luautype[tx])
 }
@@ -37,16 +36,26 @@ func getArg[T any](args *Args, optionalValue []T) T {
 	return arg
 }
 
+func (a *Args) CheckNextArg() {
+	if a.pos >= len(a.args) {
+		panic(invalidNumArgs(a.name, a.pos, typeOf(a.args[a.pos-1])))
+	}
+}
+
 func (a *Args) GetNumber(optionalValue ...float64) float64 {
-	return getArg[float64](a, optionalValue)
+	return getArg(a, optionalValue)
 }
 
 func (a *Args) GetString(optionalValue ...string) string {
-	return getArg[string](a, optionalValue)
+	return getArg(a, optionalValue)
 }
 
 func (a *Args) GetTable(optionalValue ...*Table) *Table {
-	return getArg[*Table](a, optionalValue)
+	return getArg(a, optionalValue)
+}
+
+func (args *Args) GetAny(optionalValue ...any) any {
+	return getArg(args, optionalValue)
 }
 
 // Reflection don't scale
