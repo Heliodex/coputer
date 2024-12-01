@@ -17,9 +17,9 @@ func p2gte(n uint) uint {
 	return n + 1
 }
 
-func arrayKey(k any) (int, bool) {
+func arrayKey(k any) (uint, bool) {
 	fk, ok := k.(float64)
-	return int(fk), ok && fk == math.Floor(fk) && fk > 0
+	return uint(fk), ok && fk == math.Floor(fk) && fk > 0
 }
 
 type Table struct {
@@ -79,7 +79,10 @@ func (t *Table) Rehash(nk any, nv any) {
 	}
 
 	entries := make(map[any]any, lenArray+lenHash)
-	arrayEntries := make([]any, 0)
+	// arrayEntries := make([]any, 0)
+	// having this be an actual array gives terrible performance for large keys
+	// "gee Curtis, O(n) rehashing?"
+	arrayEntries := make(map[uint]any, 0)
 
 	// array kvs
 	if arrayExists {
@@ -88,11 +91,7 @@ func (t *Table) Rehash(nk any, nv any) {
 				continue
 			}
 			entries[float64(i+1)] = v
-
-			for i >= len(arrayEntries) {
-				arrayEntries = append(arrayEntries, nil)
-			}
-			arrayEntries[i] = v
+			arrayEntries[uint(i)] = v
 		}
 	}
 
@@ -101,12 +100,8 @@ func (t *Table) Rehash(nk any, nv any) {
 		for k, v := range *t.hash {
 			if v == nil {
 				continue
-			}
-			if ak, ok := arrayKey(k); ok {
+			} else if ak, ok := arrayKey(k); ok {
 				entries[float64(ak)] = v
-				for ak >= len(arrayEntries) {
-					arrayEntries = append(arrayEntries, nil)
-				}
 				arrayEntries[ak] = v
 			} else {
 				entries[k] = v
@@ -118,9 +113,6 @@ func (t *Table) Rehash(nk any, nv any) {
 	// fmt.Println("new nknv", nk, nv)
 	if ank, ok := arrayKey(nk); ok {
 		entries[float64(ank)] = nv
-		for ank >= len(arrayEntries) {
-			arrayEntries = append(arrayEntries, nil)
-		}
 		// fmt.Println("setting array", ank, ank-1)
 		arrayEntries[ank-1] = nv
 	} else {
@@ -141,18 +133,27 @@ func (t *Table) Rehash(nk any, nv any) {
 	maxP2 := p2gte(totalSize)
 	lenArrayEntries := uint(len(arrayEntries))
 
-	var maxToFill, intsFilled uint
+	var maxToFill uint
+	var arrayEntries2 []any
 
 	// halve the size of the array until more than half of the spaces are filled
 	for {
 		// fmt.Println("halving", maxP2, "until", maxToFill, lenArrayEntries)
-		intsFilled = 0
+		var intsFilled uint
 		maxToFill = min(maxP2, totalSize, lenArrayEntries)
-		for _, v := range arrayEntries[:maxToFill] {
-			if v != nil {
-				intsFilled++
+
+		// fmt.Println(arrayEntries)
+
+		arrayEntries2 = make([]any, maxToFill)
+		for i, v := range arrayEntries {
+			if i >= maxToFill || v == nil {
+				continue
 			}
+
+			intsFilled++
+			arrayEntries2[i] = v
 		}
+
 		// fmt.Println("INTSFILLED", intsFilled)
 
 		if intsFilled > maxP2/2 || maxP2 == 0 {
@@ -166,7 +167,7 @@ func (t *Table) Rehash(nk any, nv any) {
 
 		// fill the new array
 		newArray := make([]any, maxP2)
-		copy(newArray, arrayEntries[:maxToFill]) // birh
+		copy(newArray, arrayEntries2) // birh
 		t.array = &newArray
 
 		for i, v := range newArray {
@@ -222,10 +223,10 @@ func (t *Table) Get(i any) any {
 			return (*t.array)[ii-1]
 		}
 	}
-	if t.hash != nil {
-		return (*t.hash)[i]
+	if t.hash == nil {
+		return nil
 	}
-	return nil
+	return (*t.hash)[i]
 }
 
 // 1.23 goes hard
@@ -233,10 +234,7 @@ func (t *Table) Iter() iter.Seq2[any, any] {
 	return func(yield func(any, any) bool) {
 		if t.array != nil {
 			for i, v := range *t.array {
-				if v == nil {
-					continue
-				}
-				if !yield(i+1, v) {
+				if v != nil && !yield(float64(i+1), v) {
 					return
 				}
 			}
@@ -1117,8 +1115,9 @@ func luau_load(module Deserialised, env map[any]any) (Function, func()) {
 			case 7: // GETGLOBAL
 				kv := inst.K
 
-				(*stack)[inst.A] = extensions[kv]
-				if (*stack)[inst.A] == nil {
+				if extensions[kv] != nil {
+					(*stack)[inst.A] = extensions[kv]
+				} else {
 					(*stack)[inst.A] = env[kv]
 				}
 
@@ -1187,6 +1186,7 @@ func luau_load(module Deserialised, env map[any]any) (Function, func()) {
 				if op == 13 {
 					(*stack)[inst.A] = t.Get(index)
 				} else {
+					// fmt.Println("SETTABLE", index, (*stack)[inst.A])
 					t.Set(index, (*stack)[inst.A])
 				}
 			case 15, 16: // GETTABLEKS, SETTABLEKS
@@ -1476,8 +1476,6 @@ func luau_load(module Deserialised, env map[any]any) (Function, func()) {
 						pc += 1
 					}
 				default:
-					// fmt.Println("IT gen", it)
-
 					iter := *generalised_iterators[inst]
 
 					if !iter.running {

@@ -33,6 +33,17 @@ local c = { "hello", "to", "the", "world" }
 print(table.concat(c))
 print(table.concat(c, ", "))
 
+local created = table.create(5)
+for i = 1, 5 do
+	created[i] = i
+end
+for i, v in created do
+	print(i == v)
+end
+
+local created2 = table.create(5, "hllo")
+print(table.concat(created2))
+
 local f = {}
 table.insert(f, 1, 1)
 print(f[1])
@@ -46,3 +57,24 @@ end
 
 print(table.isfrozen(math))
 print(table.isfrozen({}))
+print(table.isfrozen(table.freeze({})))
+
+local x = {
+	[1] = 1,
+	[2] = 2,
+	[3] = 3,
+	[7] = 7,
+	[29] = 29,
+	[29.7] = 29.7,
+	[-math.huge] = 29,
+	[123456789] = 29,
+}
+
+print(x[1])
+print(x[2])
+print(x[3])
+print(x[7])
+print(x[29])
+print(x[29.7])
+print(table.maxn(x))
+print(#x)

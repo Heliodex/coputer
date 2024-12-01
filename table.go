@@ -94,6 +94,12 @@ func table_find(args Args) Ret {
 	return nil
 }
 
+func table_freeze(args Args) Ret {
+	t := args.GetTable()
+	t.readonly = true
+	return t
+}
+
 func table_insert(args Args) {
 	t := args.GetTable()
 	args.CheckNextArg()
@@ -128,12 +134,60 @@ func table_isfrozen(args Args) Ret {
 	return t.readonly
 }
 
+func table_maxn(args Args) Ret {
+	t := args.GetTable()
+
+	var lenArray, lenHash uint
+	arrayExists, hashExists := t.array != nil, t.hash != nil
+
+	if arrayExists {
+		lenArray = uint(len(*t.array))
+	}
+	if hashExists {
+		lenHash = uint(len(*t.hash))
+	}
+
+	nentries := make(map[float64]bool, lenArray+lenHash)
+
+	// array kvs
+	if arrayExists {
+		for i, v := range *t.array {
+			if v == nil {
+				continue
+			}
+			nentries[float64(i+1)] = true
+		}
+	}
+
+	// hash kvs
+	if hashExists {
+		for k, v := range *t.hash {
+			if v == nil {
+				continue
+			} else if fk, ok := k.(float64); ok {
+				nentries[fk] = true
+			}
+		}
+	}
+
+	var maxn float64
+	for k := range nentries {
+		if k > maxn {
+			maxn = k
+		}
+	}
+
+	return maxn
+}
+
 var libtable = NewTable([][2]any{
 	MakeFn0("clear", table_clear),
 	MakeFn1("clone", table_clone),
 	MakeFn1("concat", table_concat),
 	MakeFn1("create", table_create),
 	MakeFn1("find", table_find),
+	MakeFn1("freeze", table_freeze),
 	MakeFn0("insert", table_insert),
 	MakeFn1("isfrozen", table_isfrozen),
+	MakeFn1("maxn", table_maxn),
 })
