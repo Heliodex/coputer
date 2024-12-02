@@ -62,9 +62,15 @@ for i, v in g do
 	print(i, v)
 end
 
+local h = {}
+table.insert(h, "H") -- h
+table.insert(h, -5, "G")
+print(h[1])
+print(h[-5])
+
 print(table.isfrozen(math))
-print(table.isfrozen({}))
-print(table.isfrozen(table.freeze({})))
+print(table.isfrozen {})
+print(table.isfrozen(table.freeze {}))
 
 local x = {
 	[1] = 1,
@@ -85,3 +91,28 @@ print(x[29])
 print(x[29.7])
 print(table.maxn(x))
 print(#x)
+
+local s = { 1, 2, 3, 4, 5, 6, 7 }
+local d = { 11, 12, 13, 14, 15, 16, 17 }
+
+table.move(s, 1, 3, 2, d)
+table.move(s, 1, 3, 17, d)
+-- table.move(s, 1, 3, -6, d) -- works! but untestable
+
+for i, v in d do
+	print(i, v)
+end
+
+local p = table.pack(1, 2, 3, 4, 5, 6, 7)
+print(p[1])
+print(p.n)
+
+local r = { 1, 2, 3, 4, 5 }
+
+print(table.remove(r, 1))
+table.remove(r, 5)
+table.remove(r, 6)
+
+for i, v in r do
+	print(i, v)
+end

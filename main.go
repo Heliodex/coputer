@@ -190,75 +190,95 @@ func (t *Table) Rehash(nk any, nv any) {
 	// fmt.Println()
 }
 
-func (t *Table) Set(i any, v any) {
-	if t.readonly {
-		panic("attempt to modify a readonly table")
+func (t *Table) SetArray(i uint, v any) {
+	if i > t.asize {
+		t.Rehash(float64(i), v)
+		return
 	}
+	(*t.array)[i-1] = v
+}
 
-	if fi, ok := i.(float64); ok && fi == math.Floor(fi) {
-		if t.array == nil {
-			t.array = &[]any{}
-		}
-
-		if ii := uint(fi); ii > t.asize {
-			t.Rehash(fi, v)
-			return
-		} else if 1 <= ii {
-			(*t.array)[ii-1] = v
-			return
-		}
-	}
-
+func (t *Table) SetHash(i any, v any) {
 	// fmt.Println("setting hash", i, v)
 	if t.hash == nil {
 		t.hash = &map[any]any{i: v}
-	} else {
-		(*t.hash)[i] = v
+		return
 	}
+	(*t.hash)[i] = v
+}
+
+func (t *Table) ForceSet(i, v any) {
+	if fi, ok := i.(float64); ok && fi == math.Floor(fi) && (1 <= fi || fi > float64(t.asize)) {
+		t.SetArray(uint(fi), v)
+		return
+	}
+	t.SetHash(i, v)
+}
+
+func (t *Table) Set(i, v any) {
+	if t.readonly {
+		panic("attempt to modify a readonly table")
+	}
+	t.ForceSet(i, v)
+}
+
+func (t *Table) GetArray(i uint) any {
+	if 1 <= i && i <= t.asize {
+		return (*t.array)[i-1]
+	}
+	return nil
 }
 
 func (t *Table) Get(i any) any {
 	if fi, ok := i.(float64); ok && fi == math.Floor(fi) {
-		if ii := uint(fi); 1 <= ii && ii <= t.asize {
-			return (*t.array)[ii-1]
+		if v := t.GetArray(uint(fi)); v != nil {
+			return v
 		}
 	}
+
 	if t.hash == nil {
 		return nil
 	}
 	return (*t.hash)[i]
 }
 
+func mapKeySort(a, b any) int {
+	// It doesn't have to be pretty for map keys
+	// (in fact, the reference implementation of Luau has a rather insane sort order)
+	// It just has to be DETERMINISTIC
+	return strings.Compare(fmt.Sprint(a), fmt.Sprint(b))
+}
+
+func iterArray(array []any, yield func(any, any) bool) {
+	for i, v := range array {
+		if v != nil && !yield(float64(i+1), v) {
+			return
+		}
+	}
+}
+
+func iterHash(hash map[any]any, yield func(any, any) bool) {
+	// order keys in map
+	keys := make([]any, 0, len(hash))
+	for k := range hash {
+		keys = append(keys, k)
+	}
+	slices.SortFunc(keys, mapKeySort)
+	for _, k := range keys {
+		if !yield(k, hash[k]) {
+			return
+		}
+	}
+}
+
 // 1.23 goes hard
 func (t *Table) Iter() iter.Seq2[any, any] {
 	return func(yield func(any, any) bool) {
 		if t.array != nil {
-			for i, v := range *t.array {
-				if v != nil && !yield(float64(i+1), v) {
-					return
-				}
-			}
+			iterArray(*t.array, yield)
 		}
-
-		if t.hash == nil {
-			return
-		}
-		hash := *t.hash
-		// order keys in map
-		keys := make([]any, 0, len(hash))
-		for k := range hash {
-			keys = append(keys, k)
-		}
-		slices.SortFunc(keys, func(a, b any) int {
-			// It doesn't have to be pretty for map keys
-			// (in fact, the reference implementation of Luau has a rather insane sort order)
-			// It just has to be DETERMINISTIC
-			return strings.Compare(fmt.Sprint(a), fmt.Sprint(b))
-		})
-		for _, k := range keys {
-			if !yield(k, hash[k]) {
-				return
-			}
+		if t.hash != nil {
+			iterHash(*t.hash, yield)
 		}
 	}
 }
@@ -268,22 +288,17 @@ func move(src []any, a, b, t int, dst *[]any) {
 		return
 	}
 
-	ret := make([]any, len(*dst))
-	s1 := (*dst)[:min(t, len(*dst))]
-	copy(ret, s1)
-
-	s2 := src[a:min(b, len(src))]
-	for i, v := range s2 {
-		ret[i+t] = v
+	maxi := t + b - a
+	for maxi >= len(*dst) {
+		*dst = append(*dst, nil)
+	}
+	for maxi >= len(src) {
+		src = append(src, nil)
 	}
 
-	if tl := len(s1) + len(s2); tl < len(*dst) {
-		for i, v := range (*dst)[t+b:] {
-			ret[i+tl] = v
-		}
+	for i := a; i <= b; i++ {
+		(*dst)[t+i-a] = src[i]
 	}
-
-	*dst = ret
 }
 
 // ???
@@ -998,6 +1013,7 @@ func invalidIndex(t1 string, val any) string {
 	if t2 == "string" {
 		t2 = fmt.Sprintf("'%v'", val)
 	}
+
 	panic(fmt.Sprintf("attempt to index %v with %v", luautype[t1], t2))
 }
 
@@ -1193,7 +1209,7 @@ func luau_load(module Deserialised, env map[any]any) (Function, func()) {
 				index := inst.K
 				t, ok := (*stack)[inst.B].(*Table)
 				if !ok {
-					fmt.Println("indexing", typeOf((*stack)[inst.B]), "with", index)
+					// fmt.Println("indexing", typeOf((*stack)[inst.B]), "with", index)
 					panic(invalidIndex(typeOf((*stack)[inst.B]), index))
 				}
 

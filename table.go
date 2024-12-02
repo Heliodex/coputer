@@ -4,7 +4,6 @@ import "strings"
 
 func table_clear(args Args) {
 	t := args.GetTable()
-
 	if t.readonly {
 		panic("attempt to modify a readonly table")
 	}
@@ -105,7 +104,6 @@ func table_freeze(args Args) Ret {
 func table_insert(args Args) {
 	t := args.GetTable()
 	args.CheckNextArg()
-
 	if t.readonly {
 		panic("attempt to modify a readonly table")
 	}
@@ -113,22 +111,25 @@ func table_insert(args Args) {
 	l := t.Len()
 	if len(args.args) == 2 {
 		value := args.GetAny()
-		t.Set(l+1, value)
+		if t.array == nil {
+			t.array = &[]any{value}
+			t.asize = 1
+			return
+		}
+
+		t.SetArray(uint(l + 1), value)
 		return
 	}
 
-	pos, value := uint(args.GetNumber()), args.GetAny()
+	pos, value := int(args.GetNumber()), args.GetAny()
 
 	if t.array == nil {
 		arr := make([]any, pos)
 		arr[pos-1] = value
 		t.array = &arr
-		t.asize = pos
-		return
-	}
-
-	if pos > t.asize {
-		for j := uint(l); j >= pos; j-- {
+		t.asize = uint(pos)
+	} else if pos > int(t.asize) {
+		for j := int(l); j >= pos; j-- {
 			(*t.array)[j] = (*t.array)[j-1]
 		}
 
@@ -143,10 +144,8 @@ func table_insert(args Args) {
 		}
 
 		(*t.array)[pos-1] = value
-	} else if t.hash == nil {
-		t.hash = &map[any]any{float64(pos): value}
 	} else {
-		(*t.hash)[float64(pos)] = value
+		t.SetHash(float64(pos), value)
 	}
 }
 
@@ -173,10 +172,9 @@ func table_maxn(args Args) Ret {
 	// array kvs
 	if arrayExists {
 		for i, v := range *t.array {
-			if v == nil {
-				continue
+			if v != nil {
+				nentries[float64(i+1)] = true
 			}
-			nentries[float64(i+1)] = true
 		}
 	}
 
@@ -199,6 +197,55 @@ func table_maxn(args Args) Ret {
 	return maxn
 }
 
+func table_move(args Args) Ret {
+	src := args.GetTable()
+	a, b, t := args.GetNumber(), args.GetNumber(), args.GetNumber()
+	dst := args.GetTable(src)
+	if dst.readonly {
+		panic("attempt to modify a readonly table")
+	}
+
+	for i := a; i <= b; i++ {
+		dst.ForceSet(t+i-a, src.Get(i))
+	}
+
+	return dst
+}
+
+func table_pack(args Args) Ret {
+	n := float64(len(args.args))
+	t := &Table{
+		array: &[]any{},
+		hash:  &map[any]any{"n": n},
+	}
+	for i, v := range args.args {
+		t.SetArray(uint(i)+1, v)
+	}
+
+	return t
+}
+
+func table_remove(args Args) (r Ret) {
+	t := args.GetTable()
+	if t.readonly {
+		panic("attempt to modify a readonly table")
+	}
+
+	l := t.Len()
+	pos := args.GetNumber(l)
+
+	r = t.Get(pos)
+	if uint(pos) == uint(l) {
+		t.ForceSet(pos, nil)
+	} else if 0 < pos && pos < l {
+		for i := pos; i < l; i++ {
+			t.ForceSet(i, t.Get(i+1))
+		}
+		t.ForceSet(l, nil)
+	}
+	return
+}
+
 var libtable = NewTable([][2]any{
 	MakeFn0("clear", table_clear),
 	MakeFn1("clone", table_clone),
@@ -209,4 +256,7 @@ var libtable = NewTable([][2]any{
 	MakeFn0("insert", table_insert),
 	MakeFn1("isfrozen", table_isfrozen),
 	MakeFn1("maxn", table_maxn),
+	MakeFn1("move", table_move),
+	MakeFn1("pack", table_pack),
+	MakeFn1("remove", table_remove),
 })
