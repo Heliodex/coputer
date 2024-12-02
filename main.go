@@ -65,7 +65,7 @@ func (t *Table) Len() (len float64) {
 // - Lua performance tips, Roberto Ierusalimschy
 func (t *Table) Rehash(nk any, nv any) {
 	if t.readonly {
-		panic("attempt to modify readonly table")
+		panic("attempt to modify a readonly table")
 	}
 
 	var lenArray, lenHash uint
@@ -192,7 +192,7 @@ func (t *Table) Rehash(nk any, nv any) {
 
 func (t *Table) Set(i any, v any) {
 	if t.readonly {
-		panic("attempt to modify readonly table")
+		panic("attempt to modify a readonly table")
 	}
 
 	if fi, ok := i.(float64); ok && fi == math.Floor(fi) {
@@ -200,26 +200,26 @@ func (t *Table) Set(i any, v any) {
 			t.array = &[]any{}
 		}
 
-		if ii := int(fi); 1 <= ii && ii <= int(t.asize) {
-			(*t.array)[ii-1] = v
-			return
-		} else if ii > int(t.asize) {
+		if ii := uint(fi); ii > t.asize {
 			t.Rehash(fi, v)
+			return
+		} else if 1 <= ii {
+			(*t.array)[ii-1] = v
 			return
 		}
 	}
 
 	// fmt.Println("setting hash", i, v)
 	if t.hash == nil {
-		t.hash = &map[any]any{}
+		t.hash = &map[any]any{i: v}
+	} else {
+		(*t.hash)[i] = v
 	}
-	(*t.hash)[i] = v
 }
 
 func (t *Table) Get(i any) any {
 	if fi, ok := i.(float64); ok && fi == math.Floor(fi) {
-		ii := uint(fi)
-		if 1 <= ii && ii <= t.asize {
+		if ii := uint(fi); 1 <= ii && ii <= t.asize {
 			return (*t.array)[ii-1]
 		}
 	}

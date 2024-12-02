@@ -49,7 +49,14 @@ table.insert(f, 1, 1)
 print(f[1])
 
 local g = { "a", "b", "c", "d", "e", [7] = "g" }
-table.insert(g, 3, "z")
+
+for i = 1, 10 do
+	table.insert(g, 3, "z")
+end
+
+table.insert(g, 212, "z")
+table.insert(g, 212, "A")
+table.insert(g, "h")
 
 for i, v in g do
 	print(i, v)

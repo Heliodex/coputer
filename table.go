@@ -1,18 +1,23 @@
 package main
 
-import (
-	"fmt"
-	"strings"
-)
+import "strings"
 
 func table_clear(args Args) {
 	t := args.GetTable()
 
-	for i := range *t.array {
-		(*t.array)[i] = nil
+	if t.readonly {
+		panic("attempt to modify a readonly table")
 	}
-	for k := range *t.hash {
-		(*t.hash)[k] = nil
+
+	if t.array != nil {
+		for i := range *t.array {
+			(*t.array)[i] = nil
+		}
+	}
+	if t.hash != nil {
+		for k := range *t.hash {
+			(*t.hash)[k] = nil
+		}
 	}
 }
 
@@ -64,13 +69,6 @@ func table_create(args Args) Ret {
 	count := uint(args.GetNumber())
 
 	array := make([]any, count)
-
-	t := &Table{
-		array: &array,
-		hash:  &map[any]any{},
-		asize: count, // not ^2?
-	}
-
 	if len(args.args) > 1 {
 		value := args.GetAny()
 		for i := range array {
@@ -78,7 +76,11 @@ func table_create(args Args) Ret {
 		}
 	}
 
-	return t
+	return &Table{
+		array: &array,
+		hash:  &map[any]any{},
+		asize: count, // not ^2?
+	}
 }
 
 func table_find(args Args) Ret {
@@ -104,28 +106,47 @@ func table_insert(args Args) {
 	t := args.GetTable()
 	args.CheckNextArg()
 
+	if t.readonly {
+		panic("attempt to modify a readonly table")
+	}
+
 	l := t.Len()
 	if len(args.args) == 2 {
 		value := args.GetAny()
-		fmt.Println("2args")
 		t.Set(l+1, value)
-	} else {
-		pos, value := uint(args.GetNumber()), args.GetAny()
-		fmt.Println("3args")
+		return
+	}
 
-		if t.array == nil {
-			arr := make([]any, pos)
-			arr[pos-1] = value
-			t.array = &arr
-			t.asize = pos
-			return
+	pos, value := uint(args.GetNumber()), args.GetAny()
+
+	if t.array == nil {
+		arr := make([]any, pos)
+		arr[pos-1] = value
+		t.array = &arr
+		t.asize = pos
+		return
+	}
+
+	if pos > t.asize {
+		for j := uint(l); j >= pos; j-- {
+			(*t.array)[j] = (*t.array)[j-1]
 		}
 
-		// bump array indices after pos
-		for i := uint(l); i >= pos; i-- {
-			(*t.array)[i] = (*t.array)[i-1]
+		t.Rehash(float64(pos), value)
+	} else if 1 <= pos {
+		for j := int(l); j >= int(pos); j-- {
+			if j >= len(*t.array) {
+				// we may ought to rehash here
+				(*t.array) = append(*t.array, (*t.array)[j-1])
+			}
+			(*t.array)[j] = (*t.array)[j-1]
 		}
+
 		(*t.array)[pos-1] = value
+	} else if t.hash == nil {
+		t.hash = &map[any]any{float64(pos): value}
+	} else {
+		(*t.hash)[float64(pos)] = value
 	}
 }
 
@@ -162,9 +183,7 @@ func table_maxn(args Args) Ret {
 	// hash kvs
 	if hashExists {
 		for k, v := range *t.hash {
-			if v == nil {
-				continue
-			} else if fk, ok := k.(float64); ok {
+			if fk, ok := k.(float64); ok && v != nil {
 				nentries[fk] = true
 			}
 		}
