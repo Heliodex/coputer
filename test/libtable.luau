@@ -92,12 +92,12 @@ print(x[29.7])
 print(table.maxn(x))
 print(#x)
 
-local s = { 1, 2, 3, 4, 5, 6, 7 }
+local m = { 1, 2, 3, 4, 5, 6, 7 }
 local d = { 11, 12, 13, 14, 15, 16, 17 }
 
-table.move(s, 1, 3, 2, d)
-table.move(s, 1, 3, 17, d)
--- table.move(s, 1, 3, -6, d) -- works! but untestable
+table.move(m, 1, 3, 2, d)
+table.move(m, 1, 3, 17, d)
+-- table.move(m, 1, 3, -6, d) -- works! but untestable
 
 for i, v in d do
 	print(i, v)
@@ -114,5 +114,22 @@ table.remove(r, 5)
 table.remove(r, 6)
 
 for i, v in r do
+	print(i, v)
+end
+
+local s1 = { 1, 5, 4, 3, 2, 7, 6, bruh = 6 }
+
+table.sort(s1)
+for i, v in s1 do
+	print(i, v)
+end
+
+local s2 = { "j", "i", "h", "g", "f", "e", "d", "c", "b", "a", bruh = 6 }
+table.sort(s2)
+print(table.concat(s2))
+
+local s3 = { 1, 2, 3, 4, 5, 6, 7, bruh = 6 }
+table.sort(s3, function(a, b) return a > b end)
+for i, v in s3 do
 	print(i, v)
 end

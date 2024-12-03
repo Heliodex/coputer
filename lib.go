@@ -59,6 +59,10 @@ func (a *Args) GetTable(optionalValue ...*Table) *Table {
 	return getArg(a, optionalValue)
 }
 
+func (a *Args) GetFunction(optionalValue ...*Function) *Function {
+	return getArg(a, optionalValue)
+}
+
 func (args *Args) GetAny(optionalValue ...any) any {
 	return getArg(args, optionalValue)
 }

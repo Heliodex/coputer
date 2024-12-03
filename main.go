@@ -940,44 +940,44 @@ var luautype = map[string]string{
 	"*main.Function": "function",
 }
 
-func sfops[T string | float64](op uint8, op1, op2 T) bool {
+func sfops[T string | float64](op uint8, a, b T) bool {
 	switch jumpops[op] {
 	case "<=":
-		return op1 <= op2
+		return a <= b
 	case "<":
-		return op1 < op2
+		return a < b
 	case ">":
-		return op1 > op2
+		return a > b
 	case ">=":
-		return op1 >= op2
+		return a >= b
 	}
 
 	panic("unknown floatjump operation")
 }
 
-func aops(op uint8, op1, op2 float64) float64 {
+func aops(op uint8, a, b float64) float64 {
 	switch arithops[op] {
 	case "add":
-		return op1 + op2
+		return a + b
 	case "sub":
-		return op1 - op2
+		return a - b
 	case "mul":
-		return op1 * op2
+		return a * b
 	case "div":
-		return op1 / op2
+		return a / b
 	case "mod":
-		return math.Mod(op1, op2)
+		return math.Mod(a, b)
 	case "pow":
-		return math.Pow(op1, op2)
+		return math.Pow(a, b)
 	case "idiv":
-		return math.Floor(op1 / op2)
+		return math.Floor(a / b)
 	}
 
 	panic("unknown arithmetic operation")
 }
 
-func invalidCompare(op uint8, t1, t2 string) string {
-	return fmt.Sprintf("attempt to compare %s %s %s", luautype[t1], jumpops[op], luautype[t2])
+func invalidCompare(op string, ta, tb string) string {
+	return fmt.Sprintf("attempt to compare %s %s %s", luautype[ta], op, luautype[tb])
 }
 
 func incomparableType(t string, eq bool) string {
@@ -988,12 +988,12 @@ func uncallableType(v string) string {
 	return fmt.Sprintf("attempt to call a %s value", luautype[v])
 }
 
-func invalidArithmetic(op uint8, t1, t2 string) string {
-	return fmt.Sprintf("attempt to perform arithmetic (%s) on %s and %s", arithops[op], luautype[t1], luautype[t2])
+func invalidArithmetic(op string, ta, tb string) string {
+	return fmt.Sprintf("attempt to perform arithmetic (%s) on %s and %s", op, luautype[ta], luautype[tb])
 }
 
-func invalidUnm(t1 string) string {
-	return fmt.Sprintf("attempt to perform arithmetic (unm) on %s", luautype[t1])
+func invalidUnm(t string) string {
+	return fmt.Sprintf("attempt to perform arithmetic (unm) on %s", luautype[t])
 }
 
 func invalidCond(t string) string {
@@ -1008,13 +1008,13 @@ func invalidLength(t string) string {
 	return fmt.Sprintf("attempt to get length of a %s value", luautype[t])
 }
 
-func invalidIndex(t1 string, val any) string {
-	t2 := luautype[typeOf(val)]
-	if t2 == "string" {
-		t2 = fmt.Sprintf("'%v'", val)
+func invalidIndex(ta string, val any) string {
+	tb := luautype[typeOf(val)]
+	if tb == "string" {
+		tb = fmt.Sprintf("'%v'", val)
 	}
 
-	panic(fmt.Sprintf("attempt to index %v with %v", luautype[t1], t2))
+	panic(fmt.Sprintf("attempt to index %v with %v", luautype[ta], tb))
 }
 
 func typeOf(v any) string {
@@ -1024,55 +1024,55 @@ func typeOf(v any) string {
 	return reflect.TypeOf(v).String()
 }
 
-func arithmetic(op uint8, op1, op2 any) float64 {
-	t1, t2 := typeOf(op1), typeOf(op2)
-	if t1 == "float64" && t2 == "float64" {
-		return aops(op, op1.(float64), op2.(float64))
+func arithmetic(op uint8, a, b any) float64 {
+	ta, tb := typeOf(a), typeOf(b)
+	if ta == "float64" && tb == "float64" {
+		return aops(op, a.(float64), b.(float64))
 	}
 
-	panic(invalidArithmetic(op, t1, t2))
+	panic(invalidArithmetic(arithops[op], ta, tb))
 }
 
-func logic(op uint8, value, op1 any) any {
+func logic(op uint8, a, b any) any {
 	switch op {
 	case 45, 47: // AND
-		if !truthy(value) {
+		if !truthy(a) {
 			return false
 		}
 	case 46, 48: // OR
-		if truthy(value) {
-			return value
+		if truthy(a) {
+			return a
 		}
 	default:
 		panic("unknown logic operation")
 	}
 
-	if truthy(op1) {
-		return op1
+	if truthy(b) {
+		return b
 	}
 	return false
 }
 
-func jump(op uint8, op1, op2 any) bool {
-	t1, t2 := typeOf(op1), typeOf(op2)
+func jump(op uint8, a, b any) bool {
+	ta, tb := typeOf(a), typeOf(b)
 	if op == 27 || op == 30 {
 		tru := op == 27
 
-		switch op1.(type) {
+		switch a.(type) {
 		case float64, string, bool, nil:
 		default:
-			panic(incomparableType(t1, tru)) // Also deliberately restricting the ability to compare types that would always return false
+			panic(incomparableType(ta, tru)) // Also deliberately restricting the ability to compare types that would always return false
 		}
 
 		// JUMPIFEQ, JUMPIFNOTEQ
-		return (op1 == op2) == tru
-	} else if t1 == "float64" && t2 == "float64" {
-		return sfops(op, op1.(float64), op2.(float64))
-	} else if t1 == "string" && t2 == "string" {
-		return sfops(op, op1.(string), op2.(string))
+		return (a == b) == tru
+	} else if ta == "float64" && tb == "float64" {
+		return sfops(op, a.(float64), b.(float64))
+	} else if ta == "string" && tb == "string" {
+		return sfops(op, a.(string), b.(string))
 	}
 
-	panic(invalidCompare(op, t1, t2))
+	panic(invalidCompare(jumpops[op], ta, tb))
 }
 
 func luau_load(module Deserialised, env map[any]any) (Function, func()) {
@@ -1388,12 +1388,12 @@ func luau_load(module Deserialised, env map[any]any) (Function, func()) {
 
 				(*stack)[inst.A] = !cond
 			case 51: // MINUS
-				op1, ok := (*stack)[inst.B].(float64)
+				a, ok := (*stack)[inst.B].(float64)
 				if !ok {
 					panic(invalidUnm(typeOf((*stack)[inst.B])))
 				}
 
-				(*stack)[inst.A] = -op1
+				(*stack)[inst.A] = -a
 			case 52: // LENGTH
 				switch t := (*stack)[inst.B].(type) {
 				case *Table:

@@ -9,7 +9,7 @@ func table_clear(args Args) {
 	}
 
 	if t.array != nil {
-		for i := range *t.array {
+		for i := range t.asize {
 			(*t.array)[i] = nil
 		}
 	}
@@ -65,9 +65,13 @@ func table_concat(args Args) Ret {
 }
 
 func table_create(args Args) Ret {
-	count := uint(args.GetNumber())
+	s := args.GetNumber()
+	if s < 0 {
+		panic("index out of range")
+	}
 
-	array := make([]any, count)
+	asize := uint(s)
+	array := make([]any, asize)
 	if len(args.args) > 1 {
 		value := args.GetAny()
 		for i := range array {
@@ -78,7 +82,7 @@ func table_create(args Args) Ret {
 	return &Table{
 		array: &array,
 		hash:  &map[any]any{},
-		asize: count, // not ^2?
+		asize: asize, // not ^2?
 	}
 }
 
@@ -86,13 +90,19 @@ func table_find(args Args) Ret {
 	haystack := args.GetTable()
 	needle := args.GetAny()
 	init := args.GetNumber(1)
+	if init < 1 {
+		panic("index out of range")
+	}
 
-	for i := init; i < haystack.Len(); i++ {
-		if haystack.Get(i) == needle {
+	arr := *haystack.array
+	for i := uint(init); ; i++ {
+		v := arr[i]
+		if v == nil {
+			return nil
+		} else if v == needle {
 			return i
 		}
 	}
-	return nil
 }
 
 func table_freeze(args Args) Ret {
@@ -117,7 +127,7 @@ func table_insert(args Args) {
 			return
 		}
 
-		t.SetArray(uint(l + 1), value)
+		t.SetArray(uint(l+1), value)
 		return
 	}
 
@@ -246,6 +256,187 @@ func table_remove(args Args) (r Ret) {
 	return
 }
 
+func genericomp(a, b any) bool {
+	ta, tb := typeOf(a), typeOf(b)
+	if ta == "float64" && tb == "float64" {
+		return a.(float64) < b.(float64)
+	} else if ta == "string" && tb == "string" {
+		return a.(string) < b.(string)
+	}
+
+	panic(invalidCompare("<", ta, tb))
+}
+
+// ltablib.cpp
+type Comp func(a, b any) bool
+
+func sort_swap(t *Table, i, j int) {
+	arr := t.array
+	// n := t.asize
+	// LUAU_ASSERT(unsigned(i) < unsigned(n) && unsigned(j) < unsigned(n)); // contract maintained in sort_less after predicate call
+
+	// no barrier required because both elements are in the array before and after the swap
+	temp := (*arr)[i]
+	(*arr)[i] = (*arr)[j]
+	(*arr)[j] = temp
+}
+
+func sort_less(t *Table, i, j int, comp Comp) (res bool) {
+	arr, n := t.array, t.asize
+	// LUAU_ASSERT(unsigned(i) < unsigned(n) && unsigned(j) < unsigned(n)); // contract maintained in sort_less after predicate call
+
+	res = comp((*arr)[i], (*arr)[j])
+
+	// predicate call may resize the table, which is invalid
+	if t.asize != n {
+		panic("table modified during sorting")
+	}
+	return
+}
+
+func sort_siftheap(t *Table, l, u int, comp Comp, root int) {
+	// LUAU_ASSERT(l <= u);
+	count := u - l + 1
+
+	// process all elements with two children
+	for root*2+2 < count {
+		left, right := root*2+1, root*2+2
+		next := root
+		if sort_less(t, l+next, l+left, comp) {
+			next = left
+		}
+		if sort_less(t, l+next, l+right, comp) {
+			next = right
+		}
+
+		if next == root {
+			break
+		}
+
+		sort_swap(t, l+root, l+next)
+		root = next
+	}
+
+	// process last element if it has just one child
+	if lastleft := root*2 + 1; lastleft == count-1 && sort_less(t, l+root, l+lastleft, comp) {
+		sort_swap(t, l+root, l+lastleft)
+	}
+}
+
+func sort_heap(t *Table, l, u int, comp Comp) {
+	// LUAU_ASSERT(l <= u);
+	count := u - l + 1
+
+	for i := count/2 - 1; i >= 0; i-- {
+		sort_siftheap(t, l, u, comp, i)
+	}
+
+	for i := count - 1; i > 0; i-- {
+		sort_swap(t, l, l+i)
+		sort_siftheap(t, l, l+i-1, comp, 0)
+	}
+}
+
+func sort_rec(t *Table, l, u, limit int, comp Comp) {
+	// sort range [l..u] (inclusive, 0-based)
+	for l < u {
+		// if the limit has been reached, quick sort is going over the permitted nlogn complexity, so we fall back to heap sort
+		if limit == 0 {
+			sort_heap(t, l, u, comp)
+			return
+		}
+
+		// sort elements a[l], a[(l+u)/2] and a[u]
+		// note: this simultaneously acts as a small sort and a median selector
+		if sort_less(t, u, l, comp) { // a[u] < a[l]?
+			sort_swap(t, u, l) // swap a[l] - a[u]
+		}
+		if u-l == 1 {
+			break // only 2 elements
+		}
+
+		m := l + ((u - l) >> 1)       // midpoint
+		if sort_less(t, m, l, comp) { // a[m]<a[l]?
+			sort_swap(t, m, l)
+		} else if sort_less(t, u, m, comp) { // a[u]<a[m]?
+			sort_swap(t, m, u)
+		}
+		if u-l == 2 {
+			break // only 3 elements
+		}
+
+		// here l, m, u are ordered; m will become the new pivot
+		p := u - 1
+		sort_swap(t, m, u-1) // pivot is now (and always) at u-1
+
+		// a[l] <= P == a[u-1] <= a[u], only need to sort from l+1 to u-2
+		i := l
+		j := u - 1
+		for {
+			// invariant: a[l..i] <= P <= a[j..u]
+			// repeat ++i until a[i] >= P
+			i++
+			for sort_less(t, i, p, comp) {
+				if i >= u {
+					panic("invalid order function for sorting")
+				}
+				i++
+			}
+
+			// repeat --j until a[j] <= P
+			j--
+			for sort_less(t, p, j, comp) {
+				if j <= l {
+					panic("invalid order function for sorting")
+				}
+				j--
+			}
+			if j < i {
+				break
+			}
+			sort_swap(t, i, j)
+		}
+
+		// swap pivot a[p] with a[i], which is the new midpoint
+		sort_swap(t, p, i)
+
+		// adjust limit to allow 1.5 log2N recursive steps
+		limit = (limit >> 1) + (limit >> 2)
+
+		// a[l..i-1] <= a[i] == P <= a[i+1..u]
+		// sort smaller half recursively; the larger half is sorted in the next loop iteration
+		if i-l < u-i {
+			sort_rec(t, l, i-1, limit, comp)
+			l = i + 1
+		} else {
+			sort_rec(t, i+1, u, limit, comp)
+			u = i - 1
+		}
+	}
+}
+
+func table_sort(args Args) {
+	t := args.GetTable()
+	if t.readonly {
+		panic("attempt to modify a readonly table")
+	}
+
+	var comp Comp
+	if len(args.args) == 1 {
+		comp = genericomp
+	} else {
+		fn := args.GetFunction()
+		comp = func(a, b any) bool {
+			res := (*fn)(a, b)
+			return res[0].(bool)
+		}
+	}
+
+	if n := int(t.Len()); n > 0 {
+		sort_rec(t, 0, n-1, n, comp)
+	}
+}
+
 var libtable = NewTable([][2]any{
 	MakeFn0("clear", table_clear),
 	MakeFn1("clone", table_clone),
@@ -259,4 +450,5 @@ var libtable = NewTable([][2]any{
 	MakeFn1("move", table_move),
 	MakeFn1("pack", table_pack),
 	MakeFn1("remove", table_remove),
+	MakeFn0("sort", table_sort),
 })
