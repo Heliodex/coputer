@@ -271,21 +271,19 @@ func genericomp(a, b any) bool {
 type Comp func(a, b any) bool
 
 func sort_swap(t *Table, i, j int) {
-	arr := t.array
+	arr := *t.array
 	// n := t.asize
 	// LUAU_ASSERT(unsigned(i) < unsigned(n) && unsigned(j) < unsigned(n)); // contract maintained in sort_less after predicate call
 
 	// no barrier required because both elements are in the array before and after the swap
-	temp := (*arr)[i]
-	(*arr)[i] = (*arr)[j]
-	(*arr)[j] = temp
+	arr[i], arr[j] = arr[j], arr[i]
 }
 
 func sort_less(t *Table, i, j int, comp Comp) (res bool) {
-	arr, n := t.array, t.asize
+	arr, n := *t.array, t.asize
 	// LUAU_ASSERT(unsigned(i) < unsigned(n) && unsigned(j) < unsigned(n)); // contract maintained in sort_less after predicate call
 
-	res = comp((*arr)[i], (*arr)[j])
+	res = comp(arr[i], arr[j])
 
 	// predicate call may resize the table, which is invalid
 	if t.asize != n {
@@ -344,11 +342,9 @@ func sort_rec(t *Table, l, u, limit int, comp Comp) {
 		if limit == 0 {
 			sort_heap(t, l, u, comp)
 			return
-		}
-
-		// sort elements a[l], a[(l+u)/2] and a[u]
-		// note: this simultaneously acts as a small sort and a median selector
-		if sort_less(t, u, l, comp) { // a[u] < a[l]?
+		} else if sort_less(t, u, l, comp) { // a[u] < a[l]?
+			// sort elements a[l], a[(l+u)/2] and a[u]
+			// note: this simultaneously acts as a small sort and a median selector
 			sort_swap(t, u, l) // swap a[l] - a[u]
 		}
 		if u-l == 1 {
@@ -437,6 +433,24 @@ func table_sort(args Args) {
 	}
 }
 
+func table_unpack(args Args) (values Rets) {
+	list := args.GetTable()
+	i := args.GetNumber(1)
+	j := args.GetNumber(list.Len())
+
+	ui, uj := uint(i), uint(j)
+	if uj <= list.asize {
+		return (*list.array)[ui-1 : uj]
+	}
+
+	values = make([]any, uj-ui+1)
+	for k := i; k <= j; k++ {
+		values[uint(k)-ui] = list.Get(k)
+	}
+
+	return
+}
+
 var libtable = NewTable([][2]any{
 	MakeFn0("clear", table_clear),
 	MakeFn1("clone", table_clone),
@@ -451,4 +465,5 @@ var libtable = NewTable([][2]any{
 	MakeFn1("pack", table_pack),
 	MakeFn1("remove", table_remove),
 	MakeFn0("sort", table_sort),
+	MakeFn("unpack", table_unpack),
 })

@@ -288,15 +288,15 @@ func move(src []any, a, b, t int, dst *[]any) {
 		return
 	}
 
-	maxi := t + b - a
-	for maxi >= len(*dst) {
+	for t+b-a >= len(*dst) {
 		*dst = append(*dst, nil)
-	}
-	for maxi >= len(src) {
-		src = append(src, nil)
 	}
 
 	for i := a; i <= b; i++ {
+		if i >= len(src) {
+			(*dst)[t+i-a] = nil
+			continue
+		}
 		(*dst)[t+i-a] = src[i]
 	}
 }
@@ -1332,7 +1332,6 @@ func luau_load(module Deserialised, env map[any]any) (Function, func()) {
 					panic(uncallableType(typeOf(f)))
 				}
 
-				// fmt.Println("*calling with", (*stack)[A+1:A+params+1])
 				ret_list := (*fn)((*stack)[A+1 : A+params+1]...) // not inclusive
 				ret_num := int(len(ret_list))
 
