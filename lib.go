@@ -63,8 +63,8 @@ func (a *Args) GetFunction(optionalValue ...*Function) *Function {
 	return getArg(a, optionalValue)
 }
 
-func (args *Args) GetAny(optionalValue ...any) any {
-	return getArg(args, optionalValue)
+func (a *Args) GetAny(optionalValue ...any) any {
+	return getArg(a, optionalValue)
 }
 
 // Reflection don't scale

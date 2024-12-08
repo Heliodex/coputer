@@ -511,6 +511,7 @@ var luau_settings = LuauSettings{
 	Extensions: map[any]any{
 		"math":  libmath,
 		"table": libtable,
+		"string": libstring,
 	},
 	// VectorSize: 4,
 	// AllowProxyErrors: false,
