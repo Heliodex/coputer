@@ -47,6 +47,10 @@ func (a *Args) CheckNextArg() {
 	}
 }
 
+func (a *Args) GetBool(optionalValue ...bool) bool {
+	return getArg(a, optionalValue)
+}
+
 func (a *Args) GetNumber(optionalValue ...float64) float64 {
 	return getArg(a, optionalValue)
 }

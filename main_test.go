@@ -16,7 +16,7 @@ func filename(f string) string {
 func luauPrint(a any) string {
 	switch v := a.(type) {
 	case string:
-		return v
+		return strings.ReplaceAll(v, "\n", "\r\n") // bruh
 	case float64:
 		if math.Pow10(19) <= v && v < math.Pow10(21) {
 			return fmt.Sprintf("%.0f", v)
@@ -86,7 +86,7 @@ func TestConformance(t *testing.T) {
 		return
 	}
 
-	// onlyTest := "libtable.luau"
+	// onlyTest := "libstring.luau"
 
 	for _, f := range files {
 		name := f.Name()

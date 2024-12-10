@@ -509,8 +509,8 @@ var luau_settings = LuauSettings{
 	// 	return op
 	// },
 	Extensions: map[any]any{
-		"math":  libmath,
-		"table": libtable,
+		"math":   libmath,
+		"table":  libtable,
 		"string": libstring,
 	},
 	// VectorSize: 4,
@@ -928,6 +928,8 @@ var arithops = map[uint8]string{
 	43: "mod",
 	44: "pow",
 	51: "unm",
+	71: "sub",
+	72: "div",
 	81: "idiv",
 	82: "idiv",
 }
@@ -967,7 +969,7 @@ func aops(op uint8, a, b float64) float64 {
 	case "div":
 		return a / b
 	case "mod":
-		return math.Mod(a, b)
+		return a - b*math.Floor(a/b)
 	case "pow":
 		return math.Pow(a, b)
 	case "idiv":
@@ -1156,7 +1158,7 @@ func luau_load(module Deserialised, env map[any]any) (Function, func()) {
 				if uv := upvals[inst.B]; uv.selfRef {
 					(*stack)[inst.A] = uv.store.(Upval).value
 				} else {
-					fmt.Println("GETTING UPVAL", uv.store)
+					// fmt.Println("GETTING UPVAL", uv.store)
 
 					(*stack)[inst.A] = (*uv.store.(*[]any))[uv.index]
 				}
@@ -1166,7 +1168,7 @@ func luau_load(module Deserialised, env map[any]any) (Function, func()) {
 				}
 			case 11: // CLOSEUPVALS
 				for i, uv := range *open_upvalues {
-					if uv.selfRef || uv.index < inst.A {
+					if uv == nil || uv.selfRef || uv.index < inst.A {
 						continue
 					}
 					uv.value = (*uv.store.(*[]any))[uv.index]
@@ -1232,7 +1234,7 @@ func luau_load(module Deserialised, env map[any]any) (Function, func()) {
 				upvalues := make([]Upval, nups)
 				(*stack)[inst.A] = luau_wrapclosure(newPrototype, upvalues)
 
-				fmt.Println("nups", nups)
+				// fmt.Println("nups", nups)
 				for i := range nups {
 					switch pseudo := code[pc-1]; pseudo.A {
 					case 0: // -- value
@@ -1245,7 +1247,7 @@ func luau_load(module Deserialised, env map[any]any) (Function, func()) {
 						upvalues[i] = upvalue
 					case 1: // -- reference
 						index := pseudo.B
-						fmt.Println("index", index, len(*open_upvalues))
+						// fmt.Println("index", index, len(*open_upvalues))
 
 						var prev *Upval
 						if index < len(*open_upvalues) {
@@ -1578,7 +1580,7 @@ func luau_load(module Deserialised, env map[any]any) (Function, func()) {
 				// Handled by CLOSURE
 				panic("encountered unhandled CAPTURE")
 			case 71, 72: // SUBRK, DIVRK
-				fmt.Println("ARITHMETIRK")
+				// fmt.Println("ARITHMETIRK")
 				(*stack)[inst.A] = arithmetic(op, inst.K, (*stack)[inst.C])
 			case 73: // FASTCALL1
 				// Skipped
