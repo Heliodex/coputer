@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 )
 
@@ -79,7 +78,7 @@ func isdigit(c byte) bool {
 	return c >= '0' && c <= '9'
 }
 
-func addquoted(args *Args, b *strings.Builder, arg int) {
+func addquoted(args *Args, b *strings.Builder) {
 	s := args.GetString()
 	l := len(s)
 	i := 0
@@ -103,9 +102,9 @@ func addquoted(args *Args, b *strings.Builder, arg int) {
 	b.WriteByte('"')
 }
 
-func scanformat(strfrmt string, form [32]byte, size *int) string {
+func scanformat(strfrmt string) (byte, string, int) {
 	p := 0
-	for strfrmt[p] != 0 && strings.ContainsRune(FLAGS, rune(strfrmt[p])) {
+	for strings.ContainsRune(FLAGS, rune(strfrmt[p])) {
 		p++ // skip flags
 	}
 	if p > len(FLAGS) {
@@ -130,109 +129,89 @@ func scanformat(strfrmt string, form [32]byte, size *int) string {
 		panic("invalid format (width or precision too long)")
 	}
 
-	form[0] = '%'
-	*size = p + 1
-	copy(form[:], strfrmt[:*size])
-	form[len(form)-1] = 0 // implementation detailllllllllllllllllllllllllllllll
-	return strfrmt[p:]
+	return strfrmt[p], strfrmt[:p], p
 }
 
-func addInt64Format(form [32]byte, formatIndicator byte, formatItemSize int) {
-	// LUAU_ASSERT((formatItemSize + 3) <= 32)
-	// LUAU_ASSERT(form[0] == '%')
-	// LUAU_ASSERT(form[formatItemSize] != 0)
-	// LUAU_ASSERT(form[formatItemSize+1] == 0)
-	form[formatItemSize] = 'l'
-	form[formatItemSize+1] = 'l'
-	form[formatItemSize+2] = formatIndicator
-	form[formatItemSize+3] = 0
+func format(form string, formatIndicator byte, sub any) string {
+	f := fmt.Sprintf("%%%s%c", form, formatIndicator) // wow, real meta
+	return fmt.Sprintf(f, sub)
 }
 
 func string_format(args Args) Ret {
 	strfrmt := args.GetString()
-	// top := len(args)
 
-	sfl := len(strfrmt)
-	arg := 1
 	b := strings.Builder{}
 
-	for i := 0; i < sfl; {
+	for i, sfl := 0, len(strfrmt); i < sfl; {
 		if strfrmt[i] != L_ESC {
 			b.WriteByte(strfrmt[i])
 			i++
-		} else if i += 1; strfrmt[i] == L_ESC {
+			continue
+		} else if i++; strfrmt[i] == L_ESC {
 			b.WriteByte(L_ESC) // %%
 			i++
+			continue
 		} else if strfrmt[i] == '*' {
-			i++
 			a := args.GetAny()
 			b.WriteString(fmt.Sprintf("%v", a)) // we'd really do tostring() later
-		} else { // format item
-			var form [32]byte         // to store the format (`%...')
-			buff := strings.Builder{} // to store the formatted item
-			args.CheckNextArg()
-			formatItemSize := 0
-			strfrmt = scanformat(strfrmt, form, &formatItemSize)
-			formatIndicator := strfrmt[i]
 			i++
+			continue
+		}
 
-			switch formatIndicator {
-			case 'c':
-				n := args.GetNumber()
-				buff.WriteString(fmt.Sprintf("%c", byte(n))) // TODO: %?
-			case 'd', 'i':
-				addInt64Format(form, formatIndicator, formatItemSize)
-				n := args.GetNumber()
-				b.WriteString(fmt.Sprintf("%d", int(n))) // TODO: %?
-			case 'o', 'u', 'x', 'X':
-				argValue := args.GetNumber()
-				addInt64Format(form, formatIndicator, formatItemSize)
-				var v uint64
-				if argValue < 0 {
-					v = uint64(int64(argValue))
-				} else {
-					v = uint64(argValue)
-				}
+		// format item
+		args.CheckNextArg()
+		formatIndicator, form, p := scanformat(strfrmt[i:])
+		i += p + 1
 
-				if formatIndicator == 'u' {
-					formatIndicator = 'd'
-				}
-				buff.WriteString(fmt.Sprintf("%"+string(formatIndicator), v)) // TODO: %?
-			case 'e', 'E', 'f', 'g', 'G':
-				n := args.GetNumber()
-				buff.WriteString(fmt.Sprintf("%f", n)) // TODO: %?
-			case 'q':
-				addquoted(&args, &b, arg)
-				continue // skip adding the string at the end
-			case 's':
-				s := args.GetString()
-				// no precision and string is too long to be formatted, or no format necessary to begin with
-				if form[2] == 0 || (!slices.Contains(form[:], '.') && len(s) > 100) {
-					b.WriteString(s)
-					continue // skip adding the string at the end
-				}
-				buff.WriteString(fmt.Sprintf("%v", s)) // TODO: %?
-			case '*':
-				//  %* is parsed above, so if we got here we must have a %...*
-				panic("%* does not take a form")
-			default: // also treat cases `pnLlh'
-				panic(fmt.Sprintf("invalid option '%%%c' to 'format'", formatIndicator))
+		switch formatIndicator {
+		case 'c':
+			n := args.GetNumber()
+			b.WriteString(fmt.Sprintf("%c", byte(n))) // TODO: %?
+		case 'd', 'i':
+			n := args.GetNumber()
+
+			b.WriteString(format(form, 'd', int(n)))
+		case 'o', 'u', 'x', 'X':
+			n := args.GetNumber()
+
+			var v uint64
+			if n < 0 {
+				v = uint64(int64(n))
+			} else {
+				v = uint64(n)
 			}
-			b.WriteString(buff.String())
+
+			if formatIndicator == 'u' {
+				formatIndicator = 'd'
+			}
+			b.WriteString(format(form, formatIndicator, v))
+		case 'e', 'E', 'f', 'g', 'G':
+			n := args.GetNumber()
+
+			format := fmt.Sprintf("%%%s%c", form, formatIndicator)
+			b.WriteString(fmt.Sprintf(format, n)) // TODO: %?
+		case 'q':
+			addquoted(&args, &b)
+			continue // skip adding the string at the end
+		case 's':
+			s := args.GetString()
+			// no precision and string is too long to be formatted, or no format necessary to begin with
+			if len(form) <= 1 || (!strings.ContainsRune(form, '.') && len(s) > 100) {
+				b.WriteString(s)
+				break
+			}
+
+			b.WriteString(format(form, 's', s))
+		case '*':
+			//  %* is parsed above, so if we got here we must have a %...*
+			panic("%* does not take a form")
+		default: // also treat cases `pnLlh'
+			panic(fmt.Sprintf("invalid option '%%%c' to 'format'", formatIndicator))
 		}
 	}
 
 	return b.String()
 }
-
-// func string_match(args Args) Rets {
-// 	s := args.GetString()
-// 	p := args.GetString()
-// 	init := args.GetNumber(1)
-
-// 	var start, end int
-// 	pos := posrelat(int(init), len(s))
-// }
 
 var libstring = NewTable([][2]any{
 	MakeFn("byte", string_byte),
