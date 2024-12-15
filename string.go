@@ -33,8 +33,8 @@ func string_byte(args Args) (bytes Rets) {
 
 	bytes = make(Rets, cap)
 	chars := []byte(s)
-	for i := range bytes {
-		bytes[i] = chars[i+ui]
+	for n := range bytes {
+		bytes[n] = chars[n+ui]
 	}
 	return
 }
@@ -56,8 +56,6 @@ func string_char(args Args) Ret {
 	return string(bytes)
 }
 
-var L_ESC = byte('%')
-
 func string_find(args Args) Rets {
 	s := args.GetString()
 	p := args.GetString()
@@ -72,7 +70,10 @@ func string_find(args Args) Rets {
 	return Rets{pos + init + 1, pos + init + len(p)}
 }
 
-var FLAGS = "-+ #0"
+var (
+	L_ESC = byte('%')
+	FLAGS = "-+ #0"
+)
 
 func isdigit(c byte) bool {
 	return c >= '0' && c <= '9'
@@ -213,6 +214,14 @@ func string_format(args Args) Ret {
 	return b.String()
 }
 
+func string_gmatch(args Args) Ret {
+	panic("not implemented")
+}
+
+func string_gsub(args Args) Rets {
+	panic("not implemented")
+}
+
 func string_len(args Args) Ret {
 	s := args.GetString()
 
@@ -223,6 +232,10 @@ func string_lower(args Args) Ret {
 	s := args.GetString()
 
 	return strings.ToLower(s)
+}
+
+func string_match(args Args) Ret {
+	panic("not implemented")
 }
 
 func string_rep(args Args) Ret {
@@ -245,7 +258,7 @@ func string_reverse(args Args) Ret {
 
 func string_split(args Args) Ret {
 	s := args.GetString()
-	separator := args.GetString("")
+	separator := args.GetString(",")
 
 	split := strings.Split(s, separator)
 	a := make([]any, len(split))
@@ -259,6 +272,21 @@ func string_split(args Args) Ret {
 	}
 }
 
+func string_sub(args Args) Ret {
+	s := args.GetString()
+	i := args.GetNumber(1)
+	j := args.GetNumber(-1)
+
+	l := len(s)
+	ui := posrelat(int(i), l)
+	uj := posrelat(int(j), l)
+
+	if uj < ui {
+		return ""
+	}
+	return s[ui:min(uj+1, l)]
+}
+
 func string_upper(args Args) Ret {
 	s := args.GetString()
 
@@ -270,10 +298,16 @@ var libstring = NewTable([][2]any{
 	MakeFn1("char", string_char),
 	MakeFn("find", string_find),
 	MakeFn1("format", string_format),
+	MakeFn1("gmatch", string_gmatch),
+	MakeFn("gsub", string_gsub),
 	MakeFn1("len", string_len),
 	MakeFn1("lower", string_lower),
+	MakeFn1("match", string_match),
+	// buffer should be used instead of pack/packsize
 	MakeFn1("rep", string_rep),
 	MakeFn1("reverse", string_reverse),
 	MakeFn1("split", string_split),
+	MakeFn1("sub", string_sub),
+	// buffer should be used instead of unpack
 	MakeFn1("upper", string_upper),
 })
