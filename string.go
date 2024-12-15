@@ -213,9 +213,67 @@ func string_format(args Args) Ret {
 	return b.String()
 }
 
+func string_len(args Args) Ret {
+	s := args.GetString()
+
+	return float64(len(s))
+}
+
+func string_lower(args Args) Ret {
+	s := args.GetString()
+
+	return strings.ToLower(s)
+}
+
+func string_rep(args Args) Ret {
+	s := args.GetString()
+	n := args.GetNumber()
+
+	return strings.Repeat(s, max(int(n), 0))
+}
+
+func string_reverse(args Args) Ret {
+	s := args.GetString()
+
+	r := []byte(s) // []rune(s)
+	for i, j := 0, len(r)-1; i < j; i, j = i+1, j-1 {
+		r[i], r[j] = r[j], r[i]
+	}
+
+	return string(r)
+}
+
+func string_split(args Args) Ret {
+	s := args.GetString()
+	separator := args.GetString("")
+
+	split := strings.Split(s, separator)
+	a := make([]any, len(split))
+	for i, v := range split {
+		a[i] = v
+	}
+
+	return &Table{
+		array: &a,
+		asize: uint(len(a)),
+	}
+}
+
+func string_upper(args Args) Ret {
+	s := args.GetString()
+
+	return strings.ToUpper(s)
+}
+
 var libstring = NewTable([][2]any{
 	MakeFn("byte", string_byte),
 	MakeFn1("char", string_char),
 	MakeFn("find", string_find),
 	MakeFn1("format", string_format),
+	MakeFn1("len", string_len),
+	MakeFn1("lower", string_lower),
+	MakeFn1("rep", string_rep),
+	MakeFn1("reverse", string_reverse),
+	MakeFn1("split", string_split),
+	MakeFn1("upper", string_upper),
 })

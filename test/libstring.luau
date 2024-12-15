@@ -84,3 +84,30 @@ print(string.format(str, "Robloxian")) -- Output: Roblox
 str = "Once upon a time, there was a dragon named %s and it had %.8f horns."
 print(string.format(str, "Pi", math.pi))
 -- -- Output: Once upon a time, there was a dragon named Pi and it had 3.14159265 horns.
+
+print(string.len "hello")
+print(string.len "世界")
+print(string.len "")
+
+print(string.lower "HELLO!")
+print(string.lower "世界")
+print(string.lower "")
+
+print(string.rep("hello", 3))
+print(string.rep("hello", -1))
+print(string.rep("", 3))
+print(string.rep("na", 16) .. " batman")
+
+print(string.reverse "hello")
+print(string.reverse "世界") -- doesn't work, but conforms with reference implementation
+print(string.reverse "")
+print(string.reverse(s))
+
+print(table.unpack(string.split("hello world", " ")))
+print(table.unpack(string.split("hello world", "")))
+print(table.unpack(string.split("", "")))
+print(table.unpack(string.split("", "test")))
+
+print(string.upper "hello!")
+print(string.upper "世界")
+print(string.upper "")
