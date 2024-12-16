@@ -29,7 +29,29 @@ type Table struct {
 	readonly bool
 }
 
-type Function func(...any) []any
+type Function func(co *Coroutine, args ...any) []any
+
+type Status uint8
+
+const (
+	Suspended Status = iota
+	Running
+	Normal
+	Dead
+)
+
+type Coroutine struct {
+	body    *Function
+	status  Status
+	started bool
+}
+
+func (co *Coroutine) Run(args ...any) {
+	co.started = true
+	co.status = Running
+	(*co.body)(co, args...)
+	co.status = Dead
+}
 
 func NewTable(toHash [][2]any) *Table {
 	hash := map[any]any{}
@@ -509,9 +531,10 @@ var luau_settings = LuauSettings{
 	// 	return op
 	// },
 	Extensions: map[any]any{
-		"math":   libmath,
-		"table":  libtable,
-		"string": libstring,
+		"math":      libmath,
+		"table":     libtable,
+		"string":    libstring,
+		"coroutine": libcoroutine,
 	},
 	// VectorSize: 4,
 	// AllowProxyErrors: false,
@@ -528,7 +551,7 @@ type Inst struct {
 
 type Varargs struct {
 	list []any
-	len  uint32
+	len  int
 }
 
 type Proto struct {
@@ -1078,7 +1101,7 @@ func jump(op uint8, a, b any) bool {
 	panic(invalidCompare(jumpops[op], ta, tb))
 }
 
-func luau_load(module Deserialised, env map[any]any) (Function, func()) {
+func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 	protolist := module.protoList
 	alive := true
 
@@ -1090,6 +1113,7 @@ func luau_load(module Deserialised, env map[any]any) (Function, func()) {
 		stack *[]any,
 		protos []uint32,
 		code []*Inst,
+		co *Coroutine,
 		varargs Varargs,
 	) []any {
 		top, pc, open_upvalues, generalised_iterators := -1, 1, new([]*Upval), map[Inst]*Iterator{}
@@ -1335,7 +1359,7 @@ func luau_load(module Deserialised, env map[any]any) (Function, func()) {
 					panic(uncallableType(typeOf(f)))
 				}
 
-				ret_list := (*fn)((*stack)[A+1 : A+params+1]...) // not inclusive
+				ret_list := (*fn)(co, (*stack)[A+1:A+params+1]...) // not inclusive
 				ret_num := int(len(ret_list))
 
 				if C == 0 {
@@ -1481,7 +1505,7 @@ func luau_load(module Deserialised, env map[any]any) (Function, func()) {
 				case *Function:
 					fmt.Println("IT func", it)
 
-					vals := (*it)([]any{(*stack)[A+1], (*stack)[A+2]})
+					vals := (*it)(co, []any{(*stack)[A+1], (*stack)[A+2]})
 
 					move(vals, 0, res, A+3, stack)
 
@@ -1528,7 +1552,7 @@ func luau_load(module Deserialised, env map[any]any) (Function, func()) {
 				b := inst.B - 1
 
 				if b == LUAU_MULTRET {
-					b = int(varargs.len)
+					b = varargs.len
 					top = A + b - 1
 				}
 
@@ -1666,20 +1690,20 @@ func luau_load(module Deserialised, env map[any]any) (Function, func()) {
 	}
 
 	luau_wrapclosure = func(proto Proto, upvals []Upval) *Function {
-		wrapped := Function(func(passed ...any) []any {
+		wrapped := Function(func(co *Coroutine, passed ...any) []any {
 			maxstacksize, numparams := proto.maxstacksize, proto.numparams
 
 			stack := make([]any, maxstacksize)
 			// fmt.Println("MAX STACK SIZE", maxstacksize)
-			varargs := Varargs{[]any{}, 0}
+			varargs := Varargs{list: []any{}}
 
 			move(passed, 0, int(numparams), 0, &stack)
 
 			n := uint8(len(passed))
 			if numparams < n {
 				start := int(numparams + 1)
-				l := int(n - numparams)
-				varargs.len = uint32(l)
+				l := int(n) - int(numparams)
+				varargs.len = l
 
 				// expand varargs list
 				varargs.list = make([]any, l)
@@ -1688,7 +1712,7 @@ func luau_load(module Deserialised, env map[any]any) (Function, func()) {
 			}
 
 			// TODO: dee bugg ingg
-			result := luau_execute(proto, upvals, &stack, proto.protos, proto.code, varargs)
+			result := luau_execute(proto, upvals, &stack, proto.protos, proto.code, co, varargs)
 			// fmt.Println("RESULT", result)
 
 			return result
@@ -1697,7 +1721,7 @@ func luau_load(module Deserialised, env map[any]any) (Function, func()) {
 		return &wrapped
 	}
 
-	return *luau_wrapclosure(module.mainProto, []Upval{}), func() {
+	return Coroutine{body: luau_wrapclosure(module.mainProto, []Upval{})}, func() {
 		alive = false
 	}
 }

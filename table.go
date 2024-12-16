@@ -423,7 +423,7 @@ func table_sort(args Args) {
 	} else {
 		fn := args.GetFunction()
 		comp = func(a, b any) bool {
-			res := (*fn)(a, b)
+			res := (*fn)(args.co, a, b)
 			return res[0].(bool)
 		}
 	}

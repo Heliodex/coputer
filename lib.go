@@ -13,6 +13,7 @@ func invalidArgType(i int, fn string, tx, tg string) string {
 type Args struct {
 	args []any
 	name string
+	co   *Coroutine
 	pos  int
 }
 
@@ -67,37 +68,32 @@ func (a *Args) GetFunction(optionalValue ...*Function) *Function {
 	return getArg(a, optionalValue)
 }
 
+func (a *Args) GetCoroutine(optionalValue ...*Coroutine) *Coroutine {
+	return getArg(a, optionalValue)
+}
+
 func (a *Args) GetAny(optionalValue ...any) any {
 	return getArg(a, optionalValue)
 }
 
 // Reflection don't scale
 func MakeFn(name string, fn func(args Args) Rets) [2]any {
-	fn2 := Function(func(vargs ...any) []any {
-		return fn(Args{
-			args: vargs,
-			name: name,
-		})
+	fn2 := Function(func(co *Coroutine, vargs ...any) []any {
+		return fn(Args{vargs, name, co, 0})
 	})
 	return [2]any{name, &fn2}
 }
 
 func MakeFn1(name string, fn func(args Args) Ret) [2]any {
-	fn2 := Function(func(vargs ...any) []any {
-		return []any{fn(Args{
-			args: vargs,
-			name: name,
-		})}
+	fn2 := Function(func(co *Coroutine, vargs ...any) []any {
+		return []any{fn(Args{vargs, name, co, 0})}
 	})
 	return [2]any{name, &fn2}
 }
 
 func MakeFn0(name string, fn func(args Args)) [2]any {
-	fn2 := Function(func(vargs ...any) []any {
-		fn(Args{
-			args: vargs,
-			name: name,
-		})
+	fn2 := Function(func(co *Coroutine, vargs ...any) []any {
+		fn(Args{vargs, name, co, 0})
 		return []any{}
 	})
 	return [2]any{name, &fn2}

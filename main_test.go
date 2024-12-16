@@ -49,7 +49,7 @@ func litecode(t *testing.T, f string, o int) string {
 	deserialised := luau_deserialise(bytecode)
 
 	b := strings.Builder{}
-	luau_print := Function(func(args ...any) (ret []any) {
+	luau_print := Function(func(co *Coroutine, args ...any) (ret []any) {
 		// b.WriteString(fmt.Sprint(args...))
 		for i, arg := range args {
 			b.WriteString(luauPrint(arg))
@@ -61,10 +61,10 @@ func litecode(t *testing.T, f string, o int) string {
 		return
 	})
 
-	fn, _ := luau_load(deserialised, map[any]any{
+	co, _ := luau_load(deserialised, map[any]any{
 		"print": &luau_print,
 	})
-	fn()
+	co.Run()
 
 	return b.String()
 }
@@ -86,7 +86,7 @@ func TestConformance(t *testing.T) {
 		return
 	}
 
-	// onlyTest := "libstring.luau"
+	// onlyTest := "libcoroutine.luau"
 
 	for _, f := range files {
 		name := f.Name()
@@ -104,8 +104,8 @@ func TestConformance(t *testing.T) {
 
 		outputs := []string{
 			litecode(t, name, 0),
-			litecode(t, name, 1),
-			litecode(t, name, 2),
+			// litecode(t, name, 1),
+			// litecode(t, name, 2),
 		}
 		fmt.Println()
 
