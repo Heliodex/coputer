@@ -558,6 +558,7 @@ var luau_settings = LuauSettings{
 		"table":     libtable,
 		"string":    libstring,
 		"coroutine": libcoroutine,
+		"bit32":     libbit32,
 	},
 	// VectorSize: 4,
 	// AllowProxyErrors: false,
@@ -1384,6 +1385,16 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 
 				ret_list := (*fn)(co, (*stack)[A+1:A+params+1]...) // not inclusive
 				ret_num := int(len(ret_list))
+
+				// development checking lelell
+				for _, v := range ret_list {
+					switch v.(type) {
+					case int, uint, int8, uint8, int16, uint16, int32, uint32, int64, uint64:
+						panic(fmt.Sprintf("Hey idiot YOU RETURNED AN INTEGER INSTEAD OFA  FLOAT FROM YUR FUNCTION O MY GOD %v", v))
+					case float32:
+						panic(fmt.Sprintf("u  dun fukt up %v", v))
+					}
+				}
 
 				if C == 0 {
 					top = A + ret_num - 1
