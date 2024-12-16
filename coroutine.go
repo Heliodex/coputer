@@ -1,5 +1,7 @@
 package main
 
+// ngl this might be the easiest library yet (or at least because most of its functionality is coroutines in the main file instead of here)
+
 func coroutine_close(args Args) {
 	co := args.GetCoroutine()
 	co.status = Dead
@@ -44,7 +46,17 @@ func coroutine_status(args Args) Ret {
 }
 
 func coroutine_wrap(args Args) Ret {
-	panic("not implemented")
+	f := args.GetFunction()
+
+	co := createCoroutine(f)
+	fn := Function(func(_ *Coroutine, args ...any) []any {
+		if co.status == Dead {
+			panic("cannot resume dead coroutine") // ought to be better (return false, error message)
+		}
+		return co.Resume(args...)
+	})
+
+	return &fn
 }
 
 func coroutine_yield(args Args) Rets {

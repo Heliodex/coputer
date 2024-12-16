@@ -40,3 +40,9 @@ for i = 1, 5 do
 	print(coroutine.resume(sc, i))
 end
 print(coroutine.status(sc))
+
+local w = coroutine.wrap(s)
+
+for i = 1, 4 do
+	print(w(i))
+end
