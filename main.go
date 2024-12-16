@@ -41,16 +41,39 @@ const (
 )
 
 type Coroutine struct {
-	body    *Function
-	status  Status
-	started bool
+	body          *Function
+	status        Status
+	started       bool
+	yield, resume chan Rets
 }
 
-func (co *Coroutine) Run(args ...any) {
-	co.started = true
-	co.status = Running
-	(*co.body)(co, args...)
-	co.status = Dead
+func createCoroutine(body *Function) *Coroutine {
+	// first time i actually ran into the channel axiom issues
+	return &Coroutine{
+		body:   body,
+		yield:  make(chan Rets, 1),
+		resume: make(chan Rets, 1),
+	}
+}
+
+func (co *Coroutine) Resume(args ...any) (y Rets) {
+	if !co.started {
+		co.started = true
+		co.status = Running
+
+		go func() {
+			(*co.body)(co, args...)
+			co.status = Dead
+			if len(co.yield) == 0 {
+				// finish up
+				co.yield <- nil
+			}
+		}()
+	} else {
+		co.status = Running
+		co.resume <- args
+	}
+	return <-co.yield
 }
 
 func NewTable(toHash [][2]any) *Table {
@@ -1721,7 +1744,11 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 		return &wrapped
 	}
 
-	return Coroutine{body: luau_wrapclosure(module.mainProto, []Upval{})}, func() {
-		alive = false
-	}
+	return Coroutine{
+			body:   luau_wrapclosure(module.mainProto, []Upval{}),
+			yield:  make(chan Rets, 1),
+			resume: make(chan Rets, 1),
+		}, func() {
+			alive = false
+		}
 }

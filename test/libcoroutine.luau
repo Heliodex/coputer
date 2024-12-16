@@ -13,15 +13,30 @@ print("finished!", coroutine.status(fc))
 
 print(coroutine.isyieldable())
 
--- local function r()
--- 	coroutine.yield(1)
--- 	coroutine.yield(2)
--- 	coroutine.yield(3)
--- end
+local function r()
+	coroutine.yield(1)
+	coroutine.yield(2)
+	coroutine.yield(3)
+end
 
--- local fc = coroutine.create(r)
+local rc = coroutine.create(r)
 
--- print(coroutine.resume(fc))
--- print(coroutine.resume(fc))
--- print(coroutine.resume(fc))
--- print(coroutine.status(fc))
+for i = 1, 5 do
+	print(coroutine.resume(rc))
+end
+print(coroutine.status(rc))
+
+print "hi"
+
+local function s(a: number)
+	a = coroutine.yield(a * 2)
+	a = coroutine.yield(a * 2)
+	a = coroutine.yield(a * 2)
+end
+
+local sc = coroutine.create(s)
+
+for i = 1, 5 do
+	print(coroutine.resume(sc, i))
+end
+print(coroutine.status(sc))

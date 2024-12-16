@@ -1,34 +1,28 @@
 package main
 
 func coroutine_close(args Args) {
-	panic("not implemented")
+	co := args.GetCoroutine()
+	co.status = Dead
 }
 
 func coroutine_create(args Args) Ret {
 	f := args.GetFunction()
 
-	c := &Coroutine{
-		body:   f,
-		status: Suspended,
-	}
-	return c
+	return createCoroutine(f)
 }
 
 func coroutine_isyieldable(args Args) Ret {
-	return true
+	return true // phuck yo metamethod/C-call boundary
 }
 
 func coroutine_resume(args Args) Rets {
 	co := args.GetCoroutine()
 	a := args.args[1:]
 
-	if !co.started {
-		co.Run(a...)
-	} else if co.status == Dead {
+	if co.status == Dead {
 		return []any{false, "cannot resume dead coroutine"}
 	}
-
-	return []any{true}
+	return append([]any{true}, co.Resume(a...)...)
 }
 
 func coroutine_running(args Args) Ret {
@@ -54,7 +48,13 @@ func coroutine_wrap(args Args) Ret {
 }
 
 func coroutine_yield(args Args) Rets {
-	panic("not implemented")
+	a, co := args.args, args.co
+
+	if co.status == Running {
+		co.status = Suspended
+	}
+	co.yield <- a
+	return <-co.resume
 }
 
 var libcoroutine = NewTable([][2]any{

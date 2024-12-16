@@ -64,7 +64,7 @@ func litecode(t *testing.T, f string, o int) string {
 	co, _ := luau_load(deserialised, map[any]any{
 		"print": &luau_print,
 	})
-	co.Run()
+	co.Resume()
 
 	return b.String()
 }
