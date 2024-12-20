@@ -9,8 +9,14 @@ var (
 	ALLONES = ^uint32(0)
 )
 
+// trim extra bits
 func trim(x uint32) uint32 {
 	return x & ALLONES
+}
+
+// builds a number with 'n' ones (1 <= n <= NBITS)
+func mask(n int) uint32 {
+	return ^((ALLONES << 1) << (n - 1))
 }
 
 func andaux(args Args) uint32 {
@@ -26,7 +32,7 @@ func b_shift(r uint32, i int) uint32 {
 		i = -i
 		if i >= NBITS {
 			return 0
-		}  
+		}
 		return trim(r) >> i
 	}
 
@@ -111,28 +117,78 @@ func bit32_countrz(args Args) Ret {
 	return float64(NBITS)
 }
 
+/*
+** get field and width arguments for field-manipulation functions,
+** checking whether they are valid.
+ */
+func fieldargs(args Args) (int, int) {
+	f := int(args.GetNumber())
+	w := int(args.GetNumber(1))
+
+	if f < 0 {
+		panic("field cannot be negative")
+	}
+	if w < 1 {
+		panic("width must be positive")
+	}
+	if f+w > NBITS {
+		panic("trying to access non-existent bits")
+	}
+	return f, w
+}
+
 func bit32_extract(args Args) Ret {
-	panic("not implemented")
+	r := uint32(args.GetNumber())
+
+	f, w := fieldargs(args)
+	return float64((r >> f) & mask(w))
 }
 
 func bit32_replace(args Args) Ret {
-	panic("not implemented")
+	r := uint32(args.GetNumber())
+	v := uint32(args.GetNumber())
+
+	f, w := fieldargs(args)
+	m := mask(w)
+	v &= m // erase bits outside given width
+	return float64((r & ^(m << f)) | (v << f))
+}
+
+func b_rot(r uint32, i int) uint32 {
+	if i &= (NBITS - 1); i != 0 { // i %= NBITS
+		// avoid undefined shift of NBITS when i == 0
+		r = trim(r)
+		r = (r << i) | (r >> (NBITS - i))
+	}
+	return trim(r)
 }
 
 func bit32_lrotate(args Args) Ret {
-	panic("not implemented")
+	r := uint32(args.GetNumber())
+	i := int(args.GetNumber())
+
+	return float64(b_rot(r, i))
 }
 
 func bit32_lshift(args Args) Ret {
-	panic("not implemented")
+	x := uint32(args.GetNumber())
+	disp := int(args.GetNumber())
+
+	return float64(b_shift(x, disp))
 }
 
 func bit32_rrotate(args Args) Ret {
-	panic("not implemented")
+	r := uint32(args.GetNumber())
+	i := int(args.GetNumber())
+
+	return float64(b_rot(r, -i))
 }
 
 func bit32_rshift(args Args) Ret {
-	panic("not implemented")
+	x := uint32(args.GetNumber())
+	disp := int(args.GetNumber())
+
+	return float64(b_shift(x, -disp))
 }
 
 var libbit32 = NewTable([][2]any{

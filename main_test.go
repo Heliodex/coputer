@@ -104,8 +104,8 @@ func TestConformance(t *testing.T) {
 
 		outputs := []string{
 			litecode(t, name, 0),
-			// litecode(t, name, 1),
-			// litecode(t, name, 2),
+			litecode(t, name, 1),
+			litecode(t, name, 2),
 		}
 		fmt.Println()
 
