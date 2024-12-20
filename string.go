@@ -34,7 +34,7 @@ func string_byte(args Args) (bytes Rets) {
 	bytes = make(Rets, cap)
 	chars := []byte(s)
 	for n := range bytes {
-		bytes[n] = chars[n+ui]
+		bytes[n] = float64(chars[n+ui])
 	}
 	return
 }
@@ -67,7 +67,10 @@ func string_find(args Args) Rets {
 	if pos == -1 {
 		return Rets{nil} // one nil
 	}
-	return Rets{pos + init + 1, pos + init + len(p)}
+	return Rets{
+		float64(pos + init + 1),
+		float64(pos + init + len(p)),
+	}
 }
 
 var (

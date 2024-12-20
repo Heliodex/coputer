@@ -13,10 +13,10 @@ func trim(x uint32) uint32 {
 	return x & ALLONES
 }
 
-func andaux(ops []uint32) uint32 {
+func andaux(args Args) uint32 {
 	r := ALLONES
-	for _, v := range ops {
-		r &= v
+	for range args.args {
+		r &= uint32(args.GetNumber())
 	}
 	return trim(r)
 }
@@ -24,21 +24,17 @@ func andaux(ops []uint32) uint32 {
 func b_shift(r uint32, i int) uint32 {
 	if i < 0 { // shift right?
 		i = -i
-		r = trim(r)
 		if i >= NBITS {
-			r = 0
-		} else {
-			r >>= i
-		}
-	} else { // shift left
-		if i >= NBITS {
-			r = 0
-		} else {
-			r <<= i
-		}
-		r = trim(r)
+			return 0
+		}  
+		return trim(r) >> i
 	}
-	return r
+
+	// shift left
+	if i >= NBITS {
+		return 0
+	}
+	return trim(r << i)
 }
 
 func bit32_arshift(args Args) Ret {
@@ -58,13 +54,7 @@ func bit32_arshift(args Args) Ret {
 }
 
 func bit32_band(args Args) Ret {
-	l := len(args.args)
-	ops := make([]uint32, l)
-	for i := range l {
-		ops[i] = uint32(args.GetNumber())
-	}
-
-	return float64(andaux(ops))
+	return float64(andaux(args))
 }
 
 func bit32_bnot(args Args) Ret {
@@ -74,27 +64,51 @@ func bit32_bnot(args Args) Ret {
 }
 
 func bit32_bor(args Args) Ret {
-	panic("not implemented")
+	r := uint32(0)
+	for range args.args {
+		r |= uint32(args.GetNumber())
+	}
+	return float64(trim(r))
 }
 
 func bit32_btest(args Args) Ret {
-	panic("not implemented")
+	return andaux(args) != 0
 }
 
 func bit32_bxor(args Args) Ret {
-	panic("not implemented")
+	r := uint32(0)
+	for range args.args {
+		r ^= uint32(args.GetNumber())
+	}
+	return float64(trim(r))
 }
 
 func bit32_byteswap(args Args) Ret {
-	panic("not implemented")
+	n := uint32(args.GetNumber())
+
+	return float64((n << 24) | ((n << 8) & 0xff0000) | ((n >> 8) & 0xff00) | (n >> 24))
 }
 
 func bit32_countlz(args Args) Ret {
-	panic("not implemented")
+	v := uint32(args.GetNumber())
+
+	for i := range NBITS {
+		if v&(1<<(NBITS-1-i)) != 0 {
+			return float64(i)
+		}
+	}
+	return float64(NBITS)
 }
 
 func bit32_countrz(args Args) Ret {
-	panic("not implemented")
+	v := uint32(args.GetNumber())
+
+	for i := range NBITS {
+		if v&(1<<i) != 0 {
+			return float64(i)
+		}
+	}
+	return float64(NBITS)
 }
 
 func bit32_extract(args Args) Ret {

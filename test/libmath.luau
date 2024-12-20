@@ -89,4 +89,3 @@ print(math.sqrt(24))
 print(math.huge)
 
 print(math.map(0.5, 0, 1, 6, 99))
-

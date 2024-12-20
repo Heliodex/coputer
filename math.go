@@ -223,11 +223,11 @@ func math_round(args Args) Ret {
 
 func math_sign(args Args) Ret {
 	if x := args.GetNumber(); x > 0 {
-		return 1
+		return float64(1)
 	} else if x < 0 {
-		return -1
+		return float64(-1)
 	}
-	return 0
+	return float64(0)
 }
 
 func math_sin(args Args) Ret {
