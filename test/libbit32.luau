@@ -68,13 +68,10 @@ for _, test in tests3 do
 	print(bit32.extract(test, 4, 4))
 	print(bit32.extract(test, 4, 8))
 	print(bit32.extract(test, 0, 8))
-end
-
-for _, t1 in tests3 do
-	for _, t2 in tests3 do
-		bit32.replace(t1, t2, 4)
-		bit32.replace(t1, t2, 4, 4)
-		bit32.replace(t1, t2, 4, 8)
-		bit32.replace(t1, t2, 0, 8)
+	for _, test2 in tests3 do
+		bit32.replace(test, test2, 4)
+		bit32.replace(test, test2, 4, 4)
+		bit32.replace(test, test2, 4, 8)
+		bit32.replace(test, test2, 0, 8)
 	end
 end

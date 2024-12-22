@@ -29,9 +29,10 @@ type Table struct {
 	readonly bool
 }
 
-type Function func(co *Coroutine, args ...any) []any
-
-type Status uint8
+type (
+	Function func(co *Coroutine, args ...any) []any
+	Status   uint8
+)
 
 const (
 	Suspended Status = iota
@@ -559,6 +560,7 @@ var luau_settings = LuauSettings{
 		"string":    libstring,
 		"coroutine": libcoroutine,
 		"bit32":     libbit32,
+		"utf8":      libutf8,
 	},
 	// VectorSize: 4,
 	// AllowProxyErrors: false,
@@ -1537,13 +1539,13 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 
 				switch it := (*stack)[A].(type) {
 				case *Function:
-					fmt.Println("IT func", it)
+					// fmt.Println("IT func", it)
 
 					vals := (*it)(co, []any{(*stack)[A+1], (*stack)[A+2]})
 
 					move(vals, 0, res, A+3, stack)
 
-					fmt.Println(A+3, (*stack)[A+3])
+					// fmt.Println(A+3, (*stack)[A+3])
 
 					if (*stack)[A+3] != nil {
 						(*stack)[A+2] = (*stack)[A+3]
@@ -1746,10 +1748,7 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 			}
 
 			// TODO: dee bugg ingg
-			result := luau_execute(proto, upvals, &stack, proto.protos, proto.code, co, varargs)
-			// fmt.Println("RESULT", result)
-
-			return result
+			return luau_execute(proto, upvals, &stack, proto.protos, proto.code, co, varargs)
 		})
 
 		return &wrapped

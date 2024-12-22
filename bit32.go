@@ -1,9 +1,5 @@
 package main
 
-import (
-	"fmt"
-)
-
 var (
 	NBITS   = 32
 	ALLONES = ^uint32(0)
@@ -51,7 +47,6 @@ func bit32_arshift(args Args) Ret {
 		return float64(b_shift(r, -i))
 	}
 
-	fmt.Println(r, r&(1<<(NBITS-1)))
 	// arithmetic shift for 'negative' number
 	if i >= NBITS {
 		return float64(ALLONES)

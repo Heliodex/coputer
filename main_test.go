@@ -86,7 +86,7 @@ func TestConformance(t *testing.T) {
 		return
 	}
 
-	// onlyTest := "libbit32.luau"
+	// onlyTest := "libutf8.luau"
 
 	for _, f := range files {
 		name := f.Name()
