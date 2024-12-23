@@ -1,6 +1,8 @@
 package main
 
-var (
+import "math/bits"
+
+const (
 	NBITS   = 32
 	ALLONES = ^uint32(0)
 )
@@ -12,7 +14,7 @@ func trim(x uint32) uint32 {
 
 // builds a number with 'n' ones (1 <= n <= NBITS)
 func mask(n int) uint32 {
-	return ^((ALLONES << 1) << (n - 1))
+	return ^((ALLONES - 1) << (n - 1))
 }
 
 func andaux(args Args) uint32 {
@@ -26,16 +28,16 @@ func andaux(args Args) uint32 {
 func b_shift(r uint32, i int) uint32 {
 	if i < 0 { // shift right?
 		i = -i
-		if i >= NBITS {
-			return 0
-		}
+		// if i >= NBITS {
+		// 	return 0
+		// }
 		return trim(r) >> i
 	}
 
 	// shift left
-	if i >= NBITS {
-		return 0
-	}
+	// if i >= NBITS {
+	// 	return 0
+	// }
 	return trim(r << i)
 }
 
@@ -87,29 +89,19 @@ func bit32_bxor(args Args) Ret {
 func bit32_byteswap(args Args) Ret {
 	n := uint32(args.GetNumber())
 
-	return float64((n << 24) | ((n << 8) & 0xff0000) | ((n >> 8) & 0xff00) | (n >> 24))
+	return float64(bits.ReverseBytes32(n))
 }
 
 func bit32_countlz(args Args) Ret {
 	v := uint32(args.GetNumber())
 
-	for i := range NBITS {
-		if v&(1<<(NBITS-1-i)) != 0 {
-			return float64(i)
-		}
-	}
-	return float64(NBITS)
+	return float64(bits.LeadingZeros32(v))
 }
 
 func bit32_countrz(args Args) Ret {
 	v := uint32(args.GetNumber())
 
-	for i := range NBITS {
-		if v&(1<<i) != 0 {
-			return float64(i)
-		}
-	}
-	return float64(NBITS)
+	return float64(bits.TrailingZeros32(v))
 }
 
 /*
@@ -122,11 +114,9 @@ func fieldargs(args Args) (int, int) {
 
 	if f < 0 {
 		panic("field cannot be negative")
-	}
-	if w < 1 {
+	} else if w < 1 {
 		panic("width must be positive")
-	}
-	if f+w > NBITS {
+	} else if f+w > NBITS {
 		panic("trying to access non-existent bits")
 	}
 	return f, w
@@ -149,20 +139,11 @@ func bit32_replace(args Args) Ret {
 	return float64((r & ^(m << f)) | (v << f))
 }
 
-func b_rot(r uint32, i int) uint32 {
-	if i &= (NBITS - 1); i != 0 { // i %= NBITS
-		// avoid undefined shift of NBITS when i == 0
-		r = trim(r)
-		r = (r << i) | (r >> (NBITS - i))
-	}
-	return trim(r)
-}
-
 func bit32_lrotate(args Args) Ret {
 	r := uint32(args.GetNumber())
 	i := int(args.GetNumber())
 
-	return float64(b_rot(r, i))
+	return float64(bits.RotateLeft32(r, i))
 }
 
 func bit32_lshift(args Args) Ret {
@@ -176,7 +157,7 @@ func bit32_rrotate(args Args) Ret {
 	r := uint32(args.GetNumber())
 	i := int(args.GetNumber())
 
-	return float64(b_rot(r, -i))
+	return float64(bits.RotateLeft32(r, -i))
 }
 
 func bit32_rshift(args Args) Ret {

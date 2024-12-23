@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-func posrelat(pos, len int) int {
+func string_posrelat(pos, len int) int {
 	// relative string position: negative means back from end
 	if pos < 0 {
 		pos += len + 1
@@ -23,8 +23,8 @@ func string_byte(args Args) (bytes Rets) {
 
 	ls := len(s)
 
-	ui := posrelat(int(i), ls)
-	uj := posrelat(int(j), ls)
+	ui := string_posrelat(int(i), ls)
+	uj := string_posrelat(int(j), ls)
 
 	cap := uj - ui + 1
 	if cap < 0 {
@@ -62,7 +62,7 @@ func string_find(args Args) Rets {
 	i := args.GetNumber(1)
 	// plain := args.GetBool(false)
 
-	init := posrelat(int(i), len(s))
+	init := string_posrelat(int(i), len(s))
 	pos := strings.Index(s[init:], p)
 	if pos == -1 {
 		return Rets{nil} // one nil
@@ -281,8 +281,8 @@ func string_sub(args Args) Ret {
 	j := args.GetNumber(-1)
 
 	l := len(s)
-	ui := posrelat(int(i), l)
-	uj := posrelat(int(j), l)
+	ui := string_posrelat(int(i), l)
+	uj := string_posrelat(int(j), l)
 
 	if uj < ui {
 		return ""
