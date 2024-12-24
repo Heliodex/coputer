@@ -561,6 +561,9 @@ var luau_settings = LuauSettings{
 		"coroutine": libcoroutine,
 		"bit32":     libbit32,
 		"utf8":      libutf8,
+		// fuck os
+		// and debug
+		"buffer": libbuffer,
 	},
 	// VectorSize: 4,
 	// AllowProxyErrors: false,
@@ -990,6 +993,7 @@ var luautype = map[string]string{
 	"nil":            "nil",
 	"*main.Table":    "table",
 	"*main.Function": "function",
+	"*main.Buffer":   "buffer",
 }
 
 func sfops[T string | float64](op uint8, a, b T) bool {

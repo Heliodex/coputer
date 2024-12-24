@@ -72,6 +72,10 @@ func (a *Args) GetCoroutine(optionalValue ...*Coroutine) *Coroutine {
 	return getArg(a, optionalValue)
 }
 
+func (a *Args) GetBuffer(optionalValue ...*Buffer) *Buffer {
+	return getArg(a, optionalValue)
+}
+
 func (a *Args) GetAny(optionalValue ...any) any {
 	return getArg(a, optionalValue)
 }
