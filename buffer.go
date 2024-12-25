@@ -103,20 +103,29 @@ func writeValues[V num](args *Args) (b Buffer, offset int, value V) {
 	return
 }
 
+func checkValues(l, offset, size int) {
+	if offset + size > l || offset < 0 {
+		panic("buffer access out of bounds")
+	}
+}
+
 func buffer_writei8(args Args) {
 	b, offset, value := writeValues[int8](&args)
+	checkValues(len(b), offset, 1)
 
 	b[offset] = byte(value)
 }
 
 func buffer_writeu8(args Args) {
 	b, offset, value := writeValues[uint8](&args)
+	checkValues(len(b), offset, 1)
 
 	b[offset] = byte(value)
 }
 
 func buffer_writei16(args Args) {
 	b, offset, value := writeValues[int16](&args)
+	checkValues(len(b), offset, 2)
 
 	b2 := b[offset : offset+2]
 	binary.LittleEndian.PutUint16(b2, uint16(value))
@@ -124,6 +133,7 @@ func buffer_writei16(args Args) {
 
 func buffer_writeu16(args Args) {
 	b, offset, value := writeValues[uint16](&args)
+	checkValues(len(b), offset, 2)
 
 	b2 := b[offset : offset+2]
 	binary.LittleEndian.PutUint16(b2, value)
@@ -131,6 +141,7 @@ func buffer_writeu16(args Args) {
 
 func buffer_writei32(args Args) {
 	b, offset, value := writeValues[int32](&args)
+	checkValues(len(b), offset, 4)
 
 	b4 := b[offset : offset+4]
 	binary.LittleEndian.PutUint32(b4, uint32(value))
@@ -138,6 +149,7 @@ func buffer_writei32(args Args) {
 
 func buffer_writeu32(args Args) {
 	b, offset, value := writeValues[uint32](&args)
+	checkValues(len(b), offset, 4)
 
 	b4 := b[offset : offset+4]
 	binary.LittleEndian.PutUint32(b4, value)
@@ -145,6 +157,7 @@ func buffer_writeu32(args Args) {
 
 func buffer_writef32(args Args) {
 	b, offset, value := writeValues[float32](&args)
+	checkValues(len(b), offset, 4)
 
 	b4 := b[offset : offset+4]
 	binary.LittleEndian.PutUint32(b4, math.Float32bits(value))
@@ -152,6 +165,7 @@ func buffer_writef32(args Args) {
 
 func buffer_writef64(args Args) {
 	b, offset, value := writeValues[float64](&args)
+	checkValues(len(b), offset, 8)
 
 	b8 := b[offset : offset+8]
 	binary.LittleEndian.PutUint64(b8, math.Float64bits(value))
@@ -160,6 +174,7 @@ func buffer_writef64(args Args) {
 func buffer_readstring(args Args) Ret {
 	b, offset := readValues(&args)
 	count := int(args.GetNumber())
+	checkValues(len(b), offset, count)
 
 	bl := b[offset : offset+count]
 	return string(bl)
@@ -169,22 +184,26 @@ func buffer_writestring(args Args) {
 	b, offset := readValues(&args)
 	value := args.GetString()
 	count := int(args.GetNumber(float64(len(value))))
+	checkValues(len(b), offset, count)
 
 	copy(b[offset:offset+count], value)
 }
 
 func buffer_copy(args Args) {
 	target, targetOffset := readValues(&args)
-	source := args.GetBuffer()
+	source := *args.GetBuffer()
 	sourceOffset := int(args.GetNumber(0))
-	count := int(args.GetNumber(float64(len(*source))))
+	count := int(args.GetNumber(float64(len(source))))
+	checkValues(len(source), sourceOffset, count)
+	checkValues(len(target), targetOffset, count)
 
-	copy(target[targetOffset:targetOffset+count], (*source)[sourceOffset:sourceOffset+count])
+	copy(target[targetOffset:targetOffset+count], source[sourceOffset:sourceOffset+count])
 }
 
 func buffer_fill(args Args) {
 	b, offset, value := writeValues[byte](&args)
 	count := int(args.GetNumber(float64(len(b))))
+	checkValues(len(b), offset, count)
 
 	for i := range count {
 		b[offset+i] = value

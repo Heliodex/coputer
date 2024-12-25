@@ -987,10 +987,10 @@ var arithops = map[uint8]string{
 }
 
 var luautype = map[string]string{
+	"nil":            "nil",
 	"float64":        "number",
 	"string":         "string",
 	"bool":           "boolean",
-	"nil":            "nil",
 	"*main.Table":    "table",
 	"*main.Function": "function",
 	"*main.Buffer":   "buffer",
