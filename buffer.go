@@ -1,11 +1,16 @@
 package main
 
+import (
+	"encoding/binary"
+	"math"
+)
+
 type Buffer []byte
 
 func buffer_create(args Args) Ret {
-	size := args.GetNumber()
+	size := int(args.GetNumber())
 
-	b := make(Buffer, int(size))
+	b := make(Buffer, size)
 	return &b
 }
 
@@ -17,94 +22,170 @@ func buffer_fromstring(args Args) Ret {
 }
 
 func buffer_tostring(args Args) Ret {
-	b := args.GetBuffer()
+	b := *args.GetBuffer()
 
-	return string(*b)
+	return string(b)
 }
 
 func buffer_len(args Args) Ret {
-	b := args.GetBuffer()
+	b := *args.GetBuffer()
 
-	return float64(len(*b))
+	return float64(len(b))
+}
+
+func readValues(args *Args) (b Buffer, offset int) {
+	b = *args.GetBuffer()
+	offset = int(args.GetNumber())
+	return
 }
 
 func buffer_readi8(args Args) Ret {
-	panic("not implemented")
+	b, offset := readValues(&args)
+
+	return float64(int8(b[offset]))
 }
 
 func buffer_readu8(args Args) Ret {
-	panic("not implemented")
+	b, offset := readValues(&args)
+
+	return float64(uint8(b[offset]))
 }
 
 func buffer_readi16(args Args) Ret {
-	panic("not implemented")
+	b, offset := readValues(&args)
+
+	b2 := b[offset : offset+2]
+	return float64(int16(binary.LittleEndian.Uint16(b2)))
 }
 
 func buffer_readu16(args Args) Ret {
-	panic("not implemented")
+	b, offset := readValues(&args)
+
+	b2 := b[offset : offset+2]
+	return float64(binary.LittleEndian.Uint16(b2))
 }
 
 func buffer_readi32(args Args) Ret {
-	panic("not implemented")
+	b, offset := readValues(&args)
+
+	b4 := b[offset : offset+4] // we are inb4
+	return float64(int32(binary.LittleEndian.Uint32(b4)))
 }
 
 func buffer_readu32(args Args) Ret {
-	panic("not implemented")
+	b, offset := readValues(&args)
+
+	b4 := b[offset : offset+4]
+	return float64(binary.LittleEndian.Uint32(b4))
 }
 
 func buffer_readf32(args Args) Ret {
+	// b, offset := readValues(&args)
+
 	panic("not implemented")
 }
 
 func buffer_readf64(args Args) Ret {
+	// b, offset := readValues(&args)
+
 	panic("not implemented")
+}
+
+type num interface {
+	int8 | int16 | int32 | int64 | uint8 | uint16 | uint32 | uint64 | float32 | float64
+}
+
+func writeValues[V num](args *Args) (b Buffer, offset int, value V) {
+	b, offset = readValues(args)
+	value = V(args.GetNumber())
+	return
 }
 
 func buffer_writei8(args Args) {
-	panic("not implemented")
+	b, offset, value := writeValues[int8](&args)
+
+	b[offset] = byte(value)
 }
 
 func buffer_writeu8(args Args) {
-	panic("not implemented")
+	b, offset, value := writeValues[uint8](&args)
+
+	b[offset] = byte(value)
 }
 
 func buffer_writei16(args Args) {
-	panic("not implemented")
+	b, offset, value := writeValues[int16](&args)
+
+	b2 := b[offset : offset+2]
+	binary.LittleEndian.PutUint16(b2, uint16(value))
 }
 
 func buffer_writeu16(args Args) {
-	panic("not implemented")
+	b, offset, value := writeValues[uint16](&args)
+
+	b2 := b[offset : offset+2]
+	binary.LittleEndian.PutUint16(b2, value)
 }
 
 func buffer_writei32(args Args) {
-	panic("not implemented")
+	b, offset, value := writeValues[int32](&args)
+
+	b4 := b[offset : offset+4]
+	binary.LittleEndian.PutUint32(b4, uint32(value))
 }
 
 func buffer_writeu32(args Args) {
-	panic("not implemented")
+	b, offset, value := writeValues[uint32](&args)
+
+	b4 := b[offset : offset+4]
+	binary.LittleEndian.PutUint32(b4, value)
 }
 
 func buffer_writef32(args Args) {
-	panic("not implemented")
+	b, offset, value := writeValues[float32](&args)
+
+	b4 := b[offset : offset+4]
+	binary.LittleEndian.PutUint32(b4, math.Float32bits(value))
 }
 
 func buffer_writef64(args Args) {
-	panic("not implemented")
+	b, offset, value := writeValues[float64](&args)
+
+	b8 := b[offset : offset+8]
+	binary.LittleEndian.PutUint64(b8, math.Float64bits(value))
 }
 
 func buffer_readstring(args Args) Ret {
+	// b, offset := readValues(&args)
+	// count := int(args.GetNumber())
+
 	panic("not implemented")
 }
 
 func buffer_writestring(args Args) {
+	// b, offset := readValues(&args)
+	// value := args.GetString()
+	// count := int(args.GetNumber(float64(len(value))))
+
 	panic("not implemented")
 }
 
 func buffer_copy(args Args) {
+	// target := args.GetBuffer()
+	// targetOffset := int(args.GetNumber())
+	// source := args.GetBuffer()
+	// sourceOffset := int(args.GetNumber(0))
+	// count := int(args.GetNumber(float64(len(*source))))
+
 	panic("not implemented")
 }
 
 func buffer_fill(args Args) {
+	// b := args.GetBuffer()
+	// offset := int(args.GetNumber())
+	// value := int(args.GetNumber())
+	// count := int(args.GetNumber(float64(lenb)))
+
 	panic("not implemented")
 }
 
