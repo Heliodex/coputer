@@ -80,15 +80,17 @@ func buffer_readu32(args Args) Ret {
 }
 
 func buffer_readf32(args Args) Ret {
-	// b, offset := readValues(&args)
+	b, offset := readValues(&args)
 
-	panic("not implemented")
+	b4 := b[offset : offset+4]
+	return float64(math.Float32frombits(binary.LittleEndian.Uint32(b4)))
 }
 
 func buffer_readf64(args Args) Ret {
-	// b, offset := readValues(&args)
+	b, offset := readValues(&args)
 
-	panic("not implemented")
+	b8 := b[offset : offset+8]
+	return float64(math.Float64frombits(binary.LittleEndian.Uint64(b8)))
 }
 
 type num interface {
@@ -156,37 +158,37 @@ func buffer_writef64(args Args) {
 }
 
 func buffer_readstring(args Args) Ret {
-	// b, offset := readValues(&args)
-	// count := int(args.GetNumber())
+	b, offset := readValues(&args)
+	count := int(args.GetNumber())
 
-	panic("not implemented")
+	bl := b[offset : offset+count]
+	return string(bl)
 }
 
 func buffer_writestring(args Args) {
-	// b, offset := readValues(&args)
-	// value := args.GetString()
-	// count := int(args.GetNumber(float64(len(value))))
+	b, offset := readValues(&args)
+	value := args.GetString()
+	count := int(args.GetNumber(float64(len(value))))
 
-	panic("not implemented")
+	copy(b[offset:offset+count], value)
 }
 
 func buffer_copy(args Args) {
-	// target := args.GetBuffer()
-	// targetOffset := int(args.GetNumber())
-	// source := args.GetBuffer()
-	// sourceOffset := int(args.GetNumber(0))
-	// count := int(args.GetNumber(float64(len(*source))))
+	target, targetOffset := readValues(&args)
+	source := args.GetBuffer()
+	sourceOffset := int(args.GetNumber(0))
+	count := int(args.GetNumber(float64(len(*source))))
 
-	panic("not implemented")
+	copy(target[targetOffset:targetOffset+count], (*source)[sourceOffset:sourceOffset+count])
 }
 
 func buffer_fill(args Args) {
-	// b := args.GetBuffer()
-	// offset := int(args.GetNumber())
-	// value := int(args.GetNumber())
-	// count := int(args.GetNumber(float64(lenb)))
+	b, offset, value := writeValues[byte](&args)
+	count := int(args.GetNumber(float64(len(b))))
 
-	panic("not implemented")
+	for i := range count {
+		b[offset+i] = value
+	}
 }
 
 var libbuffer = NewTable([][2]any{
