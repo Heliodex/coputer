@@ -27,17 +27,16 @@ type (
 )
 
 func getArg[T any](args *Args, optionalValue []T, tx ...string) T {
-	if args.pos >= len(args.args) {
+	args.pos++
+	if args.pos > len(args.args) {
 		if len(optionalValue) == 0 {
 			panic(invalidNumArgs(args.name, args.pos, tx...))
 		}
-		args.pos++
 		return optionalValue[0]
 	}
 
-	possibleArg := args.args[args.pos]
+	possibleArg := args.args[args.pos-1]
 
-	args.pos++
 	arg, ok := possibleArg.(T)
 	if !ok {
 		panic(invalidArgType(args.pos, args.name, typeOf(arg), typeOf(possibleArg)))
