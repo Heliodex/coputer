@@ -2,8 +2,12 @@ package main
 
 import "fmt"
 
-func invalidNumArgs(fn string, nx int, tx string) string {
-	return fmt.Sprintf("missing argument #%d to '%s' (%s expected)", nx, fn, luautype[tx])
+func invalidNumArgs(fn string, nx int, tx ...string) (res string) {
+	res += fmt.Sprintf("missing argument #%d to '%s'", nx, fn)
+	if len(tx) > 0 {
+		res += fmt.Sprintf(" (%s expected)", tx[0])
+	}
+	return
 }
 
 func invalidArgType(i int, fn string, tx, tg string) string {
@@ -22,17 +26,16 @@ type (
 	Rets []any
 )
 
-func getArg[T any](args *Args, optionalValue []T) T {
-	var possibleArg any
-
+func getArg[T any](args *Args, optionalValue []T, tx ...string) T {
 	if args.pos >= len(args.args) {
 		if len(optionalValue) == 0 {
-			panic(invalidNumArgs(args.name, args.pos, typeOf(args.args[args.pos-1])))
+			panic(invalidNumArgs(args.name, args.pos, tx...))
 		}
-		possibleArg = optionalValue[0]
-	} else {
-		possibleArg = args.args[args.pos]
+		args.pos++
+		return optionalValue[0]
 	}
+
+	possibleArg := args.args[args.pos]
 
 	args.pos++
 	arg, ok := possibleArg.(T)
@@ -42,42 +45,50 @@ func getArg[T any](args *Args, optionalValue []T) T {
 	return arg
 }
 
-func (a *Args) CheckNextArg() {
+func (a *Args) CheckNextArg(tx ...string) {
 	if a.pos >= len(a.args) {
-		panic(invalidNumArgs(a.name, a.pos, typeOf(a.args[a.pos-1])))
+		panic(invalidNumArgs(a.name, a.pos, tx...))
 	}
 }
 
-func (a *Args) GetBool(optionalValue ...bool) bool {
-	return getArg(a, optionalValue)
-}
-
 func (a *Args) GetNumber(optionalValue ...float64) float64 {
-	return getArg(a, optionalValue)
+	return getArg(a, optionalValue, "number")
 }
 
 func (a *Args) GetString(optionalValue ...string) string {
-	return getArg(a, optionalValue)
+	return getArg(a, optionalValue, "string")
+}
+
+func (a *Args) GetBool(optionalValue ...bool) bool {
+	return getArg(a, optionalValue, "boolean")
 }
 
 func (a *Args) GetTable(optionalValue ...*Table) *Table {
-	return getArg(a, optionalValue)
+	return getArg(a, optionalValue, "table")
 }
 
 func (a *Args) GetFunction(optionalValue ...*Function) *Function {
-	return getArg(a, optionalValue)
+	return getArg(a, optionalValue, "function")
 }
 
 func (a *Args) GetCoroutine(optionalValue ...*Coroutine) *Coroutine {
-	return getArg(a, optionalValue)
+	return getArg(a, optionalValue, "thread")
 }
 
 func (a *Args) GetBuffer(optionalValue ...*Buffer) *Buffer {
-	return getArg(a, optionalValue)
+	return getArg(a, optionalValue, "buffer")
 }
 
-func (a *Args) GetAny(optionalValue ...any) any {
-	return getArg(a, optionalValue)
+func (a *Args) GetAny(optionalValue ...any) (arg any) {
+	a.pos++
+	if a.pos > len(a.args) {
+		if len(optionalValue) == 0 {
+			panic(invalidNumArgs(a.name, a.pos))
+		}
+		return optionalValue[0]
+	}
+
+	return a.args[a.pos-1]
 }
 
 // Reflection don't scale

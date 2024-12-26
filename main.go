@@ -564,6 +564,10 @@ var luau_settings = LuauSettings{
 		// fuck os
 		// and debug
 		"buffer": libbuffer,
+
+		// globals
+		"type":   MakeFn1("type", global_type)[1],
+		// "typeof":   MakeFn1("typeof", global_type)[1], // same because no metatables
 	},
 	// VectorSize: 4,
 	// AllowProxyErrors: false,
@@ -993,6 +997,7 @@ var luautype = map[string]string{
 	"bool":           "boolean",
 	"*main.Table":    "table",
 	"*main.Function": "function",
+	"*main.Coroutine": "thread",
 	"*main.Buffer":   "buffer",
 }
 
@@ -1598,6 +1603,7 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 
 				// MAX STACK SIZE IS A LIE!!!!!!!!!!!!!!!!!!!!!!!
 				// uh, expand the stack
+				// fmt.Println("EXPANDING STACK", A+b)
 				for len(*stack) < A+b {
 					*stack = append(*stack, nil)
 				}
