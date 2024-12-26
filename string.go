@@ -141,9 +141,7 @@ func format(form string, formatIndicator byte, sub any) string {
 	return fmt.Sprintf(f, sub)
 }
 
-func string_format(args Args) Ret {
-	strfrmt := args.GetString()
-
+func fmtstring(strfrmt string, args Args) string {
 	b := strings.Builder{}
 
 	for i, sfl := 0, len(strfrmt); i < sfl; {
@@ -215,6 +213,12 @@ func string_format(args Args) Ret {
 	}
 
 	return b.String()
+}
+
+func string_format(args Args) Ret {
+	strfrmt := args.GetString()
+
+	return fmtstring(strfrmt, args)
 }
 
 func string_gmatch(args Args) Ret {

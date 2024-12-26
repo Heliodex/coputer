@@ -40,10 +40,8 @@ func ipairs_iter(args Args) Rets {
 func global_ipairs(args Args) Rets {
 	a := args.GetTable()
 
-	iter := Function(func(co *Coroutine, vargs ...any) []any {
-		return ipairs_iter(Args{vargs, "ipairs", co, 0})
-	})
-	return Rets{&iter, a, float64(0)}
+	iter := MakeFn("ipairs", ipairs_iter)[1]
+	return Rets{iter, a, float64(0)}
 }
 
 // The call next(t, k), where k is a key of the table t, returns a next key in the table, in an arbitrary order. (It returns also the value associated with that key, as a second return value.) The call next(t, nil) returns a first pair. When there are no more pairs, next returns nil.
@@ -95,7 +93,8 @@ func global_next(args Args) (pair Rets) {
 func global_pairs(args Args) Rets {
 	t := args.GetTable()
 
-	return Rets{global_next, t}
+	next := MakeFn("next", global_next)[1]
+	return Rets{next, t}
 }
 
 func global_tonumber(args Args) Ret {

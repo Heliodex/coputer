@@ -32,10 +32,9 @@ func utf8_char(args Args) Ret {
 	return b.String()
 }
 
-func iter_aux(_ *Coroutine, args ...any) (cps []any) {
-	a := args[0].([]any)
-	s := a[0].(string)
-	n := a[1].(float64) - 1
+func iter_aux(args Args) (cps Rets) {
+	s := args.GetString()
+	n := args.GetNumber() - 1
 
 	len := float64(len(s))
 	if n < 0 { // first iteration?
@@ -54,15 +53,15 @@ func iter_aux(_ *Coroutine, args ...any) (cps []any) {
 	if r == utf8.RuneError {
 		panic("invalid UTF-8 code")
 	}
-	return []any{float64(n + 1), float64(r)}
+	return Rets{float64(n + 1), float64(r)}
 }
 
 func utf8_codes(args Args) Rets {
 	// panic("not implemented")
 	str := args.GetString()
 
-	fn := Function(iter_aux)
-	return Rets{&fn, str, float64(0)}
+	fn := MakeFn("codes", iter_aux)[1]
+	return Rets{fn, str, float64(0)}
 }
 
 const INT_MAX = int(^uint(0) >> 1)
@@ -188,5 +187,5 @@ var libutf8 = NewTable([][2]any{
 	MakeFn1("nfcnormalize", utf8_nfcnormalize), // these are also untestable but they're so trivial here
 	MakeFn1("nfdnormalize", utf8_nfdnormalize),
 
-	{"charpattern", "[\x00-\x7F\xC2-\xF4][\x80-\xBF]*"},
+	{"charpattern", "[\x00-\x7F\xC2-\xF4][\x80-\xBF]*"}, // unless we get pattern matching then this isn't all that useful either
 })

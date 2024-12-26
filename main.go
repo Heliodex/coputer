@@ -523,7 +523,7 @@ const LUAU_MULTRET = -1
 
 type LuauSettings struct {
 	VectorCtor      func(...float32) any
-	NamecallHandler func(kv string, stack *[]any, c1, c2 int) (ok bool, ret []any)
+	NamecallHandler func(co *Coroutine, kv string, stack *[]any, c1, c2 int) (ok bool, ret []any)
 	// DecodeOp        func(op uint32) uint32
 	Extensions map[any]any
 	// VectorSize uint8
@@ -534,19 +534,13 @@ var luau_settings = LuauSettings{
 	VectorCtor: func(...float32) any {
 		panic("vectorCtor was not provided")
 	},
-	NamecallHandler: func(kv string, stack *[]any, c1, c2 int) (ok bool, ret []any) {
+	NamecallHandler: func(co *Coroutine, kv string, stack *[]any, c1, c2 int) (ok bool, ret []any) {
 		switch kv {
 		case "format":
 			str := (*stack)[c1].(string)
 			args := (*stack)[c1+1 : c2+1]
 
-			// convert all args to strings
-			strArgs := make([]string, len(args))
-			for i, v := range args { // not inclusive again
-				strArgs[i] = fmt.Sprintf("%v", v)
-			}
-
-			return true, []any{sub(str, strArgs)}
+			return true, []any{fmtstring(str, Args{args, "format", co, 0})}
 		}
 		return
 	},
@@ -566,8 +560,13 @@ var luau_settings = LuauSettings{
 		"buffer": libbuffer,
 
 		// globals
-		"type":   MakeFn1("type", global_type)[1],
+		"type": MakeFn1("type", global_type)[1],
 		// "typeof":   MakeFn1("typeof", global_type)[1], // same because no metatables
+		"ipairs":    MakeFn("ipairs", global_ipairs)[1],
+		"pairs":     MakeFn("pairs", global_pairs)[1],
+		"next":      MakeFn("next", global_next)[1],
+		"tonumber":  MakeFn1("tonumber", global_tonumber)[1],
+		"tostrin-g": MakeFn1("tostring", global_tostring)[1],
 	},
 	// VectorSize: 4,
 	// AllowProxyErrors: false,
@@ -991,14 +990,14 @@ var arithops = map[uint8]string{
 }
 
 var luautype = map[string]string{
-	"nil":            "nil",
-	"float64":        "number",
-	"string":         "string",
-	"bool":           "boolean",
-	"*main.Table":    "table",
-	"*main.Function": "function",
+	"nil":             "nil",
+	"float64":         "number",
+	"string":          "string",
+	"bool":            "boolean",
+	"*main.Table":     "table",
+	"*main.Function":  "function",
 	"*main.Coroutine": "thread",
-	"*main.Buffer":   "buffer",
+	"*main.Buffer":    "buffer",
 }
 
 func sfops[T string | float64](op uint8, a, b T) bool {
@@ -1356,7 +1355,7 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 					params = callB - 1
 				}
 
-				ok, ret_list := luau_settings.NamecallHandler(kv, stack, callA+1, callA+params)
+				ok, ret_list := luau_settings.NamecallHandler(co, kv, stack, callA+1, callA+params)
 				if !ok {
 					(*stack)[A] = (*stack)[B].(*Table).Get(kv)
 					break
@@ -1386,10 +1385,11 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 					params = B - 1
 				}
 
-				// fmt.Println(A, (*stack)[A])
+				// fmt.Println(A, (*stack)[A], params)
 
 				f := (*stack)[A]
 				fn, ok := f.(*Function)
+				// fmt.Println("calling with", (*stack)[A+1:A+params+1])
 				if !ok {
 					panic(uncallableType(typeOf(f)))
 				}
@@ -1437,6 +1437,7 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 					pc += 1
 				}
 			case 33, 34, 35, 36, 37, 38, 81: // arithmetic
+				// fmt.Println("ARITHMETIC", op, (*stack)[inst.B], (*stack)[inst.C])
 				(*stack)[inst.A] = arithmetic(op, (*stack)[inst.B], (*stack)[inst.C])
 			case 39, 40, 41, 42, 43, 44, 82: // arithmetik
 				(*stack)[inst.A] = arithmetic(op, (*stack)[inst.B], inst.K)
@@ -1548,9 +1549,8 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 
 				switch it := (*stack)[A].(type) {
 				case *Function:
-					// fmt.Println("IT func", it)
-
-					vals := (*it)(co, []any{(*stack)[A+1], (*stack)[A+2]})
+					// fmt.Println("IT func", it, (*stack)[A+1], (*stack)[A+2])
+					vals := (*it)(co, (*stack)[A+1], (*stack)[A+2])
 
 					move(vals, 0, res, A+3, stack)
 
