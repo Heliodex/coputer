@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"iter"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -12,18 +14,14 @@ import (
 
 loadstring: meh, security and better api should be used
 newproxy: meh, not much use without metatables
- pairs: meh, just use generalised iteration
 rawequal: meh, not much use without metatables
- rawget: meh, not much use without metatables
- rawlen: meh, not much use without metatables
- rawset: meh, not much use without metatables
+rawget: meh, not much use without metatables
+rawlen: meh, not much use without metatables
+rawset: meh, not much use without metatables
 - require: yes, but may be difficult
 select: meh, this function's kinda stupid
-- tonumber: yes, though would be nice to have these in specific types
-- tostring: yes, though would be nice to have these in specific types
 typeof: meh, not much use without metatables
 - _VERSION: yes, probably custom
-
 */
 
 func ipairs_iter(args Args) Rets {
@@ -110,9 +108,10 @@ func global_tonumber(args Args) Ret {
 	}
 
 	switch radix {
-	case 16:
+	case 10, 16:
 		if strings.HasPrefix(str, "0x") {
 			str = str[2:]
+			radix = 16
 		}
 		// case 2:
 		// 	if strings.HasPrefix(str, "0b") {
@@ -140,10 +139,35 @@ func global_tonumber(args Args) Ret {
 	return float64(n)
 }
 
-func global_tostring(args Args) Ret {
-	// value := args.GetAny()
+func tostring(a any) string {
+	switch v := a.(type) {
+	case string:
+		return strings.ReplaceAll(v, "\n", "\r\n") // bruh
+	case float64:
+		if math.Pow10(19) <= v && v < math.Pow10(21) {
+			return fmt.Sprintf("%.0f", v)
+		} else if float64(int(v)) == v && v < math.Pow10(21) {
+			return fmt.Sprintf("%d", int(v))
+		} else if v == math.Inf(1) {
+			return "inf"
+		} else if v == math.Inf(-1) {
+			return "-inf"
+		} else if math.IsNaN(v) {
+			return "nan"
+		} else if v > math.Pow10(50) {
+			return fmt.Sprintf("%.0e", v)
+		}
+		return fmt.Sprint(v)
+	case nil:
+		return "nil"
+	}
+	return fmt.Sprint(a)
+}
 
-	panic("not implemented")
+func global_tostring(args Args) Ret {
+	value := args.GetAny()
+
+	return tostring(value)
 }
 
 func global_type(args Args) Ret {

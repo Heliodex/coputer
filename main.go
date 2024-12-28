@@ -57,7 +57,7 @@ func createCoroutine(body *Function) *Coroutine {
 	}
 }
 
-func (co *Coroutine) Resume(args ...any) (y Rets) {
+func (co *Coroutine) Resume(args ...any) Rets {
 	if !co.started {
 		co.started = true
 		co.status = Running
@@ -566,7 +566,7 @@ var luau_settings = LuauSettings{
 		"pairs":     MakeFn("pairs", global_pairs)[1],
 		"next":      MakeFn("next", global_next)[1],
 		"tonumber":  MakeFn1("tonumber", global_tonumber)[1],
-		"tostrin-g": MakeFn1("tostring", global_tostring)[1],
+		"tostring": MakeFn1("tostring", global_tostring)[1],
 	},
 	// VectorSize: 4,
 	// AllowProxyErrors: false,

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"os/exec"
 	"strings"
@@ -11,31 +10,6 @@ import (
 
 func filename(f string) string {
 	return fmt.Sprintf("test/%s", f)
-}
-
-func luauPrint(a any) string {
-	switch v := a.(type) {
-	case string:
-		return strings.ReplaceAll(v, "\n", "\r\n") // bruh
-	case float64:
-		if math.Pow10(19) <= v && v < math.Pow10(21) {
-			return fmt.Sprintf("%.0f", v)
-		} else if float64(int(v)) == v && v < math.Pow10(21) {
-			return fmt.Sprintf("%d", int(v))
-		} else if v == math.Inf(1) {
-			return "inf"
-		} else if v == math.Inf(-1) {
-			return "-inf"
-		} else if math.IsNaN(v) {
-			return "nan"
-		} else if v > math.Pow10(50) {
-			return fmt.Sprintf("%.0e", v)
-		}
-		return fmt.Sprint(v)
-	case nil:
-		return "nil"
-	}
-	return fmt.Sprint(a)
 }
 
 func litecode(t *testing.T, f string, o int) string {
@@ -52,7 +26,7 @@ func litecode(t *testing.T, f string, o int) string {
 	luau_print := Function(func(co *Coroutine, args ...any) (ret []any) {
 		// b.WriteString(fmt.Sprint(args...))
 		for i, arg := range args {
-			b.WriteString(luauPrint(arg))
+			b.WriteString(tostring(arg))
 			if i < len(args)-1 {
 				b.WriteString("\t")
 			}
