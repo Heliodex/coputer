@@ -95,7 +95,7 @@ func global_tonumber(args Args) Ret {
 	if !ok {
 		return nil
 	} else if radix < 2 || radix > 36 {
-		panic("invalid radix")
+		panic("base out of range") // invalid argument #2
 	}
 
 	if radix == 10 {
@@ -104,7 +104,7 @@ func global_tonumber(args Args) Ret {
 		}
 	}
 
-	negative := false
+	var negative bool
 	if strings.HasPrefix(str, "-") {
 		negative = true
 	}

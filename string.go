@@ -85,7 +85,7 @@ func isdigit(c byte) bool {
 func addquoted(args *Args, b *strings.Builder) {
 	s := args.GetString()
 	l := len(s)
-	i := 0
+	var i uint
 
 	b.WriteByte('"')
 	for l > 0 {
@@ -107,7 +107,7 @@ func addquoted(args *Args, b *strings.Builder) {
 }
 
 func scanformat(strfrmt string) (byte, string, int) {
-	p := 0
+	var p int
 	for strings.ContainsRune(FLAGS, rune(strfrmt[p])) {
 		p++ // skip flags
 	}

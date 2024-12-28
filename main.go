@@ -370,7 +370,7 @@ func isalpha(c byte) bool {
 // Copied directly from BuiltinDefinitions.cpp
 func sub(s string, args []string) string {
 	size := len(s)
-	subbed := 0
+	var subbed int
 
 	res := strings.Builder{}
 
@@ -788,7 +788,7 @@ func luau_deserialise(data []byte) Deserialised {
 		sizecode := rVarInt()
 		codelist := new([]*Inst)
 
-		skipnext := false
+		var skipnext bool
 		for range sizecode {
 			if skipnext {
 				skipnext = false
@@ -1066,6 +1066,10 @@ func invalidFor(pos, t string) string {
 
 func invalidLength(t string) string {
 	return fmt.Sprintf("attempt to get length of a %s value", luautype[t])
+}
+
+func invalidConcat(t1, t2 string) string {
+	return fmt.Sprintf("attempt to concatenate %s with %s", luautype[t1], luautype[t2])
 }
 
 func invalidIndex(ta string, val any) string {
@@ -1448,8 +1452,16 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 				(*stack)[inst.A] = logic(op, (*stack)[inst.B], inst.K)
 			case 49: // CONCAT
 				s := strings.Builder{}
+
+				var first int
 				for i := inst.B; i <= inst.C; i++ {
-					s.WriteString((*stack)[i].(string))
+					toWrite, ok := (*stack)[i].(string)
+					if !ok {
+						// ensure correct order of operands in error message
+						panic(invalidConcat(typeOf((*stack)[i+first]), typeOf((*stack)[i+1+first])))
+					}
+					s.WriteString(toWrite)
+					first = -1
 				}
 				(*stack)[inst.A] = s.String()
 			case 50: // NOT
