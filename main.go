@@ -562,11 +562,12 @@ var luau_settings = LuauSettings{
 		// globals
 		"type": MakeFn1("type", global_type)[1],
 		// "typeof":   MakeFn1("typeof", global_type)[1], // same because no metatables
-		"ipairs":    MakeFn("ipairs", global_ipairs)[1],
-		"pairs":     MakeFn("pairs", global_pairs)[1],
-		"next":      MakeFn("next", global_next)[1],
-		"tonumber":  MakeFn1("tonumber", global_tonumber)[1],
+		"ipairs":   MakeFn("ipairs", global_ipairs)[1],
+		"pairs":    MakeFn("pairs", global_pairs)[1],
+		"next":     MakeFn("next", global_next)[1],
+		"tonumber": MakeFn1("tonumber", global_tonumber)[1],
 		"tostring": MakeFn1("tostring", global_tostring)[1],
+		"_VERSION": "Luau", // todo: custom
 	},
 	// VectorSize: 4,
 	// AllowProxyErrors: false,

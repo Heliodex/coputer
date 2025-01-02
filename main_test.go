@@ -60,7 +60,7 @@ func TestConformance(t *testing.T) {
 		return
 	}
 
-	// onlyTest := "globals.luau"
+	// onlyTest := "nprint.luau"
 
 	for _, f := range files {
 		name := f.Name()
@@ -86,6 +86,17 @@ func TestConformance(t *testing.T) {
 		for i, o := range outputs {
 			if o != og {
 				t.Errorf("%d output mismatch:\n-- Expected\n%s\n-- Got\n%s", i, og, o)
+				fmt.Println()
+
+				// print mismatch
+				oLines := strings.Split(strings.TrimSpace(o), "\n")
+				ogLines := strings.Split(strings.TrimSpace(og), "\n")
+				for i, line := range ogLines {
+					if line != oLines[i] {
+						t.Errorf("mismatched line: \n%s\n%v\n%s\n%v", line, []byte(line), oLines[i], []byte(oLines[i]))
+					}
+				}
+
 				return
 			}
 		}
