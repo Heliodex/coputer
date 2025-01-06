@@ -529,7 +529,9 @@ func tostring(a any) string {
 		return "false"
 	case float64:
 		return num2str(v)
-	// todo vector time
+	case Vector:
+		// just 3-wide 4-now
+		return fmt.Sprintf("%v, %v, %v", v[0], v[1], v[2])
 	case string:
 		return strings.ReplaceAll(v, "\n", "\r\n") // bruh
 	}

@@ -78,6 +78,10 @@ func (a *Args) GetBuffer(optionalValue ...*Buffer) *Buffer {
 	return getArg(a, optionalValue, "buffer")
 }
 
+func (a *Args) GetVector(optionalValue ...Vector) Vector {
+	return getArg(a, optionalValue, "vector")
+}
+
 func (a *Args) GetAny(optionalValue ...any) (arg any) {
 	a.pos++
 	if a.pos > len(a.args) {

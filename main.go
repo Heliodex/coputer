@@ -358,6 +358,8 @@ func moveTable(src []any, a, b, t int, dst *Table) {
 	}
 }
 
+type Vector [4]float32
+
 // bit32 extraction
 func extract(n, field, width int) uint32 {
 	return uint32(n>>field) & uint32(math.Pow(2, float64(width))-1)
@@ -522,7 +524,7 @@ var opList = []Operator{
 const LUAU_MULTRET = -1
 
 type LuauSettings struct {
-	VectorCtor      func(...float32) any
+	VectorCtor      func(x, y, z, w float32) Vector
 	NamecallHandler func(co *Coroutine, kv string, stack *[]any, c1, c2 int) (ok bool, ret []any)
 	// DecodeOp        func(op uint32) uint32
 	Extensions map[any]any
@@ -531,8 +533,8 @@ type LuauSettings struct {
 }
 
 var luau_settings = LuauSettings{
-	VectorCtor: func(...float32) any {
-		panic("vectorCtor was not provided")
+	VectorCtor: func(x, y, z, w float32) Vector {
+		return Vector{x, y, z, w}
 	},
 	NamecallHandler: func(co *Coroutine, kv string, stack *[]any, c1, c2 int) (ok bool, ret []any) {
 		switch kv {
@@ -558,6 +560,7 @@ var luau_settings = LuauSettings{
 		// fuck os
 		// and debug
 		"buffer": libbuffer,
+		"vector": libvector,
 
 		// globals
 		"type": MakeFn1("type", global_type)[1],
@@ -999,6 +1002,7 @@ var luautype = map[string]string{
 	"*main.Function":  "function",
 	"*main.Coroutine": "thread",
 	"*main.Buffer":    "buffer",
+	"main.Vector":     "vector",
 }
 
 func sfops[T string | float64](op uint8, a, b T) bool {

@@ -60,7 +60,7 @@ func TestConformance(t *testing.T) {
 		return
 	}
 
-	// onlyTest := "nprint.luau"
+	// onlyTest := "vector.luau"
 
 	for _, f := range files {
 		name := f.Name()

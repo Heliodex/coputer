@@ -104,7 +104,7 @@ func writeValues[V num](args *Args) (b Buffer, offset int, value V) {
 }
 
 func checkValues(l, offset, size int) {
-	if offset + size > l || offset < 0 {
+	if offset+size > l || offset < 0 {
 		panic("buffer access out of bounds")
 	}
 }
