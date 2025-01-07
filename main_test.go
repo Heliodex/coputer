@@ -4,20 +4,18 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime/pprof"
 	"strings"
 	"testing"
+	"time"
 )
 
-func filename(f string) string {
-	return fmt.Sprintf("test/%s", f)
-}
-
-func litecode(t *testing.T, f string, o int) string {
-	cmd := exec.Command("luau-compile", "--binary", fmt.Sprintf("-O%d", o), filename(f))
+func litecode(t *testing.T, f string, o int) (string, time.Duration) {
+	cmd := exec.Command("luau-compile", "--binary", fmt.Sprintf("-O%d", o), f)
 	bytecode, err := cmd.Output()
 	if err != nil {
-		t.Error("error running luau-compile:", err)
-		return ""
+		t.Error("error running luau-compile:", err, cmd.Args)
+		return "", 0
 	}
 
 	deserialised := luau_deserialise(bytecode)
@@ -38,13 +36,16 @@ func litecode(t *testing.T, f string, o int) string {
 	co, _ := luau_load(deserialised, map[any]any{
 		"print": &luau_print,
 	})
-	co.Resume()
 
-	return b.String()
+	startTime := time.Now()
+	co.Resume()
+	endTime := time.Now()
+
+	return b.String(), endTime.Sub(startTime)
 }
 
 func luau(f string) (string, error) {
-	cmd := exec.Command("luau", filename(f))
+	cmd := exec.Command("luau", f)
 	o, err := cmd.Output()
 	if err != nil {
 		return "", err
@@ -69,21 +70,20 @@ func TestConformance(t *testing.T) {
 		// }
 
 		fmt.Println(" -- Testing", name, "--")
+		filename := fmt.Sprintf("test/%s", name)
 
-		og, err := luau(name)
+		og, err := luau(filename)
 		if err != nil {
 			t.Error("error running luau:", err)
 			return
 		}
 
-		outputs := []string{
-			litecode(t, name, 0),
-			litecode(t, name, 1),
-			litecode(t, name, 2),
-		}
+		o0, _ := litecode(t, filename, 0)
+		o1, _ := litecode(t, filename, 1)
+		o2, _ := litecode(t, filename, 2)
 		fmt.Println()
 
-		for i, o := range outputs {
+		for i, o := range []string{o0, o1, o2} {
 			if o != og {
 				t.Errorf("%d output mismatch:\n-- Expected\n%s\n-- Got\n%s", i, og, o)
 				fmt.Println()
@@ -105,5 +105,42 @@ func TestConformance(t *testing.T) {
 	}
 
 	fmt.Println("-- Done! --")
+	fmt.Println()
+}
+
+// not using benchmark because i can do what i want
+func TestBenchmark(t *testing.T) {
+	files, err := os.ReadDir("bench")
+	if err != nil {
+		t.Error("error reading bench directory:", err)
+		return
+	}
+
+	f, err := os.Create("cpu.prof")
+	if err != nil {
+		panic(err)
+	}
+	pprof.StartCPUProfile(f)
+	defer pprof.StopCPUProfile()
+
+	// onlyBench := "10.luau"
+
+	for _, f := range files {
+		name := f.Name()
+		// if name != onlyBench {
+		// 	continue
+		// }
+
+		fmt.Println("\n-- Benchmarking", name, "--")
+		filename := fmt.Sprintf("bench/%s", name)
+
+		for o := range 3 {
+			output, time := litecode(t, filename, o)
+
+			fmt.Println(" --", o, "Time:", time, "--")
+			fmt.Print(output)
+		}
+	}
+
 	fmt.Println()
 }
