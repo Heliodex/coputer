@@ -1041,6 +1041,71 @@ func aops(op uint8, a, b float64) float64 {
 	panic("unknown arithmetic operation")
 }
 
+func vaops(op uint8, a Vector, b float32) Vector {
+	switch arithops[op] {
+	case "mul":
+		return Vector{a[0] * b, a[1] * b, a[2] * b, a[3] * b}
+	case "div":
+		return Vector{a[0] / b, a[1] / b, a[2] / b, a[3] / b}
+	case "idiv":
+		return Vector{
+			fFloor(a[0] / b),
+			fFloor(a[1] / b),
+			fFloor(a[2] / b),
+			fFloor(a[3] / b),
+		}
+	}
+
+	panic("unknown arithmetic operation")
+}
+
+func avops(op uint8, a float32, b Vector) Vector {
+	switch arithops[op] {
+	case "mul":
+		return Vector{a * b[0], a * b[1], a * b[2], a * b[3]}
+	case "div":
+		return Vector{a / b[0], a / b[1], a / b[2], a / b[3]}
+	case "idiv":
+		return Vector{
+			fFloor(a / b[0]),
+			fFloor(a / b[1]),
+			fFloor(a / b[2]),
+			fFloor(a / b[3]),
+		}
+	}
+
+	panic("unknown arithmetic operation")
+}
+
+func vops(op uint8, a, b Vector) Vector {
+	switch arithops[op] {
+	case "add":
+		return Vector{a[0] + b[0], a[1] + b[1], a[2] + b[2], a[3] + b[3]}
+	case "sub":
+		return Vector{a[0] - b[0], a[1] - b[1], a[2] - b[2], a[3] - b[3]}
+	case "mul":
+		return Vector{a[0] * b[0], a[1] * b[1], a[2] * b[2], a[3] * b[3]}
+	case "div":
+		return Vector{a[0] / b[0], a[1] / b[1], a[2] / b[2], a[3] / b[3]}
+	case "mod":
+		return Vector{
+			a[0] - b[0]*fFloor(a[0]/b[0]),
+			a[1] - b[1]*fFloor(a[1]/b[1]),
+			a[2] - b[2]*fFloor(a[2]/b[2]),
+			a[3] - b[3]*fFloor(a[3]/b[3]),
+		}
+	case "pow":
+		return Vector{
+			fPow(a[0], b[0]),
+			fPow(a[1], b[1]),
+			fPow(a[2], b[2]),
+			fPow(a[3], b[3]),
+		}
+	}
+
+	panic("unknown arithmetic operation")
+}
+
 func invalidCompare(op string, ta, tb string) string {
 	return fmt.Sprintf("attempt to compare %s %s %s", luautype[ta], op, luautype[tb])
 }
@@ -1093,13 +1158,28 @@ func typeOf(v any) string {
 	return reflect.TypeOf(v).String()
 }
 
-func arithmetic(op uint8, a, b any) float64 {
-	ta, tb := typeOf(a), typeOf(b)
-	if ta == "float64" && tb == "float64" {
-		return aops(op, a.(float64), b.(float64))
+func arithmetic(op uint8, a, b any) any {
+	fa, ok1 := a.(float64)
+	fb, ok2 := b.(float64)
+	if ok1 && ok2 {
+		return aops(op, fa, fb)
 	}
 
-	panic(invalidArithmetic(arithops[op], ta, tb))
+	va, ok3 := a.(Vector)
+	vb, ok4 := b.(Vector)
+	if ok3 && ok4 {
+		return vops(op, va, vb)
+	}
+
+	if o := arithops[op]; o == "mul" || o == "div" || o == "idiv" {
+		if ok1 && ok4 {
+			return avops(op, float32(fa), vb)
+		} else if ok3 && ok2 {
+			return vaops(op, va, float32(fb))
+		}
+	}
+
+	panic(invalidArithmetic(arithops[op], typeOf(a), typeOf(b)))
 }
 
 func logic(op uint8, a, b any) any {

@@ -23,7 +23,7 @@ func mag(v Vector) float32 {
 func vector_magnitude(args Args) Ret {
 	v := args.GetVector()
 
-	return mag(v)
+	return float64(mag(v))
 }
 
 func vector_normalize(args Args) Ret {
@@ -52,7 +52,11 @@ func vector_dot(args Args) Ret {
 	a := args.GetVector()
 	b := args.GetVector()
 
-	return a[0]*b[0] + a[1]*b[1] + a[2]*b[2] + a[3]*b[3]
+	return float64(a[0]*b[0] + a[1]*b[1] + a[2]*b[2] + a[3]*b[3])
+}
+
+func fPow(a, b float32) float32 {
+	return float32(math.Pow(float64(a), float64(b)))
 }
 
 func fFloor(v float32) float32 {
@@ -209,4 +213,7 @@ var libvector = NewTable([][2]any{
 	MakeFn1("clamp", vector_clamp),
 	MakeFn1("max", vector_max),
 	MakeFn1("min", vector_min),
+
+	{"one", Vector{1, 1, 1, 0}}, // 3-wide otherwise it breaks
+	{"zero", Vector{0, 0, 0, 0}},
 })
