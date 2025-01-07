@@ -1402,10 +1402,27 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 				pc += 2 // -- adjust for aux
 			case 17: // GETTABLEN
 				pc += 1
-				(*stack)[inst.A] = (*stack)[inst.B].(*Table).Get(float64(inst.C + 1))
+				t := (*stack)[inst.B].(*Table)
+				i := uint(inst.C + 1)
+
+				if v := t.GetArray(i); v != nil {
+					(*stack)[inst.A] = v
+				} else if t.hash == nil {
+					(*stack)[inst.A] = nil
+				} else {
+					(*stack)[inst.A] = (*t.hash)[float64(i)]
+				}
 			case 18: // SETTABLEN
+				t := (*stack)[inst.B].(*Table)
+				if t.readonly {
+					panic("attempt to modify a readonly table")
+				} else if i, v := inst.C+1, (*stack)[inst.A]; 1 <= i || i > int(t.asize) {
+					t.SetArray(uint(i), v)
+				} else {
+					t.SetHash(float64(i), v)
+				}
+
 				pc += 1
-				(*stack)[inst.B].(*Table).Set(float64(inst.C+1), (*stack)[inst.A])
 			case 19: // NEWCLOSURE
 				newPrototype := protolist[protos[inst.D]-1]
 
@@ -1478,7 +1495,13 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 
 				ok, ret_list := luau_settings.NamecallHandler(co, kv, stack, callA+1, callA+params)
 				if !ok {
-					(*stack)[A] = (*stack)[B].(*Table).Get(kv)
+					t := (*stack)[B].(*Table)
+
+					if t.hash == nil {
+						(*stack)[A] = nil
+					} else {
+						(*stack)[A] = (*t.hash)[kv]
+					}
 					break
 				}
 
