@@ -14,6 +14,10 @@ func invalidArgType(i int, fn string, tx, tg string) string {
 	return fmt.Sprintf("invalid argument #%d to '%s' (%s expected, got %s)", i, fn, luautype[tx], luautype[tg])
 }
 
+func invalidArg(i int, fn, msg string) string {
+	return fmt.Sprintf("invalid argument #%d to '%s' (%s)", i, fn, msg)
+}
+
 type Args struct {
 	args []any
 	name string

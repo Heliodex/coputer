@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"iter"
 	"math"
+	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -552,4 +554,53 @@ func global_type(args Args) Ret {
 		return "userdata"
 	}
 	return t
+}
+
+func isAbsolutePath(path string) bool {
+	return (len(path) >= 3 && isalpha(path[0]) && path[1] == ':' && (path[2] == '/' || path[2] == '\\')) ||
+		(len(path) >= 1 && (path[0] == '/' || path[0] == '\\'))
+}
+
+func hasValidPrefix(path string) bool {
+	return path[:2] == "./" || path[:3] == "../"
+}
+
+type LoadParams struct {
+	deserialised Deserialised
+	path         string
+	o            uint8
+	env          map[any]any
+}
+
+func global_require(args Args) Ret {
+	name := args.GetString()
+	if isAbsolutePath(name) {
+		panic(invalidArg(1, "require", "cannot require an absolute path"))
+	}
+
+	name = strings.ReplaceAll(name, "\\", "/")
+	if !hasValidPrefix(name) {
+		panic(invalidArg(1, "require", "require path must start with a valid prefix: ./ or ../"))
+	}
+
+	// this is where we take it to the top babbyyyyy
+	currentpath := args.co.filepath
+
+	// combine filepath and name to get the new path
+	path := filepath.Join(filepath.Dir(currentpath), name) + ".luau"
+	path = strings.ReplaceAll(path, "\\", "/")
+	// fmt.Println("REQUIRING", path)
+
+	o := args.co.o
+
+	// compile bytecodeee
+	cmd := exec.Command("luau-compile", "--binary", fmt.Sprintf("-O%d", o), path)
+	bytecode, err := cmd.Output()
+	if err != nil {
+		panic("error running luau-compile")
+	}
+
+	deserialised := Deserialise(bytecode)
+
+	return LoadParams{deserialised, path, o, args.co.env}
 }

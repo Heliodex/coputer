@@ -43,9 +43,12 @@ const (
 
 type Coroutine struct {
 	body          *Function
-	status        Status
-	started       bool
+	env           map[any]any
+	filepath      string // lel nowhere else to put this
 	yield, resume chan Rets
+	status        Status
+	o             uint8
+	started       bool
 }
 
 func createCoroutine(body *Function) *Coroutine {
@@ -330,7 +333,7 @@ func (t *Table) Iter() iter.Seq2[any, any] {
 }
 
 func move(src []any, a, b, t int, dst *[]any) {
-	if b < a {
+	if b <= a {
 		return
 	}
 
@@ -527,7 +530,7 @@ var VectorCtor = func(x, y, z, w float32) Vector {
 	return Vector{x, y, z, w}
 }
 
-var NamecallHandler = func(co *Coroutine, kv string, stack *[]any, c1, c2 int) (ok bool, ret []any) {
+var NamecallHandler = func(co *Coroutine, kv string, stack *[]any, c1, c2 int) (ok bool, retList []any) {
 	switch kv {
 	case "format":
 		str := (*stack)[c1].(string)
@@ -537,6 +540,8 @@ var NamecallHandler = func(co *Coroutine, kv string, stack *[]any, c1, c2 int) (
 	}
 	return
 }
+
+var require = MakeFn1("require", global_require)[1]
 
 var Extensions = map[any]any{
 	"math":      libmath,
@@ -612,7 +617,8 @@ func checkkmode(inst *Inst, k []any) {
 		inst.KC = count
 
 		id0 := (extend >> 20) & 0x3FF
-		inst.K0 = k[id0]
+		inst.K0 = k[id0] // maybe can .(string) this
+		// fmt.Println("AUX", inst.K0)
 
 		if count >= 2 {
 			id1 := (extend >> 10) & 0x3FF
@@ -626,10 +632,10 @@ func checkkmode(inst *Inst, k []any) {
 		inst.K = extract(inst.aux, 0, 1) == 1
 		inst.KN = extract(inst.aux, 31, 1) == 1
 	case 6: // AUX number low 24 bits
-		inst.K = k[int(extract(inst.aux, 0, 24))] // TODO: 1-based indexing
+		inst.K = k[extract(inst.aux, 0, 24)]
 		inst.KN = extract(inst.aux, 31, 1) == 1
 	case 7: // B
-		inst.K = k[inst.B] // TODO: 1-based indexing
+		inst.K = k[inst.B]
 	case 8: // AUX number low 16 bits
 		inst.K = inst.aux & 0xF
 	}
@@ -640,7 +646,7 @@ type Stream struct {
 	pos  uint32
 }
 
-func (s *Stream) rByte() uint8 {
+func (s *Stream) rByte() byte {
 	b := s.data[s.pos]
 	s.pos += 1
 	return b
@@ -682,7 +688,7 @@ func (s *Stream) rString() string {
 
 	str := make([]byte, size)
 	for i := range size {
-		str[i] = s.data[s.pos+uint32(i)]
+		str[i] = s.data[s.pos+i]
 	}
 	s.pos += size
 
@@ -778,34 +784,33 @@ func readProto(bytecodeid uint32, stringList []string, s *Stream) Proto {
 	klist := make([]any, sizek)
 
 	for i := range sizek {
-		var k any
 		switch kt := s.rByte(); kt {
 		case 0: // Nil
-			k = nil
+			klist[i] = nil
 		case 1: // Bool
-			k = s.rByte() != 0
+			klist[i] = s.rByte() != 0
 		case 2: // Number
-			k = s.rFloat64()
+			klist[i] = s.rFloat64()
 		case 3: // String
-			k = stringList[s.rVarInt()-1] // TODO: 1-based indexing
+			klist[i] = stringList[s.rVarInt()-1]
 		case 4: // Function
-			k = s.rWord()
+			klist[i] = s.rWord()
 		case 5: // Table
 			dataLength := s.rVarInt()
-			k = make([]uint32, dataLength)
+			t := make([]uint32, dataLength)
 
 			for j := range dataLength {
-				k.([]uint32)[j] = s.rVarInt() // TODO: 1-based indexing
+				t[j] = s.rVarInt()
 			}
+
+			klist[i] = t
 		case 6: // Closure
-			k = s.rVarInt()
+			klist[i] = s.rVarInt()
 		case 7: // Vector
-			k = VectorCtor(s.rFloat32(), s.rFloat32(), s.rFloat32(), s.rFloat32())
+			klist[i] = VectorCtor(s.rFloat32(), s.rFloat32(), s.rFloat32(), s.rFloat32())
 		default:
 			panic(fmt.Sprintf("Unknown ktype %d", kt))
 		}
-
-		klist[i] = k
 	}
 
 	// -- 2nd pass to replace constant references in the instruction
@@ -816,7 +821,7 @@ func readProto(bytecodeid uint32, stringList []string, s *Stream) Proto {
 	sizep := s.rVarInt()
 	protos := make([]uint32, sizep)
 	for i := range sizep {
-		protos[i] = s.rVarInt() + 1 // TODO: 1-based indexing
+		protos[i] = s.rVarInt() + 1
 	}
 
 	linedefined := s.rVarInt()
@@ -825,7 +830,7 @@ func readProto(bytecodeid uint32, stringList []string, s *Stream) Proto {
 	if debugnameindex := s.rVarInt(); debugnameindex == 0 {
 		debugname = "(??)"
 	} else {
-		debugname = stringList[debugnameindex-1] // TODO: 1-based indexing
+		debugname = stringList[debugnameindex-1]
 	}
 
 	// -- lineinfo
@@ -839,7 +844,7 @@ func readProto(bytecodeid uint32, stringList []string, s *Stream) Proto {
 		lineinfo := make([]uint32, sizecode)
 		var lastoffset uint32
 		for i := range sizecode {
-			lastoffset += uint32(s.rByte()) // TODO: type convs?
+			lastoffset += uint32(s.rByte())
 			lineinfo[i] = lastoffset
 		}
 
@@ -853,7 +858,7 @@ func readProto(bytecodeid uint32, stringList []string, s *Stream) Proto {
 		instructionlineinfo = make([]uint32, sizecode)
 		for i := range sizecode {
 			// -- p->abslineinfo[pc >> p->linegaplog2] + p->lineinfo[pc];
-			instructionlineinfo = append(instructionlineinfo, abslineinfo[i>>linegaplog2]+lineinfo[i]) // TODO: 1-based indexing
+			instructionlineinfo = append(instructionlineinfo, abslineinfo[i>>linegaplog2]+lineinfo[i])
 		}
 	}
 
@@ -1228,9 +1233,7 @@ func execute(
 	protolist []Proto,
 	env map[any]any,
 ) []any {
-	protos := proto.protos
-	code := proto.code
-
+	protos, code := proto.protos, proto.code
 	top, pc, openUpvalues, generalisedIterators := -1, 1, new([]*Upval), map[Inst]*Iterator{}
 
 	var handlingBreak bool
@@ -1246,7 +1249,7 @@ func execute(
 		}
 		handlingBreak = false
 
-		// fmt.Println("OP", op, "PC", pc)
+		// fmt.Println("OP", op, "PC", pc+1)
 
 		switch op {
 		case 0: // NOP
@@ -1267,6 +1270,7 @@ func execute(
 			(*stack)[inst.A] = float64(inst.D) // never put an int on the stack
 		case 5: // LOADK
 			pc += 1
+			// fmt.Println("LOADK", inst.A, inst.K)
 			(*stack)[inst.A] = inst.K
 		case 6: // MOVE
 			pc += 1
@@ -1277,25 +1281,22 @@ func execute(
 
 			if Extensions[kv] != nil {
 				(*stack)[inst.A] = Extensions[kv]
+			} else if kv == "require" {
+				(*stack)[inst.A] = require
 			} else {
 				(*stack)[inst.A] = env[kv]
 			}
 
 			pc += 2 // -- adjust for aux
 		case 8: // SETGLOBAL
-			// pc += 1
 			// LOL
 			kv := inst.K
 			if _, ok := kv.(string); ok {
-				if Extensions[kv] != nil {
+				if Extensions[kv] != nil || kv == "require" {
 					panic(fmt.Sprintf("attempt to redefine global '%s'", kv))
 				}
 				panic(fmt.Sprintf("attempt to set global '%s'", kv))
 			}
-
-			// env[kv] = (*stack)[inst.A]
-
-			// pc += 1 // -- adjust for aux
 		case 9: // GETUPVAL
 			pc += 1
 			if uv := upvals[inst.B]; uv.selfRef {
@@ -1324,18 +1325,25 @@ func execute(
 		case 12: // GETIMPORT
 			k0 := inst.K0
 			imp := Extensions[k0]
-			if imp == nil {
+			if k0 == "require" {
+				imp = require
+			} else if imp == nil {
 				imp = env[k0]
 			}
 
+			// fmt.Println("IMPORTING", k0)
+
 			switch inst.KC { // count
 			case 1:
+				// fmt.Println("GETIMPORT1", inst.A, imp)
 				(*stack)[inst.A] = imp
 			case 2:
 				t := imp.(*Table)
+				// fmt.Println("GETIMPORT2", inst.A, t.Get(inst.K1))
 				(*stack)[inst.A] = t.Get(inst.K1)
 			case 3:
 				t := imp.(*Table)
+				// fmt.Println("GETIMPORT3", inst.A, t.Get(inst.K1).([]any)[inst.K2.(uint32)-1])
 				(*stack)[inst.A] = t.Get(inst.K1).([]any)[inst.K2.(uint32)-1]
 			}
 
@@ -1382,7 +1390,6 @@ func execute(
 
 			pc += 2 // -- adjust for aux
 		case 17: // GETTABLEN
-			pc += 1
 			t := (*stack)[inst.B].(*Table)
 			i := uint(inst.C + 1)
 
@@ -1393,6 +1400,8 @@ func execute(
 			} else {
 				(*stack)[inst.A] = (*t.hash)[float64(i)]
 			}
+
+			pc += 1
 		case 18: // SETTABLEN
 			t := (*stack)[inst.B].(*Table)
 			if t.readonly {
@@ -1474,7 +1483,7 @@ func execute(
 				params = callB - 1
 			}
 
-			ok, ret_list := NamecallHandler(co, kv, stack, callA+1, callA+params)
+			ok, retList := NamecallHandler(co, kv, stack, callA+1, callA+params)
 			if !ok {
 				t := (*stack)[B].(*Table)
 
@@ -1491,15 +1500,15 @@ func execute(
 			inst = *callInst
 			op = callOp
 
-			ret_num := len(ret_list)
+			retCount := len(retList)
 
 			if callC == 0 {
-				top = callA + ret_num - 1
+				top = callA + retCount - 1
 			} else {
-				ret_num = callC - 1
+				retCount = callC - 1
 			}
 
-			move(ret_list, 0, ret_num, callA, stack)
+			move(retList, 0, retCount, callA, stack)
 		case 21: // CALL
 			pc += 1
 			A, B, C := inst.A, inst.B, inst.C
@@ -1511,7 +1520,7 @@ func execute(
 				params = B - 1
 			}
 
-			// fmt.Println(A, (*stack)[A], params)
+			// fmt.Println(A, B, C, (*stack)[A], params)
 
 			f := (*stack)[A]
 			fn, ok := f.(*Function)
@@ -1520,11 +1529,20 @@ func execute(
 				panic(uncallableType(typeOf(f)))
 			}
 
-			ret_list := (*fn)(co, (*stack)[A+1:A+params+1]...) // not inclusive
-			ret_num := int(len(ret_list))
+			retList := (*fn)(co, (*stack)[A+1:A+params+1]...) // not inclusive
+			retCount := len(retList)
+
+			// fmt.Println("COUNT", retCount)
+			if retCount == 1 {
+				if p, ok := retList[0].(LoadParams); ok {
+					c2, _ := Load(p.deserialised, p.path, p.o, p.env)
+					// fmt.Println("LOADED!")
+					retList[0] = c2.Resume()
+				}
+			}
 
 			// development checking lelell
-			for _, v := range ret_list {
+			for _, v := range retList {
 				switch v.(type) {
 				case int, uint, int8, uint8, int16, uint16, int32, uint32, int64, uint64:
 					panic(fmt.Sprintf("Hey idiot YOU RETURNED AN INTEGER INSTEAD OFA  FLOAT FROM YUR FUNCTION O MY GOD %v", v))
@@ -1534,12 +1552,12 @@ func execute(
 			}
 
 			if C == 0 {
-				top = A + ret_num - 1
+				top = A + retCount - 1
 			} else {
-				ret_num = C - 1
+				retCount = C - 1
 			}
 
-			move(ret_list, 0, ret_num, A, stack)
+			move(retList, 0, retCount, A, stack)
 		case 22: // RETURN
 			pc += 1
 			A, B := inst.A, inst.B
@@ -1876,7 +1894,7 @@ func execute(
 			move(varargs.list, 0, b, A, stack)
 		case 64: // DUPCLOSURE
 			pc += 1
-			newPrototype := protolist[inst.K.(uint32)] // TODO: 1-based indexing
+			newPrototype := protolist[inst.K.(uint32)]
 
 			nups := newPrototype.nups
 			upvalues := make([]Upval, nups)
@@ -2046,13 +2064,16 @@ func wrapclosure(
 	return &wrapped
 }
 
-func Load(module Deserialised, env map[any]any) (Coroutine, func()) {
+func Load(module Deserialised, filepath string, o uint8, env map[any]any) (Coroutine, func()) {
 	protolist := module.protoList
 	alive := true
 
 	return Coroutine{
-		body:   wrapclosure(module.mainProto, []Upval{}, &alive, protolist, env),
-		yield:  make(chan Rets, 1),
-		resume: make(chan Rets, 1),
+		body:     wrapclosure(module.mainProto, []Upval{}, &alive, protolist, env),
+		yield:    make(chan Rets, 1),
+		resume:   make(chan Rets, 1),
+		env:      env,
+		filepath: filepath,
+		o:        o,
 	}, func() { alive = false }
 }

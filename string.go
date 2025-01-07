@@ -168,7 +168,7 @@ func fmtstring(strfrmt string, args Args) string {
 		switch formatIndicator {
 		case 'c':
 			n := args.GetNumber()
-			b.WriteString(fmt.Sprintf("%c", byte(n))) // TODO: %?
+			b.WriteString(fmt.Sprintf("%c", byte(n)))
 		case 'd', 'i':
 			n := args.GetNumber()
 
@@ -191,7 +191,7 @@ func fmtstring(strfrmt string, args Args) string {
 			n := args.GetNumber()
 
 			format := fmt.Sprintf("%%%s%c", form, formatIndicator)
-			b.WriteString(fmt.Sprintf(format, n)) // TODO: %?
+			b.WriteString(fmt.Sprintf(format, n))
 		case 'q':
 			addquoted(&args, &b)
 			continue // skip adding the string at the end

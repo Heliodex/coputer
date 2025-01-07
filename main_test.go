@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func litecode(t *testing.T, f string, o int) (string, time.Duration) {
+func litecode(t *testing.T, f string, o uint8) (string, time.Duration) {
 	cmd := exec.Command("luau-compile", "--binary", fmt.Sprintf("-O%d", o), f)
 	bytecode, err := cmd.Output()
 	if err != nil {
@@ -25,6 +25,7 @@ func litecode(t *testing.T, f string, o int) (string, time.Duration) {
 		// b.WriteString(fmt.Sprint(args...))
 		for i, arg := range args {
 			b.WriteString(tostring(arg))
+
 			if i < len(args)-1 {
 				b.WriteString("\t")
 			}
@@ -33,7 +34,7 @@ func litecode(t *testing.T, f string, o int) (string, time.Duration) {
 		return
 	})
 
-	co, _ := Load(deserialised, map[any]any{
+	co, _ := Load(deserialised, f, o, map[any]any{
 		"print": &luau_print,
 	})
 
@@ -61,9 +62,13 @@ func TestConformance(t *testing.T) {
 		return
 	}
 
-	// onlyTest := "vector.luau"
+	// onlyTest := "require.luau"
 
 	for _, f := range files {
+		if f.IsDir() {
+			continue
+		}
+
 		name := f.Name()
 		// if name != onlyTest {
 		// 	continue
@@ -89,8 +94,8 @@ func TestConformance(t *testing.T) {
 				fmt.Println()
 
 				// print mismatch
-				oLines := strings.Split(strings.TrimSpace(o), "\n")
-				ogLines := strings.Split(strings.TrimSpace(og), "\n")
+				oLines := strings.Split(o, "\n")
+				ogLines := strings.Split(og, "\n")
 				for i, line := range ogLines {
 					if line != oLines[i] {
 						t.Errorf("mismatched line: \n%s\n%v\n%s\n%v", line, []byte(line), oLines[i], []byte(oLines[i]))
@@ -134,7 +139,7 @@ func TestBenchmark(t *testing.T) {
 		fmt.Println("\n-- Benchmarking", name, "--")
 		filename := fmt.Sprintf("bench/%s", name)
 
-		for o := range 3 {
+		for o := range uint8(3) {
 			output, time := litecode(t, filename, o)
 
 			fmt.Println(" --", o, "Time:", time, "--")
