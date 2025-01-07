@@ -1005,15 +1005,15 @@ var luautype = map[string]string{
 	"main.Vector":     "vector",
 }
 
-func sfops[T string | float64](op uint8, a, b T) bool {
-	switch jumpops[op] {
-	case "<=":
+func sfops[T float64 | string](op uint8, a, b T) bool {
+	switch op {
+	case 28:
 		return a <= b
-	case "<":
+	case 29:
 		return a < b
-	case ">":
+	case 31:
 		return a > b
-	case ">=":
+	case 32:
 		return a >= b
 	}
 
@@ -1021,20 +1021,20 @@ func sfops[T string | float64](op uint8, a, b T) bool {
 }
 
 func aops(op uint8, a, b float64) float64 {
-	switch arithops[op] {
-	case "add":
+	switch op {
+	case 33, 39:
 		return a + b
-	case "sub":
+	case 34, 40, 71:
 		return a - b
-	case "mul":
+	case 35, 41:
 		return a * b
-	case "div":
+	case 36, 42, 72:
 		return a / b
-	case "mod":
+	case 37, 43:
 		return a - b*math.Floor(a/b)
-	case "pow":
+	case 38, 44:
 		return math.Pow(a, b)
-	case "idiv":
+	case 81, 82:
 		return math.Floor(a / b)
 	}
 
@@ -1042,12 +1042,12 @@ func aops(op uint8, a, b float64) float64 {
 }
 
 func vaops(op uint8, a Vector, b float32) Vector {
-	switch arithops[op] {
-	case "mul":
+	switch op {
+	case 35, 41:
 		return Vector{a[0] * b, a[1] * b, a[2] * b, a[3] * b}
-	case "div":
+	case 36, 42, 72:
 		return Vector{a[0] / b, a[1] / b, a[2] / b, a[3] / b}
-	case "idiv":
+	case 81, 82:
 		return Vector{
 			fFloor(a[0] / b),
 			fFloor(a[1] / b),
@@ -1060,12 +1060,12 @@ func vaops(op uint8, a Vector, b float32) Vector {
 }
 
 func avops(op uint8, a float32, b Vector) Vector {
-	switch arithops[op] {
-	case "mul":
+	switch op {
+	case 35, 41:
 		return Vector{a * b[0], a * b[1], a * b[2], a * b[3]}
-	case "div":
+	case 36, 42, 72:
 		return Vector{a / b[0], a / b[1], a / b[2], a / b[3]}
-	case "idiv":
+	case 81, 82:
 		return Vector{
 			fFloor(a / b[0]),
 			fFloor(a / b[1]),
@@ -1078,28 +1078,21 @@ func avops(op uint8, a float32, b Vector) Vector {
 }
 
 func vops(op uint8, a, b Vector) Vector {
-	switch arithops[op] {
-	case "add":
+	switch op {
+	case 33, 39:
 		return Vector{a[0] + b[0], a[1] + b[1], a[2] + b[2], a[3] + b[3]}
-	case "sub":
+	case 34, 40, 71:
 		return Vector{a[0] - b[0], a[1] - b[1], a[2] - b[2], a[3] - b[3]}
-	case "mul":
+	case 35, 41:
 		return Vector{a[0] * b[0], a[1] * b[1], a[2] * b[2], a[3] * b[3]}
-	case "div":
+	case 36, 42, 72:
 		return Vector{a[0] / b[0], a[1] / b[1], a[2] / b[2], a[3] / b[3]}
-	case "mod":
+	case 81, 82:
 		return Vector{
-			a[0] - b[0]*fFloor(a[0]/b[0]),
-			a[1] - b[1]*fFloor(a[1]/b[1]),
-			a[2] - b[2]*fFloor(a[2]/b[2]),
-			a[3] - b[3]*fFloor(a[3]/b[3]),
-		}
-	case "pow":
-		return Vector{
-			fPow(a[0], b[0]),
-			fPow(a[1], b[1]),
-			fPow(a[2], b[2]),
-			fPow(a[3], b[3]),
+			fFloor(a[0] / b[0]),
+			fFloor(a[1] / b[1]),
+			fFloor(a[2] / b[2]),
+			fFloor(a[3] / b[3]),
 		}
 	}
 
@@ -1171,7 +1164,8 @@ func arithmetic(op uint8, a, b any) any {
 		return vops(op, va, vb)
 	}
 
-	if o := arithops[op]; o == "mul" || o == "div" || o == "idiv" {
+	switch op {
+	case 35, 41, 36, 42, 72, 81, 82:
 		if ok1 && ok4 {
 			return avops(op, float32(fa), vb)
 		} else if ok3 && ok2 {
@@ -1180,26 +1174,6 @@ func arithmetic(op uint8, a, b any) any {
 	}
 
 	panic(invalidArithmetic(arithops[op], typeOf(a), typeOf(b)))
-}
-
-func logic(op uint8, a, b any) any {
-	switch op {
-	case 45, 47: // AND
-		if !truthy(a) {
-			return false
-		}
-	case 46, 48: // OR
-		if truthy(a) {
-			return a
-		}
-	default:
-		panic("unknown logic operation")
-	}
-
-	if truthy(b) {
-		return b
-	}
-	return false
 }
 
 func jump(op uint8, a, b any) bool {
@@ -1255,27 +1229,30 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 			}
 			handlingBreak = false
 
-			pc += 1
-
 			// fmt.Println("OP", op, "PC", pc)
 
 			switch op {
 			case 0: // NOP
+				pc += 1
 				// -- Do nothing
 			case 1: // BREAK
-				pc -= 1
 				op = proto.debugcode[pc]
 				handlingBreak = true
 			case 2: // LOADNIL
+				pc += 1
 				(*stack)[inst.A] = nil
 			case 3: // LOADB
+				pc += 1
 				(*stack)[inst.A] = inst.B == 1
 				pc += inst.C
 			case 4: // LOADN
+				pc += 1
 				(*stack)[inst.A] = float64(inst.D) // never put an int on the stack
 			case 5: // LOADK
+				pc += 1
 				(*stack)[inst.A] = inst.K
 			case 6: // MOVE
+				pc += 1
 				// we should (ALMOST) never have to change the size of the stack (proto.maxstacksize)
 				(*stack)[inst.A] = (*stack)[inst.B]
 			case 7: // GETGLOBAL
@@ -1287,8 +1264,9 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 					(*stack)[inst.A] = env[kv]
 				}
 
-				pc += 1 // -- adjust for aux
+				pc += 2 // -- adjust for aux
 			case 8: // SETGLOBAL
+				// pc += 1
 				// LOL
 				kv := inst.K
 				if _, ok := kv.(string); ok {
@@ -1302,6 +1280,7 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 
 				// pc += 1 // -- adjust for aux
 			case 9: // GETUPVAL
+				pc += 1
 				if uv := upvals[inst.B]; uv.selfRef {
 					(*stack)[inst.A] = uv.store.(Upval).value
 				} else {
@@ -1310,10 +1289,12 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 					(*stack)[inst.A] = (*uv.store.(*[]any))[uv.index]
 				}
 			case 10: // SETUPVAL
+				pc += 1
 				if uv := upvals[inst.B]; !uv.selfRef {
 					(*uv.store.(*[]any))[uv.index] = (*stack)[inst.A]
 				}
 			case 11: // CLOSEUPVALS
+				pc += 1
 				for i, uv := range *open_upvalues {
 					if uv == nil || uv.selfRef || uv.index < inst.A {
 						continue
@@ -1341,21 +1322,27 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 					(*stack)[inst.A] = t.Get(inst.K1).([]any)[inst.K2.(uint32)-1]
 				}
 
-				pc += 1 // -- adjust for aux
-			case 13, 14: // GETTABLE, SETTABLE
+				pc += 2 // -- adjust for aux
+			case 13: // GETTABLE
+				pc += 1
 				index := (*stack)[inst.C]
 				t, ok := (*stack)[inst.B].(*Table)
 				if !ok {
 					panic(invalidIndex(typeOf((*stack)[inst.B]), index))
 				}
 
-				if op == 13 {
-					(*stack)[inst.A] = t.Get(index)
-				} else {
-					// fmt.Println("SETTABLE", index, (*stack)[inst.A])
-					t.Set(index, (*stack)[inst.A])
+				(*stack)[inst.A] = t.Get(index)
+			case 14: // SETTABLE
+				pc += 1
+				index := (*stack)[inst.C]
+				t, ok := (*stack)[inst.B].(*Table)
+				if !ok {
+					panic(invalidIndex(typeOf((*stack)[inst.B]), index))
 				}
-			case 15, 16: // GETTABLEKS, SETTABLEKS
+
+				// fmt.Println("SETTABLE", index, (*stack)[inst.A])
+				t.Set(index, (*stack)[inst.A])
+			case 15: // GETTABLEKS
 				index := inst.K
 				t, ok := (*stack)[inst.B].(*Table)
 				if !ok {
@@ -1363,16 +1350,25 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 					panic(invalidIndex(typeOf((*stack)[inst.B]), index))
 				}
 
-				if op == 15 {
-					(*stack)[inst.A] = t.Get(index)
-				} else {
-					t.Set(index, (*stack)[inst.A])
+				(*stack)[inst.A] = t.Get(index)
+
+				pc += 2 // -- adjust for aux
+			case 16: // SETTABLEKS
+				index := inst.K
+				t, ok := (*stack)[inst.B].(*Table)
+				if !ok {
+					// fmt.Println("indexing", typeOf((*stack)[inst.B]), "with", index)
+					panic(invalidIndex(typeOf((*stack)[inst.B]), index))
 				}
 
-				pc += 1 // -- adjust for aux
+				t.Set(index, (*stack)[inst.A])
+
+				pc += 2 // -- adjust for aux
 			case 17: // GETTABLEN
+				pc += 1
 				(*stack)[inst.A] = (*stack)[inst.B].(*Table).Get(float64(inst.C + 1))
 			case 18: // SETTABLEN
+				pc += 1
 				(*stack)[inst.B].(*Table).Set(float64(inst.C+1), (*stack)[inst.A])
 			case 19: // NEWCLOSURE
 				newPrototype := protolist[protos[inst.D]-1]
@@ -1383,7 +1379,7 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 
 				// fmt.Println("nups", nups)
 				for i := range nups {
-					switch pseudo := code[pc-1]; pseudo.A {
+					switch pseudo := code[pc]; pseudo.A {
 					case 0: // -- value
 						upvalue := Upval{
 							value:   (*stack)[pseudo.B],
@@ -1419,7 +1415,9 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 					}
 					pc += 1
 				}
+				pc += 1
 			case 20: // NAMECALL
+				pc += 1
 				// fmt.Println("NAMECALL")
 
 				A, B := inst.A, inst.B
@@ -1431,8 +1429,6 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 				// -- Special handling for native namecall behaviour
 				callInst := code[pc]
 				callOp := callInst.opcode
-
-				pc += 1 // -- adjust for aux
 
 				// -- Copied from the CALL handler
 				callA, callB, callC := callInst.A, callInst.B, callInst.C
@@ -1450,7 +1446,7 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 					break
 				}
 
-				pc += 1 // -- Skip next CALL instruction
+				pc += 2 // -- adjust for aux, Skip next CALL instruction
 
 				inst = *callInst
 				op = callOp
@@ -1465,6 +1461,7 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 
 				move(ret_list, 0, ret_num, callA, stack)
 			case 21: // CALL
+				pc += 1
 				A, B, C := inst.A, inst.B, inst.C
 
 				var params int
@@ -1504,6 +1501,7 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 
 				move(ret_list, 0, ret_num, A, stack)
 			case 22: // RETURN
+				pc += 1
 				A, B := inst.A, inst.B
 				b := B - 1
 
@@ -1514,28 +1512,84 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 
 				return (*stack)[A:max(A+b, 0)]
 			case 23, 24: // JUMP, JUMPBACK
-				pc += inst.D
-			case 25, 26: // JUMPIF, JUMPIFNOT
-				if truthy((*stack)[inst.A]) == (op == 25) {
+				pc += inst.D + 1
+			case 25: // JUMPIF
+				pc += 1
+				if truthy((*stack)[inst.A]) {
+					pc += inst.D
+				}
+			case 26: // JUMPIFNOT
+				pc += 1
+				if !truthy((*stack)[inst.A]) {
 					pc += inst.D
 				}
 			case 27, 28, 29, 30, 31, 32: // jump
 				if jump(op, (*stack)[inst.A], (*stack)[inst.aux]) {
-					pc += inst.D
+					pc += inst.D + 1
 				} else {
-					pc += 1
+					pc += 2
 				}
 			case 33, 34, 35, 36, 37, 38, 81: // arithmetic
+				pc += 1
 				// fmt.Println("ARITHMETIC", op, (*stack)[inst.B], (*stack)[inst.C])
 				(*stack)[inst.A] = arithmetic(op, (*stack)[inst.B], (*stack)[inst.C])
 			case 39, 40, 41, 42, 43, 44, 82: // arithmetik
+				pc += 1
 				(*stack)[inst.A] = arithmetic(op, (*stack)[inst.B], inst.K)
-			case 45, 46: // logic
-				(*stack)[inst.A] = logic(op, (*stack)[inst.B], (*stack)[inst.C])
-			case 47, 48: // logik
+
+			case 45: // logic AND
+				pc += 1
+				a := (*stack)[inst.B]
+				b := (*stack)[inst.C]
+
+				if !truthy(a) {
+					(*stack)[inst.A] = false
+				} else if truthy(b) {
+					(*stack)[inst.A] = b
+				} else {
+					(*stack)[inst.A] = false
+				}
+			case 46: // logic OR
+				pc += 1
+				a := (*stack)[inst.B]
+				b := (*stack)[inst.C]
+
+				if truthy(a) {
+					(*stack)[inst.A] = a
+				} else if truthy(b) {
+					(*stack)[inst.A] = b
+				} else {
+					(*stack)[inst.A] = false
+				}
+			case 47: // logik AND
+				pc += 1
 				fmt.Println("LOGIK")
-				(*stack)[inst.A] = logic(op, (*stack)[inst.B], inst.K)
+				a := (*stack)[inst.B]
+				b := inst.K
+
+				if !truthy(a) {
+					(*stack)[inst.A] = false
+				} else if truthy(b) {
+					(*stack)[inst.A] = b
+				} else {
+					(*stack)[inst.A] = false
+				}
+			case 48: // logik OR
+				pc += 1
+				fmt.Println("LOGIK")
+				a := (*stack)[inst.B]
+				b := inst.K
+
+				if truthy(a) {
+					(*stack)[inst.A] = a
+				} else if truthy(b) {
+					(*stack)[inst.A] = b
+				} else {
+					(*stack)[inst.A] = false
+				}
+
 			case 49: // CONCAT
+				pc += 1
 				s := strings.Builder{}
 
 				var first int
@@ -1550,6 +1604,7 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 				}
 				(*stack)[inst.A] = s.String()
 			case 50: // NOT
+				pc += 1
 				cond, ok := (*stack)[inst.B].(bool)
 				if !ok {
 					panic(invalidCond(typeOf((*stack)[inst.B])))
@@ -1557,6 +1612,7 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 
 				(*stack)[inst.A] = !cond
 			case 51: // MINUS
+				pc += 1
 				a, ok := (*stack)[inst.B].(float64)
 				if !ok {
 					panic(invalidUnm(typeOf((*stack)[inst.B])))
@@ -1564,6 +1620,7 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 
 				(*stack)[inst.A] = -a
 			case 52: // LENGTH
+				pc += 1
 				switch t := (*stack)[inst.B].(type) {
 				case *Table:
 					(*stack)[inst.A] = t.Len()
@@ -1575,8 +1632,9 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 			case 53: // NEWTABLE
 				(*stack)[inst.A] = &Table{}
 
-				pc += 1 // -- adjust for aux
+				pc += 2 // -- adjust for aux
 			case 54: // DUPTABLE
+				pc += 1
 				template := inst.K.([]uint32)
 				serialised := &Table{}
 				for _, id := range template {
@@ -1597,8 +1655,9 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 				moveTable(*stack, B, B+c, inst.aux, s)
 				(*stack)[A] = s
 
-				pc += 1 // -- adjust for aux
+				pc += 2 // -- adjust for aux
 			case 56: // FORNPREP
+				pc += 1
 				A := inst.A
 
 				index, ok := (*stack)[A+2].(float64)
@@ -1624,6 +1683,7 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 					pc += inst.D
 				}
 			case 57: // FORNLOOP
+				pc += 1
 				A := inst.A
 				limit := (*stack)[A].(float64)
 				step := (*stack)[A+1].(float64)
@@ -1655,9 +1715,9 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 
 					if (*stack)[A+3] != nil {
 						(*stack)[A+2] = (*stack)[A+3]
-						pc += inst.D
+						pc += inst.D + 1
 					} else {
-						pc += 1
+						pc += 2
 					}
 				default:
 					iter := *generalised_iterators[inst]
@@ -1673,23 +1733,24 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 
 					if vals == nil {
 						delete(generalised_iterators, inst)
-						pc += 1
+						pc += 2
 					} else {
 						move(*vals, 0, res, A+3, stack)
 
 						(*stack)[A+2] = (*stack)[A+3]
-						pc += inst.D
+						pc += inst.D + 1
 					}
 				}
 			case 59, 61: // FORGPREP_INEXT, FORGPREP_NEXT
 				if _, ok := (*stack)[inst.A].(*Function); !ok {
 					panic(fmt.Sprintf("attempt to iterate over a %s value", typeOf((*stack)[inst.A]))) // -- encountered non-function value
 				}
-				pc += inst.D
+				pc += inst.D + 1
 			case 60: // FASTCALL3
 				// Skipped
-				pc += 1 // adjust for aux
+				pc += 2 // adjust for aux
 			case 63: // GETVARARGS
+				pc += 1
 				A := inst.A
 				b := inst.B - 1
 
@@ -1707,6 +1768,7 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 
 				move(varargs.list, 0, b, A, stack)
 			case 64: // DUPCLOSURE
+				pc += 1
 				newPrototype := protolist[inst.K.(uint32)] // TODO: 1-based indexing
 
 				nups := newPrototype.nups
@@ -1732,30 +1794,35 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 					}
 				}
 			case 65: // PREPVARARGS
+				pc += 1
 				// Handled by wrapper
 			case 66: // LOADKX
 				(*stack)[inst.A] = inst.K.(uint32) // kv
 
-				pc += 1 // -- adjust for aux
+				pc += 2 // -- adjust for aux
 			case 67: // JUMPX
-				pc += inst.E
+				pc += inst.E + 1
 			case 68: // FASTCALL
+				pc += 1
 				// Skipped
 			case 69: // COVERAGE
+				pc += 1
 				inst.E += 1
 			case 70: // CAPTURE
 				// Handled by CLOSURE
 				panic("encountered unhandled CAPTURE")
 			case 71, 72: // SUBRK, DIVRK
+				pc += 1
 				// fmt.Println("ARITHMETIRK")
 				(*stack)[inst.A] = arithmetic(op, inst.K, (*stack)[inst.C])
 			case 73: // FASTCALL1
+				pc += 1
 				// Skipped
 			case 74, 75: // FASTCALL2, FASTCALL2K
 				// Skipped
-				pc += 1 // adjust for aux
+				pc += 2 // adjust for aux
 			case 76: // FORGPREP
-				pc += inst.D
+				pc += inst.D + 1
 				if _, ok := (*stack)[inst.A].(*Function); ok {
 					break
 				}
@@ -1789,26 +1856,29 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 				}()
 
 				generalised_iterators[loopInstruction] = c
-			case 77, 78, 79, 80: // JUMPXEQKNIL, JUMPXEQKB, JUMPXEQKN, JUMPXEQKS
-				var jmp bool
-				if op == 77 {
-					jmp = ((*stack)[inst.A] == nil) != inst.KN
-				} else if op == 78 {
-					kv := inst.K.(bool)
-					ra, ok := (*stack)[inst.A].(bool)
-
-					jmp = ok && (ra == kv) != inst.KN
-				} else if op == 79 || op == 80 {
-					kv := inst.K.(float64)
-					ra := (*stack)[inst.A].(float64)
-
-					jmp = (ra == kv) != inst.KN
-				}
-
-				if jmp {
-					pc += inst.D
+			case 77: // JUMPXEQKNIL
+				if ((*stack)[inst.A] == nil) != inst.KN {
+					pc += inst.D + 1
 				} else {
-					pc += 1
+					pc += 2
+				}
+			case 78: //  JUMPXEQKB
+				kv := inst.K.(bool)
+				ra, ok := (*stack)[inst.A].(bool)
+
+				if ok && (ra == kv) != inst.KN {
+					pc += inst.D + 1
+				} else {
+					pc += 2
+				}
+			case 79, 80: // JUMPXEQKN, JUMPXEQKS
+				kv := inst.K.(float64)
+				ra := (*stack)[inst.A].(float64)
+
+				if (ra == kv) != inst.KN {
+					pc += inst.D + 1
+				} else {
+					pc += 2
 				}
 			default:
 				panic(fmt.Sprintf("Unsupported Opcode: %s op: %d", inst.opname, op))
@@ -1845,7 +1915,7 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 			n := uint8(len(passed))
 			if numparams < n {
 				start := int(numparams + 1)
-				l := int(n) - int(numparams)
+				l := int(n - numparams)
 				varargs.len = l
 
 				// expand varargs list
