@@ -18,7 +18,7 @@ func litecode(t *testing.T, f string, o int) (string, time.Duration) {
 		return "", 0
 	}
 
-	deserialised := luau_deserialise(bytecode)
+	deserialised := Deserialise(bytecode)
 
 	b := strings.Builder{}
 	luau_print := Function(func(co *Coroutine, args ...any) (ret []any) {
@@ -33,7 +33,7 @@ func litecode(t *testing.T, f string, o int) (string, time.Duration) {
 		return
 	})
 
-	co, _ := luau_load(deserialised, map[any]any{
+	co, _ := Load(deserialised, map[any]any{
 		"print": &luau_print,
 	})
 
