@@ -891,7 +891,7 @@ func luau_deserialise(data []byte) Deserialised {
 
 		// -- debuginfo
 		if rByte() != 0 {
-			fmt.Println("DEBUGINFO")
+			// fmt.Println("DEBUGINFO")
 			for range rVarInt() { // sizel
 				rVarInt()
 				rVarInt()
@@ -964,35 +964,6 @@ func truthy(v any) bool {
 	return v != nil
 }
 
-var jumpops = map[uint8]string{
-	27: "==",
-	28: "<=",
-	29: "<",
-	30: "~=",
-	31: ">",
-	32: ">=",
-}
-
-var arithops = map[uint8]string{
-	33: "add",
-	34: "sub",
-	35: "mul",
-	36: "div",
-	37: "mod",
-	38: "pow",
-	39: "add",
-	40: "sub",
-	41: "mul",
-	42: "div",
-	43: "mod",
-	44: "pow",
-	51: "unm",
-	71: "sub",
-	72: "div",
-	81: "idiv",
-	82: "idiv",
-}
-
 var luautype = map[string]string{
 	"nil":             "nil",
 	"float64":         "number",
@@ -1003,100 +974,6 @@ var luautype = map[string]string{
 	"*main.Coroutine": "thread",
 	"*main.Buffer":    "buffer",
 	"main.Vector":     "vector",
-}
-
-func sfops[T float64 | string](op uint8, a, b T) bool {
-	switch op {
-	case 28:
-		return a <= b
-	case 29:
-		return a < b
-	case 31:
-		return a > b
-	case 32:
-		return a >= b
-	}
-
-	panic("unknown floatjump operation")
-}
-
-func aops(op uint8, a, b float64) float64 {
-	switch op {
-	case 33, 39:
-		return a + b
-	case 34, 40, 71:
-		return a - b
-	case 35, 41:
-		return a * b
-	case 36, 42, 72:
-		return a / b
-	case 37, 43:
-		return a - b*math.Floor(a/b)
-	case 38, 44:
-		return math.Pow(a, b)
-	case 81, 82:
-		return math.Floor(a / b)
-	}
-
-	panic("unknown arithmetic operation")
-}
-
-func vaops(op uint8, a Vector, b float32) Vector {
-	switch op {
-	case 35, 41:
-		return Vector{a[0] * b, a[1] * b, a[2] * b, a[3] * b}
-	case 36, 42, 72:
-		return Vector{a[0] / b, a[1] / b, a[2] / b, a[3] / b}
-	case 81, 82:
-		return Vector{
-			fFloor(a[0] / b),
-			fFloor(a[1] / b),
-			fFloor(a[2] / b),
-			fFloor(a[3] / b),
-		}
-	}
-
-	panic("unknown arithmetic operation")
-}
-
-func avops(op uint8, a float32, b Vector) Vector {
-	switch op {
-	case 35, 41:
-		return Vector{a * b[0], a * b[1], a * b[2], a * b[3]}
-	case 36, 42, 72:
-		return Vector{a / b[0], a / b[1], a / b[2], a / b[3]}
-	case 81, 82:
-		return Vector{
-			fFloor(a / b[0]),
-			fFloor(a / b[1]),
-			fFloor(a / b[2]),
-			fFloor(a / b[3]),
-		}
-	}
-
-	panic("unknown arithmetic operation")
-}
-
-func vops(op uint8, a, b Vector) Vector {
-	switch op {
-	case 33, 39:
-		return Vector{a[0] + b[0], a[1] + b[1], a[2] + b[2], a[3] + b[3]}
-	case 34, 40, 71:
-		return Vector{a[0] - b[0], a[1] - b[1], a[2] - b[2], a[3] - b[3]}
-	case 35, 41:
-		return Vector{a[0] * b[0], a[1] * b[1], a[2] * b[2], a[3] * b[3]}
-	case 36, 42, 72:
-		return Vector{a[0] / b[0], a[1] / b[1], a[2] / b[2], a[3] / b[3]}
-	case 81, 82:
-		return Vector{
-			fFloor(a[0] / b[0]),
-			fFloor(a[1] / b[1]),
-			fFloor(a[2] / b[2]),
-			fFloor(a[3] / b[3]),
-		}
-	}
-
-	panic("unknown arithmetic operation")
 }
 
 func invalidCompare(op string, ta, tb string) string {
@@ -1151,51 +1028,210 @@ func typeOf(v any) string {
 	return reflect.TypeOf(v).String()
 }
 
-func arithmetic(op uint8, a, b any) any {
+func aAdd(a, b any) any {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
-		return aops(op, fa, fb)
+		return fa + fb
 	}
 
 	va, ok3 := a.(Vector)
 	vb, ok4 := b.(Vector)
 	if ok3 && ok4 {
-		return vops(op, va, vb)
+		return Vector{va[0] + vb[0], va[1] + vb[1], va[2] + vb[2], va[3] + vb[3]}
 	}
 
-	switch op {
-	case 35, 41, 36, 42, 72, 81, 82:
-		if ok1 && ok4 {
-			return avops(op, float32(fa), vb)
-		} else if ok3 && ok2 {
-			return vaops(op, va, float32(fb))
-		}
-	}
-
-	panic(invalidArithmetic(arithops[op], typeOf(a), typeOf(b)))
+	panic(invalidArithmetic("add", typeOf(a), typeOf(b)))
 }
 
-func jump(op uint8, a, b any) bool {
-	ta, tb := typeOf(a), typeOf(b)
-	if op == 27 || op == 30 {
-		tru := op == 27
-
-		switch a.(type) {
-		case float64, string, bool, nil:
-		default:
-			panic(incomparableType(ta, tru)) // Also deliberately restricting the ability to compare types that would always return false
-		}
-
-		// JUMPIFEQ, JUMPIFNOTEQ
-		return (a == b) == tru
-	} else if ta == "float64" && tb == "float64" {
-		return sfops(op, a.(float64), b.(float64))
-	} else if ta == "string" && tb == "string" {
-		return sfops(op, a.(string), b.(string))
+func aSub(a, b any) any {
+	fa, ok1 := a.(float64)
+	fb, ok2 := b.(float64)
+	if ok1 && ok2 {
+		return fa - fb
 	}
 
-	panic(invalidCompare(jumpops[op], ta, tb))
+	va, ok3 := a.(Vector)
+	vb, ok4 := b.(Vector)
+	if ok3 && ok4 {
+		return Vector{va[0] - vb[0], va[1] - vb[1], va[2] - vb[2], va[3] - vb[3]}
+	}
+
+	panic(invalidArithmetic("sub", typeOf(a), typeOf(b)))
+}
+
+func aMul(a, b any) any {
+	fa, ok1 := a.(float64)
+	fb, ok2 := b.(float64)
+	if ok1 && ok2 {
+		return fa * fb
+	}
+
+	va, ok3 := a.(Vector)
+	vb, ok4 := b.(Vector)
+	if ok3 && ok4 {
+		return Vector{va[0] * vb[0], va[1] * vb[1], va[2] * vb[2], va[3] * vb[3]}
+	} else if ok1 && ok4 {
+		f := float32(fa)
+		return Vector{f * vb[0], f * vb[1], f * vb[2], f * vb[3]}
+	} else if ok3 && ok2 {
+		f := float32(fb)
+		return Vector{va[0] * f, va[1] * f, va[2] * f, va[3] * f}
+	}
+
+	panic(invalidArithmetic("mul", typeOf(a), typeOf(b)))
+}
+
+func aDiv(a, b any) any {
+	fa, ok1 := a.(float64)
+	fb, ok2 := b.(float64)
+	if ok1 && ok2 {
+		return fa / fb
+	}
+
+	va, ok3 := a.(Vector)
+	vb, ok4 := b.(Vector)
+	if ok3 && ok4 {
+		return Vector{va[0] / vb[0], va[1] / vb[1], va[2] / vb[2], va[3] / vb[3]}
+	} else if ok1 && ok4 {
+		f := float32(fa)
+		return Vector{f / vb[0], f / vb[1], f / vb[2], f / vb[3]}
+	} else if ok3 && ok2 {
+		f := float32(fb)
+		return Vector{va[0] / f, va[1] / f, va[2] / f, va[3] / f}
+	}
+
+	panic(invalidArithmetic("div", typeOf(a), typeOf(b)))
+}
+
+func aMod(a, b any) float64 {
+	fa, ok1 := a.(float64)
+	fb, ok2 := b.(float64)
+	if ok1 && ok2 {
+		return fa - fb*math.Floor(fa/fb)
+	}
+
+	panic(invalidArithmetic("mod", typeOf(a), typeOf(b)))
+}
+
+func aPow(a, b any) float64 {
+	fa, ok1 := a.(float64)
+	fb, ok2 := b.(float64)
+	if ok1 && ok2 {
+		return math.Pow(fa, fb)
+	}
+
+	panic(invalidArithmetic("pow", typeOf(a), typeOf(b)))
+}
+
+func aIdiv(a, b any) any {
+	fa, ok1 := a.(float64)
+	fb, ok2 := b.(float64)
+	if ok1 && ok2 {
+		return math.Floor(fa / fb)
+	}
+
+	va, ok3 := a.(Vector)
+	vb, ok4 := b.(Vector)
+	if ok3 && ok4 {
+		return Vector{
+			fFloor(va[0] / vb[0]),
+			fFloor(va[1] / vb[1]),
+			fFloor(va[2] / vb[2]),
+			fFloor(va[3] / vb[3]),
+		}
+	} else if ok1 && ok4 {
+		f := float32(fa)
+		return Vector{
+			fFloor(f / vb[0]),
+			fFloor(f / vb[1]),
+			fFloor(f / vb[2]),
+			fFloor(f / vb[3]),
+		}
+	} else if ok3 && ok2 {
+		f := float32(fb)
+		return Vector{
+			fFloor(va[0] / f),
+			fFloor(va[1] / f),
+			fFloor(va[2] / f),
+			fFloor(va[3] / f),
+		}
+	}
+
+	panic(invalidArithmetic("idiv", typeOf(a), typeOf(b)))
+}
+
+func jumpLe(a, b any) bool {
+	fa, ok1 := a.(float64)
+	fb, ok2 := b.(float64)
+	if ok1 && ok2 {
+		return fa <= fb
+	}
+
+	sa, ok1 := a.(string)
+	sb, ok2 := a.(string)
+	if ok1 && ok2 {
+		return sa <= sb
+	}
+
+	panic(invalidCompare("<=", typeOf(a), typeOf(b)))
+}
+
+func jumpLt(a, b any) bool {
+	fa, ok1 := a.(float64)
+	fb, ok2 := b.(float64)
+	if ok1 && ok2 {
+		return fa < fb
+	}
+
+	sa, ok1 := a.(string)
+	sb, ok2 := a.(string)
+	if ok1 && ok2 {
+		return sa < sb
+	}
+
+	panic(invalidCompare("<", typeOf(a), typeOf(b)))
+}
+
+func jumpGt(a, b any) bool {
+	fa, ok1 := a.(float64)
+	fb, ok2 := b.(float64)
+	if ok1 && ok2 {
+		return fa > fb
+	}
+
+	sa, ok1 := a.(string)
+	sb, ok2 := a.(string)
+	if ok1 && ok2 {
+		return sa > sb
+	}
+
+	panic(invalidCompare(">", typeOf(a), typeOf(b)))
+}
+
+func jumpGe(a, b any) bool {
+	fa, ok1 := a.(float64)
+	fb, ok2 := b.(float64)
+	if ok1 && ok2 {
+		return fa >= fb
+	}
+
+	sa, ok1 := a.(string)
+	sb, ok2 := a.(string)
+	if ok1 && ok2 {
+		return sa >= sb
+	}
+
+	panic(invalidCompare(">=", typeOf(a), typeOf(b)))
+}
+
+func jumpEq(a, b any) bool {
+	switch a.(type) {
+	case float64, string, bool, nil:
+		return a == b // JUMPIFEQ
+	}
+
+	panic(incomparableType(typeOf(a), true)) // Also deliberately restricting the ability to compare types that would always return false
 }
 
 func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
@@ -1514,28 +1550,95 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 			case 23, 24: // JUMP, JUMPBACK
 				pc += inst.D + 1
 			case 25: // JUMPIF
-				pc += 1
 				if truthy((*stack)[inst.A]) {
-					pc += inst.D
+					pc += inst.D + 1
+				} else {
+					pc += 1
 				}
 			case 26: // JUMPIFNOT
-				pc += 1
 				if !truthy((*stack)[inst.A]) {
-					pc += inst.D
+					pc += inst.D + 1
+				} else {
+					pc += 1
 				}
-			case 27, 28, 29, 30, 31, 32: // jump
-				if jump(op, (*stack)[inst.A], (*stack)[inst.aux]) {
+			case 27: // jump
+				if jumpEq((*stack)[inst.A], (*stack)[inst.aux]) {
 					pc += inst.D + 1
 				} else {
 					pc += 2
 				}
-			case 33, 34, 35, 36, 37, 38, 81: // arithmetic
+			case 28:
+				if jumpLe((*stack)[inst.A], (*stack)[inst.aux]) {
+					pc += inst.D + 1
+				} else {
+					pc += 2
+				}
+			case 29:
+				if jumpLt((*stack)[inst.A], (*stack)[inst.aux]) {
+					pc += inst.D + 1
+				} else {
+					pc += 2
+				}
+			case 30:
+				if jumpEq((*stack)[inst.A], (*stack)[inst.aux]) {
+					pc += 2
+				} else {
+					pc += inst.D + 1
+				}
+			case 31:
+				if jumpGt((*stack)[inst.A], (*stack)[inst.aux]) {
+					pc += inst.D + 1
+				} else {
+					pc += 2
+				}
+			case 32:
+				if jumpGe((*stack)[inst.A], (*stack)[inst.aux]) {
+					pc += inst.D + 1
+				} else {
+					pc += 2
+				}
+			case 33: // arithmetic
 				pc += 1
-				// fmt.Println("ARITHMETIC", op, (*stack)[inst.B], (*stack)[inst.C])
-				(*stack)[inst.A] = arithmetic(op, (*stack)[inst.B], (*stack)[inst.C])
-			case 39, 40, 41, 42, 43, 44, 82: // arithmetik
+				(*stack)[inst.A] = aAdd((*stack)[inst.B], (*stack)[inst.C])
+			case 34:
 				pc += 1
-				(*stack)[inst.A] = arithmetic(op, (*stack)[inst.B], inst.K)
+				(*stack)[inst.A] = aSub((*stack)[inst.B], (*stack)[inst.C])
+			case 35:
+				pc += 1
+				(*stack)[inst.A] = aMul((*stack)[inst.B], (*stack)[inst.C])
+			case 36:
+				pc += 1
+				(*stack)[inst.A] = aDiv((*stack)[inst.B], (*stack)[inst.C])
+			case 37:
+				pc += 1
+				(*stack)[inst.A] = aMod((*stack)[inst.B], (*stack)[inst.C])
+			case 38:
+				pc += 1
+				(*stack)[inst.A] = aPow((*stack)[inst.B], (*stack)[inst.C])
+			case 81:
+				pc += 1
+				(*stack)[inst.A] = aIdiv((*stack)[inst.B], (*stack)[inst.C])
+			case 39: // arithmetik
+				pc += 1
+				(*stack)[inst.A] = aAdd((*stack)[inst.B], inst.K)
+			case 40:
+				pc += 1
+				(*stack)[inst.A] = aSub((*stack)[inst.B], inst.K)
+			case 41:
+				pc += 1
+				(*stack)[inst.A] = aMul((*stack)[inst.B], inst.K)
+			case 42:
+				pc += 1
+				(*stack)[inst.A] = aDiv((*stack)[inst.B], inst.K)
+			case 43:
+				pc += 1
+				(*stack)[inst.A] = aMod((*stack)[inst.B], inst.K)
+			case 44:
+				pc += 1
+				(*stack)[inst.A] = aPow((*stack)[inst.B], inst.K)
+			case 82:
+				pc += 1
+				(*stack)[inst.A] = aIdiv((*stack)[inst.B], inst.K)
 
 			case 45: // logic AND
 				pc += 1
@@ -1563,7 +1666,7 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 				}
 			case 47: // logik AND
 				pc += 1
-				fmt.Println("LOGIK")
+				// fmt.Println("LOGIK")
 				a := (*stack)[inst.B]
 				b := inst.K
 
@@ -1576,7 +1679,7 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 				}
 			case 48: // logik OR
 				pc += 1
-				fmt.Println("LOGIK")
+				// fmt.Println("LOGIK")
 				a := (*stack)[inst.B]
 				b := inst.K
 
@@ -1811,10 +1914,12 @@ func luau_load(module Deserialised, env map[any]any) (Coroutine, func()) {
 			case 70: // CAPTURE
 				// Handled by CLOSURE
 				panic("encountered unhandled CAPTURE")
-			case 71, 72: // SUBRK, DIVRK
+			case 71: // SUBRK
 				pc += 1
-				// fmt.Println("ARITHMETIRK")
-				(*stack)[inst.A] = arithmetic(op, inst.K, (*stack)[inst.C])
+				(*stack)[inst.A] = aSub(inst.K, (*stack)[inst.C])
+			case 72: // DIVRK
+				pc += 1
+				(*stack)[inst.A] = aDiv(inst.K, (*stack)[inst.C])
 			case 73: // FASTCALL1
 				pc += 1
 				// Skipped
