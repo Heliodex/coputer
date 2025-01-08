@@ -1,5 +1,7 @@
-require "./dir3/main"
+local fn = require "./dir3/main"
 
 print "world"
 
-return {}
+local x = 5
+fn(x)
+return { x = x }

@@ -66,7 +66,7 @@ func (co *Coroutine) Resume(args ...any) Rets {
 		co.status = Running
 
 		go func() {
-			(*co.body)(co, args...)
+			co.yield <- (*co.body)(co, args...)
 			co.status = Dead
 			if len(co.yield) == 0 {
 				// finish up
@@ -541,8 +541,6 @@ var NamecallHandler = func(co *Coroutine, kv string, stack *[]any, c1, c2 int) (
 	return
 }
 
-var require = MakeFn1("require", global_require)[1]
-
 var Extensions = map[any]any{
 	"math":      libmath,
 	"table":     libtable,
@@ -564,6 +562,8 @@ var Extensions = map[any]any{
 	"tonumber": MakeFn1("tonumber", global_tonumber)[1],
 	"tostring": MakeFn1("tostring", global_tostring)[1],
 	"_VERSION": "Luau", // todo: custom
+
+	"require": MakeFn1("require", global_require)[1],
 }
 
 // var VectorSize = 4
@@ -1232,6 +1232,7 @@ func execute(
 	alive *bool,
 	protolist []Proto,
 	env map[any]any,
+	requireCache map[string]Rets,
 ) []any {
 	protos, code := proto.protos, proto.code
 	top, pc, openUpvalues, generalisedIterators := -1, 1, new([]*Upval), map[Inst]*Iterator{}
@@ -1281,8 +1282,6 @@ func execute(
 
 			if Extensions[kv] != nil {
 				(*stack)[inst.A] = Extensions[kv]
-			} else if kv == "require" {
-				(*stack)[inst.A] = require
 			} else {
 				(*stack)[inst.A] = env[kv]
 			}
@@ -1292,7 +1291,7 @@ func execute(
 			// LOL
 			kv := inst.K
 			if _, ok := kv.(string); ok {
-				if Extensions[kv] != nil || kv == "require" {
+				if Extensions[kv] != nil {
 					panic(fmt.Sprintf("attempt to redefine global '%s'", kv))
 				}
 				panic(fmt.Sprintf("attempt to set global '%s'", kv))
@@ -1325,9 +1324,7 @@ func execute(
 		case 12: // GETIMPORT
 			k0 := inst.K0
 			imp := Extensions[k0]
-			if k0 == "require" {
-				imp = require
-			} else if imp == nil {
+			if imp == nil {
 				imp = env[k0]
 			}
 
@@ -1371,7 +1368,7 @@ func execute(
 			index := inst.K
 			t, ok := (*stack)[inst.B].(*Table)
 			if !ok {
-				// fmt.Println("indexing", typeOf((*stack)[inst.B]), "with", index)
+				fmt.Println("indexing", typeOf((*stack)[inst.B]), "with", index)
 				panic(invalidIndex(typeOf((*stack)[inst.B]), index))
 			}
 
@@ -1382,7 +1379,7 @@ func execute(
 			index := inst.K
 			t, ok := (*stack)[inst.B].(*Table)
 			if !ok {
-				// fmt.Println("indexing", typeOf((*stack)[inst.B]), "with", index)
+				fmt.Println("indexing", typeOf((*stack)[inst.B]), "with", index)
 				panic(invalidIndex(typeOf((*stack)[inst.B]), index))
 			}
 
@@ -1418,7 +1415,7 @@ func execute(
 
 			nups := newPrototype.nups
 			upvalues := make([]Upval, nups)
-			(*stack)[inst.A] = wrapclosure(newPrototype, upvalues, alive, protolist, env)
+			(*stack)[inst.A] = wrapclosure(newPrototype, upvalues, alive, protolist, env, requireCache)
 
 			// fmt.Println("nups", nups)
 			for i := range nups {
@@ -1535,9 +1532,16 @@ func execute(
 			// fmt.Println("COUNT", retCount)
 			if retCount == 1 {
 				if p, ok := retList[0].(LoadParams); ok {
-					c2, _ := Load(p.deserialised, p.path, p.o, p.env)
-					// fmt.Println("LOADED!")
-					retList[0] = c2.Resume()
+					// it's a require
+					if c, ok := requireCache[p.path]; ok {
+						retList = c
+					} else {
+						c2, _ := Load(p.deserialised, p.path, p.o, p.env, requireCache)
+						result := c2.Resume()
+
+						requireCache[p.path] = result
+						retList = result
+					}
 				}
 			}
 
@@ -1898,7 +1902,7 @@ func execute(
 
 			nups := newPrototype.nups
 			upvalues := make([]Upval, nups)
-			(*stack)[inst.A] = wrapclosure(newPrototype, upvalues, alive, protolist, env)
+			(*stack)[inst.A] = wrapclosure(newPrototype, upvalues, alive, protolist, env, requireCache)
 
 			for i := range nups {
 				pseudo := code[pc-1]
@@ -2035,6 +2039,7 @@ func wrapclosure(
 	alive *bool,
 	protolist []Proto,
 	env map[any]any,
+	requireCache map[string]Rets,
 ) *Function {
 	wrapped := Function(func(co *Coroutine, passed ...any) []any {
 		maxstacksize, numparams := proto.maxstacksize, proto.numparams
@@ -2058,22 +2063,22 @@ func wrapclosure(
 		}
 
 		// TODO: dee bugg ingg
-		return execute(proto, upvals, &stack, co, varargs, alive, protolist, env)
+		return execute(proto, upvals, &stack, co, varargs, alive, protolist, env, requireCache)
 	})
 
 	return &wrapped
 }
 
-func Load(module Deserialised, filepath string, o uint8, env map[any]any) (Coroutine, func()) {
+func Load(module Deserialised, filepath string, o uint8, env map[any]any, requireCache map[string]Rets) (Coroutine, func()) {
 	protolist := module.protoList
 	alive := true
 
 	return Coroutine{
-		body:     wrapclosure(module.mainProto, []Upval{}, &alive, protolist, env),
-		yield:    make(chan Rets, 1),
-		resume:   make(chan Rets, 1),
+		body:     wrapclosure(module.mainProto, []Upval{}, &alive, protolist, env, requireCache),
 		env:      env,
 		filepath: filepath,
+		yield:    make(chan Rets, 1),
+		resume:   make(chan Rets, 1),
 		o:        o,
 	}, func() { alive = false }
 }

@@ -1,3 +1,3 @@
 print "welcome1"
 
-return {}
+return function(x: number) print("function", x) end

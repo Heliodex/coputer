@@ -1,3 +1,3 @@
 print "third"
 
-return {}
+return { file = 3, requiredFrom = "f3" }

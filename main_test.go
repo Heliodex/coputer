@@ -36,7 +36,7 @@ func litecode(t *testing.T, f string, o uint8) (string, time.Duration) {
 
 	co, _ := Load(deserialised, f, o, map[any]any{
 		"print": &luau_print,
-	})
+	}, map[string]Rets{})
 
 	startTime := time.Now()
 	co.Resume()

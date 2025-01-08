@@ -600,7 +600,5 @@ func global_require(args Args) Ret {
 		panic("error running luau-compile")
 	}
 
-	deserialised := Deserialise(bytecode)
-
-	return LoadParams{deserialised, path, o, args.co.env}
+	return LoadParams{Deserialise(bytecode), path, o, args.co.env}
 }
