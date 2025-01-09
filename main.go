@@ -60,7 +60,7 @@ func createCoroutine(body *Function) *Coroutine {
 	}
 }
 
-func (co *Coroutine) Resume(args ...any) Rets {
+func (co *Coroutine) Resume(args ...any) (r Rets) {
 	if !co.started {
 		co.started = true
 		co.status = Running
@@ -112,7 +112,7 @@ func (t *Table) Len() (len float64) {
 // classifying them, and then chooses as the size of the array part the largest power
 // of 2 such that more than half the elements of the array part are filled."
 // - Lua performance tips, Roberto Ierusalimschy
-func (t *Table) Rehash(nk any, nv any) {
+func (t *Table) Rehash(nk, nv any) {
 	if t.readonly {
 		panic("attempt to modify a readonly table")
 	}
@@ -347,17 +347,6 @@ func move(src []any, a, b, t int, dst *[]any) {
 			continue
 		}
 		(*dst)[t+i-a] = src[i]
-	}
-}
-
-// ???
-func moveTable(src []any, a, b, t int, dst *Table) {
-	if b < a {
-		return
-	}
-
-	for i, v := range src[a:min(b, len(src))] {
-		dst.Set(float64(i+t), v)
 	}
 }
 
@@ -646,19 +635,19 @@ type Stream struct {
 	pos  uint32
 }
 
-func (s *Stream) rByte() byte {
-	b := s.data[s.pos]
+func (s *Stream) rByte() (b byte) {
+	b = s.data[s.pos]
 	s.pos += 1
-	return b
+	return
 }
 
-func (s *Stream) rWord() uint32 {
-	w := uint32(s.data[s.pos]) |
+func (s *Stream) rWord() (w uint32) {
+	w = uint32(s.data[s.pos]) |
 		uint32(s.data[s.pos+1])<<8 |
 		uint32(s.data[s.pos+2])<<16 |
 		uint32(s.data[s.pos+3])<<24
 	s.pos += 4
-	return w
+	return
 }
 
 func (s *Stream) rFloat32() float32 {
@@ -852,7 +841,7 @@ func readProto(bytecodeid uint32, stringList []string, s *Stream) Proto {
 		var lastline uint32
 		for i := range intervals {
 			lastline += s.rWord()
-			abslineinfo[i] = uint32(uint64(lastline) % (uint64(math.Pow(2, 32)))) // TODO: 1-based indexing
+			abslineinfo[i] = uint32(uint64(lastline) % uint64(math.Pow(2, 32))) // TODO: 1-based indexing
 		}
 
 		instructionlineinfo = make([]uint32, sizecode)
@@ -1223,19 +1212,25 @@ func jumpEq(a, b any) bool {
 	panic(incomparableType(typeOf(a), true)) // Also deliberately restricting the ability to compare types that would always return false
 }
 
-func execute(
-	proto Proto,
-	upvals []Upval,
-	stack *[]any,
-	co *Coroutine,
-	varargs Varargs,
-	alive *bool,
-	protolist []Proto,
-	env map[any]any,
-	requireCache map[string]Rets,
-) []any {
+type ToWrap struct {
+	proto        Proto
+	upvals       []Upval
+	alive        *bool
+	protolist    []Proto
+	env          map[any]any
+	requireCache map[string]Rets
+}
+
+func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []any) {
+	proto := towrap.proto
+	upvals := towrap.upvals
+	alive := towrap.alive
+	protolist := towrap.protolist
+	env := towrap.env
+	requireCache := towrap.requireCache
+
 	protos, code := proto.protos, proto.code
-	top, pc, openUpvalues, generalisedIterators := -1, 1, new([]*Upval), map[Inst]*Iterator{}
+	top, pc, openUpvalues, generalisedIterators := -1, 1, []*Upval{}, map[Inst]*Iterator{}
 
 	var handlingBreak bool
 	var inst Inst
@@ -1312,14 +1307,14 @@ func execute(
 			}
 		case 11: // CLOSEUPVALS
 			pc += 1
-			for i, uv := range *openUpvalues {
+			for i, uv := range openUpvalues {
 				if uv == nil || uv.selfRef || uv.index < inst.A {
 					continue
 				}
 				uv.value = (*uv.store)[uv.index]
 				uv.store = nil
 				uv.selfRef = true
-				(*openUpvalues)[i] = nil
+				openUpvalues[i] = nil
 			}
 		case 12: // GETIMPORT
 			k0 := inst.K0
@@ -1368,7 +1363,7 @@ func execute(
 			index := inst.K
 			t, ok := (*stack)[inst.B].(*Table)
 			if !ok {
-				fmt.Println("indexing", typeOf((*stack)[inst.B]), "with", index)
+				// fmt.Println("indexing", typeOf((*stack)[inst.B]), "with", index)
 				panic(invalidIndex(typeOf((*stack)[inst.B]), index))
 			}
 
@@ -1379,7 +1374,7 @@ func execute(
 			index := inst.K
 			t, ok := (*stack)[inst.B].(*Table)
 			if !ok {
-				fmt.Println("indexing", typeOf((*stack)[inst.B]), "with", index)
+				// fmt.Println("indexing", typeOf((*stack)[inst.B]), "with", index)
 				panic(invalidIndex(typeOf((*stack)[inst.B]), index))
 			}
 
@@ -1403,8 +1398,8 @@ func execute(
 			t := (*stack)[inst.B].(*Table)
 			if t.readonly {
 				panic("attempt to modify a readonly table")
-			} else if i, v := inst.C+1, (*stack)[inst.A]; 1 <= i || i > int(t.asize) {
-				t.SetArray(uint(i), v)
+			} else if i, v := uint(inst.C+1), (*stack)[inst.A]; 1 <= i || i > t.asize {
+				t.SetArray(i, v)
 			} else {
 				t.SetHash(float64(i), v)
 			}
@@ -1415,7 +1410,12 @@ func execute(
 
 			nups := newPrototype.nups
 			upvalues := make([]Upval, nups)
-			(*stack)[inst.A] = wrapclosure(newPrototype, upvalues, alive, protolist, env, requireCache)
+
+			// wrap is reused for closures
+			towrap.proto = newPrototype
+			towrap.upvals = upvalues
+
+			(*stack)[inst.A] = wrapclosure(towrap)
 
 			// fmt.Println("nups", nups)
 			for i := range nups {
@@ -1433,8 +1433,8 @@ func execute(
 					// fmt.Println("index", index, len(*open_upvalues))
 
 					var prev *Upval
-					if index < len(*openUpvalues) {
-						prev = (*openUpvalues)[index]
+					if index < len(openUpvalues) {
+						prev = openUpvalues[index]
 					}
 
 					if prev == nil {
@@ -1443,10 +1443,10 @@ func execute(
 							index: index,
 						}
 
-						for len(*openUpvalues) <= index {
-							*openUpvalues = append(*openUpvalues, nil)
+						for len(openUpvalues) <= index {
+							openUpvalues = append(openUpvalues, nil)
 						}
-						(*openUpvalues)[index] = prev
+						openUpvalues[index] = prev
 					}
 
 					upvalues[i] = *prev
@@ -1671,9 +1671,7 @@ func execute(
 			a := (*stack)[inst.B]
 			b := (*stack)[inst.C]
 
-			if !truthy(a) {
-				(*stack)[inst.A] = false
-			} else if truthy(b) {
+			if truthy(a) && truthy(b) {
 				(*stack)[inst.A] = b
 			} else {
 				(*stack)[inst.A] = false
@@ -1696,9 +1694,7 @@ func execute(
 			a := (*stack)[inst.B]
 			b := inst.K
 
-			if !truthy(a) {
-				(*stack)[inst.A] = false
-			} else if truthy(b) {
+			if truthy(a) && truthy(b) {
 				(*stack)[inst.A] = b
 			} else {
 				(*stack)[inst.A] = false
@@ -1764,9 +1760,8 @@ func execute(
 			pc += 2 // -- adjust for aux
 		case 54: // DUPTABLE
 			pc += 1
-			template := inst.K.([]uint32)
 			serialised := &Table{}
-			for _, id := range template {
+			for _, id := range inst.K.([]uint32) { // template
 				serialised.Set(proto.k[id], nil) // constants
 			}
 			(*stack)[inst.A] = serialised
@@ -1779,10 +1774,20 @@ func execute(
 			}
 
 			s := (*stack)[A].(*Table)
+			if s.readonly {
+				panic("attempt to modify a readonly table")
+			}
 
 			// one-indexed lol
-			moveTable(*stack, B, B+c, inst.aux, s)
-			(*stack)[A] = s
+			for i, v := range (*stack)[B:min(B+c, len(*stack))] {
+				ui := uint(i + inst.aux)
+				if 1 <= ui || ui > s.asize {
+					s.SetArray(ui, v)
+					continue
+				}
+				s.SetHash(float64(ui), v)
+			}
+			// (*stack)[A] = s
 
 			pc += 2 // -- adjust for aux
 		case 56: // FORNPREP
@@ -1831,7 +1836,7 @@ func execute(
 			A := inst.A
 			res := inst.K.(int)
 
-			top = int(A + 6)
+			top = A + 6
 
 			switch it := (*stack)[A].(type) {
 			case *Function:
@@ -1842,11 +1847,11 @@ func execute(
 
 				// fmt.Println(A+3, (*stack)[A+3])
 
-				if (*stack)[A+3] != nil {
+				if (*stack)[A+3] == nil {
+					pc += 2
+				} else {
 					(*stack)[A+2] = (*stack)[A+3]
 					pc += inst.D + 1
-				} else {
-					pc += 2
 				}
 			default:
 				iter := *generalisedIterators[inst]
@@ -1897,19 +1902,19 @@ func execute(
 
 			move(varargs.list, 0, b, A, stack)
 		case 64: // DUPCLOSURE
-			pc += 1
 			newPrototype := protolist[inst.K.(uint32)]
 
 			nups := newPrototype.nups
 			upvalues := make([]Upval, nups)
-			(*stack)[inst.A] = wrapclosure(newPrototype, upvalues, alive, protolist, env, requireCache)
+
+			towrap.proto = newPrototype
+			towrap.upvals = upvalues
+
+			(*stack)[inst.A] = wrapclosure(towrap)
 
 			for i := range nups {
-				pseudo := code[pc-1]
-				pc += 1
-
-				t := pseudo.A
-				if t == 0 { // value
+				switch pseudo := code[pc]; pseudo.A {
+				case 0: // value
 					upvalue := Upval{
 						value:   (*stack)[pseudo.B],
 						selfRef: true,
@@ -1917,11 +1922,14 @@ func execute(
 					upvalue.store = nil
 					upvalues[i] = upvalue
 
-					// -- references dont get handled by DUPCLOSURE
-				} else if t == 2 { // upvalue
+				// -- references dont get handled by DUPCLOSURE
+				case 2: // upvalue
 					upvalues[i] = upvals[pseudo.B]
 				}
+
+				pc += 1
 			}
+			pc += 1
 		case 65: // PREPVARARGS
 			pc += 1
 			// Handled by wrapper
@@ -2027,54 +2035,46 @@ func execute(
 		}
 	}
 
-	for i, uv := range *openUpvalues {
+	for i, uv := range openUpvalues {
 		if uv.selfRef {
 			continue
 		}
 		uv.value = (*uv.store)[uv.index]
 		uv.store = nil
 		uv.selfRef = true
-		(*openUpvalues)[i] = nil
+		openUpvalues[i] = nil
 	}
 
 	for i := range generalisedIterators {
 		generalisedIterators[i].running = false
 		delete(generalisedIterators, i)
 	}
-	return []any{}
+	return
 }
 
-func wrapclosure(
-	proto Proto,
-	upvals []Upval,
-	alive *bool,
-	protolist []Proto,
-	env map[any]any,
-	requireCache map[string]Rets,
-) *Function {
-	wrapped := Function(func(co *Coroutine, passed ...any) []any {
+func wrapclosure(towrap ToWrap) *Function {
+	proto := towrap.proto
+
+	wrapped := Function(func(co *Coroutine, args ...any) []any {
 		maxstacksize, numparams := proto.maxstacksize, proto.numparams
 
-		stack := make([]any, maxstacksize)
 		// fmt.Println("MAX STACK SIZE", maxstacksize)
-		varargs := Varargs{list: []any{}}
+		stack := make([]any, maxstacksize)
+		move(args, 0, int(numparams), 0, &stack)
 
-		move(passed, 0, int(numparams), 0, &stack)
-
-		n := uint8(len(passed))
-		if numparams < n {
-			start := int(numparams + 1)
-			l := int(n - numparams)
+		var varargs Varargs
+		if start := int(numparams); start < len(args) {
+			l := len(args) - start
 			varargs.len = l
 
 			// expand varargs list
 			varargs.list = make([]any, l)
 
-			move(passed, start-1, start+l-1, 0, &varargs.list)
+			move(args, start, start+l, 0, &varargs.list)
 		}
 
 		// TODO: dee bugg ingg
-		return execute(proto, upvals, &stack, co, varargs, alive, protolist, env, requireCache)
+		return execute(towrap, &stack, co, varargs)
 	})
 
 	return &wrapped
@@ -2084,8 +2084,17 @@ func Load(module Deserialised, filepath string, o uint8, env map[any]any, requir
 	protolist := module.protoList
 	alive := true
 
+	towrap := ToWrap{
+		module.mainProto,
+		[]Upval{},
+		&alive,
+		protolist,
+		env,
+		requireCache,
+	}
+
 	return Coroutine{
-		body:     wrapclosure(module.mainProto, []Upval{}, &alive, protolist, env, requireCache),
+		body:     wrapclosure(towrap),
 		env:      env,
 		filepath: filepath,
 		yield:    make(chan Rets, 1),

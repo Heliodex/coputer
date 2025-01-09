@@ -50,6 +50,11 @@ print(f[1])
 
 local g = { "a", "b", "c", "d", "e", [7] = "g" }
 
+print(table.find(g, "c"))
+print(table.find(g, "h"))
+print(table.find(g, "c", 3))
+print(table.find(g, "c", 4))
+
 for i = 1, 10 do
 	table.insert(g, 3, "z")
 end

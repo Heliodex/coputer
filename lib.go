@@ -30,20 +30,20 @@ type (
 	Rets []any
 )
 
-func getArg[T any](args *Args, optionalValue []T, tx ...string) T {
-	args.pos++
-	if args.pos > len(args.args) {
+func getArg[T any](a *Args, optionalValue []T, tx ...string) T {
+	a.pos++
+	if a.pos > len(a.args) {
 		if len(optionalValue) == 0 {
-			panic(invalidNumArgs(args.name, args.pos, tx...))
+			panic(invalidNumArgs(a.name, a.pos, tx...))
 		}
 		return optionalValue[0]
 	}
 
-	possibleArg := args.args[args.pos-1]
+	possibleArg := a.args[a.pos-1]
 
 	arg, ok := possibleArg.(T)
 	if !ok {
-		panic(invalidArgType(args.pos, args.name, typeOf(arg), typeOf(possibleArg)))
+		panic(invalidArgType(a.pos, a.name, typeOf(arg), typeOf(possibleArg)))
 	}
 	return arg
 }

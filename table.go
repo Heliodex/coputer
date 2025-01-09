@@ -95,12 +95,12 @@ func table_find(args Args) Ret {
 	}
 
 	arr := *haystack.array
-	for i := uint(init); ; i++ {
+	for i := uint(init - 1); ; i++ {
 		v := arr[i]
 		if v == nil {
 			return nil
 		} else if v == needle {
-			return i
+			return float64(i + 1)
 		}
 	}
 }
@@ -256,17 +256,6 @@ func table_remove(args Args) (r Ret) {
 	return
 }
 
-func genericomp(a, b any) bool {
-	ta, tb := typeOf(a), typeOf(b)
-	if ta == "float64" && tb == "float64" {
-		return a.(float64) < b.(float64)
-	} else if ta == "string" && tb == "string" {
-		return a.(string) < b.(string)
-	}
-
-	panic(invalidCompare("<", ta, tb))
-}
-
 // ltablib.cpp
 type Comp func(a, b any) bool
 
@@ -419,7 +408,7 @@ func table_sort(args Args) {
 
 	var comp Comp
 	if len(args.args) == 1 {
-		comp = genericomp
+		comp = jumpLt
 	} else {
 		fn := args.GetFunction()
 		comp = func(a, b any) bool {
