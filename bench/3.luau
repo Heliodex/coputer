@@ -1,7 +1,7 @@
 local number = 600851475143
 
 local function isPrime(n: number)
-	for i = 2, n do
+	for i = 2, math.sqrt(n) do
 		if n % i == 0 then return false end
 	end
 	return n ~= 1

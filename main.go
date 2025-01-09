@@ -1158,7 +1158,7 @@ func jumpLe(a, b any) bool {
 	}
 
 	sa, ok1 := a.(string)
-	sb, ok2 := a.(string)
+	sb, ok2 := b.(string)
 	if ok1 && ok2 {
 		return sa <= sb
 	}
@@ -1174,7 +1174,7 @@ func jumpLt(a, b any) bool {
 	}
 
 	sa, ok1 := a.(string)
-	sb, ok2 := a.(string)
+	sb, ok2 := b.(string)
 	if ok1 && ok2 {
 		return sa < sb
 	}
@@ -1190,7 +1190,7 @@ func jumpGt(a, b any) bool {
 	}
 
 	sa, ok1 := a.(string)
-	sb, ok2 := a.(string)
+	sb, ok2 := b.(string)
 	if ok1 && ok2 {
 		return sa > sb
 	}
@@ -1206,7 +1206,7 @@ func jumpGe(a, b any) bool {
 	}
 
 	sa, ok1 := a.(string)
-	sb, ok2 := a.(string)
+	sb, ok2 := b.(string)
 	if ok1 && ok2 {
 		return sa >= sb
 	}
@@ -1988,25 +1988,36 @@ func execute(
 
 			generalisedIterators[loopInstruction] = c
 		case 77: // JUMPXEQKNIL
-			if ((*stack)[inst.A] == nil) != inst.KN {
+			ra := (*stack)[inst.A]
+
+			if ra == nil != inst.KN {
 				pc += inst.D + 1
 			} else {
 				pc += 2
 			}
 		case 78: //  JUMPXEQKB
 			kv := inst.K.(bool)
-			ra, ok := (*stack)[inst.A].(bool)
+			ra := (*stack)[inst.A].(bool)
 
-			if ok && (ra == kv) != inst.KN {
+			if ra == kv != inst.KN {
 				pc += inst.D + 1
 			} else {
 				pc += 2
 			}
-		case 79, 80: // JUMPXEQKN, JUMPXEQKS
+		case 79: // JUMPXEQKN
 			kv := inst.K.(float64)
 			ra := (*stack)[inst.A].(float64)
 
-			if (ra == kv) != inst.KN {
+			if ra == kv != inst.KN {
+				pc += inst.D + 1
+			} else {
+				pc += 2
+			}
+		case 80: // JUMPXEQKS
+			kv := inst.K.(string)
+			ra := (*stack)[inst.A].(string)
+
+			if ra == kv != inst.KN {
 				pc += inst.D + 1
 			} else {
 				pc += 2

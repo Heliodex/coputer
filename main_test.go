@@ -62,7 +62,7 @@ func TestConformance(t *testing.T) {
 		return
 	}
 
-	// onlyTest := "require.luau"
+	// onlyTest := "qsort.luau"
 
 	for _, f := range files {
 		if f.IsDir() {
