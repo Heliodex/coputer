@@ -22,7 +22,6 @@ func utf8_posrelat(pos, len int) int {
 }
 
 func utf8_char(args Args) Ret {
-	// panic("not implemented")
 	b := strings.Builder{}
 
 	for range args.args {
@@ -57,7 +56,6 @@ func iter_aux(args Args) (cps Rets) {
 }
 
 func utf8_codes(args Args) Rets {
-	// panic("not implemented")
 	str := args.GetString()
 
 	fn := MakeFn("codes", iter_aux)[1]
@@ -67,7 +65,6 @@ func utf8_codes(args Args) Rets {
 const INT_MAX = int(^uint(0) >> 1)
 
 func utf8_codepoint(args Args) (cps Rets) {
-	// panic("not implemented")
 	s := args.GetString()
 	i := args.GetNumber(1)
 	j := args.GetNumber(i)

@@ -108,35 +108,41 @@ func bit32_countrz(args Args) Ret {
 ** get field and width arguments for field-manipulation functions,
 ** checking whether they are valid.
  */
-func fieldargs(args Args) (int, int) {
-	f := int(args.GetNumber())
-	w := int(args.GetNumber(1))
+func fieldargs(args Args) (f, w int, msg string, ok bool) {
+	f = int(args.GetNumber())
+	w = int(args.GetNumber(1))
 
 	if f < 0 {
-		panic("field cannot be negative")
+		return 0, 0, "field cannot be negative", false
 	} else if w < 1 {
-		panic("width must be positive")
+		return 0, 0, "width must be positive", false
 	} else if f+w > NBITS {
-		panic("trying to access non-existent bits")
+		return 0, 0, "trying to access non-existent bits", false
 	}
-	return f, w
+	return f, w, "", true
 }
 
-func bit32_extract(args Args) Ret {
+func bit32_extract(args Args) Rets {
 	r := uint32(args.GetNumber())
 
-	f, w := fieldargs(args)
-	return float64((r >> f) & mask(w))
+	f, w, msg, ok := fieldargs(args)
+	if !ok {
+		return Rets{msg, false}
+	}
+	return Rets{float64((r >> f) & mask(w)), true}
 }
 
-func bit32_replace(args Args) Ret {
+func bit32_replace(args Args) Rets {
 	r := uint32(args.GetNumber())
 	v := uint32(args.GetNumber())
 
-	f, w := fieldargs(args)
+	f, w, msg, ok := fieldargs(args)
+	if !ok {
+		return Rets{msg, false}
+	}
 	m := mask(w)
 	v &= m // erase bits outside given width
-	return float64((r & ^(m << f)) | (v << f))
+	return Rets{float64((r & ^(m << f)) | (v << f)), true}
 }
 
 func bit32_lrotate(args Args) Ret {
@@ -177,11 +183,10 @@ var libbit32 = NewTable([][2]any{
 	MakeFn1("byteswap", bit32_byteswap),
 	MakeFn1("countlz", bit32_countlz),
 	MakeFn1("countrz", bit32_countrz),
-	MakeFn1("extract", bit32_extract),
-	MakeFn1("replace", bit32_replace),
+	MakeFn("extract", bit32_extract),
 	MakeFn1("lrotate", bit32_lrotate),
 	MakeFn1("lshift", bit32_lshift),
-	MakeFn1("replace", bit32_replace),
+	MakeFn("replace", bit32_replace),
 	MakeFn1("rrotate", bit32_rrotate),
 	MakeFn1("rshift", bit32_rshift),
 })

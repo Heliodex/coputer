@@ -60,14 +60,18 @@ local tests3 = {
 	-60.5,
 }
 
+local function p(s)
+	print(s) -- prevents return of more than one value
+end
+
 for _, test in tests3 do
 	for _, func in funcs3 do
-		print(func(test))
+		p(func(test))
 	end
-	print(bit32.extract(test, 4))
-	print(bit32.extract(test, 4, 4))
-	print(bit32.extract(test, 4, 8))
-	print(bit32.extract(test, 0, 8))
+	p(bit32.extract(test, 4))
+	p(bit32.extract(test, 4, 4))
+	p(bit32.extract(test, 4, 8))
+	p(bit32.extract(test, 0, 8))
 	for _, test2 in tests3 do
 		bit32.replace(test, test2, 4)
 		bit32.replace(test, test2, 4, 4)

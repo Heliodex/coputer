@@ -103,111 +103,140 @@ func writeValues[V num](args *Args) (b Buffer, offset int, value V) {
 	return
 }
 
-func checkValues(l, offset, size int) {
-	if offset+size > l || offset < 0 {
-		panic("buffer access out of bounds")
-	}
-}
-
-func buffer_writei8(args Args) {
+func buffer_writei8(args Args) Rets {
 	b, offset, value := writeValues[int8](&args)
-	checkValues(len(b), offset, 1)
+	if offset+1 > len(b) || offset < 0 {
+		return Rets{"buffer access out of bounds", false}
+	}
 
 	b[offset] = byte(value)
+	return Rets{nil, true}
 }
 
-func buffer_writeu8(args Args) {
+func buffer_writeu8(args Args) Rets {
 	b, offset, value := writeValues[uint8](&args)
-	checkValues(len(b), offset, 1)
+	if offset+1 > len(b) || offset < 0 {
+		return Rets{"buffer access out of bounds", false}
+	}
 
 	b[offset] = byte(value)
+	return Rets{nil, true}
 }
 
-func buffer_writei16(args Args) {
+func buffer_writei16(args Args) Rets {
 	b, offset, value := writeValues[int16](&args)
-	checkValues(len(b), offset, 2)
+	if offset+2 > len(b) || offset < 0 {
+		return Rets{"buffer access out of bounds", false}
+	}
 
 	b2 := b[offset : offset+2]
 	binary.LittleEndian.PutUint16(b2, uint16(value))
+	return Rets{nil, true}
 }
 
-func buffer_writeu16(args Args) {
+func buffer_writeu16(args Args) Rets {
 	b, offset, value := writeValues[uint16](&args)
-	checkValues(len(b), offset, 2)
+	if offset+2 > len(b) || offset < 0 {
+		return Rets{"buffer access out of bounds", false}
+	}
 
 	b2 := b[offset : offset+2]
 	binary.LittleEndian.PutUint16(b2, value)
+	return Rets{nil, true}
 }
 
-func buffer_writei32(args Args) {
+func buffer_writei32(args Args) Rets {
 	b, offset, value := writeValues[int32](&args)
-	checkValues(len(b), offset, 4)
+	if offset+4 > len(b) || offset < 0 {
+		return Rets{"buffer access out of bounds", false}
+	}
 
 	b4 := b[offset : offset+4]
 	binary.LittleEndian.PutUint32(b4, uint32(value))
+	return Rets{nil, true}
 }
 
-func buffer_writeu32(args Args) {
+func buffer_writeu32(args Args) Rets {
 	b, offset, value := writeValues[uint32](&args)
-	checkValues(len(b), offset, 4)
+	if offset+4 > len(b) || offset < 0 {
+		return Rets{"buffer access out of bounds", false}
+	}
 
 	b4 := b[offset : offset+4]
 	binary.LittleEndian.PutUint32(b4, value)
+	return Rets{nil, true}
 }
 
-func buffer_writef32(args Args) {
+func buffer_writef32(args Args) Rets {
 	b, offset, value := writeValues[float32](&args)
-	checkValues(len(b), offset, 4)
+	if offset+4 > len(b) || offset < 0 {
+		return Rets{"buffer access out of bounds", false}
+	}
 
 	b4 := b[offset : offset+4]
 	binary.LittleEndian.PutUint32(b4, math.Float32bits(value))
+	return Rets{nil, true}
 }
 
-func buffer_writef64(args Args) {
+func buffer_writef64(args Args) Rets {
 	b, offset, value := writeValues[float64](&args)
-	checkValues(len(b), offset, 8)
+	if offset+8 > len(b) || offset < 0 {
+		return Rets{"buffer access out of bounds", false}
+	}
 
 	b8 := b[offset : offset+8]
 	binary.LittleEndian.PutUint64(b8, math.Float64bits(value))
+	return Rets{nil, true}
 }
 
-func buffer_readstring(args Args) Ret {
+func buffer_readstring(args Args) Rets {
 	b, offset := readValues(&args)
 	count := int(args.GetNumber())
-	checkValues(len(b), offset, count)
+	if offset+count > len(b) || offset < 0 {
+		return Rets{"buffer access out of bounds", false}
+	}
 
 	bl := b[offset : offset+count]
-	return string(bl)
+	return Rets{string(bl), true}
 }
 
-func buffer_writestring(args Args) {
+func buffer_writestring(args Args) Rets {
 	b, offset := readValues(&args)
 	value := args.GetString()
 	count := int(args.GetNumber(float64(len(value))))
-	checkValues(len(b), offset, count)
+	if offset+count > len(b) || offset < 0 {
+		return Rets{"buffer access out of bounds", false}
+	}
 
 	copy(b[offset:offset+count], value)
+	return Rets{nil, true}
 }
 
-func buffer_copy(args Args) {
+func buffer_copy(args Args) Rets {
 	target, targetOffset := readValues(&args)
 	source := *args.GetBuffer()
 	sourceOffset := int(args.GetNumber(0))
 	count := int(args.GetNumber(float64(len(source))))
-	checkValues(len(source), sourceOffset, count)
-	checkValues(len(target), targetOffset, count)
+	if sourceOffset+count > len(source) || sourceOffset < 0 ||
+		targetOffset+count > len(target) || targetOffset < 0 {
+		return Rets{"buffer access out of bounds", false}
+	}
 
 	copy(target[targetOffset:targetOffset+count], source[sourceOffset:sourceOffset+count])
+	return Rets{nil, true}
 }
 
-func buffer_fill(args Args) {
+func buffer_fill(args Args) Rets {
 	b, offset, value := writeValues[byte](&args)
 	count := int(args.GetNumber(float64(len(b))))
-	checkValues(len(b), offset, count)
+	if offset+count > len(b) || offset < 0 {
+		return Rets{"buffer access out of bounds", false}
+	}
 
 	for i := range count {
 		b[offset+i] = value
 	}
+	return Rets{nil, true}
 }
 
 var libbuffer = NewTable([][2]any{
@@ -223,16 +252,16 @@ var libbuffer = NewTable([][2]any{
 	MakeFn1("readu32", buffer_readu32),
 	MakeFn1("readf32", buffer_readf32),
 	MakeFn1("readf64", buffer_readf64),
-	MakeFn0("writei8", buffer_writei8),
-	MakeFn0("writeu8", buffer_writeu8),
-	MakeFn0("writei16", buffer_writei16),
-	MakeFn0("writeu16", buffer_writeu16),
-	MakeFn0("writei32", buffer_writei32),
-	MakeFn0("writeu32", buffer_writeu32),
-	MakeFn0("writef32", buffer_writef32),
-	MakeFn0("writef64", buffer_writef64),
-	MakeFn1("readstring", buffer_readstring),
-	MakeFn0("writestring", buffer_writestring),
-	MakeFn0("copy", buffer_copy),
-	MakeFn0("fill", buffer_fill),
+	MakeFn("writei8", buffer_writei8),
+	MakeFn("writeu8", buffer_writeu8),
+	MakeFn("writei16", buffer_writei16),
+	MakeFn("writeu16", buffer_writeu16),
+	MakeFn("writei32", buffer_writei32),
+	MakeFn("writeu32", buffer_writeu32),
+	MakeFn("writef32", buffer_writef32),
+	MakeFn("writef64", buffer_writef64),
+	MakeFn("readstring", buffer_readstring),
+	MakeFn("writestring", buffer_writestring),
+	MakeFn("copy", buffer_copy),
+	MakeFn("fill", buffer_fill),
 })

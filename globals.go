@@ -93,10 +93,9 @@ func global_tonumber(args Args) Ret {
 	radix := uint64(args.GetNumber(10))
 
 	str, ok := value.(string)
-	if !ok {
+	if !ok || radix < 2 || radix > 36 {
 		return nil
-	} else if radix < 2 || radix > 36 {
-		panic("base out of range") // invalid argument #2
+		// panic("base out of range") // invalid argument #2
 	}
 
 	if radix == 10 {
