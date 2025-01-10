@@ -1,0 +1,1 @@
+attempt to perform arithmetic (div) on string and vector

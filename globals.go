@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"iter"
 	"math"
@@ -14,15 +15,14 @@ import (
 
 /* -- fantastic globals and whether to implement them --
 
-loadstring: meh, security and better api should be used
-newproxy: meh, not much use without metatables
-rawequal: meh, not much use without metatables
-rawget: meh, not much use without metatables
-rawlen: meh, not much use without metatables
-rawset: meh, not much use without metatables
-- require: yes, but may be difficult
-select: meh, this function's kinda stupid
-typeof: meh, not much use without metatables
+loadstring: security and better api should be used
+newproxy: not much use without metatables
+rawequal: not much use without metatables
+rawget: not much use without metatables
+rawlen: not much use without metatables
+rawset: not much use without metatables
+select: this function's kinda stupid
+typeof: not much use without metatables
 */
 
 func ipairs_iter(args Args) Rets {
@@ -571,15 +571,15 @@ type LoadParams struct {
 	env          map[any]any
 }
 
-func global_require(args Args) Ret {
+func global_require(args Args) (Ret, error) {
 	name := args.GetString()
 	if isAbsolutePath(name) {
-		panic(invalidArg(1, "require", "cannot require an absolute path"))
+		return nil, invalidArg(1, "require", "cannot require an absolute path")
 	}
 
 	name = strings.ReplaceAll(name, "\\", "/")
 	if !hasValidPrefix(name) {
-		panic(invalidArg(1, "require", "require path must start with a valid prefix: ./ or ../"))
+		return nil, invalidArg(1, "require", "require path must start with a valid prefix: ./ or ../")
 	}
 
 	// this is where we take it to the top babbyyyyy
@@ -596,8 +596,8 @@ func global_require(args Args) Ret {
 	cmd := exec.Command("luau-compile", "--binary", fmt.Sprintf("-O%d", o), path)
 	bytecode, err := cmd.Output()
 	if err != nil {
-		panic("error running luau-compile")
+		return nil, errors.New("error running luau-compile")
 	}
 
-	return LoadParams{Deserialise(bytecode), path, o, args.co.env}
+	return LoadParams{Deserialise(bytecode), path, o, args.co.env}, nil
 }

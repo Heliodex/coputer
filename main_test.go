@@ -21,7 +21,7 @@ func litecode(t *testing.T, f string, o uint8) (string, time.Duration) {
 	deserialised := Deserialise(bytecode)
 
 	b := strings.Builder{}
-	luau_print := Fn(func(co *Coroutine, args ...any) (r Rets) {
+	luau_print := Fn(func(co *Coroutine, args ...any) (r Rets, err error) {
 		// b.WriteString(fmt.Sprint(args...))
 		for i, arg := range args {
 			b.WriteString(tostring(arg))
@@ -43,6 +43,39 @@ func litecode(t *testing.T, f string, o uint8) (string, time.Duration) {
 	endTime := time.Now()
 
 	return b.String(), endTime.Sub(startTime)
+}
+
+func litecodeE(t *testing.T, f string, o uint8) (string, error) {
+	cmd := exec.Command("luau-compile", "--binary", fmt.Sprintf("-O%d", o), f)
+	bytecode, err := cmd.Output()
+	if err != nil {
+		t.Error("error running luau-compile:", err, cmd.Args)
+		return "", err
+	}
+
+	deserialised := Deserialise(bytecode)
+
+	b := strings.Builder{}
+	luau_print := Fn(func(co *Coroutine, args ...any) (r Rets, err error) {
+		// b.WriteString(fmt.Sprint(args...))
+		for i, arg := range args {
+			b.WriteString(tostring(arg))
+
+			if i < len(args)-1 {
+				b.WriteString("\t")
+			}
+		}
+		b.WriteString("\r\n") // yeah
+		return
+	})
+
+	co, _ := Load(deserialised, f, o, map[any]any{
+		"print": luau_print,
+	}, map[string]Rets{})
+
+	_, err = co.Resume()
+
+	return b.String(), err
 }
 
 func luau(f string) (string, error) {
@@ -107,6 +140,70 @@ func TestConformance(t *testing.T) {
 		}
 
 		fmt.Println(og)
+	}
+
+	fmt.Println("-- Done! --")
+	fmt.Println()
+}
+
+func errorsEqual(e0, e1, e2 error) bool {
+	return e0.Error() == e1.Error() && e1.Error() == e2.Error()
+}
+
+func TestErrors(t *testing.T) {
+	files, err := os.ReadDir("error")
+	if err != nil {
+		t.Error("error reading error directory:", err)
+		return
+	}
+
+	has := map[string]bool{} // actually warranted to use one of these here
+
+	for _, f := range files {
+		name := f.Name()
+
+		if strings.HasSuffix(name, ".luau") {
+			has[strings.TrimSuffix(name, ".luau")] = false
+		} else if strings.HasSuffix(name, ".txt") {
+			has[strings.TrimSuffix(name, ".txt")] = true
+		}
+	}
+
+	for name, hasOutput := range has {
+		if !hasOutput {
+			fmt.Println("missing output for", name)
+			continue
+		}
+	}
+
+	for name := range has {
+		fmt.Println(" -- Testing", name, "--")
+		filename := fmt.Sprintf("error/%s.luau", name)
+
+		_, err0 := litecodeE(t, filename, 0)
+		_, err1 := litecodeE(t, filename, 1)
+		_, err2 := litecodeE(t, filename, 2)
+
+		if err0 == nil || err1 == nil || err2 == nil {
+			t.Error("expected error, got nil")
+			return
+		} else if !errorsEqual(err0, err1, err2) {
+			t.Error("errors not equal for o1, o2, o3")
+			return
+		}
+		
+		errorname := fmt.Sprintf("error/%s.txt", name)
+		og, err := os.ReadFile(errorname)
+		if err != nil {
+			t.Error("error reading error file (meta lol):", err)
+			return
+		}
+
+		fmt.Println(err0)
+		if err0.Error() != string(og) {
+			t.Errorf("error mismatch:\n-- Expected\n%s\n-- Got\n%s", og, err0)
+			return
+		}
 	}
 
 	fmt.Println("-- Done! --")

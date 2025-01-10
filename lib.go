@@ -1,21 +1,24 @@
 package main
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
-func invalidNumArgs(fn string, nx int, tx ...string) (res string) {
-	res += fmt.Sprintf("missing argument #%d to '%s'", nx, fn)
+func invalidNumArgs(fn string, nx int, tx ...string) error {
+	res := fmt.Sprintf("missing argument #%d to '%s'", nx, fn)
 	if len(tx) > 0 {
 		res += fmt.Sprintf(" (%s expected)", tx[0])
 	}
-	return
+	return errors.New(res)
 }
 
-func invalidArgType(i int, fn string, tx, tg string) string {
-	return fmt.Sprintf("invalid argument #%d to '%s' (%s expected, got %s)", i, fn, luautype[tx], luautype[tg])
+func invalidArgType(i int, fn string, tx, tg string) error {
+	return fmt.Errorf("invalid argument #%d to '%s' (%s expected, got %s)", i, fn, luautype[tx], luautype[tg])
 }
 
-func invalidArg(i int, fn, msg string) string {
-	return fmt.Sprintf("invalid argument #%d to '%s' (%s)", i, fn, msg)
+func invalidArg(i int, fn, msg string) error {
+	return fmt.Errorf("invalid argument #%d to '%s' (%s)", i, fn, msg)
 }
 
 type Args struct {
@@ -100,20 +103,44 @@ func (a *Args) GetAny(optionalValue ...any) (arg any) {
 
 // Reflection don't scale
 func MakeFn(name string, fn func(args Args) Rets) [2]any {
-	return [2]any{name, Fn(func(co *Coroutine, vargs ...any) Rets {
-		return fn(Args{vargs, name, co, 0})
+	return [2]any{name, Fn(func(co *Coroutine, vargs ...any) (Rets, error) {
+		return fn(Args{vargs, name, co, 0}), nil
 	})}
 }
 
 func MakeFn1(name string, fn func(args Args) Ret) [2]any {
-	return [2]any{name, Fn(func(co *Coroutine, vargs ...any) Rets {
-		return Rets{fn(Args{vargs, name, co, 0})}
+	return [2]any{name, Fn(func(co *Coroutine, vargs ...any) (Rets, error) {
+		return Rets{fn(Args{vargs, name, co, 0})}, nil
 	})}
 }
 
 func MakeFn0(name string, fn func(args Args)) [2]any {
-	return [2]any{name, Fn(func(co *Coroutine, vargs ...any) Rets {
+	return [2]any{name, Fn(func(co *Coroutine, vargs ...any) (Rets, error) {
 		fn(Args{vargs, name, co, 0})
-		return Rets{}
+		return Rets{}, nil
+	})}
+}
+
+// ...and neither do panics
+func MakeFnE(name string, fn func(args Args) (Rets, error)) [2]any {
+	return [2]any{name, Fn(func(co *Coroutine, vargs ...any) (Rets, error) {
+		return fn(Args{vargs, name, co, 0})
+	})}
+}
+
+func MakeFn1E(name string, fn func(args Args) (Ret, error)) [2]any {
+	return [2]any{name, Fn(func(co *Coroutine, vargs ...any) (Rets, error) {
+		r, err := fn(Args{vargs, name, co, 0})
+		if err != nil {
+			return nil, err
+		}
+		return Rets{r}, nil
+	})}
+}
+
+func MakeFn0E(name string, fn func(args Args) error) [2]any {
+	return [2]any{name, Fn(func(co *Coroutine, vargs ...any) (Rets, error) {
+		err := fn(Args{vargs, name, co, 0})
+		return nil, err
 	})}
 }

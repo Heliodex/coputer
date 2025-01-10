@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"strings"
 	"unicode/utf8"
 
@@ -31,7 +32,7 @@ func utf8_char(args Args) Ret {
 	return b.String()
 }
 
-func iter_aux(args Args) (cps Rets) {
+func iter_aux(args Args) (cps Rets, err error) {
 	s := args.GetString()
 	n := args.GetNumber() - 1
 
@@ -50,21 +51,21 @@ func iter_aux(args Args) (cps Rets) {
 
 	r, _ := utf8.DecodeRuneInString(s[uint(n):]) // thx go stdlib
 	if r == utf8.RuneError {
-		panic("invalid UTF-8 code")
+		return nil, errors.New("invalid UTF-8 code")
 	}
-	return Rets{float64(n + 1), float64(r)}
+	return Rets{float64(n + 1), float64(r)}, nil
 }
 
 func utf8_codes(args Args) Rets {
 	str := args.GetString()
 
-	fn := MakeFn("codes", iter_aux)[1]
+	fn := MakeFnE("codes", iter_aux)[1]
 	return Rets{fn, str, float64(0)}
 }
 
 const INT_MAX = int(^uint(0) >> 1)
 
-func utf8_codepoint(args Args) (cps Rets) {
+func utf8_codepoint(args Args) (cps Rets, err error) {
 	s := args.GetString()
 	i := args.GetNumber(1)
 	j := args.GetNumber(i)
@@ -76,7 +77,7 @@ func utf8_codepoint(args Args) (cps Rets) {
 	if posi > pose {
 		return // empty interval; return no values
 	} else if pose-posi >= INT_MAX { // (int -> int) overflow?
-		panic("string slice too long")
+		return nil, errors.New("string slice too long")
 	}
 	// n := pose - posi + 1
 	// luaL_checkstack(L, n, "string slice too long");
@@ -87,7 +88,7 @@ func utf8_codepoint(args Args) (cps Rets) {
 	for si < pose {
 		s, size := utf8.DecodeRuneInString(s[si:])
 		if s == utf8.RuneError {
-			panic("invalid UTF-8 code")
+			return nil, errors.New("invalid UTF-8 code")
 		}
 		si += size
 		cps = append(cps, float64(s))
@@ -110,7 +111,7 @@ func utf8_len(args Args) Rets {
 	return Rets{float64(n)}
 }
 
-func utf8_offset(args Args) (o Ret) {
+func utf8_offset(args Args) (o Ret, err error) {
 	s := args.GetString()
 	n := args.GetNumber()
 	var posi int
@@ -127,9 +128,9 @@ func utf8_offset(args Args) (o Ret) {
 		for posi > 0 && iscont(s[posi]) {
 			posi--
 		}
-		return float64(posi + 1)
+		return float64(posi + 1), nil
 	} else if iscont(s[posi]) {
-		panic("initial position is a continuation byte")
+		return nil, errors.New("initial position is a continuation byte")
 	} else if n < 0 {
 		for n < 0 && posi > 0 { // move back
 			posi--
@@ -152,7 +153,7 @@ func utf8_offset(args Args) (o Ret) {
 	}
 
 	if n == 0 { // did it find a given character?
-		return float64(posi + 1)
+		return float64(posi + 1), nil
 	}
 	// no such character
 	return
@@ -177,9 +178,9 @@ func utf8_nfdnormalize(args Args) Ret {
 var libutf8 = NewTable([][2]any{
 	MakeFn1("char", utf8_char),
 	MakeFn("codes", utf8_codes),
-	MakeFn("codepoint", utf8_codepoint),
+	MakeFnE("codepoint", utf8_codepoint),
 	MakeFn("len", utf8_len),
-	MakeFn1("offset", utf8_offset),
+	MakeFn1E("offset", utf8_offset),
 	// MakeFn1("graphemes", utf8_graphemes), // we can't actually test this, mainly due to the fact it... doesn't exist in the reference implementation..?
 	MakeFn1("nfcnormalize", utf8_nfcnormalize), // these are also untestable but they're so trivial here
 	MakeFn1("nfdnormalize", utf8_nfdnormalize),

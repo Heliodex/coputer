@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -39,7 +40,7 @@ func string_byte(args Args) (bytes Rets) {
 	return
 }
 
-func string_char(args Args) Ret {
+func string_char(args Args) (Ret, error) {
 	l := len(args.args)
 
 	bytes := make([]byte, l)
@@ -47,13 +48,13 @@ func string_char(args Args) Ret {
 		a := args.GetNumber()
 		ba := byte(a)
 		if float64(ba) != a {
-			panic(fmt.Sprintf("invalid argument #%d to 'char' (invalid value)", i+1))
+			return nil, fmt.Errorf("invalid argument #%d to 'char' (invalid value)", i+1)
 		}
 
 		bytes[i] = ba
 	}
 
-	return string(bytes)
+	return string(bytes), nil
 }
 
 func string_find(args Args) Rets {
@@ -106,13 +107,13 @@ func addquoted(args *Args, b *strings.Builder) {
 	b.WriteByte('"')
 }
 
-func scanformat(strfrmt string) (byte, string, int) {
+func scanformat(strfrmt string) (byte, string, int, error) {
 	var p int
 	for strings.ContainsRune(FLAGS, rune(strfrmt[p])) {
 		p++ // skip flags
 	}
 	if p > len(FLAGS) {
-		panic("invalid format (repeated flags)")
+		return 0, "", 0, fmt.Errorf("invalid format (repeated flags)")
 	}
 	if isdigit(strfrmt[p]) {
 		p++ // skip width
@@ -130,10 +131,10 @@ func scanformat(strfrmt string) (byte, string, int) {
 		}
 	}
 	if isdigit(strfrmt[p]) {
-		panic("invalid format (width or precision too long)")
+		return 0, "", 0, fmt.Errorf("invalid format (width or precision too long)")
 	}
 
-	return strfrmt[p], strfrmt[:p], p
+	return strfrmt[p], strfrmt[:p], p, nil
 }
 
 func format(form string, formatIndicator byte, sub any) string {
@@ -141,7 +142,7 @@ func format(form string, formatIndicator byte, sub any) string {
 	return fmt.Sprintf(f, sub)
 }
 
-func fmtstring(strfrmt string, args Args) string {
+func fmtstring(strfrmt string, args Args) (string, error) {
 	b := strings.Builder{}
 
 	for i, sfl := 0, len(strfrmt); i < sfl; {
@@ -162,7 +163,10 @@ func fmtstring(strfrmt string, args Args) string {
 
 		// format item
 		args.CheckNextArg()
-		formatIndicator, form, p := scanformat(strfrmt[i:])
+		formatIndicator, form, p, err := scanformat(strfrmt[i:])
+		if err != nil {
+			return "", err
+		}
 		i += p + 1
 
 		switch formatIndicator {
@@ -206,28 +210,32 @@ func fmtstring(strfrmt string, args Args) string {
 			b.WriteString(format(form, 's', s))
 		case '*':
 			//  %* is parsed above, so if we got here we must have a %...*
-			panic("%* does not take a form")
+			return "", errors.New("%* does not take a form")
 		default: // also treat cases `pnLlh'
-			panic(fmt.Sprintf("invalid option '%%%c' to 'format'", formatIndicator))
+			return "", fmt.Errorf("invalid option '%%%c' to 'format'", formatIndicator)
 		}
 	}
 
-	return b.String()
+	return b.String(), nil
 }
 
-func string_format(args Args) Ret {
+func string_format(args Args) (Ret, error) {
 	strfrmt := args.GetString()
 
-	return fmtstring(strfrmt, args)
+	r, err := fmtstring(strfrmt, args)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
 }
 
-func string_gmatch(args Args) Ret {
-	panic("not implemented")
-}
+// func string_gmatch(args Args) Ret {
+// 	panic("not implemented")
+// }
 
-func string_gsub(args Args) Rets {
-	panic("not implemented")
-}
+// func string_gsub(args Args) Rets {
+// 	panic("not implemented")
+// }
 
 func string_len(args Args) Ret {
 	s := args.GetString()
@@ -241,9 +249,9 @@ func string_lower(args Args) Ret {
 	return strings.ToLower(s)
 }
 
-func string_match(args Args) Ret {
-	panic("not implemented")
-}
+// func string_match(args Args) Ret {
+// 	panic("not implemented")
+// }
 
 func string_rep(args Args) Ret {
 	s := args.GetString()
@@ -302,14 +310,14 @@ func string_upper(args Args) Ret {
 
 var libstring = NewTable([][2]any{
 	MakeFn("byte", string_byte),
-	MakeFn1("char", string_char),
+	MakeFn1E("char", string_char),
 	MakeFn("find", string_find),
-	MakeFn1("format", string_format),
-	MakeFn1("gmatch", string_gmatch),
-	MakeFn("gsub", string_gsub),
+	MakeFn1E("format", string_format),
+	// MakeFn1("gmatch", string_gmatch),
+	// MakeFn("gsub", string_gsub),
 	MakeFn1("len", string_len),
 	MakeFn1("lower", string_lower),
-	MakeFn1("match", string_match),
+	// MakeFn1("match", string_match),
 	// buffer should be used instead of pack/packsize
 	MakeFn1("rep", string_rep),
 	MakeFn1("reverse", string_reverse),
