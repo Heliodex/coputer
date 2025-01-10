@@ -142,7 +142,7 @@ func format(form string, formatIndicator byte, sub any) string {
 	return fmt.Sprintf(f, sub)
 }
 
-func fmtstring(strfrmt string, args Args) (string, error) {
+func fmtstring(strfrmt string, args *Args) (string, error) {
 	b := strings.Builder{}
 
 	for i, sfl := 0, len(strfrmt); i < sfl; {
@@ -162,7 +162,7 @@ func fmtstring(strfrmt string, args Args) (string, error) {
 		}
 
 		// format item
-		args.CheckNextArg()
+		args.CheckNextArg(false)
 		formatIndicator, form, p, err := scanformat(strfrmt[i:])
 		if err != nil {
 			return "", err
@@ -197,7 +197,7 @@ func fmtstring(strfrmt string, args Args) (string, error) {
 			format := fmt.Sprintf("%%%s%c", form, formatIndicator)
 			b.WriteString(fmt.Sprintf(format, n))
 		case 'q':
-			addquoted(&args, &b)
+			addquoted(args, &b)
 			continue // skip adding the string at the end
 		case 's':
 			s := args.GetString()
@@ -222,7 +222,7 @@ func fmtstring(strfrmt string, args Args) (string, error) {
 func string_format(args Args) (Ret, error) {
 	strfrmt := args.GetString()
 
-	r, err := fmtstring(strfrmt, args)
+	r, err := fmtstring(strfrmt, &args)
 	if err != nil {
 		return nil, err
 	}

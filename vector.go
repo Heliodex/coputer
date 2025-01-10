@@ -136,13 +136,13 @@ func vector_clamp(args Args) Ret {
 	max := args.GetVector()
 
 	if min[0] > max[0] {
-		// panic("max.x must be greater than or equal to min.x")
+		// return nil, errors.New("max.x must be greater than or equal to min.x")
 		min[0], max[0] = max[0], min[0]
 	} else if min[1] > max[1] {
-		// panic("max.y must be greater than or equal to min.y")
+		// return nil, errors.New("max.y must be greater than or equal to min.y")
 		min[1], max[1] = max[1], min[1]
 	} else if min[2] > max[2] {
-		// panic("max.z must be greater than or equal to min.z")
+		// return nil, errors.New("max.z must be greater than or equal to min.z")
 		min[2], max[2] = max[2], min[2]
 	}
 

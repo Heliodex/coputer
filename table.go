@@ -117,7 +117,7 @@ func table_freeze(args Args) Ret {
 
 func table_insert(args Args) (err error) {
 	t := args.GetTable()
-	args.CheckNextArg()
+	args.CheckNextArg(true)
 	if t.readonly {
 		return errors.New("attempt to modify a readonly table")
 	}

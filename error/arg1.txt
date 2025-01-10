@@ -1,0 +1,1 @@
+invalid argument #1 to 'sin' (number expected, got string)

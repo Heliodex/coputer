@@ -1,16 +1,14 @@
 package main
 
-import (
-	"errors"
-	"fmt"
-)
+import "fmt"
 
 func invalidNumArgs(fn string, nx int, tx ...string) error {
-	res := fmt.Sprintf("missing argument #%d to '%s'", nx, fn)
 	if len(tx) > 0 {
-		res += fmt.Sprintf(" (%s expected)", tx[0])
+		return fmt.Errorf("missing argument #%d to '%s' (%s expected)", nx, fn, tx[0])
+	} else if nx > 0 {
+		return fmt.Errorf("missing argument #%d to '%s'", nx, fn)
 	}
-	return errors.New(res)
+	return fmt.Errorf("wrong number of arguments to '%s'", fn)
 }
 
 func invalidArgType(i int, fn string, tx, tg string) error {
@@ -33,67 +31,77 @@ type (
 	Rets []any
 )
 
-func getArg[T any](a *Args, optionalValue []T, tx ...string) T {
+type GotArg[T any] struct {
+	arg T
+}
+
+func getArg[T any](a *Args, optionalValue []T, tx ...string) GotArg[T] {
 	a.pos++
 	if a.pos > len(a.args) {
 		if len(optionalValue) == 0 {
-			panic(invalidNumArgs(a.name, a.pos, tx...))
+			a.co.Error(invalidNumArgs(a.name, a.pos, tx...))
+			return GotArg[T]{}
 		}
-		return optionalValue[0]
+		return GotArg[T]{arg: optionalValue[0]}
 	}
 
 	possibleArg := a.args[a.pos-1]
 
 	arg, ok := possibleArg.(T)
 	if !ok {
-		panic(invalidArgType(a.pos, a.name, typeOf(arg), typeOf(possibleArg)))
+		a.co.Error(invalidArgType(a.pos, a.name, typeOf(arg), typeOf(possibleArg)))
+		return GotArg[T]{}
 	}
-	return arg
+	return GotArg[T]{arg: arg}
 }
 
-func (a *Args) CheckNextArg(tx ...string) {
+func (a *Args) CheckNextArg(wrong bool) {
 	if a.pos >= len(a.args) {
-		panic(invalidNumArgs(a.name, a.pos, tx...))
+		if wrong { // don't know the difference between these atm
+			a.co.Error(invalidNumArgs(a.name, 0))
+		} else {
+			a.co.Error(invalidNumArgs(a.name, a.pos+1))
+		}
 	}
 }
 
 func (a *Args) GetNumber(optionalValue ...float64) float64 {
-	return getArg(a, optionalValue, "number")
+	return getArg(a, optionalValue, "number").arg
 }
 
 func (a *Args) GetString(optionalValue ...string) string {
-	return getArg(a, optionalValue, "string")
+	return getArg(a, optionalValue, "string").arg
 }
 
 func (a *Args) GetBool(optionalValue ...bool) bool {
-	return getArg(a, optionalValue, "boolean")
+	return getArg(a, optionalValue, "boolean").arg
 }
 
 func (a *Args) GetTable(optionalValue ...*Table) *Table {
-	return getArg(a, optionalValue, "table")
+	return getArg(a, optionalValue, "table").arg
 }
 
 func (a *Args) GetFunction(optionalValue ...Function) Function {
-	return getArg(a, optionalValue, "function")
+	return getArg(a, optionalValue, "function").arg
 }
 
 func (a *Args) GetCoroutine(optionalValue ...*Coroutine) *Coroutine {
-	return getArg(a, optionalValue, "thread")
+	return getArg(a, optionalValue, "thread").arg
 }
 
 func (a *Args) GetBuffer(optionalValue ...*Buffer) *Buffer {
-	return getArg(a, optionalValue, "buffer")
+	return getArg(a, optionalValue, "buffer").arg
 }
 
 func (a *Args) GetVector(optionalValue ...Vector) Vector {
-	return getArg(a, optionalValue, "vector")
+	return getArg(a, optionalValue, "vector").arg
 }
 
 func (a *Args) GetAny(optionalValue ...any) (arg any) {
 	a.pos++
 	if a.pos > len(a.args) {
 		if len(optionalValue) == 0 {
-			panic(invalidNumArgs(a.name, a.pos))
+			a.co.Error(invalidNumArgs(a.name, a.pos))
 		}
 		return optionalValue[0]
 	}

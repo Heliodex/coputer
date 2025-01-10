@@ -71,6 +71,10 @@ func createCoroutine(body Function) *Coroutine {
 	}
 }
 
+func (co *Coroutine) Error(err error) {
+	co.yield <- Yield{nil, err}
+}
+
 func (co *Coroutine) Resume(args ...any) (Rets, error) {
 	if !co.started {
 		co.started = true
@@ -189,6 +193,7 @@ func (t *Table) Rehash(nk, nv any) {
 	}
 
 	maxP2 := p2gte(totalSize)
+	fmt.Println("rehashing to size", maxP2)
 	lenArrayEntries := uint(len(arrayEntries))
 
 	var maxToFill uint
@@ -241,7 +246,7 @@ func (t *Table) Rehash(nk, nv any) {
 	t.hash = &entries
 
 	// fmt.Println()
-	// fmt.Println("REHASHED")
+	fmt.Println("REHASHED")
 	// fmt.Println("ARRAY", t.array)
 	// fmt.Println("HASH", entries)
 	// fmt.Println("ASIZE", t.asize)
@@ -535,7 +540,7 @@ var NamecallHandler = func(co *Coroutine, kv string, stack *[]any, c1, c2 int) (
 		str := (*stack)[c1].(string)
 		args := (*stack)[c1+1 : c2+1]
 
-		f, err := fmtstring(str, Args{args, "format", co, 0})
+		f, err := fmtstring(str, &Args{args, "format", co, 0})
 		if err != nil {
 			return false, nil, err
 		}

@@ -95,7 +95,7 @@ func TestConformance(t *testing.T) {
 		return
 	}
 
-	// onlyTest := "qsort.luau"
+	// onlyTest := "largealloc.luau"
 
 	for _, f := range files {
 		if f.IsDir() {
@@ -157,26 +157,17 @@ func TestErrors(t *testing.T) {
 		return
 	}
 
-	has := map[string]bool{} // actually warranted to use one of these here
+	has := []string{} // actually warranted to use one of these here
 
 	for _, f := range files {
 		name := f.Name()
 
 		if strings.HasSuffix(name, ".luau") {
-			has[strings.TrimSuffix(name, ".luau")] = false
-		} else if strings.HasSuffix(name, ".txt") {
-			has[strings.TrimSuffix(name, ".txt")] = true
+			has = append(has, strings.TrimSuffix(name, ".luau"))
 		}
 	}
 
-	for name, hasOutput := range has {
-		if !hasOutput {
-			fmt.Println("missing output for", name)
-			continue
-		}
-	}
-
-	for name := range has {
+	for _, name := range has {
 		fmt.Println(" -- Testing", name, "--")
 		filename := fmt.Sprintf("error/%s.luau", name)
 
@@ -225,7 +216,7 @@ func TestBenchmark(t *testing.T) {
 	pprof.StartCPUProfile(f)
 	defer pprof.StopCPUProfile()
 
-	// onlyBench := "10.luau"
+	// onlyBench := "largealloc.luau"
 
 	for _, f := range files {
 		name := f.Name()
