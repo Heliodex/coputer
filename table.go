@@ -127,7 +127,7 @@ func table_insert(args Args) {
 			return
 		}
 
-		t.SetArray(uint(l+1), value)
+		t.SetArray(uint(l)+1, value)
 		return
 	}
 

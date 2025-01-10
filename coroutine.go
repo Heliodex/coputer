@@ -49,14 +49,12 @@ func coroutine_wrap(args Args) Ret {
 	f := args.GetFunction()
 
 	co := createCoroutine(f)
-	fn := Function(func(_ *Coroutine, args ...any) []any {
+	return Fn(func(_ *Coroutine, args ...any) Rets {
 		if co.status == Dead {
 			panic("cannot resume dead coroutine") // ought to be better (return false, error message) if we can figure out how
 		}
 		return co.Resume(args...)
 	})
-
-	return &fn
 }
 
 func coroutine_yield(args Args) Rets {

@@ -31,9 +31,13 @@ type Table struct {
 }
 
 type (
-	Function func(co *Coroutine, args ...any) []any
+	Function *func(co *Coroutine, args ...any) Rets
 	Status   uint8
 )
+
+func Fn(f func(co *Coroutine, args ...any) Rets) Function {
+	return Function(&f)
+}
 
 const (
 	Suspended Status = iota
@@ -43,7 +47,7 @@ const (
 )
 
 type Coroutine struct {
-	body          *Function
+	body          Function
 	env           map[any]any
 	filepath      string // lel nowhere else to put this
 	yield, resume chan Rets
@@ -52,7 +56,7 @@ type Coroutine struct {
 	started       bool
 }
 
-func createCoroutine(body *Function) *Coroutine {
+func createCoroutine(body Function) *Coroutine {
 	// first time i actually ran into the channel axiom issues
 	return &Coroutine{
 		body:   body,
@@ -114,10 +118,6 @@ func (t *Table) Len() (len float64) {
 // of 2 such that more than half the elements of the array part are filled."
 // - Lua performance tips, Roberto Ierusalimschy
 func (t *Table) Rehash(nk, nv any) {
-	if t.readonly {
-		panic("attempt to modify a readonly table")
-	}
-
 	var lenArray, lenHash uint
 	arrayExists, hashExists := t.array != nil, t.hash != nil
 
@@ -240,7 +240,7 @@ func (t *Table) Rehash(nk, nv any) {
 	// fmt.Println()
 }
 
-func (t *Table) SetArray(i uint, v any) {
+func (t *Table) SetArray(i uint, v any)  {
 	if i > t.asize {
 		t.Rehash(float64(i), v)
 		return
@@ -950,7 +950,7 @@ var luautype = map[string]string{
 	"string":          "string",
 	"bool":            "boolean",
 	"*main.Table":     "table",
-	"*main.Function":  "function",
+	"main.Function":   "function",
 	"*main.Coroutine": "thread",
 	"*main.Buffer":    "buffer",
 	"main.Vector":     "vector",
@@ -1223,7 +1223,7 @@ type ToWrap struct {
 	requireCache map[string]Rets
 }
 
-func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []any, err error) {
+func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Rets, err error) {
 	proto := towrap.proto
 	upvals := towrap.upvals
 	alive := towrap.alive
@@ -1289,9 +1289,9 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			kv := inst.K
 			if _, ok := kv.(string); ok {
 				if Extensions[kv] != nil {
-					return []any{}, fmt.Errorf("attempt to redefine global '%s'", kv)
+					return Rets{}, fmt.Errorf("attempt to redefine global '%s'", kv)
 				}
-				return []any{}, fmt.Errorf("attempt to set global '%s'", kv)
+				return Rets{}, fmt.Errorf("attempt to set global '%s'", kv)
 			}
 		case 9: // GETUPVAL
 			pc += 1
@@ -1347,7 +1347,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			index := (*stack)[inst.C]
 			t, ok := (*stack)[inst.B].(*Table)
 			if !ok {
-				return []any{}, invalidIndex(typeOf((*stack)[inst.B]), index)
+				return Rets{}, invalidIndex(typeOf((*stack)[inst.B]), index)
 			}
 
 			(*stack)[inst.A] = t.Get(index)
@@ -1356,19 +1356,19 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			index := (*stack)[inst.C]
 			t, ok := (*stack)[inst.B].(*Table)
 			if !ok {
-				return []any{}, invalidIndex(typeOf((*stack)[inst.B]), index)
+				return Rets{}, invalidIndex(typeOf((*stack)[inst.B]), index)
 			}
 
 			// fmt.Println("SETTABLE", index, (*stack)[inst.A])
 			if err := t.Set(index, (*stack)[inst.A]); err != nil {
-				return []any{}, err
+				return Rets{}, err
 			}
 		case 15: // GETTABLEKS
 			index := inst.K
 			t, ok := (*stack)[inst.B].(*Table)
 			if !ok {
 				// fmt.Println("indexing", typeOf((*stack)[inst.B]), "with", index)
-				return []any{}, invalidIndex(typeOf((*stack)[inst.B]), index)
+				return Rets{}, invalidIndex(typeOf((*stack)[inst.B]), index)
 			}
 
 			(*stack)[inst.A] = t.Get(index)
@@ -1379,11 +1379,11 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			t, ok := (*stack)[inst.B].(*Table)
 			if !ok {
 				// fmt.Println("indexing", typeOf((*stack)[inst.B]), "with", index)
-				return []any{}, invalidIndex(typeOf((*stack)[inst.B]), index)
+				return Rets{}, invalidIndex(typeOf((*stack)[inst.B]), index)
 			}
 
 			if err := t.Set(index, (*stack)[inst.A]); err != nil {
-				return []any{}, err
+				return Rets{}, err
 			}
 
 			pc += 2 // -- adjust for aux
@@ -1403,7 +1403,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 		case 18: // SETTABLEN
 			t := (*stack)[inst.B].(*Table)
 			if t.readonly {
-				return []any{}, errors.New("attempt to modify a readonly table")
+				return Rets{}, errors.New("attempt to modify a readonly table")
 			} else if i, v := uint(inst.C+1), (*stack)[inst.A]; 1 <= i || i > t.asize {
 				t.SetArray(i, v)
 			} else {
@@ -1526,10 +1526,10 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			// fmt.Println(A, B, C, (*stack)[A], params)
 
 			f := (*stack)[A]
-			fn, ok := f.(*Function)
+			fn, ok := f.(Function)
 			// fmt.Println("calling with", (*stack)[A+1:A+params+1])
 			if !ok {
-				return []any{}, uncallableType(typeOf(f))
+				return Rets{}, uncallableType(typeOf(f))
 			}
 
 			retList := (*fn)(co, (*stack)[A+1:A+params+1]...) // not inclusive
@@ -1595,7 +1595,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			}
 		case 27: // jump
 			if j, err := jumpEq((*stack)[inst.A], (*stack)[inst.aux]); err != nil {
-				return []any{}, err
+				return Rets{}, err
 			} else if j {
 				pc += inst.D + 1
 			} else {
@@ -1603,7 +1603,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			}
 		case 28:
 			if j, err := jumpLe((*stack)[inst.A], (*stack)[inst.aux]); err != nil {
-				return []any{}, err
+				return Rets{}, err
 			} else if j {
 				pc += inst.D + 1
 			} else {
@@ -1611,7 +1611,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			}
 		case 29:
 			if j, err := jumpLt((*stack)[inst.A], (*stack)[inst.aux]); err != nil {
-				return []any{}, err
+				return Rets{}, err
 			} else if j {
 				pc += inst.D + 1
 			} else {
@@ -1619,7 +1619,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			}
 		case 30:
 			if j, err := jumpEq((*stack)[inst.A], (*stack)[inst.aux]); err != nil {
-				return []any{}, err
+				return Rets{}, err
 			} else if j {
 				pc += 2
 			} else {
@@ -1627,7 +1627,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			}
 		case 31:
 			if j, err := jumpGt((*stack)[inst.A], (*stack)[inst.aux]); err != nil {
-				return []any{}, err
+				return Rets{}, err
 			} else if j {
 				pc += inst.D + 1
 			} else {
@@ -1635,7 +1635,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			}
 		case 32:
 			if j, err := jumpGe((*stack)[inst.A], (*stack)[inst.aux]); err != nil {
-				return []any{}, err
+				return Rets{}, err
 			} else if j {
 				pc += inst.D + 1
 			} else {
@@ -1645,98 +1645,98 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			pc += 1
 			j, err := aAdd((*stack)[inst.B], (*stack)[inst.C])
 			if err != nil {
-				return []any{}, err
+				return Rets{}, err
 			}
 			(*stack)[inst.A] = j
 		case 34:
 			pc += 1
 			j, err := aSub((*stack)[inst.B], (*stack)[inst.C])
 			if err != nil {
-				return []any{}, err
+				return Rets{}, err
 			}
 			(*stack)[inst.A] = j
 		case 35:
 			pc += 1
 			j, err := aMul((*stack)[inst.B], (*stack)[inst.C])
 			if err != nil {
-				return []any{}, err
+				return Rets{}, err
 			}
 			(*stack)[inst.A] = j
 		case 36:
 			pc += 1
 			j, err := aDiv((*stack)[inst.B], (*stack)[inst.C])
 			if err != nil {
-				return []any{}, err
+				return Rets{}, err
 			}
 			(*stack)[inst.A] = j
 		case 37:
 			pc += 1
 			j, err := aMod((*stack)[inst.B], (*stack)[inst.C])
 			if err != nil {
-				return []any{}, err
+				return Rets{}, err
 			}
 			(*stack)[inst.A] = j
 		case 38:
 			pc += 1
 			j, err := aPow((*stack)[inst.B], (*stack)[inst.C])
 			if err != nil {
-				return []any{}, err
+				return Rets{}, err
 			}
 			(*stack)[inst.A] = j
 		case 81:
 			pc += 1
 			j, err := aIdiv((*stack)[inst.B], (*stack)[inst.C])
 			if err != nil {
-				return []any{}, err
+				return Rets{}, err
 			}
 			(*stack)[inst.A] = j
 		case 39: // arithmetik
 			pc += 1
 			j, err := aAdd((*stack)[inst.B], inst.K)
 			if err != nil {
-				return []any{}, err
+				return Rets{}, err
 			}
 			(*stack)[inst.A] = j
 		case 40:
 			pc += 1
 			j, err := aSub((*stack)[inst.B], inst.K)
 			if err != nil {
-				return []any{}, err
+				return Rets{}, err
 			}
 			(*stack)[inst.A] = j
 		case 41:
 			pc += 1
 			j, err := aMul((*stack)[inst.B], inst.K)
 			if err != nil {
-				return []any{}, err
+				return Rets{}, err
 			}
 			(*stack)[inst.A] = j
 		case 42:
 			pc += 1
 			j, err := aDiv((*stack)[inst.B], inst.K)
 			if err != nil {
-				return []any{}, err
+				return Rets{}, err
 			}
 			(*stack)[inst.A] = j
 		case 43:
 			pc += 1
 			j, err := aMod((*stack)[inst.B], inst.K)
 			if err != nil {
-				return []any{}, err
+				return Rets{}, err
 			}
 			(*stack)[inst.A] = j
 		case 44:
 			pc += 1
 			j, err := aPow((*stack)[inst.B], inst.K)
 			if err != nil {
-				return []any{}, err
+				return Rets{}, err
 			}
 			(*stack)[inst.A] = j
 		case 82:
 			pc += 1
 			j, err := aIdiv((*stack)[inst.B], inst.K)
 			if err != nil {
-				return []any{}, err
+				return Rets{}, err
 			}
 			(*stack)[inst.A] = j
 
@@ -1796,7 +1796,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 				toWrite, ok := (*stack)[i].(string)
 				if !ok {
 					// ensure correct order of operands in error message
-					return []any{}, invalidConcat(typeOf((*stack)[i+first]), typeOf((*stack)[i+1+first]))
+					return Rets{}, invalidConcat(typeOf((*stack)[i+first]), typeOf((*stack)[i+1+first]))
 				}
 				s.WriteString(toWrite)
 				first = -1
@@ -1806,7 +1806,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			pc += 1
 			cond, ok := (*stack)[inst.B].(bool)
 			if !ok {
-				return []any{}, invalidCond(typeOf((*stack)[inst.B]))
+				return Rets{}, invalidCond(typeOf((*stack)[inst.B]))
 			}
 
 			(*stack)[inst.A] = !cond
@@ -1814,7 +1814,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			pc += 1
 			a, ok := (*stack)[inst.B].(float64)
 			if !ok {
-				return []any{}, invalidUnm(typeOf((*stack)[inst.B]))
+				return Rets{}, invalidUnm(typeOf((*stack)[inst.B]))
 			}
 
 			(*stack)[inst.A] = -a
@@ -1826,7 +1826,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			case string:
 				(*stack)[inst.A] = float64(len(t))
 			default:
-				return []any{}, invalidLength(typeOf(t))
+				return Rets{}, invalidLength(typeOf(t))
 			}
 		case 53: // NEWTABLE
 			(*stack)[inst.A] = &Table{}
@@ -1837,7 +1837,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			serialised := &Table{}
 			for _, id := range inst.K.([]uint32) { // template
 				if err := serialised.Set(proto.k[id], nil); err != nil { // constants
-					return []any{}, err
+					return Rets{}, err
 				}
 			}
 			(*stack)[inst.A] = serialised
@@ -1851,7 +1851,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 
 			s := (*stack)[A].(*Table)
 			if s.readonly {
-				return []any{}, errors.New("attempt to modify a readonly table")
+				return Rets{}, errors.New("attempt to modify a readonly table")
 			}
 
 			// one-indexed lol
@@ -1872,17 +1872,17 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 
 			index, ok := (*stack)[A+2].(float64)
 			if !ok {
-				return []any{}, invalidFor("initial value", typeOf((*stack)[A+2]))
+				return Rets{}, invalidFor("initial value", typeOf((*stack)[A+2]))
 			}
 
 			limit, ok := (*stack)[A].(float64)
 			if !ok {
-				return []any{}, invalidFor("limit", typeOf((*stack)[A]))
+				return Rets{}, invalidFor("limit", typeOf((*stack)[A]))
 			}
 
 			step, ok := (*stack)[A+1].(float64)
 			if !ok {
-				return []any{}, invalidFor("step", typeOf((*stack)[A+1]))
+				return Rets{}, invalidFor("step", typeOf((*stack)[A+1]))
 			}
 
 			if step > 0 {
@@ -1915,7 +1915,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			top = A + 6
 
 			switch it := (*stack)[A].(type) {
-			case *Function:
+			case Function:
 				// fmt.Println("IT func", it, (*stack)[A+1], (*stack)[A+2])
 				vals := (*it)(co, (*stack)[A+1], (*stack)[A+2])
 
@@ -1952,8 +1952,8 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 				}
 			}
 		case 59, 61: // FORGPREP_INEXT, FORGPREP_NEXT
-			if _, ok := (*stack)[inst.A].(*Function); !ok {
-				return []any{}, fmt.Errorf("attempt to iterate over a %s value", typeOf((*stack)[inst.A])) // -- encountered non-function value
+			if _, ok := (*stack)[inst.A].(Function); !ok {
+				return Rets{}, fmt.Errorf("attempt to iterate over a %s value", typeOf((*stack)[inst.A])) // -- encountered non-function value
 			}
 			pc += inst.D + 1
 		case 60: // FASTCALL3
@@ -2028,14 +2028,14 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			pc += 1
 			j, err := aSub(inst.K, (*stack)[inst.C])
 			if err != nil {
-				return []any{}, err
+				return Rets{}, err
 			}
 			(*stack)[inst.A] = j
 		case 72: // DIVRK
 			pc += 1
 			j, err := aDiv(inst.K, (*stack)[inst.C])
 			if err != nil {
-				return []any{}, err
+				return Rets{}, err
 			}
 			(*stack)[inst.A] = j
 		case 73: // FASTCALL1
@@ -2046,7 +2046,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			pc += 2 // adjust for aux
 		case 76: // FORGPREP
 			pc += inst.D + 1
-			if _, ok := (*stack)[inst.A].(*Function); ok {
+			if _, ok := (*stack)[inst.A].(Function); ok {
 				break
 			}
 
@@ -2136,10 +2136,10 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 	return
 }
 
-func wrapclosure(towrap ToWrap) *Function {
+func wrapclosure(towrap ToWrap) Function {
 	proto := towrap.proto
 
-	wrapped := Function(func(co *Coroutine, args ...any) []any {
+	return Fn(func(co *Coroutine, args ...any) Rets {
 		maxstacksize, numparams := proto.maxstacksize, proto.numparams
 
 		// fmt.Println("MAX STACK SIZE", maxstacksize)
@@ -2164,8 +2164,6 @@ func wrapclosure(towrap ToWrap) *Function {
 		}
 		return res
 	})
-
-	return &wrapped
 }
 
 func Load(module Deserialised, filepath string, o uint8, env map[any]any, requireCache map[string]Rets) (Coroutine, func()) {

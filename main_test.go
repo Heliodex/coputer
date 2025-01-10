@@ -21,7 +21,7 @@ func litecode(t *testing.T, f string, o uint8) (string, time.Duration) {
 	deserialised := Deserialise(bytecode)
 
 	b := strings.Builder{}
-	luau_print := Function(func(co *Coroutine, args ...any) (ret []any) {
+	luau_print := Fn(func(co *Coroutine, args ...any) (r Rets) {
 		// b.WriteString(fmt.Sprint(args...))
 		for i, arg := range args {
 			b.WriteString(tostring(arg))
@@ -35,7 +35,7 @@ func litecode(t *testing.T, f string, o uint8) (string, time.Duration) {
 	})
 
 	co, _ := Load(deserialised, f, o, map[any]any{
-		"print": &luau_print,
+		"print": luau_print,
 	}, map[string]Rets{})
 
 	startTime := time.Now()
@@ -147,5 +147,6 @@ func TestBenchmark(t *testing.T) {
 		}
 	}
 
+	fmt.Println("-- Done! --")
 	fmt.Println()
 }
