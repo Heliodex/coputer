@@ -45,18 +45,18 @@ func coroutine_status(args Args) Ret {
 	return "dead"
 }
 
-func coroutine_wrap(args Args) Rets {
+func coroutine_wrap(args Args) Ret {
 	f := args.GetFunction()
 
 	co := createCoroutine(f)
 	fn := Function(func(_ *Coroutine, args ...any) []any {
 		if co.status == Dead {
-			return Rets{"cannot resume dead coroutine", false}
+			panic("cannot resume dead coroutine") // ought to be better (return false, error message) if we can figure out how
 		}
 		return co.Resume(args...)
 	})
 
-	return Rets{&fn, true}
+	return &fn
 }
 
 func coroutine_yield(args Args) Rets {
@@ -76,6 +76,6 @@ var libcoroutine = NewTable([][2]any{
 	MakeFn("resume", coroutine_resume),
 	MakeFn1("running", coroutine_running),
 	MakeFn1("status", coroutine_status),
-	MakeFn("wrap", coroutine_wrap),
+	MakeFn1("wrap", coroutine_wrap),
 	MakeFn("yield", coroutine_yield),
 })

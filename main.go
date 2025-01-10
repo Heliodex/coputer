@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"iter"
 	"math"
@@ -264,11 +265,12 @@ func (t *Table) ForceSet(i, v any) {
 	t.SetHash(i, v)
 }
 
-func (t *Table) Set(i, v any) {
+func (t *Table) Set(i, v any) error {
 	if t.readonly {
-		panic("attempt to modify a readonly table")
+		return errors.New("attempt to modify a readonly table")
 	}
 	t.ForceSet(i, v)
+	return nil
 }
 
 func (t *Table) GetArray(i uint) any {
@@ -954,49 +956,49 @@ var luautype = map[string]string{
 	"main.Vector":     "vector",
 }
 
-func invalidCompare(op string, ta, tb string) string {
-	return fmt.Sprintf("attempt to compare %s %s %s", luautype[ta], op, luautype[tb])
+func invalidCompare(op string, ta, tb string) error {
+	return fmt.Errorf("attempt to compare %s %s %s", luautype[ta], op, luautype[tb])
 }
 
-func incomparableType(t string, eq bool) string {
-	return fmt.Sprintf("type %s cannot be compared; this comparison would always return %t", luautype[t], eq)
+func incomparableType(t string, eq bool) error {
+	return fmt.Errorf("type %s cannot be compared; this comparison would always return %t", luautype[t], eq)
 }
 
-func uncallableType(v string) string {
-	return fmt.Sprintf("attempt to call a %s value", luautype[v])
+func uncallableType(v string) error {
+	return fmt.Errorf("attempt to call a %s value", luautype[v])
 }
 
-func invalidArithmetic(op string, ta, tb string) string {
-	return fmt.Sprintf("attempt to perform arithmetic (%s) on %s and %s", op, luautype[ta], luautype[tb])
+func invalidArithmetic(op string, ta, tb string) error {
+	return fmt.Errorf("attempt to perform arithmetic (%s) on %s and %s", op, luautype[ta], luautype[tb])
 }
 
-func invalidUnm(t string) string {
-	return fmt.Sprintf("attempt to perform arithmetic (unm) on %s", luautype[t])
+func invalidUnm(t string) error {
+	return fmt.Errorf("attempt to perform arithmetic (unm) on %s", luautype[t])
 }
 
-func invalidCond(t string) string {
-	return fmt.Sprintf("attempt to compare non-boolean type %s in condition", luautype[t])
+func invalidCond(t string) error {
+	return fmt.Errorf("attempt to compare non-boolean type %s in condition", luautype[t])
 }
 
-func invalidFor(pos, t string) string {
-	return fmt.Sprintf("invalid 'for' %s (number expected, got %s)", pos, luautype[t])
+func invalidFor(pos, t string) error {
+	return fmt.Errorf("invalid 'for' %s (number expected, got %s)", pos, luautype[t])
 }
 
-func invalidLength(t string) string {
-	return fmt.Sprintf("attempt to get length of a %s value", luautype[t])
+func invalidLength(t string) error {
+	return fmt.Errorf("attempt to get length of a %s value", luautype[t])
 }
 
-func invalidConcat(t1, t2 string) string {
-	return fmt.Sprintf("attempt to concatenate %s with %s", luautype[t1], luautype[t2])
+func invalidConcat(t1, t2 string) error {
+	return fmt.Errorf("attempt to concatenate %s with %s", luautype[t1], luautype[t2])
 }
 
-func invalidIndex(ta string, val any) string {
+func invalidIndex(ta string, val any) error {
 	tb := luautype[typeOf(val)]
 	if tb == "string" {
 		tb = fmt.Sprintf("'%v'", val)
 	}
 
-	panic(fmt.Sprintf("attempt to index %v with %v", luautype[ta], tb))
+	return fmt.Errorf("attempt to index %v with %v", luautype[ta], tb)
 }
 
 func typeOf(v any) string {
@@ -1006,107 +1008,107 @@ func typeOf(v any) string {
 	return reflect.TypeOf(v).String()
 }
 
-func aAdd(a, b any) any {
+func aAdd(a, b any) (any, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
-		return fa + fb
+		return fa + fb, nil
 	}
 
 	va, ok3 := a.(Vector)
 	vb, ok4 := b.(Vector)
 	if ok3 && ok4 {
-		return Vector{va[0] + vb[0], va[1] + vb[1], va[2] + vb[2], va[3] + vb[3]}
+		return Vector{va[0] + vb[0], va[1] + vb[1], va[2] + vb[2], va[3] + vb[3]}, nil
 	}
 
-	panic(invalidArithmetic("add", typeOf(a), typeOf(b)))
+	return nil, invalidArithmetic("add", typeOf(a), typeOf(b))
 }
 
-func aSub(a, b any) any {
+func aSub(a, b any) (any, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
-		return fa - fb
+		return fa - fb, nil
 	}
 
 	va, ok3 := a.(Vector)
 	vb, ok4 := b.(Vector)
 	if ok3 && ok4 {
-		return Vector{va[0] - vb[0], va[1] - vb[1], va[2] - vb[2], va[3] - vb[3]}
+		return Vector{va[0] - vb[0], va[1] - vb[1], va[2] - vb[2], va[3] - vb[3]}, nil
 	}
 
-	panic(invalidArithmetic("sub", typeOf(a), typeOf(b)))
+	return nil, invalidArithmetic("sub", typeOf(a), typeOf(b))
 }
 
-func aMul(a, b any) any {
+func aMul(a, b any) (any, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
-		return fa * fb
+		return fa * fb, nil
 	}
 
 	va, ok3 := a.(Vector)
 	vb, ok4 := b.(Vector)
 	if ok3 && ok4 {
-		return Vector{va[0] * vb[0], va[1] * vb[1], va[2] * vb[2], va[3] * vb[3]}
+		return Vector{va[0] * vb[0], va[1] * vb[1], va[2] * vb[2], va[3] * vb[3]}, nil
 	} else if ok1 && ok4 {
 		f := float32(fa)
-		return Vector{f * vb[0], f * vb[1], f * vb[2], f * vb[3]}
+		return Vector{f * vb[0], f * vb[1], f * vb[2], f * vb[3]}, nil
 	} else if ok3 && ok2 {
 		f := float32(fb)
-		return Vector{va[0] * f, va[1] * f, va[2] * f, va[3] * f}
+		return Vector{va[0] * f, va[1] * f, va[2] * f, va[3] * f}, nil
 	}
 
-	panic(invalidArithmetic("mul", typeOf(a), typeOf(b)))
+	return nil, invalidArithmetic("mul", typeOf(a), typeOf(b))
 }
 
-func aDiv(a, b any) any {
+func aDiv(a, b any) (any, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
-		return fa / fb
+		return fa / fb, nil
 	}
 
 	va, ok3 := a.(Vector)
 	vb, ok4 := b.(Vector)
 	if ok3 && ok4 {
-		return Vector{va[0] / vb[0], va[1] / vb[1], va[2] / vb[2], va[3] / vb[3]}
+		return Vector{va[0] / vb[0], va[1] / vb[1], va[2] / vb[2], va[3] / vb[3]}, nil
 	} else if ok1 && ok4 {
 		f := float32(fa)
-		return Vector{f / vb[0], f / vb[1], f / vb[2], f / vb[3]}
+		return Vector{f / vb[0], f / vb[1], f / vb[2], f / vb[3]}, nil
 	} else if ok3 && ok2 {
 		f := float32(fb)
-		return Vector{va[0] / f, va[1] / f, va[2] / f, va[3] / f}
+		return Vector{va[0] / f, va[1] / f, va[2] / f, va[3] / f}, nil
 	}
 
-	panic(invalidArithmetic("div", typeOf(a), typeOf(b)))
+	return nil, invalidArithmetic("div", typeOf(a), typeOf(b))
 }
 
-func aMod(a, b any) float64 {
+func aMod(a, b any) (float64, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
-		return fa - fb*math.Floor(fa/fb)
+		return fa - fb*math.Floor(fa/fb), nil
 	}
 
-	panic(invalidArithmetic("mod", typeOf(a), typeOf(b)))
+	return 0, invalidArithmetic("mod", typeOf(a), typeOf(b))
 }
 
-func aPow(a, b any) float64 {
+func aPow(a, b any) (float64, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
-		return math.Pow(fa, fb)
+		return math.Pow(fa, fb), nil
 	}
 
-	panic(invalidArithmetic("pow", typeOf(a), typeOf(b)))
+	return 0, invalidArithmetic("pow", typeOf(a), typeOf(b))
 }
 
-func aIdiv(a, b any) any {
+func aIdiv(a, b any) (any, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
-		return math.Floor(fa / fb)
+		return math.Floor(fa / fb), nil
 	}
 
 	va, ok3 := a.(Vector)
@@ -1117,7 +1119,7 @@ func aIdiv(a, b any) any {
 			fFloor(va[1] / vb[1]),
 			fFloor(va[2] / vb[2]),
 			fFloor(va[3] / vb[3]),
-		}
+		}, nil
 	} else if ok1 && ok4 {
 		f := float32(fa)
 		return Vector{
@@ -1125,7 +1127,7 @@ func aIdiv(a, b any) any {
 			fFloor(f / vb[1]),
 			fFloor(f / vb[2]),
 			fFloor(f / vb[3]),
-		}
+		}, nil
 	} else if ok3 && ok2 {
 		f := float32(fb)
 		return Vector{
@@ -1133,83 +1135,83 @@ func aIdiv(a, b any) any {
 			fFloor(va[1] / f),
 			fFloor(va[2] / f),
 			fFloor(va[3] / f),
-		}
+		}, nil
 	}
 
-	panic(invalidArithmetic("idiv", typeOf(a), typeOf(b)))
+	return nil, invalidArithmetic("idiv", typeOf(a), typeOf(b))
 }
 
-func jumpLe(a, b any) bool {
+func jumpLe(a, b any) (bool, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
-		return fa <= fb
+		return fa <= fb, nil
 	}
 
 	sa, ok1 := a.(string)
 	sb, ok2 := b.(string)
 	if ok1 && ok2 {
-		return sa <= sb
+		return sa <= sb, nil
 	}
 
-	panic(invalidCompare("<=", typeOf(a), typeOf(b)))
+	return false, invalidCompare("<=", typeOf(a), typeOf(b))
 }
 
-func jumpLt(a, b any) bool {
+func jumpLt(a, b any) (bool, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
-		return fa < fb
+		return fa < fb, nil
 	}
 
 	sa, ok1 := a.(string)
 	sb, ok2 := b.(string)
 	if ok1 && ok2 {
-		return sa < sb
+		return sa < sb, nil
 	}
 
-	panic(invalidCompare("<", typeOf(a), typeOf(b)))
+	return false, invalidCompare("<", typeOf(a), typeOf(b))
 }
 
-func jumpGt(a, b any) bool {
+func jumpGt(a, b any) (bool, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
-		return fa > fb
+		return fa > fb, nil
 	}
 
 	sa, ok1 := a.(string)
 	sb, ok2 := b.(string)
 	if ok1 && ok2 {
-		return sa > sb
+		return sa > sb, nil
 	}
 
-	panic(invalidCompare(">", typeOf(a), typeOf(b)))
+	return false, invalidCompare(">", typeOf(a), typeOf(b))
 }
 
-func jumpGe(a, b any) bool {
+func jumpGe(a, b any) (bool, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
-		return fa >= fb
+		return fa >= fb, nil
 	}
 
 	sa, ok1 := a.(string)
 	sb, ok2 := b.(string)
 	if ok1 && ok2 {
-		return sa >= sb
+		return sa >= sb, nil
 	}
 
-	panic(invalidCompare(">=", typeOf(a), typeOf(b)))
+	return false, invalidCompare(">=", typeOf(a), typeOf(b))
 }
 
-func jumpEq(a, b any) bool {
+func jumpEq(a, b any) (bool, error) {
 	switch a.(type) {
 	case float64, string, bool, nil:
-		return a == b // JUMPIFEQ
+		return a == b, nil // JUMPIFEQ
 	}
 
-	panic(incomparableType(typeOf(a), true)) // Also deliberately restricting the ability to compare types that would always return false
+	return false, incomparableType(typeOf(a), true) // Also deliberately restricting the ability to compare types that would always return false
 }
 
 type ToWrap struct {
@@ -1221,7 +1223,7 @@ type ToWrap struct {
 	requireCache map[string]Rets
 }
 
-func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []any) {
+func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []any, err error) {
 	proto := towrap.proto
 	upvals := towrap.upvals
 	alive := towrap.alive
@@ -1287,9 +1289,9 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			kv := inst.K
 			if _, ok := kv.(string); ok {
 				if Extensions[kv] != nil {
-					panic(fmt.Sprintf("attempt to redefine global '%s'", kv))
+					return []any{}, fmt.Errorf("attempt to redefine global '%s'", kv)
 				}
-				panic(fmt.Sprintf("attempt to set global '%s'", kv))
+				return []any{}, fmt.Errorf("attempt to set global '%s'", kv)
 			}
 		case 9: // GETUPVAL
 			pc += 1
@@ -1345,7 +1347,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			index := (*stack)[inst.C]
 			t, ok := (*stack)[inst.B].(*Table)
 			if !ok {
-				panic(invalidIndex(typeOf((*stack)[inst.B]), index))
+				return []any{}, invalidIndex(typeOf((*stack)[inst.B]), index)
 			}
 
 			(*stack)[inst.A] = t.Get(index)
@@ -1354,17 +1356,19 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			index := (*stack)[inst.C]
 			t, ok := (*stack)[inst.B].(*Table)
 			if !ok {
-				panic(invalidIndex(typeOf((*stack)[inst.B]), index))
+				return []any{}, invalidIndex(typeOf((*stack)[inst.B]), index)
 			}
 
 			// fmt.Println("SETTABLE", index, (*stack)[inst.A])
-			t.Set(index, (*stack)[inst.A])
+			if err := t.Set(index, (*stack)[inst.A]); err != nil {
+				return []any{}, err
+			}
 		case 15: // GETTABLEKS
 			index := inst.K
 			t, ok := (*stack)[inst.B].(*Table)
 			if !ok {
 				// fmt.Println("indexing", typeOf((*stack)[inst.B]), "with", index)
-				panic(invalidIndex(typeOf((*stack)[inst.B]), index))
+				return []any{}, invalidIndex(typeOf((*stack)[inst.B]), index)
 			}
 
 			(*stack)[inst.A] = t.Get(index)
@@ -1375,10 +1379,12 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			t, ok := (*stack)[inst.B].(*Table)
 			if !ok {
 				// fmt.Println("indexing", typeOf((*stack)[inst.B]), "with", index)
-				panic(invalidIndex(typeOf((*stack)[inst.B]), index))
+				return []any{}, invalidIndex(typeOf((*stack)[inst.B]), index)
 			}
 
-			t.Set(index, (*stack)[inst.A])
+			if err := t.Set(index, (*stack)[inst.A]); err != nil {
+				return []any{}, err
+			}
 
 			pc += 2 // -- adjust for aux
 		case 17: // GETTABLEN
@@ -1397,7 +1403,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 		case 18: // SETTABLEN
 			t := (*stack)[inst.B].(*Table)
 			if t.readonly {
-				panic("attempt to modify a readonly table")
+				return []any{}, errors.New("attempt to modify a readonly table")
 			} else if i, v := uint(inst.C+1), (*stack)[inst.A]; 1 <= i || i > t.asize {
 				t.SetArray(i, v)
 			} else {
@@ -1523,7 +1529,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			fn, ok := f.(*Function)
 			// fmt.Println("calling with", (*stack)[A+1:A+params+1])
 			if !ok {
-				panic(uncallableType(typeOf(f)))
+				return []any{}, uncallableType(typeOf(f))
 			}
 
 			retList := (*fn)(co, (*stack)[A+1:A+params+1]...) // not inclusive
@@ -1572,7 +1578,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 				b = top - A + 1
 			}
 
-			return (*stack)[A:max(A+b, 0)]
+			return (*stack)[A:max(A+b, 0)], nil
 		case 23, 24: // JUMP, JUMPBACK
 			pc += inst.D + 1
 		case 25: // JUMPIF
@@ -1588,83 +1594,151 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 				pc += 1
 			}
 		case 27: // jump
-			if jumpEq((*stack)[inst.A], (*stack)[inst.aux]) {
+			if j, err := jumpEq((*stack)[inst.A], (*stack)[inst.aux]); err != nil {
+				return []any{}, err
+			} else if j {
 				pc += inst.D + 1
 			} else {
 				pc += 2
 			}
 		case 28:
-			if jumpLe((*stack)[inst.A], (*stack)[inst.aux]) {
+			if j, err := jumpLe((*stack)[inst.A], (*stack)[inst.aux]); err != nil {
+				return []any{}, err
+			} else if j {
 				pc += inst.D + 1
 			} else {
 				pc += 2
 			}
 		case 29:
-			if jumpLt((*stack)[inst.A], (*stack)[inst.aux]) {
+			if j, err := jumpLt((*stack)[inst.A], (*stack)[inst.aux]); err != nil {
+				return []any{}, err
+			} else if j {
 				pc += inst.D + 1
 			} else {
 				pc += 2
 			}
 		case 30:
-			if jumpEq((*stack)[inst.A], (*stack)[inst.aux]) {
+			if j, err := jumpEq((*stack)[inst.A], (*stack)[inst.aux]); err != nil {
+				return []any{}, err
+			} else if j {
 				pc += 2
 			} else {
 				pc += inst.D + 1
 			}
 		case 31:
-			if jumpGt((*stack)[inst.A], (*stack)[inst.aux]) {
+			if j, err := jumpGt((*stack)[inst.A], (*stack)[inst.aux]); err != nil {
+				return []any{}, err
+			} else if j {
 				pc += inst.D + 1
 			} else {
 				pc += 2
 			}
 		case 32:
-			if jumpGe((*stack)[inst.A], (*stack)[inst.aux]) {
+			if j, err := jumpGe((*stack)[inst.A], (*stack)[inst.aux]); err != nil {
+				return []any{}, err
+			} else if j {
 				pc += inst.D + 1
 			} else {
 				pc += 2
 			}
 		case 33: // arithmetic
 			pc += 1
-			(*stack)[inst.A] = aAdd((*stack)[inst.B], (*stack)[inst.C])
+			j, err := aAdd((*stack)[inst.B], (*stack)[inst.C])
+			if err != nil {
+				return []any{}, err
+			}
+			(*stack)[inst.A] = j
 		case 34:
 			pc += 1
-			(*stack)[inst.A] = aSub((*stack)[inst.B], (*stack)[inst.C])
+			j, err := aSub((*stack)[inst.B], (*stack)[inst.C])
+			if err != nil {
+				return []any{}, err
+			}
+			(*stack)[inst.A] = j
 		case 35:
 			pc += 1
-			(*stack)[inst.A] = aMul((*stack)[inst.B], (*stack)[inst.C])
+			j, err := aMul((*stack)[inst.B], (*stack)[inst.C])
+			if err != nil {
+				return []any{}, err
+			}
+			(*stack)[inst.A] = j
 		case 36:
 			pc += 1
-			(*stack)[inst.A] = aDiv((*stack)[inst.B], (*stack)[inst.C])
+			j, err := aDiv((*stack)[inst.B], (*stack)[inst.C])
+			if err != nil {
+				return []any{}, err
+			}
+			(*stack)[inst.A] = j
 		case 37:
 			pc += 1
-			(*stack)[inst.A] = aMod((*stack)[inst.B], (*stack)[inst.C])
+			j, err := aMod((*stack)[inst.B], (*stack)[inst.C])
+			if err != nil {
+				return []any{}, err
+			}
+			(*stack)[inst.A] = j
 		case 38:
 			pc += 1
-			(*stack)[inst.A] = aPow((*stack)[inst.B], (*stack)[inst.C])
+			j, err := aPow((*stack)[inst.B], (*stack)[inst.C])
+			if err != nil {
+				return []any{}, err
+			}
+			(*stack)[inst.A] = j
 		case 81:
 			pc += 1
-			(*stack)[inst.A] = aIdiv((*stack)[inst.B], (*stack)[inst.C])
+			j, err := aIdiv((*stack)[inst.B], (*stack)[inst.C])
+			if err != nil {
+				return []any{}, err
+			}
+			(*stack)[inst.A] = j
 		case 39: // arithmetik
 			pc += 1
-			(*stack)[inst.A] = aAdd((*stack)[inst.B], inst.K)
+			j, err := aAdd((*stack)[inst.B], inst.K)
+			if err != nil {
+				return []any{}, err
+			}
+			(*stack)[inst.A] = j
 		case 40:
 			pc += 1
-			(*stack)[inst.A] = aSub((*stack)[inst.B], inst.K)
+			j, err := aSub((*stack)[inst.B], inst.K)
+			if err != nil {
+				return []any{}, err
+			}
+			(*stack)[inst.A] = j
 		case 41:
 			pc += 1
-			(*stack)[inst.A] = aMul((*stack)[inst.B], inst.K)
+			j, err := aMul((*stack)[inst.B], inst.K)
+			if err != nil {
+				return []any{}, err
+			}
+			(*stack)[inst.A] = j
 		case 42:
 			pc += 1
-			(*stack)[inst.A] = aDiv((*stack)[inst.B], inst.K)
+			j, err := aDiv((*stack)[inst.B], inst.K)
+			if err != nil {
+				return []any{}, err
+			}
+			(*stack)[inst.A] = j
 		case 43:
 			pc += 1
-			(*stack)[inst.A] = aMod((*stack)[inst.B], inst.K)
+			j, err := aMod((*stack)[inst.B], inst.K)
+			if err != nil {
+				return []any{}, err
+			}
+			(*stack)[inst.A] = j
 		case 44:
 			pc += 1
-			(*stack)[inst.A] = aPow((*stack)[inst.B], inst.K)
+			j, err := aPow((*stack)[inst.B], inst.K)
+			if err != nil {
+				return []any{}, err
+			}
+			(*stack)[inst.A] = j
 		case 82:
 			pc += 1
-			(*stack)[inst.A] = aIdiv((*stack)[inst.B], inst.K)
+			j, err := aIdiv((*stack)[inst.B], inst.K)
+			if err != nil {
+				return []any{}, err
+			}
+			(*stack)[inst.A] = j
 
 		case 45: // logic AND
 			pc += 1
@@ -1722,7 +1796,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 				toWrite, ok := (*stack)[i].(string)
 				if !ok {
 					// ensure correct order of operands in error message
-					panic(invalidConcat(typeOf((*stack)[i+first]), typeOf((*stack)[i+1+first])))
+					return []any{}, invalidConcat(typeOf((*stack)[i+first]), typeOf((*stack)[i+1+first]))
 				}
 				s.WriteString(toWrite)
 				first = -1
@@ -1732,7 +1806,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			pc += 1
 			cond, ok := (*stack)[inst.B].(bool)
 			if !ok {
-				panic(invalidCond(typeOf((*stack)[inst.B])))
+				return []any{}, invalidCond(typeOf((*stack)[inst.B]))
 			}
 
 			(*stack)[inst.A] = !cond
@@ -1740,7 +1814,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			pc += 1
 			a, ok := (*stack)[inst.B].(float64)
 			if !ok {
-				panic(invalidUnm(typeOf((*stack)[inst.B])))
+				return []any{}, invalidUnm(typeOf((*stack)[inst.B]))
 			}
 
 			(*stack)[inst.A] = -a
@@ -1752,7 +1826,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			case string:
 				(*stack)[inst.A] = float64(len(t))
 			default:
-				panic(invalidLength(typeOf(t)))
+				return []any{}, invalidLength(typeOf(t))
 			}
 		case 53: // NEWTABLE
 			(*stack)[inst.A] = &Table{}
@@ -1762,7 +1836,9 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			pc += 1
 			serialised := &Table{}
 			for _, id := range inst.K.([]uint32) { // template
-				serialised.Set(proto.k[id], nil) // constants
+				if err := serialised.Set(proto.k[id], nil); err != nil { // constants
+					return []any{}, err
+				}
 			}
 			(*stack)[inst.A] = serialised
 		case 55: // SETLIST
@@ -1775,7 +1851,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 
 			s := (*stack)[A].(*Table)
 			if s.readonly {
-				panic("attempt to modify a readonly table")
+				return []any{}, errors.New("attempt to modify a readonly table")
 			}
 
 			// one-indexed lol
@@ -1796,17 +1872,17 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 
 			index, ok := (*stack)[A+2].(float64)
 			if !ok {
-				panic(invalidFor("initial value", typeOf((*stack)[A+2])))
+				return []any{}, invalidFor("initial value", typeOf((*stack)[A+2]))
 			}
 
 			limit, ok := (*stack)[A].(float64)
 			if !ok {
-				panic(invalidFor("limit", typeOf((*stack)[A])))
+				return []any{}, invalidFor("limit", typeOf((*stack)[A]))
 			}
 
 			step, ok := (*stack)[A+1].(float64)
 			if !ok {
-				panic(invalidFor("step", typeOf((*stack)[A+1])))
+				return []any{}, invalidFor("step", typeOf((*stack)[A+1]))
 			}
 
 			if step > 0 {
@@ -1877,7 +1953,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			}
 		case 59, 61: // FORGPREP_INEXT, FORGPREP_NEXT
 			if _, ok := (*stack)[inst.A].(*Function); !ok {
-				panic(fmt.Sprintf("attempt to iterate over a %s value", typeOf((*stack)[inst.A]))) // -- encountered non-function value
+				return []any{}, fmt.Errorf("attempt to iterate over a %s value", typeOf((*stack)[inst.A])) // -- encountered non-function value
 			}
 			pc += inst.D + 1
 		case 60: // FASTCALL3
@@ -1950,10 +2026,18 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r []a
 			panic("encountered unhandled CAPTURE")
 		case 71: // SUBRK
 			pc += 1
-			(*stack)[inst.A] = aSub(inst.K, (*stack)[inst.C])
+			j, err := aSub(inst.K, (*stack)[inst.C])
+			if err != nil {
+				return []any{}, err
+			}
+			(*stack)[inst.A] = j
 		case 72: // DIVRK
 			pc += 1
-			(*stack)[inst.A] = aDiv(inst.K, (*stack)[inst.C])
+			j, err := aDiv(inst.K, (*stack)[inst.C])
+			if err != nil {
+				return []any{}, err
+			}
+			(*stack)[inst.A] = j
 		case 73: // FASTCALL1
 			pc += 1
 			// Skipped
@@ -2074,7 +2158,11 @@ func wrapclosure(towrap ToWrap) *Function {
 		}
 
 		// TODO: dee bugg ingg
-		return execute(towrap, &stack, co, varargs)
+		res, err := execute(towrap, &stack, co, varargs)
+		if err != nil {
+			panic(err)
+		}
+		return res
 	})
 
 	return &wrapped

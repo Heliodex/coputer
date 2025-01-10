@@ -408,7 +408,13 @@ func table_sort(args Args) {
 
 	var comp Comp
 	if len(args.args) == 1 {
-		comp = jumpLt
+		comp = func(a, b any) bool {
+			j, err := jumpLt(a, b)
+			if err != nil {
+				panic(err)
+			}
+			return j
+		}
 	} else {
 		fn := args.GetFunction()
 		comp = func(a, b any) bool {
