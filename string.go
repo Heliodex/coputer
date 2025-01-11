@@ -282,8 +282,9 @@ func string_split(args Args) Ret {
 	}
 
 	return &Table{
-		array: &a,
-		asize: uint(len(a)),
+		array:     &a,
+		sizearray: len(a),
+		node:      &[]LuaNode{},
 	}
 }
 

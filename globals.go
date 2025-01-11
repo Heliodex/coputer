@@ -30,7 +30,7 @@ func ipairs_iter(args Args) Rets {
 	i := args.GetNumber()
 
 	i += 1
-	if v := a.GetArray(uint(i)); v != nil {
+	if v := a.GetArray(int(i)); v != nil {
 		return Rets{i, v}
 	}
 	return Rets{} // would prefer nil, nil but whateverrrrr

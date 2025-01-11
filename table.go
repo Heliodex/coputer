@@ -13,15 +13,16 @@ func table_clear(args Args) (err error) {
 	}
 
 	if t.array != nil {
-		for i := range t.asize {
+		for i := range t.sizearray {
 			(*t.array)[i] = nil
 		}
 	}
-	if t.hash != nil {
-		for k := range *t.hash {
-			// (*t.hash)[k] = nil
-			delete(*t.hash, k)
-		}
+	if t.node != nil {
+		// for k := range *t.node {
+		// 	// (*t.hash)[k] = nil
+		// 	delete(*t.node, k)
+		// }
+		*t.node = []LuaNode{}
 	}
 	return
 }
@@ -32,15 +33,15 @@ func table_clone(args Args) Ret {
 	a2 := make([]any, len(*t.array))
 	copy(a2, *t.array)
 
-	h2 := map[any]any{}
-	for k, v := range *t.hash {
-		h2[k] = v
+	h2 := make([]LuaNode, len(*t.node))
+	for i, v := range *t.node {
+		h2[i] = v
 	}
 
 	return &Table{
 		array:     &a2,
-		hash:      &h2,
-		asize:     t.asize,
+		node:      &h2,
+		sizearray: t.sizearray,
 		aboundary: t.aboundary,
 	}
 }
@@ -77,7 +78,7 @@ func table_create(args Args) (Ret, error) {
 		return nil, errors.New("index out of range")
 	}
 
-	asize := uint(s)
+	asize := int(s)
 	array := make([]any, asize)
 	if len(args.args) > 1 {
 		value := args.GetAny()
@@ -87,8 +88,9 @@ func table_create(args Args) (Ret, error) {
 	}
 
 	return &Table{
-		array: &array,
-		asize: asize, // not ^2?
+		array:     &array,
+		sizearray: asize, // not ^2?
+		node:      &[]LuaNode{},
 	}, nil
 }
 
@@ -119,7 +121,7 @@ func table_freeze(args Args) Ret {
 
 func moveelements(tb *Table, f, e, t int) {
 	fmt.Println(tb.array)
-	fmt.Println(tb.hash)
+	fmt.Println(tb.node)
 
 	if tb.readonly {
 		panic("attempt to modify a readonly table")
@@ -128,10 +130,10 @@ func moveelements(tb *Table, f, e, t int) {
 	n := e - f + 1 // number of elements to move
 	fmt.Println("moving", n, "elements from", f, "to", t, e)
 
-	if uint(f-1) < tb.asize &&
-		uint(t-1) < tb.asize &&
-		uint(f-1+n) <= tb.asize &&
-		uint(t-1+n) <= tb.asize {
+	if f-1 < tb.sizearray &&
+		t-1 < tb.sizearray &&
+		f-1+n <= tb.sizearray &&
+		t-1+n <= tb.sizearray {
 		array := tb.array
 
 		if t > e || t <= f {
@@ -150,13 +152,13 @@ func moveelements(tb *Table, f, e, t int) {
 
 	if t > e || t <= f {
 		for i := 0; i < n; i++ {
-			g := tb.GetArray(uint(f + i + 1))
-			tb.SetArray(uint(t+i+1), g)
+			g := tb.GetArray(f + i + 1)
+			tb.SetArray(t+i+1, g)
 		}
 	} else {
 		for i := n - 1; i >= 0; i-- {
-			g := tb.GetArray(uint(f + i + 1))
-			tb.SetArray(uint(t+i+1), g)
+			g := tb.GetArray(f + i + 1)
+			tb.SetArray(t+i+1, g)
 		}
 	}
 }
@@ -187,8 +189,8 @@ func table_insert(args Args) (err error) {
 	}
 
 	v := args.GetAny()
-	if 1 <= pos || pos > int(t.asize) {
-		t.SetArray(uint(pos), v)
+	if 1 <= pos || pos > int(t.sizearray) {
+		t.SetArray(pos, v)
 		return
 	}
 	t.SetHash(float64(pos), v)
@@ -216,8 +218,11 @@ func table_maxn(args Args) Ret {
 	}
 
 	// hash kvs
-	if t.hash != nil {
-		for k, v := range *t.hash {
+	if t.node != nil {
+		for _, n := range *t.node {
+			k := n.key
+			v := n.val
+
 			if fk, ok := k.(float64); ok && v != nil && fk > maxn {
 				maxn = fk
 			}
@@ -246,10 +251,10 @@ func table_pack(args Args) Ret {
 	n := float64(len(args.args))
 	t := &Table{
 		array: &[]any{},
-		hash:  &map[any]any{"n": n},
+		node:  &[]LuaNode{{"n", n}},
 	}
 	for i, v := range args.args {
-		t.SetArray(uint(i)+1, v)
+		t.SetArray(i+1, v)
 	}
 
 	return t
@@ -282,27 +287,27 @@ type Comp func(a, b any) (bool, error)
 func sort_swap(t *Table, i, j int) {
 	arr := *t.array
 	// n := t.asize
-	// LUAU_ASSERT(unsigned(i) < unsigned(n) && unsigned(j) < unsigned(n)); // contract maintained in sort_less after predicate call
+	// LUAU_ASSERT(unsigned(i) < unsigned(n) && unsigned(j) < unsigned(n)) // contract maintained in sort_less after predicate call
 
 	// no barrier required because both elements are in the array before and after the swap
 	arr[i], arr[j] = arr[j], arr[i]
 }
 
 func sort_less(t *Table, i, j int, comp Comp) (res bool, err error) {
-	arr, n := *t.array, t.asize
-	// LUAU_ASSERT(unsigned(i) < unsigned(n) && unsigned(j) < unsigned(n)); // contract maintained in sort_less after predicate call
+	arr, n := *t.array, t.sizearray
+	// LUAU_ASSERT(unsigned(i) < unsigned(n) && unsigned(j) < unsigned(n)) // contract maintained in sort_less after predicate call
 
 	res, err = comp(arr[i], arr[j])
 
 	// predicate call may resize the table, which is invalid
-	if t.asize != n {
+	if t.sizearray != n {
 		return false, errors.New("table modified during sorting")
 	}
 	return
 }
 
 func sort_siftheap(t *Table, l, u int, comp Comp, root int) (err error) {
-	// LUAU_ASSERT(l <= u);
+	// LUAU_ASSERT(l <= u)
 	count := u - l + 1
 
 	// process all elements with two children
@@ -346,7 +351,7 @@ func sort_siftheap(t *Table, l, u int, comp Comp, root int) (err error) {
 }
 
 func sort_heap(t *Table, l, u int, comp Comp) {
-	// LUAU_ASSERT(l <= u);
+	// LUAU_ASSERT(l <= u)
 	count := u - l + 1
 
 	for i := count/2 - 1; i >= 0; i-- {
@@ -490,14 +495,14 @@ func table_unpack(args Args) (values Rets) {
 	i := args.GetNumber(1)
 	j := args.GetNumber(list.Len())
 
-	ui, uj := uint(i), uint(j)
-	if uj <= list.asize {
+	ui, uj := int(i), int(j)
+	if uj <= list.sizearray {
 		return (*list.array)[ui-1 : uj]
 	}
 
 	values = make([]any, uj-ui+1)
 	for k := i; k <= j; k++ {
-		values[uint(k)-ui] = list.Get(k)
+		values[int(k)-ui] = list.Get(k)
 	}
 
 	return
