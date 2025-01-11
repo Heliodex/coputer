@@ -5,10 +5,8 @@ import "fmt"
 func invalidNumArgs(fn string, nx int, tx ...string) error {
 	if len(tx) > 0 {
 		return fmt.Errorf("missing argument #%d to '%s' (%s expected)", nx, fn, tx[0])
-	} else if nx > 0 {
-		return fmt.Errorf("missing argument #%d to '%s'", nx, fn)
 	}
-	return fmt.Errorf("wrong number of arguments to '%s'", fn)
+	return fmt.Errorf("missing argument #%d to '%s'", nx, fn)
 }
 
 func invalidArgType(i int, fn string, tx, tg string) error {
@@ -55,13 +53,9 @@ func getArg[T any](a *Args, optionalValue []T, tx ...string) GotArg[T] {
 	return GotArg[T]{arg: arg}
 }
 
-func (a *Args) CheckNextArg(wrong bool) {
+func (a *Args) CheckNextArg() {
 	if a.pos >= len(a.args) {
-		if wrong { // don't know the difference between these atm
-			a.co.Error(invalidNumArgs(a.name, 0))
-		} else {
-			a.co.Error(invalidNumArgs(a.name, a.pos+1))
-		}
+		a.co.Error(invalidNumArgs(a.name, a.pos+1))
 	}
 }
 
@@ -102,6 +96,7 @@ func (a *Args) GetAny(optionalValue ...any) (arg any) {
 	if a.pos > len(a.args) {
 		if len(optionalValue) == 0 {
 			a.co.Error(invalidNumArgs(a.name, a.pos))
+			return nil
 		}
 		return optionalValue[0]
 	}

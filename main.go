@@ -24,10 +24,11 @@ func arrayKey(k any) (uint, bool) {
 }
 
 type Table struct {
-	array    *[]any
-	hash     *map[any]any
-	asize    uint
-	readonly bool
+	array     *[]any
+	hash      *map[any]any
+	asize     uint
+	aboundary int // ?
+	readonly  bool
 }
 
 type (
@@ -98,7 +99,8 @@ func (co *Coroutine) Resume(args ...any) (Rets, error) {
 }
 
 func NewTable(toHash [][2]any) *Table {
-	hash := map[any]any{}
+	// remember, no duplicates
+	hash := make(map[any]any, len(toHash))
 	for _, v := range toHash {
 		hash[v[0]] = v[1]
 	}
@@ -109,18 +111,137 @@ func NewTable(toHash [][2]any) *Table {
 	}
 }
 
+func getaboundary(t *Table) uint {
+	if t.aboundary < 0 {
+		return uint(-t.aboundary)
+	}
+	return t.asize
+}
+
+func maybesetaboundary(t *Table, b uint) {
+	if t.aboundary < 0 {
+		t.aboundary = -int(b)
+	}
+}
+
+func updateaboundary(t *Table, boundary uint) uint {
+	if boundary < t.asize && (*t.array)[boundary-1] == nil {
+		if boundary >= 2 && (*t.array)[boundary-2] != nil {
+			b := boundary - 1
+			maybesetaboundary(t, b)
+			return b
+		}
+	} else if boundary+1 < t.asize && (*t.array)[boundary] != nil && (*t.array)[boundary+1] == nil {
+		b := boundary + 1
+		maybesetaboundary(t, b)
+		return b
+	}
+
+	return 0
+}
+
+/*
+** Try to find a boundary in table `t'. A `boundary' is an integer index
+** such that t[i] is non-nil and t[i+1] is nil (and 0 if t[1] is nil).
+ */
+func luaH_getn(t *Table) uint {
+	boundary := getaboundary(t)
+
+	if boundary > 0 {
+		if (*t.array)[t.asize-1] != nil {
+			return t.asize // fast-path: the end of the array in `t' already refers to a boundary
+		} else if boundary < t.asize && (*t.array)[boundary-1] != nil && (*t.array)[boundary] == nil {
+			return boundary // fast-path: boundary already refers to a boundary in `t'
+		}
+
+		foundboundary := updateaboundary(t, boundary)
+		if foundboundary > 0 {
+			return foundboundary
+		}
+	}
+
+	j := t.asize
+
+	if j > 0 && (*t.array)[j-1] == nil {
+		// "branchless" binary search from Array Layouts for Comparison-Based Searching, Paul Khuong, Pat Morin, 2017.
+		// note that clang is cmov-shy on cmovs around memory operands, so it will compile this to a branchy loop.
+		arr := *t.array
+
+		// base := t.array
+		var bpos uint
+		rest := j
+		for {
+			half := rest >> 1
+			if half == 0 {
+				break
+			}
+
+			if arr[bpos+half] != nil {
+				bpos += half
+			}
+			rest -= half
+		}
+
+		boundary := bpos
+		if arr[bpos] != nil {
+			boundary++
+		}
+		return boundary
+	}
+
+	// validate boundary invariant
+	// LUAU_ASSERT(t->node == dummynode || ttisnil(luaH_getnum(t, j + 1)));
+	return j
+}
+
 // O(n) length? *scoffs*
 func (t *Table) Len() (len float64) {
-	if t.array == nil {
-		return
-	}
-	// return len(*t.array)
-	for _, v := range *t.array {
-		if v == nil {
+	// if t.array == nil {
+	// 	return
+	// }
+
+	// for _, v := range *t.array {
+	// 	if v == nil {
+	// 		break
+	// 	}
+	// 	len++
+	// }
+	return float64(luaH_getn(t))
+}
+
+func RehashHalve(arrayEntries map[uint]any, totalSize uint) (maxP2 uint, newArray []any) {
+	maxP2 = p2gte(totalSize)
+	// fmt.Println("rehashing to size", maxP2)
+	lenArrayEntries := uint(len(arrayEntries))
+
+	var maxToFill uint
+
+	// halve the size of the array until more than half of the spaces are filled
+	for {
+		// fmt.Println("halving", maxP2, "until", maxToFill, lenArrayEntries)
+		var intsFilled uint
+		maxToFill = min(maxP2, totalSize, lenArrayEntries)
+
+		// fmt.Println(arrayEntries)
+
+		newArray = make([]any, maxToFill, maxP2)
+		for i, v := range arrayEntries {
+			if i >= maxToFill || v == nil {
+				continue
+			}
+
+			intsFilled++
+			newArray[i] = v
+		}
+
+		// fmt.Println("INTSFILLED", intsFilled)
+
+		if intsFilled > maxP2/2 || maxP2 == 0 {
 			break
 		}
-		len++
+		maxP2 >>= 1
 	}
+
 	return
 }
 
@@ -192,45 +313,13 @@ func (t *Table) Rehash(nk, nv any) {
 		return
 	}
 
-	maxP2 := p2gte(totalSize)
-	fmt.Println("rehashing to size", maxP2)
-	lenArrayEntries := uint(len(arrayEntries))
-
-	var maxToFill uint
-	var arrayEntries2 []any
-
-	// halve the size of the array until more than half of the spaces are filled
-	for {
-		// fmt.Println("halving", maxP2, "until", maxToFill, lenArrayEntries)
-		var intsFilled uint
-		maxToFill = min(maxP2, totalSize, lenArrayEntries)
-
-		// fmt.Println(arrayEntries)
-
-		arrayEntries2 = make([]any, maxToFill)
-		for i, v := range arrayEntries {
-			if i >= maxToFill || v == nil {
-				continue
-			}
-
-			intsFilled++
-			arrayEntries2[i] = v
-		}
-
-		// fmt.Println("INTSFILLED", intsFilled)
-
-		if intsFilled > maxP2/2 || maxP2 == 0 {
-			break
-		}
-		maxP2 >>= 1
-	}
+	maxP2, newArray := RehashHalve(arrayEntries, totalSize)
 
 	if maxP2 > 0 {
 		t.asize = maxP2
 
 		// fill the new array
-		newArray := make([]any, maxP2)
-		copy(newArray, arrayEntries2) // birh
+		newArray = newArray[:cap(newArray)]
 		t.array = &newArray
 
 		for i, v := range newArray {
@@ -243,10 +332,12 @@ func (t *Table) Rehash(nk, nv any) {
 		// fmt.Println("Remaining", entries)
 	}
 
-	t.hash = &entries
+	if len(entries) > 0 {
+		t.hash = &entries
+	}
 
 	// fmt.Println()
-	fmt.Println("REHASHED")
+	// fmt.Println("REHASHED")
 	// fmt.Println("ARRAY", t.array)
 	// fmt.Println("HASH", entries)
 	// fmt.Println("ASIZE", t.asize)

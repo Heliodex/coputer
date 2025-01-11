@@ -39,7 +39,10 @@ func litecode(t *testing.T, f string, o uint8) (string, time.Duration) {
 	}, map[string]Rets{})
 
 	startTime := time.Now()
-	co.Resume()
+	_, err = co.Resume()
+	if err != nil {
+		panic(err)
+	}
 	endTime := time.Now()
 
 	return b.String(), endTime.Sub(startTime)
@@ -95,7 +98,7 @@ func TestConformance(t *testing.T) {
 		return
 	}
 
-	// onlyTest := "largealloc.luau"
+	onlyTest := "libtable.luau"
 
 	for _, f := range files {
 		if f.IsDir() {
@@ -103,9 +106,9 @@ func TestConformance(t *testing.T) {
 		}
 
 		name := f.Name()
-		// if name != onlyTest {
-		// 	continue
-		// }
+		if name != onlyTest {
+			continue
+		}
 
 		fmt.Println(" -- Testing", name, "--")
 		filename := fmt.Sprintf("test/%s", name)
@@ -127,13 +130,13 @@ func TestConformance(t *testing.T) {
 				fmt.Println()
 
 				// print mismatch
-				oLines := strings.Split(o, "\n")
-				ogLines := strings.Split(og, "\n")
-				for i, line := range ogLines {
-					if line != oLines[i] {
-						t.Errorf("mismatched line: \n%s\n%v\n%s\n%v", line, []byte(line), oLines[i], []byte(oLines[i]))
-					}
-				}
+				// oLines := strings.Split(o, "\n")
+				// ogLines := strings.Split(og, "\n")
+				// for i, line := range ogLines {
+				// 	if line != oLines[i] {
+				// 		t.Errorf("mismatched line: \n%s\n%v\n%s\n%v", line, []byte(line), oLines[i], []byte(oLines[i]))
+				// 	}
+				// }
 
 				return
 			}

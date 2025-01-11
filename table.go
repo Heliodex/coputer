@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -18,7 +19,8 @@ func table_clear(args Args) (err error) {
 	}
 	if t.hash != nil {
 		for k := range *t.hash {
-			(*t.hash)[k] = nil
+			// (*t.hash)[k] = nil
+			delete(*t.hash, k)
 		}
 	}
 	return
@@ -36,9 +38,10 @@ func table_clone(args Args) Ret {
 	}
 
 	return &Table{
-		array: &a2,
-		hash:  &h2,
-		asize: t.asize,
+		array:     &a2,
+		hash:      &h2,
+		asize:     t.asize,
+		aboundary: t.aboundary,
 	}
 }
 
@@ -85,7 +88,6 @@ func table_create(args Args) (Ret, error) {
 
 	return &Table{
 		array: &array,
-		hash:  &map[any]any{},
 		asize: asize, // not ^2?
 	}, nil
 }
@@ -115,52 +117,82 @@ func table_freeze(args Args) Ret {
 	return t
 }
 
+func moveelements(tb *Table, f, e, t int) {
+	fmt.Println(tb.array)
+	fmt.Println(tb.hash)
+
+	if tb.readonly {
+		panic("attempt to modify a readonly table")
+	}
+
+	n := e - f + 1 // number of elements to move
+	fmt.Println("moving", n, "elements from", f, "to", t, e)
+
+	if uint(f-1) < tb.asize &&
+		uint(t-1) < tb.asize &&
+		uint(f-1+n) <= tb.asize &&
+		uint(t-1+n) <= tb.asize {
+		array := tb.array
+
+		if t > e || t <= f {
+			for i := 0; i < n; i++ {
+				(*array)[t+i-1] = (*array)[f+i-1]
+			}
+		} else {
+			for i := n - 1; i >= 0; i-- {
+				(*array)[t+i-1] = (*array)[f+i-1]
+			}
+		}
+
+		// gee cee
+		return
+	}
+
+	if t > e || t <= f {
+		for i := 0; i < n; i++ {
+			g := tb.GetArray(uint(f + i + 1))
+			tb.SetArray(uint(t+i+1), g)
+		}
+	} else {
+		for i := n - 1; i >= 0; i-- {
+			g := tb.GetArray(uint(f + i + 1))
+			tb.SetArray(uint(t+i+1), g)
+		}
+	}
+}
+
 func table_insert(args Args) (err error) {
 	t := args.GetTable()
-	args.CheckNextArg(true)
+
+	n := int(luaH_getn(t))
+	var pos int
+
+	switch len(args.args) {
+	case 2:
+		pos = n + 1
+	case 3:
+		pos = int(args.GetNumber()) // 2nd argument is the position
+
+		// move elements up if necessary
+		if 1 <= pos && pos <= n {
+			fmt.Println("Moving elements up")
+			moveelements(t, pos, n, pos+1)
+		}
+	default:
+		return errors.New("wrong number of arguments to 'insert'")
+	}
+
 	if t.readonly {
 		return errors.New("attempt to modify a readonly table")
 	}
 
-	l := t.Len()
-	if len(args.args) == 2 {
-		value := args.GetAny()
-		if t.array == nil {
-			t.array = &[]any{value}
-			t.asize = 1
-			return
-		}
-
-		t.SetArray(uint(l)+1, value)
+	v := args.GetAny()
+	if 1 <= pos || pos > int(t.asize) {
+		t.SetArray(uint(pos), v)
 		return
 	}
+	t.SetHash(float64(pos), v)
 
-	pos, value := int(args.GetNumber()), args.GetAny()
-
-	if t.array == nil {
-		arr := make([]any, pos)
-		arr[pos-1] = value
-		t.array = &arr
-		t.asize = uint(pos)
-	} else if pos > int(t.asize) {
-		for j := int(l); j >= pos; j-- {
-			(*t.array)[j] = (*t.array)[j-1]
-		}
-
-		t.Rehash(float64(pos), value)
-	} else if 1 <= pos {
-		for j := int(l); j >= int(pos); j-- {
-			if j >= len(*t.array) {
-				// we may ought to rehash here
-				(*t.array) = append(*t.array, (*t.array)[j-1])
-			}
-			(*t.array)[j] = (*t.array)[j-1]
-		}
-
-		(*t.array)[pos-1] = value
-	} else {
-		t.SetHash(float64(pos), value)
-	}
 	return
 }
 

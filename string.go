@@ -162,7 +162,7 @@ func fmtstring(strfrmt string, args *Args) (string, error) {
 		}
 
 		// format item
-		args.CheckNextArg(false)
+		args.CheckNextArg()
 		formatIndicator, form, p, err := scanformat(strfrmt[i:])
 		if err != nil {
 			return "", err

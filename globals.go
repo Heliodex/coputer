@@ -47,7 +47,7 @@ func global_ipairs(args Args) Rets {
 // The call next(t, k), where k is a key of the table t, returns a next key in the table, in an arbitrary order. (It returns also the value associated with that key, as a second return value.) The call next(t, nil) returns a first pair. When there are no more pairs, next returns nil.
 func global_next(args Args) (pair Rets) {
 	t := args.GetTable()
-	fk := args.GetAny()
+	fk := args.GetAny(nil)
 
 	if fk == nil {
 		next, stop := iter.Pull2(t.Iter())
@@ -77,7 +77,7 @@ func global_next(args Args) (pair Rets) {
 		}
 	}
 
-	return
+	return Rets{nil}
 }
 
 func global_pairs(args Args) Rets {
