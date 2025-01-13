@@ -73,6 +73,16 @@ table.insert(h, -5, "G")
 print(h[1])
 print(h[-5])
 
+local n = { 3 }
+
+print(table.unpack(n))
+table.insert(n, 1, 2)
+print(table.unpack(n))
+table.insert(n, 1, 1)
+print(table.unpack(n))
+table.insert(n, 1, 0)
+print(table.unpack(n))
+
 print(table.isfrozen(math))
 print(table.isfrozen {})
 print(table.isfrozen(table.freeze {}))

@@ -889,6 +889,10 @@ type Upval struct {
 	selfRef bool
 }
 
+func (u Upval) String() string {
+	return fmt.Sprintf("{\n  index: %d\n  store: %v\n  value: %v\n  selfRef: %t\n}", u.index, u.store, u.value, u.selfRef)
+}
+
 func truthy(v any) bool {
 	if b, ok := v.(bool); ok {
 		return b
@@ -1168,7 +1172,7 @@ func jumpEq(a, b any) (bool, error) {
 
 type ToWrap struct {
 	proto        Proto
-	upvals       []Upval
+	upvals       []*Upval
 	alive        *bool
 	protolist    []Proto
 	env          map[any]any
@@ -1182,16 +1186,17 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 	protolist := towrap.protolist
 	env := towrap.env
 	requireCache := towrap.requireCache
-
+	
 	protos, code := proto.protos, proto.code
 	top, pc, openUpvalues, generalisedIterators := -1, 1, []*Upval{}, map[Inst]*Iterator{}
 
 	var handlingBreak bool
 	var inst Inst
 	var op uint8
-
+	
 	// a a a a
 	// stayin' alive
+	// fmt.Println("starting with upvals", upvals)
 	for *alive {
 		if !handlingBreak {
 			inst = *code[pc-1]
@@ -1199,7 +1204,10 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 		}
 		handlingBreak = false
 
-		// fmt.Printf("OP %-2d PC %d\n", op, pc+1)
+		// if len(upvals) > 0 {
+		// 	fmt.Println("upval", upvals[0])
+		// }
+		// fmt.Printf("OP %-2d PC %-3d UV %d\n", op, pc+1, len(upvals))
 
 		switch op {
 		case 0: // NOP
@@ -1250,7 +1258,8 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 			if uv := upvals[inst.B]; uv.selfRef {
 				(*stack)[inst.A] = uv.value
 			} else {
-				// fmt.Println("GETTING UPVAL", uv.store)
+				// fmt.Println("GETTING UPVAL", uv)
+				// fmt.Println("Setting stacka to", (*uv.store)[uv.index])
 
 				(*stack)[inst.A] = (*uv.store)[uv.index]
 			}
@@ -1265,10 +1274,12 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 				if uv == nil || uv.selfRef || uv.index < inst.A {
 					continue
 				}
+				// fmt.Println("closing upvalue", uv)
 				uv.value = (*uv.store)[uv.index]
 				uv.store = nil
 				uv.selfRef = true
 				openUpvalues[i] = nil
+				// fmt.Println("closed", uv)
 			}
 		case 12: // GETIMPORT
 			k0 := inst.K0
@@ -1344,11 +1355,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 			t := (*stack)[inst.B].(*Table)
 			i := int(inst.C + 1)
 
-			if v := (*t.array)[i]; v != nil {
-				(*stack)[inst.A] = v
-			} else {
-				(*stack)[inst.A] = t.GetHash(float64(i))
-			}
+			(*stack)[inst.A] = t.Get(float64(i))
 
 			pc += 1
 		case 18: // SETTABLEN
@@ -1366,19 +1373,20 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 			newPrototype := protolist[protos[inst.D]-1]
 
 			nups := newPrototype.nups
-			upvalues := make([]Upval, nups)
+			upvalues := make([]*Upval, nups)
 
 			// wrap is reused for closures
 			towrap.proto = newPrototype
 			towrap.upvals = upvalues
 
 			(*stack)[inst.A] = wrapclosure(towrap)
+			// fmt.Println("WRAPPING WITH", upvalues)
 
 			// fmt.Println("nups", nups)
 			for i := range nups {
 				switch pseudo := code[pc]; pseudo.A {
 				case 0: // -- value
-					upvalue := Upval{
+					upvalue := &Upval{
 						value:   (*stack)[pseudo.B],
 						selfRef: true,
 					}
@@ -1387,7 +1395,10 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 					upvalues[i] = upvalue
 				case 1: // -- reference
 					index := pseudo.B
-					// fmt.Println("index", index, len(*open_upvalues))
+					// fmt.Println("index", index, len(openUpvalues))
+					// for si, sv := range *stack {
+					// 	fmt.Printf("  [%d] = %v\n", si, sv)
+					// }
 
 					var prev *Upval
 					if index < len(openUpvalues) {
@@ -1406,8 +1417,10 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 						openUpvalues[index] = prev
 					}
 
-					upvalues[i] = *prev
+					upvalues[i] = prev
+					// fmt.Println("set upvalue", i, "to", prev)
 				case 2: // -- upvalue
+					// fmt.Println("moving", i, pseudo.B)
 					upvalues[i] = upvals[pseudo.B]
 				}
 				pc += 1
@@ -1485,10 +1498,13 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 				return nil, uncallableType(typeOf(f))
 			}
 
+			// fmt.Println("upvals1", len(upvals))
 			retList, err := (*fn)(co, (*stack)[A+1:A+params+1]...) // not inclusive
+			// fmt.Println("upvals2", len(upvals))
 			if err != nil {
 				return nil, err
 			}
+			// fmt.Println("resultt", retList)
 			retCount := len(retList)
 
 			// fmt.Println("COUNT", retCount)
@@ -1704,10 +1720,10 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 			a := (*stack)[inst.B]
 			b := (*stack)[inst.C]
 
-			if truthy(a) && truthy(b) {
+			if truthy(a) {
 				(*stack)[inst.A] = b
 			} else {
-				(*stack)[inst.A] = false
+				(*stack)[inst.A] = a
 			}
 		case 46: // logic OR
 			pc += 1
@@ -1727,10 +1743,10 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 			a := (*stack)[inst.B]
 			b := inst.K
 
-			if truthy(a) && truthy(b) {
+			if truthy(a) {
 				(*stack)[inst.A] = b
 			} else {
-				(*stack)[inst.A] = false
+				(*stack)[inst.A] = a
 			}
 		case 48: // logik OR
 			pc += 1
@@ -1745,7 +1761,6 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 			} else {
 				(*stack)[inst.A] = false
 			}
-
 		case 49: // CONCAT
 			pc += 1
 			s := strings.Builder{}
@@ -1943,7 +1958,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 			newPrototype := protolist[inst.K.(uint32)]
 
 			nups := newPrototype.nups
-			upvalues := make([]Upval, nups)
+			upvalues := make([]*Upval, nups)
 
 			towrap.proto = newPrototype
 			towrap.upvals = upvalues
@@ -1953,7 +1968,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 			for i := range nups {
 				switch pseudo := code[pc]; pseudo.A {
 				case 0: // value
-					upvalue := Upval{
+					upvalue := &Upval{
 						value:   (*stack)[pseudo.B],
 						selfRef: true,
 					}
@@ -2130,7 +2145,7 @@ func Load(module Deserialised, filepath string, o uint8, env map[any]any, requir
 
 	towrap := ToWrap{
 		module.mainProto,
-		[]Upval{},
+		[]*Upval{},
 		&alive,
 		protolist,
 		env,

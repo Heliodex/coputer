@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -124,7 +125,7 @@ func table_freeze(args Args) Ret {
 }
 
 func bumpelements(t *Table, start int) {
-	// fmt.Println("BEFORE")
+	// fmt.Println("BEFORE", start)
 	// fmt.Println(t)
 	// fmt.Println()
 
@@ -134,15 +135,16 @@ func bumpelements(t *Table, start int) {
 		v := t.Get(i)
 		// fmt.Println("starting with", i, v)
 		if v == nil {
-			keys = i
+			keys = i - 1
 			break
 		}
-		// keysToMove = append(keysToMove, i)
 	}
 
+	// fmt.Println("keys", keys)
+
 	for k := keys; k >= fstart; k-- {
-		// fmt.Println("moving key", k)
-		t.ForceSet(k, t.Get(k-1))
+		// fmt.Println("moving key", k+1, "=", t.Get(k))
+		t.ForceSet(k+1, t.Get(k))
 	}
 
 	// fmt.Println("AFTER")
