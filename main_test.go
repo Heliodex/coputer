@@ -98,7 +98,7 @@ func TestConformance(t *testing.T) {
 		return
 	}
 
-	// onlyTest := "clear.luau"
+	// onlyTest := "calls.luau"
 
 	for _, f := range files {
 		if f.IsDir() {

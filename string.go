@@ -6,36 +6,44 @@ import (
 	"strings"
 )
 
-func string_posrelat(pos, len int) int {
+func string_posrelat(pos, l int) int {
 	// relative string position: negative means back from end
 	if pos < 0 {
-		pos += len + 1
+		pos += l + 1
 	}
 	if pos >= 0 {
-		return min(pos, len) - 1
+		return pos
 	}
 	return 0
 }
 
-func string_byte(args Args) (bytes Rets) {
+func string_byte(args Args) (bytes Rets, err error) {
 	s := args.GetString()
+	l := len(s)
+
 	i := args.GetNumber(1)
-	j := args.GetNumber(i)
+	posi := string_posrelat(int(i), l)
+	j := args.GetNumber(float64(posi))
+	pose := string_posrelat(int(j), l)
 
-	ls := len(s)
-
-	ui := string_posrelat(int(i), ls)
-	uj := string_posrelat(int(j), ls)
-
-	cap := uj - ui + 1
-	if cap < 0 {
-		return
+	if posi <= 0 {
+		posi = 1
+	}
+	if pose > l {
+		pose = l
 	}
 
-	bytes = make(Rets, cap)
+	n := pose - posi + 1
+	if n < 0 {
+		return // empty interval; return no values
+	} else if posi+n <= pose { // overflow?
+		return nil, errors.New("string slice too long")
+	}
+
+	bytes = make(Rets, n)
 	chars := []byte(s)
-	for n := range bytes {
-		bytes[n] = float64(chars[n+ui])
+	for b := range bytes {
+		bytes[b] = float64(chars[posi+b-1])
 	}
 	return
 }
@@ -62,15 +70,22 @@ func string_find(args Args) Rets {
 	p := args.GetString()
 	i := args.GetNumber(1)
 	// plain := args.GetBool(false)
+	ls := len(s)
 
-	init := string_posrelat(int(i), len(s))
-	pos := strings.Index(s[init:], p)
+	init := string_posrelat(int(i), ls)
+	if init < 1 {
+		init = 1
+	} else if init > ls+1 { // start after string's end?
+		return Rets{nil} // cannot find anything
+	}
+
+	pos := strings.Index(s[init-1:], p)
 	if pos == -1 {
 		return Rets{nil} // one nil
 	}
 	return Rets{
-		float64(pos + init + 1),
-		float64(pos + init + len(p)),
+		float64(pos + init),
+		float64(pos + init + len(p) - 1),
 	}
 }
 
@@ -156,7 +171,7 @@ func fmtstring(strfrmt string, args *Args) (string, error) {
 			continue
 		} else if strfrmt[i] == '*' {
 			a := args.GetAny()
-			b.WriteString(fmt.Sprintf("%v", a)) // we'd really do tostring() later
+			b.WriteString(tostring(a))
 			i++
 			continue
 		}
@@ -282,7 +297,7 @@ func string_split(args Args) Ret {
 	}
 
 	return &Table{
-		array:     &a,
+		array: &a,
 	}
 }
 
@@ -292,13 +307,19 @@ func string_sub(args Args) Ret {
 	j := args.GetNumber(-1)
 
 	l := len(s)
-	ui := string_posrelat(int(i), l)
-	uj := string_posrelat(int(j), l)
+	start := string_posrelat(int(i), l)
+	end := string_posrelat(int(j), l)
+	if start < 1 {
+		start = 1
+	}
+	if end > l {
+		end = l
+	}
 
-	if uj < ui {
+	if end < start {
 		return ""
 	}
-	return s[ui:min(uj+1, l)]
+	return s[start-1 : end]
 }
 
 func string_upper(args Args) Ret {
@@ -308,7 +329,7 @@ func string_upper(args Args) Ret {
 }
 
 var libstring = NewTable([][2]any{
-	MakeFn("byte", string_byte),
+	MakeFnE("byte", string_byte),
 	MakeFn1E("char", string_char),
 	MakeFn("find", string_find),
 	MakeFn1E("format", string_format),

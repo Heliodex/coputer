@@ -473,15 +473,18 @@ func table_sort(args Args) (err error) {
 func table_unpack(args Args) (values Rets) {
 	list := args.GetTable()
 	i := args.GetNumber(1)
-	j := args.GetNumber(float64(list.Len()))
+	e := args.GetNumber(float64(list.Len()))
+	if i > e {
+		return // empty range
+	}
 
-	ui, uj := int(i), int(j)
+	ui, uj := int(i), int(e)
 	if uj <= len(*list.array) {
 		return (*list.array)[ui-1 : uj]
 	}
 
 	values = make([]any, uj-ui+1)
-	for k := i; k <= j; k++ {
+	for k := i; k <= e; k++ {
 		values[int(k)-ui] = list.Get(k)
 	}
 
