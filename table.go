@@ -19,10 +19,10 @@ func table_clear(args Args) (err error) {
 	}
 	if t.node != nil {
 		// for k := range *t.node {
-		// 	// (*t.hash)[k] = nil
+		// 	// (*t.node)[k] = nil
 		// 	delete(*t.node, k)
 		// }
-		*t.node = []LuaNode{}
+		t.node = &map[any]any{}
 	}
 	return
 }
@@ -33,7 +33,7 @@ func table_clone(args Args) Ret {
 	a2 := make([]any, len(*t.array))
 	copy(a2, *t.array)
 
-	h2 := make([]LuaNode, len(*t.node))
+	h2 := make(map[any]any, len(*t.node))
 	for i, v := range *t.node {
 		h2[i] = v
 	}
@@ -42,7 +42,7 @@ func table_clone(args Args) Ret {
 		array:     &a2,
 		node:      &h2,
 		sizearray: t.sizearray,
-		aboundary: t.aboundary,
+		lfab:      t.lfab,
 	}
 }
 
@@ -90,7 +90,7 @@ func table_create(args Args) (Ret, error) {
 	return &Table{
 		array:     &array,
 		sizearray: asize, // not ^2?
-		node:      &[]LuaNode{},
+		node:      &map[any]any{},
 	}, nil
 }
 
@@ -120,32 +120,29 @@ func table_freeze(args Args) Ret {
 }
 
 func moveelements(tb *Table, f, e, t int) {
-	fmt.Println(tb.array)
-	fmt.Println(tb.node)
-
 	if tb.readonly {
 		panic("attempt to modify a readonly table")
 	}
 
 	n := e - f + 1 // number of elements to move
 	fmt.Println("moving", n, "elements from", f, "to", t, e)
-
-	if f-1 < tb.sizearray &&
-		t-1 < tb.sizearray &&
-		f-1+n <= tb.sizearray &&
-		t-1+n <= tb.sizearray {
+	
+	if ua := uint(tb.sizearray); uint(f-1) < ua && uint(t-1) < ua && uint(f-1+n) <= ua && uint(t-1+n) <= ua {
 		array := tb.array
-
+		
 		if t > e || t <= f {
-			for i := 0; i < n; i++ {
-				(*array)[t+i-1] = (*array)[f+i-1]
+			for i := -1; i < n-1; i++ {
+				move := (*array)[f+i]
+				(*array)[t+i] = move
 			}
 		} else {
-			for i := n - 1; i >= 0; i-- {
-				(*array)[t+i-1] = (*array)[f+i-1]
+			for i := n - 2; i >= -1; i-- {
+				move := (*array)[f+i]
+				(*array)[t+i] = move
 			}
 		}
-
+		
+		fmt.Println(tb)
 		// gee cee
 		return
 	}
@@ -175,9 +172,9 @@ func table_insert(args Args) (err error) {
 	case 3:
 		pos = int(args.GetNumber()) // 2nd argument is the position
 
+		fmt.Println("GETN", pos, n)
 		// move elements up if necessary
 		if 1 <= pos && pos <= n {
-			fmt.Println("Moving elements up")
 			moveelements(t, pos, n, pos+1)
 		}
 	default:
@@ -189,12 +186,7 @@ func table_insert(args Args) (err error) {
 	}
 
 	v := args.GetAny()
-	if 1 <= pos || pos > int(t.sizearray) {
-		t.SetArray(pos, v)
-		return
-	}
-	t.SetHash(float64(pos), v)
-
+	t.SetNum(pos, v)
 	return
 }
 
@@ -219,10 +211,7 @@ func table_maxn(args Args) Ret {
 
 	// hash kvs
 	if t.node != nil {
-		for _, n := range *t.node {
-			k := n.key
-			v := n.val
-
+		for k, v := range *t.node {
 			if fk, ok := k.(float64); ok && v != nil && fk > maxn {
 				maxn = fk
 			}
@@ -251,7 +240,7 @@ func table_pack(args Args) Ret {
 	n := float64(len(args.args))
 	t := &Table{
 		array: &[]any{},
-		node:  &[]LuaNode{{"n", n}},
+		node:  &map[any]any{"n": n},
 	}
 	for i, v := range args.args {
 		t.SetArray(i+1, v)

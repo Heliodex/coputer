@@ -23,27 +23,21 @@ func arrayKey(k any) (uint, bool) {
 	return uint(fk), ok && fk == math.Floor(fk) && fk > 0
 }
 
-type LuaNode struct {
-	key, val any
-}
-
 type Table struct {
 	lsizenode, nodemask8 uint8
 
-	array               *[]any
-	node                *[]LuaNode
-	sizearray           int
-	lastfree, aboundary int // ?
-	readonly            bool
+	array     *[]any
+	node      *map[any]any
+	sizearray int
+	lfab      int // lastfree/aboundary
+	readonly  bool
 }
 
-func (t *Table) GetNode(i int) *LuaNode {
-	// return &(*t.node)[i]
-	tn := *t.node
-	if i < 0 || i >= len(tn) {
-		return &LuaNode{}
-	}
-	return &tn[i]
+func (t *Table) String() string {
+	s := fmt.Sprintf("  array: %v\n  node:  %v", *t.array, *t.node)
+
+	fmt.Println(s)
+	return s
 }
 
 func (t *Table) dummynode() bool {
@@ -127,9 +121,9 @@ func (co *Coroutine) Resume(args ...any) (Rets, error) {
 
 func NewTable(toHash [][2]any) *Table {
 	// remember, no duplicates
-	hash := make([]LuaNode, len(toHash))
-	for i, v := range toHash {
-		hash[i] = LuaNode{v[0], v[1]}
+	hash := make(map[any]any, len(toHash))
+	for _, v := range toHash {
+		hash[v[0]] = v[1]
 	}
 	return &Table{
 		sizearray: 0,
@@ -139,17 +133,17 @@ func NewTable(toHash [][2]any) *Table {
 	}
 }
 
-func getaboundary(t *Table) int {
-	if t.aboundary < 0 {
-		return -t.aboundary
+func maybesetaboundary(t *Table, boundary int) {
+	if t.lfab <= 0 {
+		t.lfab = -int(boundary)
 	}
-	return t.sizearray
 }
 
-func maybesetaboundary(t *Table, b int) {
-	if t.aboundary < 0 {
-		t.aboundary = -int(b)
+func getaboundary(t *Table) int {
+	if t.lfab < 0 {
+		return -t.lfab
 	}
+	return t.sizearray
 }
 
 func updateaboundary(t *Table, boundary int) int {
@@ -157,6 +151,7 @@ func updateaboundary(t *Table, boundary int) int {
 		if boundary >= 2 && (*t.array)[boundary-2] != nil {
 			b := boundary - 1
 			maybesetaboundary(t, b)
+			fmt.Println("newb1", b)
 			return b
 		}
 	} else if boundary+1 < t.sizearray && (*t.array)[boundary] != nil && (*t.array)[boundary+1] == nil {
@@ -168,58 +163,57 @@ func updateaboundary(t *Table, boundary int) int {
 	return 0
 }
 
+func LUAU_ASSERT(cond bool) {
+	if !cond {
+		panic("assertion failed")
+	}
+}
+
 /*
 ** Try to find a boundary in table `t'. A `boundary' is an integer index
 ** such that t[i] is non-nil and t[i+1] is nil (and 0 if t[1] is nil).
  */
 func luaH_getn(t *Table) int {
-	boundary := getaboundary(t)
+	b := getaboundary(t)
 
-	if boundary > 0 {
-		if (*t.array)[t.sizearray-1] != nil {
+	fmt.Println("initial boundary", b, t.sizearray)
+
+	if b > 0 {
+		if (*t.array)[t.sizearray-1] != nil && len(*t.node) == 0 {
 			return t.sizearray // fast-path: the end of the array in `t' already refers to a boundary
-		} else if boundary < t.sizearray && (*t.array)[boundary-1] != nil && (*t.array)[boundary] == nil {
-			return boundary // fast-path: boundary already refers to a boundary in `t'
+		} else if b < t.sizearray && (*t.array)[b-1] != nil && (*t.array)[b] == nil {
+			return b // fast-path: boundary already refers to a boundary in `t'
 		}
 
-		foundboundary := updateaboundary(t, boundary)
-		if foundboundary > 0 {
-			return foundboundary
+		if found := updateaboundary(t, b); found > 0 {
+			return found
 		}
 	}
 
 	j := t.sizearray
+	fmt.Println("sizearray", j)
 
-	if j > 0 && (*t.array)[j-1] == nil {
-		// "branchless" binary search from Array Layouts for Comparison-Based Searching, Paul Khuong, Pat Morin, 2017.
-		// note that clang is cmov-shy on cmovs around memory operands, so it will compile this to a branchy loop.
-		arr := *t.array
-
-		// base := t.array
-		var bpos int
-		rest := j
-		for {
-			half := rest >> 1
-			if half == 0 {
-				break
-			}
-
-			if arr[bpos+half] != nil {
-				bpos += half
-			}
-			rest -= half
-		}
-
-		boundary := bpos
-		if arr[bpos] != nil {
-			boundary++
-		}
-		return boundary
+	if j <= 0 || (*t.array)[j-1] != nil {
+		// validate boundary invariant
+		// todo: THESE FAIL SOMETIMES AND I DON'T KNOW WHYYYY
+		// LUAU_ASSERT(len(*t.node) == 0)
+		// LUAU_ASSERT(luaH_getnum(t, j+1) == nil)
+		fmt.Println("p4", j)
+		return j
 	}
 
-	// validate boundary invariant
-	// LUAU_ASSERT(t->node == dummynode || ttisnil(luaH_getnum(t, j + 1)))
-	return j
+	// go through array until we find position of a nil
+	// (sigh) good enough... it's O(n) and I don't care
+	for i, v := range *t.array {
+		if v == nil {
+			b = i
+			break
+		}
+	}
+
+	maybesetaboundary(t, b)
+	fmt.Println("p5", b)
+	return b
 }
 
 // O(n) length? *scoffs*
@@ -344,15 +338,15 @@ func computesizes(nums *[MAXBITS + 1]int, narray *int) int {
 		}
 	}
 	*narray = n
-	// LUAU_ASSERT(*narray / 2 <= na && na <= *narray)
+	LUAU_ASSERT(*narray/2 <= na && na <= *narray)
 	return na
 }
 
-func numusearray(t *Table, nums *[MAXBITS + 1]int) int {
+func numusearray(t *Table) (ause int, nums [MAXBITS + 1]int) {
 	var lg int
 	var ttlg int // 2^lg
-	var ause int // summation of 'nums'
-	i := 1       // count to traverse all array keys
+	// var ause int // summation of 'nums'
+	i := 1 // count to traverse all array keys
 	for lg, ttlg = 0, 1; lg <= MAXBITS; lg, ttlg = lg+1, ttlg*2 {
 		// for each slice
 		var lc int // counter
@@ -373,22 +367,19 @@ func numusearray(t *Table, nums *[MAXBITS + 1]int) int {
 		ause += lc
 	}
 
-	return ause
+	return
 }
 
 func numusehash(t *Table, nums *[MAXBITS + 1]int, pnasize *int) int {
 	var totaluse int // total number of elements
 	var ause int     // summation of 'nums'
-	i := sizenode(t)
-	for i != 0 {
-		i--
-		n := t.GetNode(i)
-		if n.val != nil {
-			if nk, ok := n.key.(float64); ok {
-				ause += countint(nk, nums)
-			}
-			totaluse++
+	for i, n := range *t.node {
+		if n == nil { // todo: idk if this actually happens
+			continue
+		} else if nk, ok := i.(float64); ok {
+			ause += countint(nk, nums)
 		}
+		totaluse++
 	}
 	*pnasize += ause
 	return totaluse
@@ -413,7 +404,7 @@ func setnodevector(t *Table, size int) {
 	var lsize int
 	if size == 0 {
 		// no elements to hash part?
-		t.node = &[]LuaNode{}
+		t.node = &map[any]any{}
 		lsize = 0
 	} else {
 		// var i int
@@ -422,7 +413,7 @@ func setnodevector(t *Table, size int) {
 			panic("table overflow")
 		}
 		size = twoto(lsize)
-		n := make([]LuaNode, size)
+		n := make(map[any]any, size)
 		t.node = &n
 		// gee cee moment
 
@@ -434,7 +425,7 @@ func setnodevector(t *Table, size int) {
 	}
 	t.lsizenode = uint8(lsize)
 	t.nodemask8 = uint8((1 << lsize) - 1)
-	t.lastfree = size // all positions are free
+	t.lfab = size // all positions are free
 }
 
 func resize(t *Table, nasize, nhsize int) {
@@ -442,7 +433,7 @@ func resize(t *Table, nasize, nhsize int) {
 		panic("table overflow")
 	}
 	oldasize := t.sizearray
-	oldhsize := t.lsizenode
+	// oldhsize := t.lsizenode
 	nold := *t.node // save old hash...
 	if nasize > oldasize {
 		// array part must grow?
@@ -465,12 +456,9 @@ func resize(t *Table, nasize, nhsize int) {
 	}
 
 	// re-insert elements from hash part
-	if len(nold) > 0 {
-		for i := twoto(int(oldhsize)) - 1; i >= 0; i-- {
-			old := nold[i]
-			if old.val != nil {
-				t.SetHash(old.key, old.val)
-			}
+	for k, v := range nold {
+		if v != nil {
+			t.SetHash(k, v)
 		}
 	}
 
@@ -501,13 +489,8 @@ func adjustasize(t *Table, size int, ek any) int {
 // of 2 such that more than half the elements of the array part are filled."
 // - Lua performance tips, Roberto Ierusalimschy
 func (t *Table) Rehash(ek any) {
-	var nums [MAXBITS + 1]int // nums[i] = number of keys between 2^(i-1) and 2^i
-	for i := 0; i <= MAXBITS; i++ {
-		nums[i] = 0 // reset counts
-	}
-	nasize := numusearray(t, &nums)           // count keys in array part
-	totaluse := nasize                        // all those keys are integer keys
-	totaluse += numusehash(t, &nums, &nasize) // count keys in hash part
+	nasize, nums := numusearray(t)                     // count keys in array part
+	totaluse := nasize + numusehash(t, &nums, &nasize) // all those keys are integer keys, count keys in hash part
 
 	// count extra key
 	if nv, ok := ek.(float64); ok {
@@ -518,6 +501,7 @@ func (t *Table) Rehash(ek any) {
 	// compute new size for array part
 	na := computesizes(&nums, &nasize)
 	nh := totaluse - na
+	// fmt.Println("must grow", na, nh)
 
 	// enforce the boundary invariant; for performance, only do hash lookups if we must
 	nadjusted := adjustasize(t, nasize, ek)
@@ -531,10 +515,9 @@ func (t *Table) Rehash(ek any) {
 
 		// because hash nodes are twice as large as array nodes, the memory we saved for hash parts can be used by array part
 		// this follows the general sparse array part optimization where array is allocated when 50% occupation is reached
-		nasize = nadjusted + aextra
 
 		// since the size was changed, it's again important to enforce the boundary invariant at the new size
-		nasize = adjustasize(t, nasize, ek)
+		nasize = adjustasize(t, nadjusted+aextra, ek)
 	}
 
 	// resize the table to new computed sizes
@@ -542,29 +525,23 @@ func (t *Table) Rehash(ek any) {
 }
 
 func (t *Table) SetArray(i int, v any) {
+	// fmt.Println("setting array", i, t.sizearray)
 	if i > t.sizearray {
 		t.Rehash(float64(i))
 	}
 	(*t.array)[i-1] = v
 }
 
-func (t *Table) SetHash(i any, v any) {
-	// fmt.Println("setting hash", i, v)
+func (t *Table) SetHash(i, v any) {
 	if t.node == nil {
-		t.node = &[]LuaNode{{i, v}}
+		t.node = &map[any]any{i: v}
 		return
 	}
-	// (*t.hash)[i] = v
-	for i, n := range *t.node {
-		if n.key == i {
-			(*t.node)[i].val = v
-			return
-		}
-	}
+	(*t.node)[i] = v
 }
 
 func (t *Table) ForceSet(i, v any) {
-	if fi, ok := i.(float64); ok && fi == math.Floor(fi) && (1 <= fi || fi > float64(t.sizearray)) {
+	if fi, ok := i.(float64); ok && fi == math.Floor(fi) && 1 <= fi && fi <= float64(t.sizearray) {
 		t.SetArray(int(fi), v)
 		return
 	}
@@ -586,31 +563,37 @@ func (t *Table) GetArray(i int) any {
 	return nil
 }
 
-func GetNode(node []LuaNode, i any) any {
-	for _, n := range node {
-		if n.key == i {
-			return n.val
-		}
+func (t *Table) GetNum(i int) any {
+	if i1 := uint(i - 1); i1 < uint(t.sizearray) {
+		return (*t.array)[i1]
+	} else if t.node != nil {
+		return t.GetHash(float64(i))
 	}
 	return nil
+}
+
+func (t *Table) SetNum(i int, v any) {
+	if i == 1 {
+		// utterly ridiculous special case
+		t.SetArray(1, v)
+	} else if uint(i-1) < uint(t.sizearray) {
+		(*t.array)[i-1] = v
+	} else {
+		// hash fallback
+		t.SetHash(float64(i), v)
+	}
 }
 
 func (t *Table) GetHash(i any) any {
 	if t.node == nil {
 		return nil
 	}
-	return GetNode(*t.node, i)
+	return (*t.node)[i]
 }
 
 func (t *Table) Get(i any) any {
 	if fi, ok := i.(float64); ok && fi == math.Floor(fi) {
-		if v := t.GetArray(int(fi)); v != nil {
-			return v
-		}
-	}
-
-	if t.node == nil {
-		return nil
+		return t.GetNum(int(fi))
 	}
 	return t.GetHash(i)
 }
@@ -630,15 +613,15 @@ func iterArray(array []any, yield func(any, any) bool) {
 	}
 }
 
-func iterHash(node []LuaNode, yield func(any, any) bool) {
+func iterHash(hash map[any]any, yield func(any, any) bool) {
 	// order keys in map
-	keys := make([]any, 0, len(node))
-	for _, n := range node {
-		keys = append(keys, n.key)
+	keys := make([]any, 0, len(hash))
+	for k := range hash {
+		keys = append(keys, k)
 	}
 	slices.SortFunc(keys, mapKeySort)
 	for _, k := range keys {
-		if !yield(k, GetNode(node, k)) {
+		if !yield(k, hash[k]) {
 			return
 		}
 	}
@@ -1327,6 +1310,43 @@ func invalidIndex(ta string, val any) error {
 	return fmt.Errorf("attempt to index %v with %v", luautype[ta], tb)
 }
 
+/*
+** search function for integers
+ */
+func luaH_getnum(t *Table, key int) any {
+	if uint(key-1) < uint(t.sizearray) {
+		return (*t.array)[key-1]
+	}
+	return t.GetHash(float64(key))
+}
+
+/*
+** search function for strings
+ */
+func luaH_getstr(t *Table, key string) any {
+	return (*t.node)[key]
+}
+
+/*
+** main search function
+ */
+func luaH_get(t *Table, key any) any {
+	switch k := key.(type) {
+	case nil:
+		return nil
+	case string:
+		return luaH_getstr(t, k)
+	case float64:
+		n := int(k)
+		if float64(n) == k { // index is int?
+			return luaH_getnum(t, n) // use specialized version
+		}
+		// else go through
+	}
+
+	return (*t.node)[key] // best benefit of go right here
+}
+
 func typeOf(v any) string {
 	if v == nil { // prevent nil pointer dereference
 		return "nil"
@@ -1573,7 +1593,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 		}
 		handlingBreak = false
 
-		// fmt.Println("OP", op, "PC", pc+1)
+		fmt.Printf("OP %-2d PC %d\n", op, pc+1)
 
 		switch op {
 		case 0: // NOP
@@ -1670,27 +1690,62 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 			pc += 2 // -- adjust for aux
 		case 13: // GETTABLE
 			pc += 1
-			index := (*stack)[inst.C]
-			t, ok := (*stack)[inst.B].(*Table)
-			if !ok {
-				return nil, invalidIndex(typeOf((*stack)[inst.B]), index)
+
+			rb := (*stack)[inst.B]
+			rc := (*stack)[inst.C]
+
+			h, ok1 := rb.(*Table)
+			indexd, ok2 := rc.(float64)
+
+			// fast-path: array lookup
+			if ok1 && ok2 {
+				index := int(indexd)
+
+				// index has to be an exact integer and in-bounds for the array portion
+				if uint(index-1) < uint(h.sizearray) && !h.readonly && float64(index) == indexd {
+					(*stack)[inst.A] = (*h.array)[uint(index-1)]
+					break
+				}
+
+				// fall through to slow path
+				// slow-path: handles out of bounds array assignments, non-integer numeric keys, non-array table access
+			} else if !ok1 {
+				return nil, invalidIndex(typeOf(rb), rc)
 			}
 
-			(*stack)[inst.A] = t.Get(index)
+			(*stack)[inst.A] = h.Get(rc)
 		case 14: // SETTABLE
 			pc += 1
-			index := (*stack)[inst.C]
-			t, ok := (*stack)[inst.B].(*Table)
-			if !ok {
-				return nil, invalidIndex(typeOf((*stack)[inst.B]), index)
+
+			ra := (*stack)[inst.A]
+			rb := (*stack)[inst.B]
+			rc := (*stack)[inst.C]
+
+			h, ok1 := rb.(*Table)
+			indexd, ok2 := rc.(float64)
+
+			// fast-path: array assign
+			if ok1 && ok2 {
+				index := int(indexd)
+
+				// index has to be an exact integer and in-bounds for the array portion
+				if uint(index-1) < uint(h.sizearray) && !h.readonly && float64(index) == indexd {
+					(*h.array)[uint(index-1)] = ra
+					break
+				}
+
+				// fall through to slow path
+				// slow-path: handles out of bounds array assignments, non-integer numeric keys, non-array table access
+			} else if !ok1 {
+				return nil, invalidIndex(typeOf(rb), rc)
 			}
 
-			// fmt.Println("SETTABLE", index, (*stack)[inst.A])
-			if err := t.Set(index, (*stack)[inst.A]); err != nil {
+			if err := h.Set(rc, ra); err != nil {
 				return nil, err
 			}
 		case 15: // GETTABLEKS
 			index := inst.K
+
 			t, ok := (*stack)[inst.B].(*Table)
 			if !ok {
 				// fmt.Println("indexing", typeOf((*stack)[inst.B]), "with", index)
@@ -1719,10 +1774,8 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 
 			if v := t.GetArray(i); v != nil {
 				(*stack)[inst.A] = v
-			} else if t.node == nil {
-				(*stack)[inst.A] = nil
 			} else {
-				(*stack)[inst.A] = GetNode(*t.node, float64(i))
+				(*stack)[inst.A] = t.GetHash(float64(i))
 			}
 
 			pc += 1
@@ -1821,7 +1874,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 				if t.node == nil {
 					(*stack)[A] = nil
 				} else {
-					(*stack)[A] = GetNode(*t.node, kv)
+					(*stack)[A] = t.GetHash(kv)
 				}
 				break
 			}
@@ -2165,7 +2218,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 		case 53: // NEWTABLE
 			(*stack)[inst.A] = &Table{
 				array: &[]any{},
-				node:  &[]LuaNode{},
+				node:  &map[any]any{},
 			}
 
 			pc += 2 // -- adjust for aux
@@ -2173,7 +2226,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 			pc += 1
 			serialised := &Table{
 				array: &[]any{},
-				node:  &[]LuaNode{},
+				node:  &map[any]any{},
 			}
 			for _, id := range inst.K.([]uint32) { // template
 				if err := serialised.Set(proto.k[id], nil); err != nil { // constants

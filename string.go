@@ -284,7 +284,7 @@ func string_split(args Args) Ret {
 	return &Table{
 		array:     &a,
 		sizearray: len(a),
-		node:      &[]LuaNode{},
+		node:      &map[any]any{},
 	}
 }
 
