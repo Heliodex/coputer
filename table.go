@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 )
 
@@ -125,15 +124,15 @@ func table_freeze(args Args) Ret {
 }
 
 func bumpelements(t *Table, start int) {
-	fmt.Println("BEFORE")
-	fmt.Println(t)
-	fmt.Println()
+	// fmt.Println("BEFORE")
+	// fmt.Println(t)
+	// fmt.Println()
 
 	fstart := float64(start)
 	var keys float64
 	for i := fstart; ; i++ {
 		v := t.Get(i)
-		fmt.Println("starting with", i, v)
+		// fmt.Println("starting with", i, v)
 		if v == nil {
 			keys = i
 			break
@@ -142,13 +141,13 @@ func bumpelements(t *Table, start int) {
 	}
 
 	for k := keys; k >= fstart; k-- {
-		fmt.Println("moving key", k)
+		// fmt.Println("moving key", k)
 		t.ForceSet(k, t.Get(k-1))
 	}
 
-	fmt.Println("AFTER")
-	fmt.Println(t)
-	fmt.Println()
+	// fmt.Println("AFTER")
+	// fmt.Println(t)
+	// fmt.Println()
 }
 
 func table_insert(args Args) (err error) {
@@ -167,7 +166,7 @@ func table_insert(args Args) (err error) {
 	case 3:
 		pos = int(args.GetNumber()) // 2nd argument is the position
 
-		fmt.Println("bumping elements up", pos)
+		// fmt.Println("bumping elements up", pos)
 		// move elements up if necessary
 		if n > 0 && 1 <= pos && pos <= n {
 			bumpelements(t, pos)
