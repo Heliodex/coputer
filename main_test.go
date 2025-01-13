@@ -98,7 +98,7 @@ func TestConformance(t *testing.T) {
 		return
 	}
 
-	onlyTest := "libtable.luau"
+	// onlyTest := "clear.luau"
 
 	for _, f := range files {
 		if f.IsDir() {
@@ -106,9 +106,9 @@ func TestConformance(t *testing.T) {
 		}
 
 		name := f.Name()
-		if name != onlyTest {
-			continue
-		}
+		// if name != onlyTest {
+		// 	continue
+		// }
 
 		fmt.Println(" -- Testing", name, "--")
 		filename := fmt.Sprintf("test/%s", name)

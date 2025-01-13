@@ -1,7 +1,7 @@
-local t = {}
+local t = table.create(2e7)
 
-for i = 1, 2e6 do
+for i = 1, 2e7 do
 	t[i] = i
 end
 
-print(t[524288])
+print(t[5242880])

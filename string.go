@@ -283,8 +283,6 @@ func string_split(args Args) Ret {
 
 	return &Table{
 		array:     &a,
-		sizearray: len(a),
-		node:      &map[any]any{},
 	}
 }
 

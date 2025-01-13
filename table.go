@@ -12,37 +12,34 @@ func table_clear(args Args) (err error) {
 		return errors.New("attempt to modify a readonly table")
 	}
 
-	if t.array != nil {
-		for i := range t.sizearray {
-			(*t.array)[i] = nil
-		}
-	}
-	if t.node != nil {
-		// for k := range *t.node {
-		// 	// (*t.node)[k] = nil
-		// 	delete(*t.node, k)
-		// }
-		t.node = &map[any]any{}
-	}
+	t.array = nil
+	t.node = nil
 	return
 }
 
 func table_clone(args Args) Ret {
 	t := args.GetTable()
 
-	a2 := make([]any, len(*t.array))
-	copy(a2, *t.array)
+	var a2 *[]any
+	var h2 *map[any]any
 
-	h2 := make(map[any]any, len(*t.node))
-	for i, v := range *t.node {
-		h2[i] = v
+	if t.array != nil {
+		a := make([]any, len(*t.array))
+		copy(a, *t.array)
+		a2 = &a
+	}
+
+	if t.node == nil {
+		h := make(map[any]any, len(*t.node))
+		for k, v := range *t.node {
+			h[k] = v
+		}
+		h2 = &h
 	}
 
 	return &Table{
-		array:     &a2,
-		node:      &h2,
-		sizearray: t.sizearray,
-		lfab:      t.lfab,
+		array: a2,
+		node:  h2,
 	}
 }
 
@@ -50,7 +47,7 @@ func table_concat(args Args) (Ret, error) {
 	t := args.GetTable()
 	sep := args.GetString("")
 	i := args.GetNumber(1)
-	j := args.GetNumber(t.Len())
+	j := args.GetNumber(float64(t.Len()))
 
 	if i > j {
 		return "", nil
@@ -78,19 +75,20 @@ func table_create(args Args) (Ret, error) {
 		return nil, errors.New("index out of range")
 	}
 
-	asize := int(s)
-	array := make([]any, asize)
-	if len(args.args) > 1 {
-		value := args.GetAny()
-		for i := range array {
-			array[i] = value
-		}
+	if len(args.args) == 1 {
+		array := make([]any, 0, int(s))
+		return &Table{
+			array: &array,
+		}, nil
 	}
 
+	array := make([]any, int(s))
+	value := args.GetAny()
+	for i := range array {
+		array[i] = value
+	}
 	return &Table{
-		array:     &array,
-		sizearray: asize, // not ^2?
-		node:      &map[any]any{},
+		array: &array,
 	}, nil
 }
 
@@ -102,15 +100,22 @@ func table_find(args Args) (Ret, error) {
 		return nil, errors.New("index out of range")
 	}
 
-	arr := *haystack.array
-	for i := uint(init - 1); ; i++ {
-		v := arr[i]
-		if v == nil {
-			return nil, nil
-		} else if v == needle {
-			return float64(i + 1), nil
+	if haystack.array != nil {
+		for i := int(init); i < haystack.Len(); i++ {
+			v := (*haystack.array)[i-1]
+			if needle == v {
+				return float64(i), nil
+			}
 		}
 	}
+	if haystack.node != nil {
+		for k, v := range *haystack.node {
+			if needle == v {
+				return k, nil
+			}
+		}
+	}
+	return nil, nil
 }
 
 func table_freeze(args Args) Ret {
@@ -119,51 +124,41 @@ func table_freeze(args Args) Ret {
 	return t
 }
 
-func moveelements(tb *Table, f, e, t int) {
-	if tb.readonly {
-		panic("attempt to modify a readonly table")
+func bumpelements(t *Table, start int) {
+	fmt.Println("BEFORE")
+	fmt.Println(t)
+	fmt.Println()
+
+	fstart := float64(start)
+	var keys float64
+	for i := fstart; ; i++ {
+		v := t.Get(i)
+		fmt.Println("starting with", i, v)
+		if v == nil {
+			keys = i
+			break
+		}
+		// keysToMove = append(keysToMove, i)
 	}
 
-	n := e - f + 1 // number of elements to move
-	fmt.Println("moving", n, "elements from", f, "to", t, e)
-	
-	if ua := uint(tb.sizearray); uint(f-1) < ua && uint(t-1) < ua && uint(f-1+n) <= ua && uint(t-1+n) <= ua {
-		array := tb.array
-		
-		if t > e || t <= f {
-			for i := -1; i < n-1; i++ {
-				move := (*array)[f+i]
-				(*array)[t+i] = move
-			}
-		} else {
-			for i := n - 2; i >= -1; i-- {
-				move := (*array)[f+i]
-				(*array)[t+i] = move
-			}
-		}
-		
-		fmt.Println(tb)
-		// gee cee
-		return
+	for k := keys; k >= fstart; k-- {
+		fmt.Println("moving key", k)
+		t.ForceSet(k, t.Get(k-1))
 	}
 
-	if t > e || t <= f {
-		for i := 0; i < n; i++ {
-			g := tb.GetArray(f + i + 1)
-			tb.SetArray(t+i+1, g)
-		}
-	} else {
-		for i := n - 1; i >= 0; i-- {
-			g := tb.GetArray(f + i + 1)
-			tb.SetArray(t+i+1, g)
-		}
-	}
+	fmt.Println("AFTER")
+	fmt.Println(t)
+	fmt.Println()
 }
 
 func table_insert(args Args) (err error) {
 	t := args.GetTable()
+	if t.readonly {
+		return errors.New("attempt to modify a readonly table")
+	}
 
-	n := int(luaH_getn(t))
+	n := t.Len()
+
 	var pos int
 
 	switch len(args.args) {
@@ -172,21 +167,18 @@ func table_insert(args Args) (err error) {
 	case 3:
 		pos = int(args.GetNumber()) // 2nd argument is the position
 
-		fmt.Println("GETN", pos, n)
+		fmt.Println("bumping elements up", pos)
 		// move elements up if necessary
-		if 1 <= pos && pos <= n {
-			moveelements(t, pos, n, pos+1)
+		if n > 0 && 1 <= pos && pos <= n {
+			bumpelements(t, pos)
 		}
 	default:
 		return errors.New("wrong number of arguments to 'insert'")
 	}
 
-	if t.readonly {
-		return errors.New("attempt to modify a readonly table")
-	}
-
 	v := args.GetAny()
-	t.SetNum(pos, v)
+	t.ForceSet(float64(pos), v)
+
 	return
 }
 
@@ -239,8 +231,7 @@ func table_move(args Args) (Ret, error) {
 func table_pack(args Args) Ret {
 	n := float64(len(args.args))
 	t := &Table{
-		array: &[]any{},
-		node:  &map[any]any{"n": n},
+		node: &map[any]any{"n": n},
 	}
 	for i, v := range args.args {
 		t.SetArray(i+1, v)
@@ -255,7 +246,7 @@ func table_remove(args Args) (r Ret, err error) {
 		return nil, errors.New("attempt to modify a readonly table")
 	}
 
-	l := t.Len()
+	l := float64(t.Len())
 	pos := args.GetNumber(l)
 
 	r = t.Get(pos)
@@ -283,13 +274,13 @@ func sort_swap(t *Table, i, j int) {
 }
 
 func sort_less(t *Table, i, j int, comp Comp) (res bool, err error) {
-	arr, n := *t.array, t.sizearray
+	arr, n := *t.array, len(*t.array)
 	// LUAU_ASSERT(unsigned(i) < unsigned(n) && unsigned(j) < unsigned(n)) // contract maintained in sort_less after predicate call
 
 	res, err = comp(arr[i], arr[j])
 
 	// predicate call may resize the table, which is invalid
-	if t.sizearray != n {
+	if len(*t.array) != n {
 		return false, errors.New("table modified during sorting")
 	}
 	return
@@ -482,10 +473,10 @@ func table_sort(args Args) (err error) {
 func table_unpack(args Args) (values Rets) {
 	list := args.GetTable()
 	i := args.GetNumber(1)
-	j := args.GetNumber(list.Len())
+	j := args.GetNumber(float64(list.Len()))
 
 	ui, uj := int(i), int(j)
-	if uj <= list.sizearray {
+	if uj <= len(*list.array) {
 		return (*list.array)[ui-1 : uj]
 	}
 

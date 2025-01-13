@@ -101,18 +101,27 @@ function base64.decode(b64)
 			+ decoder[b] * 0x1000
 			+ decoder[c] * 0x40
 			+ decoder[d]
-		s = char(extract(v, 16, 8), extract(v, 8, 8), extract(v, 0, 8))
+
+		local b1 = extract(v, 16, 8)
+		local b2 = extract(v, 8, 8)
+		local b3 = extract(v, 0, 8)
+		s = char(b1, b2, b3)
 		t[k] = s
 		k += 1
 	end
 	if padding == 1 then
 		local a, b, c = byte(b64, n - 3, n - 1)
 		local v = decoder[a] * 0x40000 + decoder[b] * 0x1000 + decoder[c] * 0x40
-		t[k] = char(extract(v, 16, 8), extract(v, 8, 8))
+
+		local b1 = extract(v, 16, 8)
+		local b2 = extract(v, 8, 8)
+		t[k] = char(b1, b2)
 	elseif padding == 2 then
 		local a, b = byte(b64, n - 3, n - 2)
 		local v = decoder[a] * 0x40000 + decoder[b] * 0x1000
-		t[k] = char(extract(v, 16, 8))
+
+		local b1 = extract(v, 16, 8)
+		t[k] = char(b1)
 	end
 	return concat(t)
 end
