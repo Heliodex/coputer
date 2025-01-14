@@ -1,4 +1,16 @@
 -- upvalues, loops, continue
+local uv
+do
+	local i = 0
+	function uv()
+		print(i)
+		i += 1
+		print(i)
+	end
+end
+
+uv()
+
 print((function()
 	local res = {}
 

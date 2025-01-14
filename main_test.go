@@ -119,12 +119,12 @@ func TestConformance(t *testing.T) {
 			return
 		}
 
-		// o0, _ := litecode(t, filename, 0)
+		o0, _ := litecode(t, filename, 0)
 		o1, _ := litecode(t, filename, 1)
-		// o2, _ := litecode(t, filename, 2)
+		o2, _ := litecode(t, filename, 2)
 		fmt.Println()
 
-		for i, o := range []string{o1} {
+		for i, o := range []string{o0, o1, o2} {
 			if o != og {
 				t.Errorf("%d output mismatch:\n-- Expected\n%s\n-- Got\n%s", i, og, o)
 				fmt.Println()

@@ -1186,14 +1186,14 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 	protolist := towrap.protolist
 	env := towrap.env
 	requireCache := towrap.requireCache
-	
+
 	protos, code := proto.protos, proto.code
 	top, pc, openUpvalues, generalisedIterators := -1, 1, []*Upval{}, map[Inst]*Iterator{}
 
 	var handlingBreak bool
 	var inst Inst
 	var op uint8
-	
+
 	// a a a a
 	// stayin' alive
 	// fmt.Println("starting with upvals", upvals)
@@ -1267,6 +1267,8 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 			pc += 1
 			if uv := upvals[inst.B]; !uv.selfRef {
 				(*uv.store)[uv.index] = (*stack)[inst.A]
+			} else {
+				uv.value = (*stack)[inst.A]
 			}
 		case 11: // CLOSEUPVALS
 			pc += 1
