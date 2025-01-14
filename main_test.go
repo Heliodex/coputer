@@ -98,7 +98,7 @@ func TestConformance(t *testing.T) {
 		return
 	}
 
-	// onlyTest := "liter.luau"
+	// onlyTest := "attrib.luau"
 
 	for _, f := range files {
 		if f.IsDir() {

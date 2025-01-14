@@ -13,8 +13,13 @@ print(v * v)
 print(v / v)
 print(v // v)
 
+print(v.x, v.y, v.z)
+
 local u = vector.create(1.23, -4.56, 7.89)
 local t = vector.create(0.12, 1.45, 2.78)
+
+-- print(u.x, u.y, u.z) --  i remember when
+-- print(t.x, t.y, t.z) -- i remember i remember when i lost my mind
 
 print(vector.abs(u))
 -- print(vector.angle(v, u))

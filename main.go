@@ -894,10 +894,7 @@ func (u Upval) String() string {
 }
 
 func truthy(v any) bool {
-	if b, ok := v.(bool); ok {
-		return b
-	}
-	return v != nil
+	return v != nil && v != false
 }
 
 var luautype = map[string]string{
@@ -1097,6 +1094,7 @@ func aIdiv(a, b any) (any, error) {
 	return nil, invalidArithmetic("idiv", typeOf(a), typeOf(b))
 }
 
+// vectors dont have these comparisons
 func jumpLe(a, b any) (bool, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
@@ -1161,13 +1159,29 @@ func jumpGe(a, b any) (bool, error) {
 	return false, invalidCompare(">=", typeOf(a), typeOf(b))
 }
 
-func jumpEq(a, b any) (bool, error) {
-	switch a.(type) {
-	case float64, string, bool, nil:
-		return a == b, nil // JUMPIFEQ
-	}
+func gettable(index, v any) (any, error) {
+	switch t := v.(type) {
+	case *Table:
+		return t.Get(index), nil
+	case Vector: // direction,,, and mmmagnitude!! oh yeah!!11!!
+		si, ok := index.(string)
+		if !ok {
+			return nil, invalidIndex("vector", index)
+		}
 
-	return false, incomparableType(typeOf(a), true) // Also deliberately restricting the ability to compare types that would always return false
+		switch si {
+		case "x":
+			return t[0], nil
+		case "y":
+			return t[1], nil
+		case "z":
+			return t[2], nil
+			// case "w":
+			// 	(*stack)[inst.A] = t[3]
+		}
+		return nil, invalidIndex("vector", si)
+	}
+	return nil, invalidIndex(typeOf(v), index)
 }
 
 type ToWrap struct {
@@ -1309,17 +1323,16 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 			pc += 2 // -- adjust for aux
 		case 13: // GETTABLE
 			pc += 1
-			index := (*stack)[inst.C]
-			t, ok := (*stack)[inst.B].(*Table)
-			if !ok {
-				return nil, invalidIndex(typeOf((*stack)[inst.B]), index)
-			}
 
-			(*stack)[inst.A] = t.Get(index)
+			v, err := gettable((*stack)[inst.C], (*stack)[inst.B])
+			if err != nil {
+				return nil, err
+			}
+			(*stack)[inst.A] = v
 		case 14: // SETTABLE
 			pc += 1
 			index := (*stack)[inst.C]
-			t, ok := (*stack)[inst.B].(*Table)
+			t, ok := (*stack)[inst.B].(*Table) // SETTABLE or SETTABLEKS on a Vector actually does return "attempt to index vector with 'whatever'"
 			if !ok {
 				return nil, invalidIndex(typeOf((*stack)[inst.B]), index)
 			}
@@ -1329,15 +1342,11 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 				return nil, err
 			}
 		case 15: // GETTABLEKS
-			index := inst.K
-
-			t, ok := (*stack)[inst.B].(*Table)
-			if !ok {
-				// fmt.Println("indexing", typeOf((*stack)[inst.B]), "with", index)
-				return nil, invalidIndex(typeOf((*stack)[inst.B]), index)
+			v, err := gettable(inst.K, (*stack)[inst.B])
+			if err != nil {
+				return nil, err
 			}
-
-			(*stack)[inst.A] = t.Get(index)
+			(*stack)[inst.A] = v
 
 			pc += 2 // -- adjust for aux
 		case 16: // SETTABLEKS
@@ -1571,9 +1580,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 				pc += 1
 			}
 		case 27: // jump
-			if j, err := jumpEq((*stack)[inst.A], (*stack)[inst.aux]); err != nil {
-				return nil, err
-			} else if j {
+			if (*stack)[inst.A] == (*stack)[inst.aux] {
 				pc += inst.D + 1
 			} else {
 				pc += 2
@@ -1595,12 +1602,10 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 				pc += 2
 			}
 		case 30:
-			if j, err := jumpEq((*stack)[inst.A], (*stack)[inst.aux]); err != nil {
-				return nil, err
-			} else if j {
-				pc += 2
-			} else {
+			if (*stack)[inst.A] != (*stack)[inst.aux] {
 				pc += inst.D + 1
+			} else {
+				pc += 2
 			}
 		case 31:
 			if j, err := jumpGt((*stack)[inst.A], (*stack)[inst.aux]); err != nil {
@@ -1780,12 +1785,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 			(*stack)[inst.A] = s.String()
 		case 50: // NOT
 			pc += 1
-			cond, ok := (*stack)[inst.B].(bool)
-			if !ok {
-				return nil, invalidCond(typeOf((*stack)[inst.B]))
-			}
-
-			(*stack)[inst.A] = !cond
+			(*stack)[inst.A] = !truthy((*stack)[inst.B])
 		case 51: // MINUS
 			pc += 1
 			a, ok := (*stack)[inst.B].(float64)
