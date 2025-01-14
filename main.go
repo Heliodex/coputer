@@ -10,14 +10,6 @@ import (
 	"strings"
 )
 
-func p2gte(n uint) uint {
-	n--
-	for i := range 5 { // lol copilot is magic
-		n |= n >> (1 << i)
-	}
-	return n + 1
-}
-
 func arrayKey(k any) (int, bool) {
 	fk, ok := k.(float64)
 	if !ok {
@@ -377,7 +369,7 @@ type Operator struct {
 	HasAux      bool
 }
 
-var opList = []Operator{
+var opList = [83]Operator{
 	{"NOP", 0, 0, false},
 	{"BREAK", 0, 0, false},
 	{"LOADNIL", 1, 0, false},

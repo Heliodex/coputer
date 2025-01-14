@@ -98,7 +98,7 @@ func TestConformance(t *testing.T) {
 		return
 	}
 
-	// onlyTest := "attrib.luau"
+	// onlyTest := "libbit32.luau"
 
 	for _, f := range files {
 		if f.IsDir() {
