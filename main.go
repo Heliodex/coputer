@@ -286,21 +286,17 @@ func (t *Table) Iter() iter.Seq2[any, any] {
 	}
 }
 
-func move(src []any, a, b, t int, dst *[]any) {
-	if b <= a {
-		return
-	}
-
-	for t+b-a >= len(*dst) {
+func move(src []any, b, t int, dst *[]any) {
+	for t+b >= len(*dst) {
 		*dst = append(*dst, nil)
 	}
 
-	for i := a; i <= b; i++ {
+	for i := range b {
 		if i >= len(src) {
-			(*dst)[t+i-a] = nil
+			(*dst)[t+i] = nil
 			continue
 		}
-		(*dst)[t+i-a] = src[i]
+		(*dst)[t+i] = src[i]
 	}
 }
 
@@ -523,11 +519,6 @@ type Inst struct {
 	value                  uint32
 	kmode, opcode, opmode  uint8
 	KN, usesAux            bool
-}
-
-type Varargs struct {
-	list []any
-	len  int
 }
 
 type Proto struct {
@@ -1197,7 +1188,7 @@ type ToWrap struct {
 	requireCache map[string]Rets
 }
 
-func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Rets, err error) {
+func execute(towrap ToWrap, stack *[]any, co *Coroutine, vargsList []any, vargsLen uint8) (r Rets, err error) {
 	proto := towrap.proto
 	upvals := towrap.upvals
 	alive := towrap.alive
@@ -1492,7 +1483,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 				retCount = callC - 1
 			}
 
-			move(retList, 0, retCount, callA, stack)
+			move(retList, retCount, callA, stack)
 		case 21: // CALL
 			pc += 1
 			A, B, C := inst.A, inst.B, inst.C
@@ -1557,7 +1548,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 				retCount = C - 1
 			}
 
-			move(retList, 0, retCount, A, stack)
+			move(retList, retCount, A, stack)
 		case 22: // RETURN
 			pc += 1
 			A, B := inst.A, inst.B
@@ -1902,7 +1893,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 					return nil, err
 				}
 
-				move(vals, 0, res, A+3, stack)
+				move(vals, res, A+3, stack)
 
 				// fmt.Println(A+3, (*stack)[A+3])
 
@@ -1928,7 +1919,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 					delete(generalisedIterators, inst)
 					pc += 2
 				} else {
-					move(*vals, 0, res, A+3, stack)
+					move(*vals, res, A+3, stack)
 
 					(*stack)[A+2] = (*stack)[A+3]
 					pc += inst.D + 1
@@ -1947,19 +1938,15 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, varargs Varargs) (r Ret
 			A := inst.A
 			b := inst.B - 1
 
+			// fmt.Println("MULTRET", b, vargsLen)
 			if b == LUAU_MULTRET {
-				b = varargs.len
+				b = int(vargsLen)
 				top = A + b - 1
 			}
 
-			// MAX STACK SIZE IS A LIE!!!!!!!!!!!!!!!!!!!!!!!
-			// uh, expand the stack
-			// fmt.Println("EXPANDING STACK", A+b)
-			for len(*stack) < A+b {
-				*stack = append(*stack, nil)
-			}
-
-			move(varargs.list, 0, b, A, stack)
+			// stack may get expanded here
+			// (MAX STACK SIZE IS A LIE!!!!!!!!!!!!!!!!!!!!!!!)
+			move(vargsList, b, A, stack)
 		case 64: // DUPCLOSURE
 			newPrototype := protolist[inst.K.(uint32)]
 
@@ -2123,25 +2110,22 @@ func wrapclosure(towrap ToWrap) Function {
 	proto := towrap.proto
 
 	return Fn(func(co *Coroutine, args ...any) (Rets, error) {
-		maxstacksize, numparams := proto.maxstacksize, proto.numparams
+		maxs, np := proto.maxstacksize, proto.numparams // maxs 2 lel
 
-		// fmt.Println("MAX STACK SIZE", maxstacksize)
-		stack := make([]any, maxstacksize)
-		move(args, 0, int(numparams), 0, &stack)
+		la := uint8(len(args)) // we can't have more than 255 args anyway right?
+		// fmt.Println("MAX STACK SIZE", maxs)
+		stack := make([]any, maxs)
+		for i := range min(np, la) {
+			stack[i] = args[i]
+		}
 
-		var varargs Varargs
-		if start := int(numparams); start < len(args) {
-			l := len(args) - start
-			varargs.len = l
-
-			// expand varargs list
-			varargs.list = make([]any, l)
-
-			move(args, start, start+l, 0, &varargs.list)
+		var list []any
+		if np < la {
+			list = args[np:]
 		}
 
 		// TODO: dee bugg ingg
-		return execute(towrap, &stack, co, varargs)
+		return execute(towrap, &stack, co, list, max(la-np, 0))
 	})
 }
 

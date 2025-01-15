@@ -98,7 +98,7 @@ func TestConformance(t *testing.T) {
 		return
 	}
 
-	// onlyTest := "libcoroutine.luau"
+	// onlyTest := "sha256.luau"
 
 	for _, f := range files {
 		if f.IsDir() {
@@ -130,13 +130,13 @@ func TestConformance(t *testing.T) {
 				fmt.Println()
 
 				// print mismatch
-				// oLines := strings.Split(o, "\n")
-				// ogLines := strings.Split(og, "\n")
-				// for i, line := range ogLines {
-				// 	if line != oLines[i] {
-				// 		t.Errorf("mismatched line: \n%s\n%v\n%s\n%v", line, []byte(line), oLines[i], []byte(oLines[i]))
-				// 	}
-				// }
+				oLines := strings.Split(o, "\n")
+				ogLines := strings.Split(og, "\n")
+				for i, line := range ogLines {
+					if line != oLines[i] {
+						t.Errorf("mismatched line: \n%s\n%v\n%s\n%v", line, []byte(line), oLines[i], []byte(oLines[i]))
+					}
+				}
 
 				return
 			}
@@ -170,7 +170,13 @@ func TestErrors(t *testing.T) {
 		}
 	}
 
+	// onlyTest := "for"
+
 	for _, name := range has {
+		// if name != onlyTest {
+		// 	continue
+		// }
+
 		fmt.Println(" -- Testing", name, "--")
 		filename := fmt.Sprintf("error/%s.luau", name)
 
