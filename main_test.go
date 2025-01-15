@@ -200,7 +200,7 @@ func TestErrors(t *testing.T) {
 		}
 
 		fmt.Println(err0)
-		if err0.Error() != string(og) {
+		if err0.Error() != strings.ReplaceAll(string(og), "\r\n", "\n") {
 			t.Errorf("error mismatch:\n-- Expected\n%s\n-- Got\n%s", og, err0)
 			return
 		}

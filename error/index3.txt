@@ -1,1 +1,2 @@
-attempt to index string with 'format'
+Opcode: GETTABLEKS
+(main):2: attempt to index string with 'format'

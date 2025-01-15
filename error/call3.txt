@@ -1,1 +1,2 @@
-attempt to call a string value
+Opcode: CALL
+(main):3: attempt to call a string value

@@ -104,6 +104,8 @@ func (a *Args) GetAny(optionalValue ...any) (arg any) {
 	return a.args[a.pos-1]
 }
 
+// todo: consolidate
+
 // Reflection don't scale
 func MakeFn(name string, fn func(args Args) Rets) [2]any {
 	return [2]any{name, Fn(func(co *Coroutine, vargs ...any) (Rets, error) {

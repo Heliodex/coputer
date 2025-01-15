@@ -1,1 +1,3 @@
-cannot resume running coroutine
+Opcode: CALL
+(main):5: Opcode: CALL
+(??):2: cannot resume running coroutine

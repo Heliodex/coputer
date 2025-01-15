@@ -1,1 +1,2 @@
-attempt to call a number value
+Opcode: CALL
+(main):3: attempt to call a number value

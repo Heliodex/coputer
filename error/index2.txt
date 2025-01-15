@@ -1,1 +1,2 @@
-attempt to index number with 'y'
+Opcode: GETTABLEKS
+(main):2: attempt to index number with 'y'

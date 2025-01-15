@@ -558,6 +558,10 @@ func global_type(args Args) Ret {
 	return t
 }
 
+func isalpha(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+}
+
 func isAbsolutePath(path string) bool {
 	return (len(path) >= 3 && isalpha(path[0]) && path[1] == ':' && (path[2] == '/' || path[2] == '\\')) ||
 		(len(path) >= 1 && (path[0] == '/' || path[0] == '\\'))

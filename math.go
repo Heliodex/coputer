@@ -4,16 +4,19 @@ import "math"
 
 func math_abs(args Args) Ret {
 	x := args.GetNumber()
+
 	return math.Abs(x)
 }
 
 func math_acos(args Args) Ret {
 	x := args.GetNumber()
+
 	return math.Acos(x)
 }
 
 func math_asin(args Args) Ret {
 	x := args.GetNumber()
+
 	return math.Asin(x)
 }
 
@@ -24,16 +27,19 @@ func math_atan(args Args) Ret {
 
 func math_atan2(args Args) Ret {
 	y, x := args.GetNumber(), args.GetNumber()
+
 	return math.Atan2(y, x)
 }
 
 func math_ceil(args Args) Ret {
 	x := args.GetNumber()
+
 	return math.Ceil(x)
 }
 
 func math_clamp(args Args) Ret {
 	x, min, max := args.GetNumber(), args.GetNumber(), args.GetNumber()
+
 	if x < min {
 		return min
 	} else if x > max {
@@ -44,6 +50,7 @@ func math_clamp(args Args) Ret {
 
 func math_cos(args Args) Ret {
 	x := args.GetNumber()
+
 	return math.Cos(x)
 }
 
@@ -54,37 +61,44 @@ func math_cosh(args Args) Ret {
 
 func math_deg(args Args) Ret {
 	x := args.GetNumber()
+
 	return x * 180 / math.Pi
 }
 
 func math_exp(args Args) Ret {
 	x := args.GetNumber()
+
 	return math.Exp(x)
 }
 
 func math_floor(args Args) Ret {
 	x := args.GetNumber()
+
 	return math.Floor(x)
 }
 
 func math_fmod(args Args) Ret {
 	x, y := args.GetNumber(), args.GetNumber()
+
 	return math.Mod(x, y)
 }
 
 func math_frexp(args Args) Rets {
 	x := args.GetNumber()
+
 	frac, exp := math.Frexp(x)
 	return Rets{frac, float64(exp)}
 }
 
 func math_ldexp(args Args) Ret {
 	x, e := args.GetNumber(), args.GetNumber()
+
 	return math.Ldexp(x, int(e))
 }
 
 func math_log(args Args) Ret {
 	x := args.GetNumber()
+
 	if len(args.args) > 1 {
 		base := args.GetNumber()
 		return math.Log(x) / math.Log(base)
@@ -203,26 +217,32 @@ func perlin(x, y, z float32) float64 {
 
 func math_noise(args Args) Ret {
 	x, y, z := args.GetNumber(), args.GetNumber(0), args.GetNumber(0)
+
 	return perlin(float32(x), float32(y), float32(z))
 }
 
 func math_pow(args Args) Ret {
 	x, y := args.GetNumber(), args.GetNumber()
+
 	return math.Pow(x, y)
 }
 
 func math_rad(args Args) Ret {
 	x := args.GetNumber()
+
 	return x * math.Pi / 180
 }
 
 func math_round(args Args) Ret {
 	x := args.GetNumber()
+
 	return math.Round(x)
 }
 
 func math_sign(args Args) Ret {
-	if x := args.GetNumber(); x > 0 {
+	x := args.GetNumber()
+
+	if x > 0 {
 		return float64(1)
 	} else if x < 0 {
 		return float64(-1)
@@ -232,26 +252,31 @@ func math_sign(args Args) Ret {
 
 func math_sin(args Args) Ret {
 	x := args.GetNumber()
+
 	return math.Sin(x)
 }
 
 func math_sinh(args Args) Ret {
 	x := args.GetNumber()
+
 	return math.Sinh(x)
 }
 
 func math_sqrt(args Args) Ret {
 	x := args.GetNumber()
+
 	return math.Sqrt(x)
 }
 
 func math_tan(args Args) Ret {
 	x := args.GetNumber()
+
 	return math.Tan(x)
 }
 
 func math_tanh(args Args) Ret {
 	x := args.GetNumber()
+
 	return math.Tanh(x)
 }
 

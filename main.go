@@ -50,85 +50,6 @@ func (t *Table) String() (s string) {
 	return
 }
 
-type (
-	Function *func(co *Coroutine, args ...any) (Rets, error)
-	Status   uint8
-)
-
-func Fn(f func(co *Coroutine, args ...any) (Rets, error)) Function {
-	return Function(&f)
-}
-
-const (
-	Suspended Status = iota
-	Running
-	Normal
-	Dead
-)
-
-type Yield struct {
-	rets Rets
-	err  error
-}
-
-type Coroutine struct {
-	body     Function
-	env      map[any]any
-	filepath string // lel nowhere else to put this
-	yield    chan Yield
-	resume   chan Rets
-	status   Status
-	o        uint8
-	started  bool
-}
-
-func createCoroutine(body Function) *Coroutine {
-	// first time i actually ran into the channel axiom issues
-	return &Coroutine{
-		body:   body,
-		yield:  make(chan Yield, 1),
-		resume: make(chan Rets, 1),
-	}
-}
-
-func (co *Coroutine) Error(err error) {
-	co.yield <- Yield{nil, err}
-}
-
-func (co *Coroutine) Resume(args ...any) (Rets, error) {
-	if !co.started {
-		// fmt.Println("RM  starting", args)
-		co.started = true
-		co.status = Running
-
-		go func() {
-			// fmt.Println(" RG calling coroutine body with", args)
-			r, err := (*co.body)(co, args...)
-
-			// fmt.Println("RG  yielding", r)
-			co.yield <- Yield{r, err}
-			// fmt.Println("RG  yielded", r)
-
-			co.status = Dead
-			if len(co.yield) == 0 {
-				// finish up
-				// fmt.Println("RG  yielding, finishing up")
-				co.yield <- Yield{}
-				// fmt.Println("RG  yielding, finished up")
-			}
-		}()
-	} else {
-		co.status = Running
-		// fmt.Println("RM  resuming", args)
-		co.resume <- args
-		// fmt.Println("RM  resumed", args)
-	}
-	// fmt.Println("RM  waiting for yield")
-	y := <-co.yield
-	// fmt.Println("RM  waited for yield", y.rets)
-	return y.rets, y.err
-}
-
 func NewTable(toHash [][2]any) *Table {
 	// remember, no duplicates
 	hash := make(map[any]any, len(toHash))
@@ -286,70 +207,11 @@ func (t *Table) Iter() iter.Seq2[any, any] {
 	}
 }
 
-func move(src []any, b, t int, dst *[]any) {
-	for t+b >= len(*dst) {
-		*dst = append(*dst, nil)
-	}
-
-	for i := range b {
-		if i >= len(src) {
-			(*dst)[t+i] = nil
-			continue
-		}
-		(*dst)[t+i] = src[i]
-	}
-}
-
 type Vector [4]float32
 
 // bit32 extraction
 func extract(n, field, width int) uint32 {
 	return uint32(n>>field) & uint32(math.Pow(2, float64(width))-1)
-}
-
-func isalpha(c byte) bool {
-	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
-}
-
-// Copied directly from BuiltinDefinitions.cpp
-func sub(s string, args []string) string {
-	size := len(s)
-	var subbed int
-
-	res := strings.Builder{}
-
-	for i := 0; i < size; i++ {
-		if s[i] != '%' {
-			res.WriteByte(s[i])
-			continue
-		}
-
-		i++
-
-		if i < size && s[i] == '%' {
-			res.WriteByte('%')
-			continue
-		}
-
-		// -- we just ignore all characters (including flags/precision) up until first alphabetic character
-		for i < size && !(s[i] > 0 && (isalpha(s[i]) || s[i] == '*')) {
-			i++
-		}
-
-		if i == size {
-			break
-			// } else if s[i] != '*' {
-			// 	panic("unknown format") // none other than * at the moment
-		} else if subbed >= len(args) {
-			res.WriteString("nil") // TODO: idk
-			continue
-		}
-
-		res.WriteString(args[subbed])
-		subbed++
-	}
-
-	return res.String()
 }
 
 // opList contains information about the instruction, each instruction is defined in this format:
@@ -463,13 +325,120 @@ var opList = [83]Operator{
 	{"IDIVK", 3, 2, false},
 }
 
+type (
+	Function *func(co *Coroutine, args ...any) (Rets, error)
+	Status   uint8
+)
+
+func Fn(f func(co *Coroutine, args ...any) (Rets, error)) Function {
+	return Function(&f)
+}
+
+const (
+	Suspended Status = iota
+	Running
+	Normal
+	Dead
+)
+
+type Yield struct {
+	rets Rets
+	err  error
+}
+
+type Coroutine struct {
+	body      Function
+	env       map[any]any
+	filepath  string // lel nowhere else to put this
+	yield     chan Yield
+	resume    chan Rets
+	debugging Debugging
+	status    Status
+	o         uint8
+	started   bool
+}
+
+func createCoroutine(body Function) *Coroutine {
+	// first time i actually ran into the channel axiom issues
+	return &Coroutine{
+		body:   body,
+		yield:  make(chan Yield, 1),
+		resume: make(chan Rets, 1),
+	}
+}
+
+func errorfmt(err error, d Debugging) error {
+	op := "NONE"
+	if d.opcode != 255 {
+		op = opList[d.opcode].Name
+	}
+
+	if d.enabled {
+		// fmt.Println(d.instructionlineinfo)
+
+		// PC removed for determinism between O levels
+		return fmt.Errorf(
+			// "Name: %s  PC: %d  Opcode: %s\n%d: %s",
+			"Opcode: %s\n%s:%d: %s",
+			op,
+			d.debugname,
+			d.instructionlineinfo[d.pc],
+			err)
+	}
+
+	return fmt.Errorf(
+		// "Name: %s  PC: %d  Opcode: %s\n%s",
+		"Opcode: %s\n%s: %s",
+		op,
+		d.debugname,
+		err)
+}
+
+func (co *Coroutine) Error(err error) {
+	co.yield <- Yield{nil, errorfmt(err, co.debugging)}
+}
+
+func (co *Coroutine) Resume(args ...any) (Rets, error) {
+	if !co.started {
+		// fmt.Println("RM  starting", args)
+		co.started = true
+		co.status = Running
+
+		go func() {
+			// fmt.Println(" RG calling coroutine body with", args)
+			r, err := (*co.body)(co, args...)
+
+			// fmt.Println("RG  yielding", r)
+			co.yield <- Yield{r, err}
+			// fmt.Println("RG  yielded", r)
+
+			co.status = Dead
+			if len(co.yield) == 0 {
+				// finish up
+				// fmt.Println("RG  yielding, finishing up")
+				co.yield <- Yield{}
+				// fmt.Println("RG  yielding, finished up")
+			}
+		}()
+	} else {
+		co.status = Running
+		// fmt.Println("RM  resuming", args)
+		co.resume <- args
+		// fmt.Println("RM  resumed", args)
+	}
+	// fmt.Println("RM  waiting for yield")
+	y := <-co.yield
+	// fmt.Println("RM  waited for yield", y.rets)
+	return y.rets, y.err
+}
+
 const LUAU_MULTRET = -1
 
-var VectorCtor = func(x, y, z, w float32) Vector {
+func VectorCtor(x, y, z, w float32) Vector {
 	return Vector{x, y, z, w}
 }
 
-var NamecallHandler = func(co *Coroutine, kv string, stack *[]any, c1, c2 int) (ok bool, retList []any, err error) {
+func NamecallHandler(co *Coroutine, kv string, stack *[]any, c1, c2 int) (ok bool, retList []any, err error) {
 	switch kv {
 	case "format":
 		str := (*stack)[c1].(string)
@@ -607,11 +576,11 @@ func (s *Stream) rFloat64() float64 {
 	return math.Float64frombits(uint64(s.rWord()) | uint64(s.rWord())<<32)
 }
 
-func (s *Stream) rVarInt() (result uint32) {
+func (s *Stream) rVarInt() (r uint32) {
 	for i := range 4 {
-		value := uint32(s.rByte())
-		result |= ((value & 0x7F) << (i * 7))
-		if value&0x80 == 0 {
+		v := uint32(s.rByte())
+		r |= (v & 0x7F << (i * 7))
+		if v&0x80 == 0 {
 			break
 		}
 	}
@@ -624,13 +593,9 @@ func (s *Stream) rString() string {
 		return ""
 	}
 
-	str := make([]byte, size)
-	for i := range size {
-		str[i] = s.data[s.pos+i]
-	}
 	s.pos += size
 
-	return string(str)
+	return string(s.data[s.pos-size : s.pos])
 }
 
 func (s *Stream) CheckEnd() {
@@ -787,16 +752,16 @@ func readProto(bytecodeid uint32, stringList []string, s *Stream) Proto {
 		}
 
 		abslineinfo := make([]uint32, intervals)
-		var lastline uint32
+		var lastline uint64
 		for i := range intervals {
-			lastline += s.rWord()
-			abslineinfo[i] = uint32(uint64(lastline) % uint64(math.Pow(2, 32))) // TODO: 1-based indexing
+			lastline += uint64(s.rWord())
+			abslineinfo[i] = uint32(lastline % (1 << 32))
 		}
 
 		instructionlineinfo = make([]uint32, sizecode)
 		for i := range sizecode {
 			// -- p->abslineinfo[pc >> p->linegaplog2] + p->lineinfo[pc];
-			instructionlineinfo = append(instructionlineinfo, abslineinfo[i>>linegaplog2]+lineinfo[i])
+			instructionlineinfo[i] = abslineinfo[i>>linegaplog2] + lineinfo[i]
 		}
 	}
 
@@ -1188,16 +1153,32 @@ type ToWrap struct {
 	requireCache map[string]Rets
 }
 
-func execute(towrap ToWrap, stack *[]any, co *Coroutine, vargsList []any, vargsLen uint8) (r Rets, err error) {
-	proto := towrap.proto
-	upvals := towrap.upvals
-	alive := towrap.alive
-	protolist := towrap.protolist
-	env := towrap.env
-	requireCache := towrap.requireCache
+type Debugging struct {
+	pc, top             int
+	enabled             bool
+	opcode              uint8
+	debugname           string
+	instructionlineinfo []uint32
+}
 
+func execute(towrap ToWrap, stack *[]any, co *Coroutine, vargsList []any, vargsLen uint8) (r Rets, err error) {
+	proto, upvals, alive, protolist, env, requireCache := towrap.proto, towrap.upvals, towrap.alive, towrap.protolist, towrap.env, towrap.requireCache
 	protos, code := proto.protos, proto.code
-	top, pc, openUpvalues, generalisedIterators := -1, 1, []*Upval{}, map[Inst]*Iterator{}
+	pc, top, openUpvals, generalisedIterators := 1, -1, []*Upval{}, map[Inst]*Iterator{}
+
+	moveStack := func(src []any, b, t int) {
+		for t+b >= len(*stack) {
+			*stack = append(*stack, nil)
+		}
+
+		for i := range b {
+			if i >= len(src) {
+				(*stack)[t+i] = nil
+				continue
+			}
+			(*stack)[t+i] = src[i]
+		}
+	}
 
 	var handlingBreak bool
 	var inst Inst
@@ -1212,6 +1193,14 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 			op = inst.opcode
 		}
 		handlingBreak = false
+
+		co.debugging.pc = pc
+		co.debugging.top = top
+		co.debugging.opcode = inst.opcode
+
+		co.debugging.enabled = proto.lineinfoenabled
+		co.debugging.debugname = proto.debugname
+		co.debugging.instructionlineinfo = proto.instructionlineinfo
 
 		// if len(upvals) > 0 {
 		// 	fmt.Println("upval", upvals[0])
@@ -1281,7 +1270,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 			}
 		case 11: // CLOSEUPVALS
 			pc += 1
-			for i, uv := range openUpvalues {
+			for i, uv := range openUpvals {
 				if uv == nil || uv.selfRef || uv.index < inst.A {
 					continue
 				}
@@ -1289,7 +1278,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 				uv.value = (*uv.store)[uv.index]
 				uv.store = nil
 				uv.selfRef = true
-				openUpvalues[i] = nil
+				openUpvals[i] = nil
 				// fmt.Println("closed", uv)
 			}
 		case 12: // GETIMPORT
@@ -1407,8 +1396,8 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 					// }
 
 					var prev *Upval
-					if index < len(openUpvalues) {
-						prev = openUpvalues[index]
+					if index < len(openUpvals) {
+						prev = openUpvals[index]
 					}
 
 					if prev == nil {
@@ -1417,10 +1406,10 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 							index: index,
 						}
 
-						for len(openUpvalues) <= index {
-							openUpvalues = append(openUpvalues, nil)
+						for len(openUpvals) <= index {
+							openUpvals = append(openUpvals, nil)
 						}
-						openUpvalues[index] = prev
+						openUpvals[index] = prev
 					}
 
 					upvalues[i] = prev
@@ -1474,6 +1463,8 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 
 			inst = *callInst
 			op = callOp
+			co.debugging.pc = pc
+			co.debugging.opcode = inst.opcode
 
 			retCount := len(retList)
 
@@ -1483,7 +1474,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 				retCount = callC - 1
 			}
 
-			move(retList, retCount, callA, stack)
+			moveStack(retList, retCount, callA)
 		case 21: // CALL
 			pc += 1
 			A, B, C := inst.A, inst.B, inst.C
@@ -1548,7 +1539,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 				retCount = C - 1
 			}
 
-			move(retList, retCount, A, stack)
+			moveStack(retList, retCount, A)
 		case 22: // RETURN
 			pc += 1
 			A, B := inst.A, inst.B
@@ -1884,47 +1875,50 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 			res := inst.K.(int)
 
 			top = A + 6
+			it := (*stack)[A]
 
-			switch it := (*stack)[A].(type) {
-			case Function:
-				// fmt.Println("IT func", it, (*stack)[A+1], (*stack)[A+2])
-				vals, err := (*it)(co, (*stack)[A+1], (*stack)[A+2])
+			if fn, ok := it.(Function); ok {
+				// fmt.Println("IT func", fn, (*stack)[A+1], (*stack)[A+2])
+				vals, err := (*fn)(co, (*stack)[A+1], (*stack)[A+2])
 				if err != nil {
 					return nil, err
 				}
 
-				move(vals, res, A+3, stack)
-
+				moveStack(vals, res, A+3)
 				// fmt.Println(A+3, (*stack)[A+3])
 
 				if (*stack)[A+3] == nil {
 					pc += 2
-				} else {
-					(*stack)[A+2] = (*stack)[A+3]
-					pc += inst.D + 1
+					break
 				}
-			default:
-				iter := *generalisedIterators[inst]
 
-				if !iter.running {
-					args := &[]any{it, (*stack)[A+1], (*stack)[A+2]}
-					// fmt.Println("-1- sending thru the wire", args)
-					iter.args <- args
-					// fmt.Println("-1- sent")
-				}
-				vals := <-iter.resume
-				// fmt.Println("-1- received!", vals)
-
-				if vals == nil {
-					delete(generalisedIterators, inst)
-					pc += 2
-				} else {
-					move(*vals, res, A+3, stack)
-
-					(*stack)[A+2] = (*stack)[A+3]
-					pc += inst.D + 1
-				}
+				(*stack)[A+2] = (*stack)[A+3]
+				pc += inst.D + 1
+				break
 			}
+
+			iter := *generalisedIterators[inst]
+
+			if !iter.running {
+				args := &[]any{it, (*stack)[A+1], (*stack)[A+2]}
+				// fmt.Println("-1- sending thru the wire", args)
+				iter.args <- args
+				// fmt.Println("-1- sent")
+			}
+
+			vals := <-iter.resume
+			// fmt.Println("-1- received!", vals)
+
+			if vals == nil {
+				delete(generalisedIterators, inst)
+				pc += 2
+				break
+			}
+
+			moveStack(*vals, res, A+3)
+
+			(*stack)[A+2] = (*stack)[A+3]
+			pc += inst.D + 1
 		case 59, 61: // FORGPREP_INEXT, FORGPREP_NEXT
 			if _, ok := (*stack)[inst.A].(Function); !ok {
 				return nil, fmt.Errorf("attempt to iterate over a %s value", typeOf((*stack)[inst.A])) // -- encountered non-function value
@@ -1946,7 +1940,7 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 
 			// stack may get expanded here
 			// (MAX STACK SIZE IS A LIE!!!!!!!!!!!!!!!!!!!!!!!)
-			move(vargsList, b, A, stack)
+			moveStack(vargsList, b, A)
 		case 64: // DUPCLOSURE
 			newPrototype := protolist[inst.K.(uint32)]
 
@@ -2089,14 +2083,14 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 		}
 	}
 
-	for i, uv := range openUpvalues {
+	for i, uv := range openUpvals {
+		openUpvals[i] = nil
 		if uv.selfRef {
 			continue
 		}
 		uv.value = (*uv.store)[uv.index]
 		uv.store = nil
 		uv.selfRef = true
-		openUpvalues[i] = nil
 	}
 
 	for i := range generalisedIterators {
@@ -2124,8 +2118,16 @@ func wrapclosure(towrap ToWrap) Function {
 			list = args[np:]
 		}
 
-		// TODO: dee bugg ingg
-		return execute(towrap, &stack, co, list, max(la-np, 0))
+		co.debugging.pc = 0
+		co.debugging.opcode = 255
+		co.debugging.enabled = proto.lineinfoenabled
+
+		result, err := execute(towrap, &stack, co, list, max(la-np, 0))
+		if err != nil {
+			return nil, errorfmt(err, co.debugging)
+		}
+
+		return result, nil
 	})
 }
 
@@ -2143,11 +2145,12 @@ func Load(module Deserialised, filepath string, o uint8, env map[any]any, requir
 	}
 
 	return Coroutine{
-		body:     wrapclosure(towrap),
-		env:      env,
-		filepath: filepath,
-		yield:    make(chan Yield, 1),
-		resume:   make(chan Rets, 1),
-		o:        o,
+		body:      wrapclosure(towrap),
+		env:       env,
+		filepath:  filepath,
+		debugging: Debugging{opcode: 255},
+		yield:     make(chan Yield, 1),
+		resume:    make(chan Rets, 1),
+		o:         o,
 	}, func() { alive = false }
 }
