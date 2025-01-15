@@ -55,3 +55,8 @@ print(
 		or (a or (b and c)) and ((a or b) and c)
 		or (a and b and c) and (a or b or c)
 )
+
+-- more lua bug cases
+print((("hi" or true) and true) or true)
+print(((nil and nil) or false) and true)
+print(((1 or false) and true) or false)

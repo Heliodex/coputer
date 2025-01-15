@@ -5,3 +5,5 @@ print(10 ^ 6)
 print(10 ^ 9)
 print(9 ^ 16)
 print(9 ^ 25) -- exponent truncated
+
+print(0xE + 1)

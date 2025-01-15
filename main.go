@@ -97,23 +97,35 @@ func (co *Coroutine) Error(err error) {
 
 func (co *Coroutine) Resume(args ...any) (Rets, error) {
 	if !co.started {
+		// fmt.Println("RM  starting", args)
 		co.started = true
 		co.status = Running
 
 		go func() {
+			// fmt.Println(" RG calling coroutine body with", args)
 			r, err := (*co.body)(co, args...)
+
+			// fmt.Println("RG  yielding", r)
 			co.yield <- Yield{r, err}
+			// fmt.Println("RG  yielded", r)
+
 			co.status = Dead
 			if len(co.yield) == 0 {
 				// finish up
+				// fmt.Println("RG  yielding, finishing up")
 				co.yield <- Yield{}
+				// fmt.Println("RG  yielding, finished up")
 			}
 		}()
 	} else {
 		co.status = Running
+		// fmt.Println("RM  resuming", args)
 		co.resume <- args
+		// fmt.Println("RM  resumed", args)
 	}
+	// fmt.Println("RM  waiting for yield")
 	y := <-co.yield
+	// fmt.Println("RM  waited for yield", y.rets)
 	return y.rets, y.err
 }
 

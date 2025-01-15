@@ -1,0 +1,2 @@
+local f = nil
+f()

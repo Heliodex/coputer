@@ -46,3 +46,24 @@ local w = coroutine.wrap(s)
 for i = 1, 4 do
 	print(w(i))
 end
+
+-- https://www.lua.org/bugs.html#5.2.2-8
+print(coroutine.resume(coroutine.running()))
+
+print(coroutine.resume(coroutine.create(function()
+	coroutine.resume(coroutine.running())
+	coroutine.yield()
+end)))
+
+-- wow
+print(
+	coroutine.resume(
+		coroutine.create(
+			function() coroutine.yield(coroutine.resume(coroutine.running())) end
+		)
+	)
+)
+
+local cc
+cc = coroutine.create(function() coroutine.yield(coroutine.resume(cc)) end)
+print(coroutine.resume(cc))
