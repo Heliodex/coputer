@@ -29,7 +29,7 @@ func ipairs_iter(args Args) Rets {
 	a := args.GetTable()
 	i := args.GetNumber()
 
-	i += 1
+	i++
 
 	if a.array == nil || int(i) > len(*a.array) {
 		return Rets{}
@@ -155,7 +155,7 @@ var kPow5Table = [16]uint64{
 	0xe8d4a51000000000, 0x9184e72a00000000, 0xb5e620f480000000, 0xe35fa931a0000000,
 }
 
-var kPow10Table = [...][3]uint64{
+var kPow10Table = [39][3]uint64{
 	{0xff77b1fcbebcdc4f, 0x25e8e89c13bb0f7b, 0x333443443333443b},
 	{0x8dd01fad907ffc3b, 0xae3da7d97f6792e4, 0xbbb3ab3cb3ba3cbc},
 	{0x9d71ac8fada6c9b5, 0x6f773fc3603db4aa, 0x4ba4bc4bb4bb4bcc},
@@ -281,10 +281,11 @@ func schubfach(exponent int, fraction uint64) (uint64, int) {
 	gtoff := -k - kPow10TableMin
 	gt := kPow10Table[gtoff>>4]
 
-	ghi, glo := mul192hi(gt[0], gt[1], kPow5Table[gtoff&15])
+	g15 := gtoff & 15
+	ghi, glo := mul192hi(gt[0], gt[1], kPow5Table[g15])
 
 	// Apply 1-bit scale + 3-bit offset; note, offset is intentionally applied without carry, numutils.py validates that this is sufficient
-	gterr := (gt[2] >> ((gtoff & 15) * 4)) & 15
+	gterr := (gt[2] >> (g15 * 4)) & 15
 	gtscale := gterr >> 3
 
 	ghi <<= gtscale
@@ -320,9 +321,8 @@ func schubfach(exponent int, fraction uint64) (uint64, int) {
 
 	if uin != win {
 		return s + b2i(win), k
-	} else {
-		return s + b2i(rup), k
 	}
+	return s + b2i(rup), k
 }
 
 type BufPos struct {

@@ -1,4 +1,4 @@
-module litecode
+module github.com/Heliodex/litecode
 
 go 1.23.4
 

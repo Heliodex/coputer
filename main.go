@@ -553,7 +553,7 @@ type Stream struct {
 
 func (s *Stream) rByte() (b byte) {
 	b = s.data[s.pos]
-	s.pos += 1
+	s.pos++
 	return
 }
 
@@ -1206,27 +1206,27 @@ func execute(towrap ToWrap, debugging *Debugging, stack *[]any, co *Coroutine, v
 
 		switch op {
 		case 0: // NOP
-			pc += 1
+			pc++
 			// -- Do nothing
 		case 1: // BREAK
 			op = proto.debugcode[pc]
 			handlingBreak = true
 		case 2: // LOADNIL
-			pc += 1
+			pc++
 			(*stack)[inst.A] = nil
 		case 3: // LOADB
-			pc += 1
+			pc++
 			(*stack)[inst.A] = inst.B == 1
 			pc += inst.C
 		case 4: // LOADN
-			pc += 1
+			pc++
 			(*stack)[inst.A] = float64(inst.D) // never put an int on the stack
 		case 5: // LOADK
-			pc += 1
+			pc++
 			// fmt.Println("LOADK", inst.A, inst.K)
 			(*stack)[inst.A] = inst.K
 		case 6: // MOVE
-			pc += 1
+			pc++
 			// we should (ALMOST) never have to change the size of the stack (proto.maxstacksize)
 			(*stack)[inst.A] = (*stack)[inst.B]
 		case 7: // GETGLOBAL
@@ -1249,7 +1249,7 @@ func execute(towrap ToWrap, debugging *Debugging, stack *[]any, co *Coroutine, v
 				return nil, fmt.Errorf("attempt to set global '%s'", kv)
 			}
 		case 9: // GETUPVAL
-			pc += 1
+			pc++
 			if uv := upvals[inst.B]; uv.selfRef {
 				(*stack)[inst.A] = uv.value
 			} else {
@@ -1259,14 +1259,14 @@ func execute(towrap ToWrap, debugging *Debugging, stack *[]any, co *Coroutine, v
 				(*stack)[inst.A] = (*uv.store)[uv.index]
 			}
 		case 10: // SETUPVAL
-			pc += 1
+			pc++
 			if uv := upvals[inst.B]; !uv.selfRef {
 				(*uv.store)[uv.index] = (*stack)[inst.A]
 			} else {
 				uv.value = (*stack)[inst.A]
 			}
 		case 11: // CLOSEUPVALS
-			pc += 1
+			pc++
 			for i, uv := range openUpvals {
 				if uv == nil || uv.selfRef || uv.index < inst.A {
 					continue
@@ -1303,7 +1303,7 @@ func execute(towrap ToWrap, debugging *Debugging, stack *[]any, co *Coroutine, v
 
 			pc += 2 // -- adjust for aux
 		case 13: // GETTABLE
-			pc += 1
+			pc++
 
 			v, err := gettable((*stack)[inst.C], (*stack)[inst.B])
 			if err != nil {
@@ -1311,7 +1311,7 @@ func execute(towrap ToWrap, debugging *Debugging, stack *[]any, co *Coroutine, v
 			}
 			(*stack)[inst.A] = v
 		case 14: // SETTABLE
-			pc += 1
+			pc++
 			index := (*stack)[inst.C]
 			t, ok := (*stack)[inst.B].(*Table) // SETTABLE or SETTABLEKS on a Vector actually does return "attempt to index vector with 'whatever'"
 			if !ok {
@@ -1349,7 +1349,7 @@ func execute(towrap ToWrap, debugging *Debugging, stack *[]any, co *Coroutine, v
 
 			(*stack)[inst.A] = t.Get(float64(i))
 
-			pc += 1
+			pc++
 		case 18: // SETTABLEN
 			t := (*stack)[inst.B].(*Table)
 			if t.readonly {
@@ -1360,7 +1360,7 @@ func execute(towrap ToWrap, debugging *Debugging, stack *[]any, co *Coroutine, v
 				t.SetHash(float64(i), v)
 			}
 
-			pc += 1
+			pc++
 		case 19: // NEWCLOSURE
 			newPrototype := protolist[protos[inst.D]-1]
 
@@ -1415,11 +1415,11 @@ func execute(towrap ToWrap, debugging *Debugging, stack *[]any, co *Coroutine, v
 					// fmt.Println("moving", i, pseudo.B)
 					upvalues[i] = upvals[pseudo.B]
 				}
-				pc += 1
+				pc++
 			}
-			pc += 1
+			pc++
 		case 20: // NAMECALL
-			pc += 1
+			pc++
 			// fmt.Println("NAMECALL")
 
 			A, B := inst.A, inst.B
@@ -1473,7 +1473,7 @@ func execute(towrap ToWrap, debugging *Debugging, stack *[]any, co *Coroutine, v
 
 			moveStack(retList, retCount, callA)
 		case 21: // CALL
-			pc += 1
+			pc++
 			A, B, C := inst.A, inst.B, inst.C
 
 			var params int
@@ -1538,7 +1538,7 @@ func execute(towrap ToWrap, debugging *Debugging, stack *[]any, co *Coroutine, v
 
 			moveStack(retList, retCount, A)
 		case 22: // RETURN
-			pc += 1
+			pc++
 			A, B := inst.A, inst.B
 			b := B - 1
 
@@ -1554,13 +1554,13 @@ func execute(towrap ToWrap, debugging *Debugging, stack *[]any, co *Coroutine, v
 			if truthy((*stack)[inst.A]) {
 				pc += inst.D + 1
 			} else {
-				pc += 1
+				pc++
 			}
 		case 26: // JUMPIFNOT
 			if !truthy((*stack)[inst.A]) {
 				pc += inst.D + 1
 			} else {
-				pc += 1
+				pc++
 			}
 		case 27: // jump
 			if (*stack)[inst.A] == (*stack)[inst.aux] {
@@ -1607,98 +1607,98 @@ func execute(towrap ToWrap, debugging *Debugging, stack *[]any, co *Coroutine, v
 				pc += 2
 			}
 		case 33: // arithmetic
-			pc += 1
+			pc++
 			j, err := aAdd((*stack)[inst.B], (*stack)[inst.C])
 			if err != nil {
 				return nil, err
 			}
 			(*stack)[inst.A] = j
 		case 34:
-			pc += 1
+			pc++
 			j, err := aSub((*stack)[inst.B], (*stack)[inst.C])
 			if err != nil {
 				return nil, err
 			}
 			(*stack)[inst.A] = j
 		case 35:
-			pc += 1
+			pc++
 			j, err := aMul((*stack)[inst.B], (*stack)[inst.C])
 			if err != nil {
 				return nil, err
 			}
 			(*stack)[inst.A] = j
 		case 36:
-			pc += 1
+			pc++
 			j, err := aDiv((*stack)[inst.B], (*stack)[inst.C])
 			if err != nil {
 				return nil, err
 			}
 			(*stack)[inst.A] = j
 		case 37:
-			pc += 1
+			pc++
 			j, err := aMod((*stack)[inst.B], (*stack)[inst.C])
 			if err != nil {
 				return nil, err
 			}
 			(*stack)[inst.A] = j
 		case 38:
-			pc += 1
+			pc++
 			j, err := aPow((*stack)[inst.B], (*stack)[inst.C])
 			if err != nil {
 				return nil, err
 			}
 			(*stack)[inst.A] = j
 		case 81:
-			pc += 1
+			pc++
 			j, err := aIdiv((*stack)[inst.B], (*stack)[inst.C])
 			if err != nil {
 				return nil, err
 			}
 			(*stack)[inst.A] = j
 		case 39: // arithmetik
-			pc += 1
+			pc++
 			j, err := aAdd((*stack)[inst.B], inst.K)
 			if err != nil {
 				return nil, err
 			}
 			(*stack)[inst.A] = j
 		case 40:
-			pc += 1
+			pc++
 			j, err := aSub((*stack)[inst.B], inst.K)
 			if err != nil {
 				return nil, err
 			}
 			(*stack)[inst.A] = j
 		case 41:
-			pc += 1
+			pc++
 			j, err := aMul((*stack)[inst.B], inst.K)
 			if err != nil {
 				return nil, err
 			}
 			(*stack)[inst.A] = j
 		case 42:
-			pc += 1
+			pc++
 			j, err := aDiv((*stack)[inst.B], inst.K)
 			if err != nil {
 				return nil, err
 			}
 			(*stack)[inst.A] = j
 		case 43:
-			pc += 1
+			pc++
 			j, err := aMod((*stack)[inst.B], inst.K)
 			if err != nil {
 				return nil, err
 			}
 			(*stack)[inst.A] = j
 		case 44:
-			pc += 1
+			pc++
 			j, err := aPow((*stack)[inst.B], inst.K)
 			if err != nil {
 				return nil, err
 			}
 			(*stack)[inst.A] = j
 		case 82:
-			pc += 1
+			pc++
 			j, err := aIdiv((*stack)[inst.B], inst.K)
 			if err != nil {
 				return nil, err
@@ -1706,7 +1706,7 @@ func execute(towrap ToWrap, debugging *Debugging, stack *[]any, co *Coroutine, v
 			(*stack)[inst.A] = j
 
 		case 45: // logic AND
-			pc += 1
+			pc++
 			a := (*stack)[inst.B]
 			b := (*stack)[inst.C]
 
@@ -1716,7 +1716,7 @@ func execute(towrap ToWrap, debugging *Debugging, stack *[]any, co *Coroutine, v
 				(*stack)[inst.A] = a
 			}
 		case 46: // logic OR
-			pc += 1
+			pc++
 			a := (*stack)[inst.B]
 			b := (*stack)[inst.C]
 
@@ -1728,7 +1728,7 @@ func execute(towrap ToWrap, debugging *Debugging, stack *[]any, co *Coroutine, v
 				(*stack)[inst.A] = false
 			}
 		case 47: // logik AND
-			pc += 1
+			pc++
 			// fmt.Println("LOGIK")
 			a := (*stack)[inst.B]
 			b := inst.K
@@ -1739,7 +1739,7 @@ func execute(towrap ToWrap, debugging *Debugging, stack *[]any, co *Coroutine, v
 				(*stack)[inst.A] = a
 			}
 		case 48: // logik OR
-			pc += 1
+			pc++
 			// fmt.Println("LOGIK")
 			a := (*stack)[inst.B]
 			b := inst.K
@@ -1752,7 +1752,7 @@ func execute(towrap ToWrap, debugging *Debugging, stack *[]any, co *Coroutine, v
 				(*stack)[inst.A] = false
 			}
 		case 49: // CONCAT
-			pc += 1
+			pc++
 			s := strings.Builder{}
 
 			var first int
@@ -1767,10 +1767,10 @@ func execute(towrap ToWrap, debugging *Debugging, stack *[]any, co *Coroutine, v
 			}
 			(*stack)[inst.A] = s.String()
 		case 50: // NOT
-			pc += 1
+			pc++
 			(*stack)[inst.A] = !truthy((*stack)[inst.B])
 		case 51: // MINUS
-			pc += 1
+			pc++
 			a, ok := (*stack)[inst.B].(float64)
 			if !ok {
 				return nil, invalidUnm(typeOf((*stack)[inst.B]))
@@ -1778,7 +1778,7 @@ func execute(towrap ToWrap, debugging *Debugging, stack *[]any, co *Coroutine, v
 
 			(*stack)[inst.A] = -a
 		case 52: // LENGTH
-			pc += 1
+			pc++
 			switch t := (*stack)[inst.B].(type) {
 			case *Table:
 				(*stack)[inst.A] = float64(t.Len())
@@ -1792,7 +1792,7 @@ func execute(towrap ToWrap, debugging *Debugging, stack *[]any, co *Coroutine, v
 
 			pc += 2 // -- adjust for aux
 		case 54: // DUPTABLE
-			pc += 1
+			pc++
 			serialised := &Table{}
 			for _, id := range inst.K.([]uint32) { // template
 				if err := serialised.Set(proto.k[id], nil); err != nil { // constants
@@ -1826,7 +1826,7 @@ func execute(towrap ToWrap, debugging *Debugging, stack *[]any, co *Coroutine, v
 
 			pc += 2 // -- adjust for aux
 		case 56: // FORNPREP
-			pc += 1
+			pc++
 			A := inst.A
 
 			index, ok := (*stack)[A+2].(float64)
@@ -1852,7 +1852,7 @@ func execute(towrap ToWrap, debugging *Debugging, stack *[]any, co *Coroutine, v
 				pc += inst.D
 			}
 		case 57: // FORNLOOP
-			pc += 1
+			pc++
 			A := inst.A
 			limit := (*stack)[A].(float64)
 			step := (*stack)[A+1].(float64)
@@ -1925,7 +1925,7 @@ func execute(towrap ToWrap, debugging *Debugging, stack *[]any, co *Coroutine, v
 			// Skipped
 			pc += 2 // adjust for aux
 		case 63: // GETVARARGS
-			pc += 1
+			pc++
 			A := inst.A
 			b := inst.B - 1
 
@@ -1964,11 +1964,11 @@ func execute(towrap ToWrap, debugging *Debugging, stack *[]any, co *Coroutine, v
 					upvalues[i] = upvals[pseudo.B]
 				}
 
-				pc += 1
+				pc++
 			}
-			pc += 1
+			pc++
 		case 65: // PREPVARARGS
-			pc += 1
+			pc++
 			// Handled by wrapper
 		case 66: // LOADKX
 			(*stack)[inst.A] = inst.K.(uint32) // kv
@@ -1977,30 +1977,30 @@ func execute(towrap ToWrap, debugging *Debugging, stack *[]any, co *Coroutine, v
 		case 67: // JUMPX
 			pc += inst.E + 1
 		case 68: // FASTCALL
-			pc += 1
+			pc++
 			// Skipped
 		case 69: // COVERAGE
-			pc += 1
-			inst.E += 1
+			pc++
+			inst.E++
 		case 70: // CAPTURE
 			// Handled by CLOSURE
 			panic("encountered unhandled CAPTURE")
 		case 71: // SUBRK
-			pc += 1
+			pc++
 			j, err := aSub(inst.K, (*stack)[inst.C])
 			if err != nil {
 				return nil, err
 			}
 			(*stack)[inst.A] = j
 		case 72: // DIVRK
-			pc += 1
+			pc++
 			j, err := aDiv(inst.K, (*stack)[inst.C])
 			if err != nil {
 				return nil, err
 			}
 			(*stack)[inst.A] = j
 		case 73: // FASTCALL1
-			pc += 1
+			pc++
 			// Skipped
 		case 74, 75: // FASTCALL2, FASTCALL2K
 			// Skipped
