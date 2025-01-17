@@ -1,4 +1,4 @@
-package main
+package litecode
 
 import (
 	"errors"
@@ -856,15 +856,15 @@ func truthy(v any) bool {
 }
 
 var luautype = map[string]string{
-	"nil":             "nil",
-	"float64":         "number",
-	"string":          "string",
-	"bool":            "boolean",
-	"*main.Table":     "table",
-	"main.Function":   "function",
-	"*main.Coroutine": "thread",
-	"*main.Buffer":    "buffer",
-	"main.Vector":     "vector",
+	"nil":                 "nil",
+	"float64":             "number",
+	"string":              "string",
+	"bool":                "boolean",
+	"*litecode.Table":     "table",
+	"litecode.Function":   "function",
+	"*litecode.Coroutine": "thread",
+	"*litecode.Buffer":    "buffer",
+	"litecode.Vector":     "vector",
 }
 
 func invalidCompare(op string, ta, tb string) error {
@@ -1124,7 +1124,7 @@ func gettable(index, v any) (any, error) {
 	case Vector: // direction,,, and mmmagnitude!! oh yeah!!11!!
 		si, ok := index.(string)
 		if !ok {
-			return nil, invalidIndex("main.Vector", index)
+			return nil, invalidIndex("litecode.Vector", index)
 		}
 
 		switch si {
@@ -1137,7 +1137,7 @@ func gettable(index, v any) (any, error) {
 			// case "w":
 			// 	(*stack)[inst.A] = t[3]
 		}
-		return nil, invalidIndex("main.Vector", si)
+		return nil, invalidIndex("litecode.Vector", si)
 	}
 	return nil, invalidIndex(typeOf(v), index)
 }

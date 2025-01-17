@@ -1,4 +1,4 @@
-package main
+package litecode
 
 import (
 	"encoding/binary"
@@ -249,7 +249,7 @@ func buffer_writebits(args Args) Rets {
 	var dataa2 [8]byte
 	binary.LittleEndian.PutUint64(dataa2[:], data)
 	copy(bs, dataa2[:])
-	
+
 	return Rets{nil, true}
 }
 
