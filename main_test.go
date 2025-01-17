@@ -24,7 +24,7 @@ func litecode(t *testing.T, f string, o uint8) (string, time.Duration) {
 	luau_print := Fn(func(co *Coroutine, args ...any) (r Rets, err error) {
 		// b.WriteString(fmt.Sprint(args...))
 		for i, arg := range args {
-			b.WriteString(tostring(arg))
+			b.WriteString(ToString(arg))
 
 			if i < len(args)-1 {
 				b.WriteString("\t")
@@ -62,7 +62,7 @@ func litecodeE(t *testing.T, f string, o uint8) (string, error) {
 	luau_print := Fn(func(co *Coroutine, args ...any) (r Rets, err error) {
 		// b.WriteString(fmt.Sprint(args...))
 		for i, arg := range args {
-			b.WriteString(tostring(arg))
+			b.WriteString(ToString(arg))
 
 			if i < len(args)-1 {
 				b.WriteString("\t")

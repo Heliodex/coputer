@@ -48,8 +48,8 @@ func string_byte(args Args) (bytes Rets, err error) {
 	return
 }
 
-func string_char(args Args) (Ret, error) {
-	l := len(args.args)
+func string_char(args Args) (r Rets, err error) {
+	l := len(args.Args)
 
 	bytes := make([]byte, l)
 	for i := range bytes {
@@ -62,10 +62,10 @@ func string_char(args Args) (Ret, error) {
 		bytes[i] = ba
 	}
 
-	return string(bytes), nil
+	return Rets{string(bytes)}, nil
 }
 
-func string_find(args Args) Rets {
+func string_find(args Args) (r Rets, err error) {
 	s := args.GetString()
 	p := args.GetString()
 	i := args.GetNumber(1)
@@ -76,17 +76,17 @@ func string_find(args Args) Rets {
 	if init < 1 {
 		init = 1
 	} else if init > ls+1 { // start after string's end?
-		return Rets{nil} // cannot find anything
+		return Rets{nil}, nil // cannot find anything
 	}
 
 	pos := strings.Index(s[init-1:], p)
 	if pos == -1 {
-		return Rets{nil} // one nil
+		return Rets{nil}, nil // one nil
 	}
 	return Rets{
 		float64(pos + init),
 		float64(pos + init + len(p) - 1),
-	}
+	}, nil
 }
 
 var (
@@ -171,7 +171,7 @@ func fmtstring(strfrmt string, args *Args) (string, error) {
 			continue
 		} else if strfrmt[i] == '*' {
 			a := args.GetAny()
-			b.WriteString(tostring(a))
+			b.WriteString(ToString(a))
 			i++
 			continue
 		}
@@ -234,59 +234,58 @@ func fmtstring(strfrmt string, args *Args) (string, error) {
 	return b.String(), nil
 }
 
-func string_format(args Args) (Ret, error) {
+func string_format(args Args) (r Rets, err error) {
 	strfrmt := args.GetString()
 
-	r, err := fmtstring(strfrmt, &args)
+	res, err := fmtstring(strfrmt, &args)
 	if err != nil {
-		return nil, err
+		return
 	}
-	return r, nil
+	return Rets{res}, nil
 }
 
-// func string_gmatch(args Args) Ret {
+// func string_gmatch(args Args) (r Rets, err error) {
 // 	panic("not implemented")
 // }
 
-// func string_gsub(args Args) Rets {
+// func string_gsub(args Args) (r Rets, err error) {
 // 	panic("not implemented")
 // }
 
-func string_len(args Args) Ret {
+func string_len(args Args) (r Rets, err error) {
 	s := args.GetString()
 
-	return float64(len(s))
+	return Rets{float64(len(s))}, nil
 }
 
-func string_lower(args Args) Ret {
+func string_lower(args Args) (r Rets, err error) {
 	s := args.GetString()
 
-	return strings.ToLower(s)
+	return Rets{strings.ToLower(s)}, nil
 }
 
-// func string_match(args Args) Ret {
+// func string_match(args Args) (r Rets, err error) {
 // 	panic("not implemented")
 // }
 
-func string_rep(args Args) Ret {
+func string_rep(args Args) (r Rets, err error) {
 	s := args.GetString()
 	n := args.GetNumber()
 
-	return strings.Repeat(s, max(int(n), 0))
+	return Rets{strings.Repeat(s, max(int(n), 0))}, nil
 }
 
-func string_reverse(args Args) Ret {
+func string_reverse(args Args) (r Rets, err error) {
 	s := args.GetString()
 
-	r := []byte(s) // []rune(s)
-	for i, j := 0, len(r)-1; i < j; i, j = i+1, j-1 {
-		r[i], r[j] = r[j], r[i]
+	rs := []byte(s) // []rune(s)
+	for i, j := 0, len(rs)-1; i < j; i, j = i+1, j-1 {
+		rs[i], rs[j] = rs[j], rs[i]
 	}
-
-	return string(r)
+	return Rets{string(rs)}, nil
 }
 
-func string_split(args Args) Ret {
+func string_split(args Args) (r Rets, err error) {
 	s := args.GetString()
 	separator := args.GetString(",")
 
@@ -296,12 +295,12 @@ func string_split(args Args) Ret {
 		a[i] = v
 	}
 
-	return &Table{
+	return Rets{&Table{
 		array: &a,
-	}
+	}}, nil
 }
 
-func string_sub(args Args) Ret {
+func string_sub(args Args) (r Rets, err error) {
 	s := args.GetString()
 	i := args.GetNumber(1)
 	j := args.GetNumber(-1)
@@ -317,32 +316,32 @@ func string_sub(args Args) Ret {
 	}
 
 	if end < start {
-		return ""
+		return Rets{""}, nil
 	}
-	return s[start-1 : end]
+	return Rets{s[start-1 : end]}, nil
 }
 
-func string_upper(args Args) Ret {
+func string_upper(args Args) (r Rets, err error) {
 	s := args.GetString()
 
-	return strings.ToUpper(s)
+	return Rets{strings.ToUpper(s)}, nil
 }
 
 var libstring = NewTable([][2]any{
-	MakeFnE("byte", string_byte),
-	MakeFn1E("char", string_char),
+	MakeFn("byte", string_byte),
+	MakeFn("char", string_char),
 	MakeFn("find", string_find),
-	MakeFn1E("format", string_format),
-	// MakeFn1("gmatch", string_gmatch),
+	MakeFn("format", string_format),
+	// MakeFn("gmatch", string_gmatch),
 	// MakeFn("gsub", string_gsub),
-	MakeFn1("len", string_len),
-	MakeFn1("lower", string_lower),
-	// MakeFn1("match", string_match),
+	MakeFn("len", string_len),
+	MakeFn("lower", string_lower),
+	// MakeFn("match", string_match),
 	// buffer should be used instead of pack/packsize
-	MakeFn1("rep", string_rep),
-	MakeFn1("reverse", string_reverse),
-	MakeFn1("split", string_split),
-	MakeFn1("sub", string_sub),
+	MakeFn("rep", string_rep),
+	MakeFn("reverse", string_reverse),
+	MakeFn("split", string_split),
+	MakeFn("sub", string_sub),
 	// buffer should be used instead of unpack
-	MakeFn1("upper", string_upper),
+	MakeFn("upper", string_upper),
 })

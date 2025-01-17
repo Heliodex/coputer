@@ -7,30 +7,30 @@ import (
 
 type Buffer []byte
 
-func buffer_create(args Args) Ret {
+func buffer_create(args Args) (r Rets, err error) {
 	size := int(args.GetNumber())
 
 	b := make(Buffer, size)
-	return &b
+	return Rets{&b}, nil
 }
 
-func buffer_fromstring(args Args) Ret {
+func buffer_fromstring(args Args) (r Rets, err error) {
 	str := args.GetString()
 
 	b := Buffer(str)
-	return &b
+	return Rets{&b}, nil
 }
 
-func buffer_tostring(args Args) Ret {
+func buffer_tostring(args Args) (r Rets, err error) {
 	b := *args.GetBuffer()
 
-	return string(b)
+	return Rets{string(b)}, nil
 }
 
-func buffer_len(args Args) Ret {
+func buffer_len(args Args) (r Rets, err error) {
 	b := *args.GetBuffer()
 
-	return float64(len(b))
+	return Rets{float64(len(b))}, nil
 }
 
 func readValues(args *Args) (b Buffer, offset int) {
@@ -39,58 +39,58 @@ func readValues(args *Args) (b Buffer, offset int) {
 	return
 }
 
-func buffer_readi8(args Args) Ret {
+func buffer_readi8(args Args) (r Rets, err error) {
 	b, offset := readValues(&args)
 
-	return float64(int8(b[offset]))
+	return Rets{float64(int8(b[offset]))}, nil
 }
 
-func buffer_readu8(args Args) Ret {
+func buffer_readu8(args Args) (r Rets, err error) {
 	b, offset := readValues(&args)
 
-	return float64(uint8(b[offset]))
+	return Rets{float64(uint8(b[offset]))}, nil
 }
 
-func buffer_readi16(args Args) Ret {
-	b, offset := readValues(&args)
-
-	b2 := b[offset : offset+2]
-	return float64(int16(binary.LittleEndian.Uint16(b2)))
-}
-
-func buffer_readu16(args Args) Ret {
+func buffer_readi16(args Args) (r Rets, err error) {
 	b, offset := readValues(&args)
 
 	b2 := b[offset : offset+2]
-	return float64(binary.LittleEndian.Uint16(b2))
+	return Rets{float64(int16(binary.LittleEndian.Uint16(b2)))}, nil
 }
 
-func buffer_readi32(args Args) Ret {
+func buffer_readu16(args Args) (r Rets, err error) {
+	b, offset := readValues(&args)
+
+	b2 := b[offset : offset+2]
+	return Rets{float64(binary.LittleEndian.Uint16(b2))}, nil
+}
+
+func buffer_readi32(args Args) (r Rets, err error) {
 	b, offset := readValues(&args)
 
 	b4 := b[offset : offset+4] // we are inb4
-	return float64(int32(binary.LittleEndian.Uint32(b4)))
+	return Rets{float64(int32(binary.LittleEndian.Uint32(b4)))}, nil
 }
 
-func buffer_readu32(args Args) Ret {
+func buffer_readu32(args Args) (r Rets, err error) {
 	b, offset := readValues(&args)
 
 	b4 := b[offset : offset+4]
-	return float64(binary.LittleEndian.Uint32(b4))
+	return Rets{float64(binary.LittleEndian.Uint32(b4))}, nil
 }
 
-func buffer_readf32(args Args) Ret {
+func buffer_readf32(args Args) (r Rets, err error) {
 	b, offset := readValues(&args)
 
 	b4 := b[offset : offset+4]
-	return float64(math.Float32frombits(binary.LittleEndian.Uint32(b4)))
+	return Rets{float64(math.Float32frombits(binary.LittleEndian.Uint32(b4)))}, nil
 }
 
-func buffer_readf64(args Args) Ret {
+func buffer_readf64(args Args) (r Rets, err error) {
 	b, offset := readValues(&args)
 
 	b8 := b[offset : offset+8]
-	return float64(math.Float64frombits(binary.LittleEndian.Uint64(b8)))
+	return Rets{float64(math.Float64frombits(binary.LittleEndian.Uint64(b8)))}, nil
 }
 
 type num interface {
@@ -105,102 +105,102 @@ func writeValues[V num](args *Args) (b Buffer, offset int, value V) {
 	return
 }
 
-func buffer_writei8(args Args) Rets {
+func buffer_writei8(args Args) (r Rets, err error) {
 	b, offset, value := writeValues[int8](&args)
 	if offset+1 > len(b) || offset < 0 {
-		return OOB
+		return OOB, nil
 	}
 
 	b[offset] = byte(value)
-	return Rets{nil, true}
+	return Rets{nil, true}, nil
 }
 
-func buffer_writeu8(args Args) Rets {
+func buffer_writeu8(args Args) (r Rets, err error) {
 	b, offset, value := writeValues[uint8](&args)
 	if offset+1 > len(b) || offset < 0 {
-		return OOB
+		return OOB, nil
 	}
 
 	b[offset] = byte(value)
-	return Rets{nil, true}
+	return Rets{nil, true}, nil
 }
 
-func buffer_writei16(args Args) Rets {
+func buffer_writei16(args Args) (r Rets, err error) {
 	b, offset, value := writeValues[int16](&args)
 	if offset+2 > len(b) || offset < 0 {
-		return OOB
+		return OOB, nil
 	}
 
 	b2 := b[offset : offset+2]
 	binary.LittleEndian.PutUint16(b2, uint16(value))
-	return Rets{nil, true}
+	return Rets{nil, true}, nil
 }
 
-func buffer_writeu16(args Args) Rets {
+func buffer_writeu16(args Args) (r Rets, err error) {
 	b, offset, value := writeValues[uint16](&args)
 	if offset+2 > len(b) || offset < 0 {
-		return OOB
+		return OOB, nil
 	}
 
 	b2 := b[offset : offset+2]
 	binary.LittleEndian.PutUint16(b2, value)
-	return Rets{nil, true}
+	return Rets{nil, true}, nil
 }
 
-func buffer_writei32(args Args) Rets {
+func buffer_writei32(args Args) (r Rets, err error) {
 	b, offset, value := writeValues[int32](&args)
 	if offset+4 > len(b) || offset < 0 {
-		return OOB
+		return OOB, nil
 	}
 
 	b4 := b[offset : offset+4]
 	binary.LittleEndian.PutUint32(b4, uint32(value))
-	return Rets{nil, true}
+	return Rets{nil, true}, nil
 }
 
-func buffer_writeu32(args Args) Rets {
+func buffer_writeu32(args Args) (r Rets, err error) {
 	b, offset, value := writeValues[uint32](&args)
 	if offset+4 > len(b) || offset < 0 {
-		return OOB
+		return OOB, nil
 	}
 
 	b4 := b[offset : offset+4]
 	binary.LittleEndian.PutUint32(b4, value)
-	return Rets{nil, true}
+	return Rets{nil, true}, nil
 }
 
-func buffer_writef32(args Args) Rets {
+func buffer_writef32(args Args) (r Rets, err error) {
 	b, offset, value := writeValues[float32](&args)
 	if offset+4 > len(b) || offset < 0 {
-		return OOB
+		return OOB, nil
 	}
 
 	b4 := b[offset : offset+4]
 	binary.LittleEndian.PutUint32(b4, math.Float32bits(value))
-	return Rets{nil, true}
+	return Rets{nil, true}, nil
 }
 
-func buffer_writef64(args Args) Rets {
+func buffer_writef64(args Args) (r Rets, err error) {
 	b, offset, value := writeValues[float64](&args)
 	if offset+8 > len(b) || offset < 0 {
-		return OOB
+		return OOB, nil
 	}
 
 	b8 := b[offset : offset+8]
 	binary.LittleEndian.PutUint64(b8, math.Float64bits(value))
-	return Rets{nil, true}
+	return Rets{nil, true}, nil
 }
 
-func buffer_readbits(args Args) Rets {
+func buffer_readbits(args Args) (r Rets, err error) {
 	b, bitoffset := readValues(&args)
 	bitcount := int(args.GetNumber())
 
 	if bitoffset < 0 {
-		return OOB
+		return OOB, nil
 	} else if uint32(bitcount) > 32 {
-		return Rets{"bit count is out of range of [0; 32]", false}
+		return Rets{"bit count is out of range of [0; 32]", false}, nil
 	} else if uint64(bitoffset+bitcount) > uint64(len(b)*8) {
-		return OOB
+		return OOB, nil
 	}
 
 	startbyte := uint32(bitoffset / 8)
@@ -215,20 +215,20 @@ func buffer_readbits(args Args) Rets {
 	subbyteoffset := uint64(bitoffset & 7)
 	mask := uint64((1 << bitcount) - 1)
 
-	return Rets{float64((data >> subbyteoffset) & mask), true}
+	return Rets{float64((data >> subbyteoffset) & mask), true}, nil
 }
 
-func buffer_writebits(args Args) Rets {
+func buffer_writebits(args Args) (r Rets, err error) {
 	b, bitoffset := readValues(&args)
 	bitcount := int(args.GetNumber())
 	value := uint64(args.GetNumber())
 
 	if bitoffset < 0 {
-		return OOB
+		return OOB, nil
 	} else if uint32(bitcount) > 32 {
-		return Rets{"bit count is out of range of [0; 32]", false}
+		return Rets{"bit count is out of range of [0; 32]", false}, nil
 	} else if uint64(bitoffset+bitcount) > uint64(len(b)*8) {
-		return OOB
+		return OOB, nil
 	}
 
 	startbyte := uint32(bitoffset / 8)
@@ -250,72 +250,72 @@ func buffer_writebits(args Args) Rets {
 	binary.LittleEndian.PutUint64(dataa2[:], data)
 	copy(bs, dataa2[:])
 
-	return Rets{nil, true}
+	return Rets{nil, true}, nil
 }
 
-func buffer_readstring(args Args) Rets {
+func buffer_readstring(args Args) (r Rets, err error) {
 	b, offset := readValues(&args)
 	count := int(args.GetNumber())
 	if offset+count > len(b) || offset < 0 {
-		return OOB
+		return OOB, nil
 	}
 
 	bl := b[offset : offset+count]
-	return Rets{string(bl), true}
+	return Rets{string(bl), true}, nil
 }
 
-func buffer_writestring(args Args) Rets {
+func buffer_writestring(args Args) (r Rets, err error) {
 	b, offset := readValues(&args)
 	value := args.GetString()
 	count := int(args.GetNumber(float64(len(value))))
 	if offset+count > len(b) || offset < 0 {
-		return OOB
+		return OOB, nil
 	}
 
 	copy(b[offset:offset+count], value)
-	return Rets{nil, true}
+	return Rets{nil, true}, nil
 }
 
-func buffer_copy(args Args) Rets {
+func buffer_copy(args Args) (r Rets, err error) {
 	target, targetOffset := readValues(&args)
 	source := *args.GetBuffer()
 	sourceOffset := int(args.GetNumber(0))
 	count := int(args.GetNumber(float64(len(source))))
 	if sourceOffset+count > len(source) || sourceOffset < 0 ||
 		targetOffset+count > len(target) || targetOffset < 0 {
-		return OOB
+		return OOB, nil
 	}
 
 	copy(target[targetOffset:targetOffset+count], source[sourceOffset:sourceOffset+count])
-	return Rets{nil, true}
+	return Rets{nil, true}, nil
 }
 
-func buffer_fill(args Args) Rets {
+func buffer_fill(args Args) (r Rets, err error) {
 	b, offset, value := writeValues[byte](&args)
 	count := int(args.GetNumber(float64(len(b))))
 	if offset+count > len(b) || offset < 0 {
-		return OOB
+		return OOB, nil
 	}
 
 	for i := range count {
 		b[offset+i] = value
 	}
-	return Rets{nil, true}
+	return Rets{nil, true}, nil
 }
 
 var libbuffer = NewTable([][2]any{
-	MakeFn1("create", buffer_create),
-	MakeFn1("fromstring", buffer_fromstring),
-	MakeFn1("tostring", buffer_tostring),
-	MakeFn1("len", buffer_len),
-	MakeFn1("readi8", buffer_readi8),
-	MakeFn1("readu8", buffer_readu8),
-	MakeFn1("readi16", buffer_readi16),
-	MakeFn1("readu16", buffer_readu16),
-	MakeFn1("readi32", buffer_readi32),
-	MakeFn1("readu32", buffer_readu32),
-	MakeFn1("readf32", buffer_readf32),
-	MakeFn1("readf64", buffer_readf64),
+	MakeFn("create", buffer_create),
+	MakeFn("fromstring", buffer_fromstring),
+	MakeFn("tostring", buffer_tostring),
+	MakeFn("len", buffer_len),
+	MakeFn("readi8", buffer_readi8),
+	MakeFn("readu8", buffer_readu8),
+	MakeFn("readi16", buffer_readi16),
+	MakeFn("readu16", buffer_readu16),
+	MakeFn("readi32", buffer_readi32),
+	MakeFn("readu32", buffer_readu32),
+	MakeFn("readf32", buffer_readf32),
+	MakeFn("readf64", buffer_readf64),
 	MakeFn("writei8", buffer_writei8),
 	MakeFn("writeu8", buffer_writeu8),
 	MakeFn("writei16", buffer_writei16),

@@ -18,134 +18,87 @@ func invalidArg(i int, fn, msg string) error {
 }
 
 type Args struct {
-	args []any
+	Co   *Coroutine
+	Args []any
 	name string
-	co   *Coroutine
 	pos  int
 }
 
-type (
-	Ret  any
-	Rets []any
-)
+type Rets []any
 
-type GotArg[T any] struct {
-	arg T
-}
-
-func getArg[T any](a *Args, optionalValue []T, tx ...string) GotArg[T] {
+func getArg[T any](a *Args, optV []T, tx ...string) (g T) {
 	a.pos++
-	if a.pos > len(a.args) {
-		if len(optionalValue) == 0 {
-			a.co.Error(invalidNumArgs(a.name, a.pos, tx...))
-			return GotArg[T]{}
+	if a.pos > len(a.Args) {
+		if len(optV) == 0 {
+			a.Co.Error(invalidNumArgs(a.name, a.pos, tx...))
+			return
 		}
-		return GotArg[T]{arg: optionalValue[0]}
+		return optV[0]
 	}
 
-	possibleArg := a.args[a.pos-1]
+	possibleArg := a.Args[a.pos-1]
 
 	arg, ok := possibleArg.(T)
 	if !ok {
-		a.co.Error(invalidArgType(a.pos, a.name, typeOf(arg), typeOf(possibleArg)))
-		return GotArg[T]{}
+		a.Co.Error(invalidArgType(a.pos, a.name, typeOf(arg), typeOf(possibleArg)))
+		return
 	}
-	return GotArg[T]{arg: arg}
+	return arg
 }
 
 func (a *Args) CheckNextArg() {
-	if a.pos >= len(a.args) {
-		a.co.Error(invalidNumArgs(a.name, a.pos+1))
+	if a.pos >= len(a.Args) {
+		a.Co.Error(invalidNumArgs(a.name, a.pos+1))
 	}
 }
 
-func (a *Args) GetNumber(optionalValue ...float64) float64 {
-	return getArg(a, optionalValue, "number").arg
+func (a *Args) GetNumber(optV ...float64) float64 {
+	return getArg(a, optV, "number")
 }
 
-func (a *Args) GetString(optionalValue ...string) string {
-	return getArg(a, optionalValue, "string").arg
+func (a *Args) GetString(optV ...string) string {
+	return getArg(a, optV, "string")
 }
 
-func (a *Args) GetBool(optionalValue ...bool) bool {
-	return getArg(a, optionalValue, "boolean").arg
+func (a *Args) GetBool(optV ...bool) bool {
+	return getArg(a, optV, "boolean")
 }
 
-func (a *Args) GetTable(optionalValue ...*Table) *Table {
-	return getArg(a, optionalValue, "table").arg
+func (a *Args) GetTable(optV ...*Table) *Table {
+	return getArg(a, optV, "table")
 }
 
-func (a *Args) GetFunction(optionalValue ...Function) Function {
-	return getArg(a, optionalValue, "function").arg
+func (a *Args) GetFunction(optV ...Function) Function {
+	return getArg(a, optV, "function")
 }
 
-func (a *Args) GetCoroutine(optionalValue ...*Coroutine) *Coroutine {
-	return getArg(a, optionalValue, "thread").arg
+func (a *Args) GetCoroutine(optV ...*Coroutine) *Coroutine {
+	return getArg(a, optV, "thread")
 }
 
-func (a *Args) GetBuffer(optionalValue ...*Buffer) *Buffer {
-	return getArg(a, optionalValue, "buffer").arg
+func (a *Args) GetBuffer(optV ...*Buffer) *Buffer {
+	return getArg(a, optV, "buffer")
 }
 
-func (a *Args) GetVector(optionalValue ...Vector) Vector {
-	return getArg(a, optionalValue, "vector").arg
+func (a *Args) GetVector(optV ...Vector) Vector {
+	return getArg(a, optV, "vector")
 }
 
-func (a *Args) GetAny(optionalValue ...any) (arg any) {
+func (a *Args) GetAny(optV ...any) (arg any) {
 	a.pos++
-	if a.pos > len(a.args) {
-		if len(optionalValue) == 0 {
-			a.co.Error(invalidNumArgs(a.name, a.pos))
-			return nil
+	if a.pos > len(a.Args) {
+		if len(optV) == 0 {
+			a.Co.Error(invalidNumArgs(a.name, a.pos))
+			return
 		}
-		return optionalValue[0]
+		return optV[0]
 	}
 
-	return a.args[a.pos-1]
+	return a.Args[a.pos-1]
 }
 
-// todo: consolidate
-
-// Reflection don't scale
-func MakeFn(name string, fn func(args Args) Rets) [2]any {
-	return [2]any{name, Fn(func(co *Coroutine, vargs ...any) (Rets, error) {
-		return fn(Args{vargs, name, co, 0}), nil
-	})}
-}
-
-func MakeFn1(name string, fn func(args Args) Ret) [2]any {
-	return [2]any{name, Fn(func(co *Coroutine, vargs ...any) (Rets, error) {
-		return Rets{fn(Args{vargs, name, co, 0})}, nil
-	})}
-}
-
-func MakeFn0(name string, fn func(args Args)) [2]any {
-	return [2]any{name, Fn(func(co *Coroutine, vargs ...any) (Rets, error) {
-		fn(Args{vargs, name, co, 0})
-		return Rets{}, nil
-	})}
-}
-
-// ...and neither do panics
-func MakeFnE(name string, fn func(args Args) (Rets, error)) [2]any {
-	return [2]any{name, Fn(func(co *Coroutine, vargs ...any) (Rets, error) {
-		return fn(Args{vargs, name, co, 0})
-	})}
-}
-
-func MakeFn1E(name string, fn func(args Args) (Ret, error)) [2]any {
-	return [2]any{name, Fn(func(co *Coroutine, vargs ...any) (Rets, error) {
-		r, err := fn(Args{vargs, name, co, 0})
-		if err != nil {
-			return nil, err
-		}
-		return Rets{r}, nil
-	})}
-}
-
-func MakeFn0E(name string, fn func(args Args) error) [2]any {
-	return [2]any{name, Fn(func(co *Coroutine, vargs ...any) (Rets, error) {
-		err := fn(Args{vargs, name, co, 0})
-		return nil, err
+func MakeFn(name string, fn func(args Args) (r Rets, err error)) [2]any {
+	return [2]any{name, Fn(func(co *Coroutine, vargs ...any) (r Rets, err error) {
+		return fn(Args{Co: co, Args: vargs, name: name})
 	})}
 }

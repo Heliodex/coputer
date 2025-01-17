@@ -2,155 +2,161 @@ package litecode
 
 import "math"
 
-func math_abs(args Args) Ret {
+func math_abs(args Args) (r Rets, err error) {
 	x := args.GetNumber()
 
-	return math.Abs(x)
+	return Rets{math.Abs(x)}, nil
 }
 
-func math_acos(args Args) Ret {
+func math_acos(args Args) (r Rets, err error) {
 	x := args.GetNumber()
 
-	return math.Acos(x)
+	return Rets{math.Acos(x)}, nil
 }
 
-func math_asin(args Args) Ret {
+func math_asin(args Args) (r Rets, err error) {
 	x := args.GetNumber()
 
-	return math.Asin(x)
+	return Rets{math.Asin(x)}, nil
 }
 
-func math_atan(args Args) Ret {
+func math_atan(args Args) (r Rets, err error) {
 	x := args.GetNumber()
-	return math.Atan(x)
+
+	return Rets{math.Atan(x)}, nil
 }
 
-func math_atan2(args Args) Ret {
+func math_atan2(args Args) (r Rets, err error) {
 	y, x := args.GetNumber(), args.GetNumber()
 
-	return math.Atan2(y, x)
+	return Rets{math.Atan2(y, x)}, nil
 }
 
-func math_ceil(args Args) Ret {
+func math_ceil(args Args) (r Rets, err error) {
 	x := args.GetNumber()
 
-	return math.Ceil(x)
+	return Rets{math.Ceil(x)}, nil
 }
 
-func math_clamp(args Args) Ret {
+func math_clamp(args Args) (r Rets, err error) {
 	x, min, max := args.GetNumber(), args.GetNumber(), args.GetNumber()
 
 	if x < min {
-		return min
+		return Rets{min}, nil
 	} else if x > max {
-		return max
+		return Rets{max}, nil
 	}
-	return x
+	return Rets{x}, nil
 }
 
-func math_cos(args Args) Ret {
+func math_cos(args Args) (r Rets, err error) {
 	x := args.GetNumber()
 
-	return math.Cos(x)
+	return Rets{math.Cos(x)}, nil
 }
 
-func math_cosh(args Args) Ret {
-	x := args.GetNumber()
-	return math.Cosh(x)
-}
-
-func math_deg(args Args) Ret {
+func math_cosh(args Args) (r Rets, err error) {
 	x := args.GetNumber()
 
-	return x * 180 / math.Pi
+	return Rets{math.Cosh(x)}, nil
 }
 
-func math_exp(args Args) Ret {
+func math_deg(args Args) (r Rets, err error) {
 	x := args.GetNumber()
 
-	return math.Exp(x)
+	return Rets{x * 180 / math.Pi}, nil
 }
 
-func math_floor(args Args) Ret {
+func math_exp(args Args) (r Rets, err error) {
 	x := args.GetNumber()
 
-	return math.Floor(x)
+	return Rets{math.Exp(x)}, nil
 }
 
-func math_fmod(args Args) Ret {
+func math_floor(args Args) (r Rets, err error) {
+	x := args.GetNumber()
+
+	return Rets{math.Floor(x)}, nil
+}
+
+func math_fmod(args Args) (r Rets, err error) {
 	x, y := args.GetNumber(), args.GetNumber()
 
-	return math.Mod(x, y)
+	return Rets{math.Mod(x, y)}, nil
 }
 
-func math_frexp(args Args) Rets {
+func math_frexp(args Args) (r Rets, err error) {
 	x := args.GetNumber()
 
 	frac, exp := math.Frexp(x)
-	return Rets{frac, float64(exp)}
+	return Rets{frac, float64(exp)}, nil
 }
 
-func math_ldexp(args Args) Ret {
+func math_ldexp(args Args) (r Rets, err error) {
 	x, e := args.GetNumber(), args.GetNumber()
 
-	return math.Ldexp(x, int(e))
+	return Rets{math.Ldexp(x, int(e))}, nil
 }
 
-func math_lerp(args Args) Ret {
+func math_lerp(args Args) (r Rets, err error) {
 	a, b, t := args.GetNumber(), args.GetNumber(), args.GetNumber()
 
 	if t == 1 {
-		return b
+		return Rets{b}, nil
 	}
-	return a + (b-a)*t
+	return Rets{a + (b-a)*t}, nil
 }
 
-func math_log(args Args) Ret {
+func math_log(args Args) (r Rets, err error) {
 	x := args.GetNumber()
 
-	if len(args.args) > 1 {
+	if len(args.Args) > 1 {
 		base := args.GetNumber()
-		return math.Log(x) / math.Log(base)
+		return Rets{math.Log(x) / math.Log(base)}, nil
 	}
-	return math.Log(x)
+	return Rets{math.Log(x)}, nil
 }
 
 // Deprecated
-// func math_log10(args Args) Ret {
+// func math_log10(args Args) (r Rets, err error) {
 // 	x := args.GetNumber()
 // 	return math.Log10(x)
 // }
 
-func math_map(args Args) Ret {
+func math_map(args Args) (r Rets, err error) {
 	x, inmin, inmax, outmin, outmax := args.GetNumber(), args.GetNumber(), args.GetNumber(), args.GetNumber(), args.GetNumber()
-	return outmin + (x-inmin)*(outmax-outmin)/(inmax-inmin)
+
+	return Rets{outmin + (x-inmin)*(outmax-outmin)/(inmax-inmin)}, nil
 }
 
 // Go builtin math.Min and math.Max funciions don't handle nans and infs the same way
-func math_max(args Args) Ret {
+func math_max(args Args) (r Rets, err error) {
 	first := args.GetNumber()
-	for range len(args.args) - 1 {
+
+	for range len(args.Args) - 1 {
 		if n := args.GetNumber(); n > first {
 			first = n
 		}
 	}
-	return first
+	return Rets{first}, nil
 }
 
-func math_min(args Args) Ret {
+func math_min(args Args) (r Rets, err error) {
 	first := args.GetNumber()
-	for range len(args.args) - 1 {
+
+	for range len(args.Args) - 1 {
 		if n := args.GetNumber(); n < first {
 			first = n
 		}
 	}
-	return first
+	return Rets{first}, nil
 }
 
-func math_modf(args Args) Rets {
+func math_modf(args Args) (r Rets, err error) {
 	x := args.GetNumber()
-	int, frac := math.Modf(x)
-	return Rets{int, frac}
+
+	i, frac := math.Modf(x)
+	return Rets{i, frac}, nil
 }
 
 // lmathlib.cpp
@@ -224,105 +230,105 @@ func perlin(x, y, z float32) float64 {
 	return float64(lerp(w, lerp(v, la, lb), lerp(v, la1, lb1)))
 }
 
-func math_noise(args Args) Ret {
+func math_noise(args Args) (r Rets, err error) {
 	x, y, z := args.GetNumber(), args.GetNumber(0), args.GetNumber(0)
 
-	return perlin(float32(x), float32(y), float32(z))
+	return Rets{perlin(float32(x), float32(y), float32(z))}, nil
 }
 
-func math_pow(args Args) Ret {
+func math_pow(args Args) (r Rets, err error) {
 	x, y := args.GetNumber(), args.GetNumber()
 
-	return math.Pow(x, y)
+	return Rets{math.Pow(x, y)}, nil
 }
 
-func math_rad(args Args) Ret {
+func math_rad(args Args) (r Rets, err error) {
 	x := args.GetNumber()
 
-	return x * math.Pi / 180
+	return Rets{x * math.Pi / 180}, nil
 }
 
-func math_round(args Args) Ret {
+func math_round(args Args) (r Rets, err error) {
 	x := args.GetNumber()
 
-	return math.Round(x)
+	return Rets{math.Round(x)}, nil
 }
 
-func math_sign(args Args) Ret {
+func math_sign(args Args) (r Rets, err error) {
 	x := args.GetNumber()
 
 	if x > 0 {
-		return float64(1)
+		return Rets{float64(1)}, nil
 	} else if x < 0 {
-		return float64(-1)
+		return Rets{float64(-1)}, nil
 	}
-	return float64(0)
+	return Rets{float64(0)}, nil
 }
 
-func math_sin(args Args) Ret {
+func math_sin(args Args) (r Rets, err error) {
 	x := args.GetNumber()
 
-	return math.Sin(x)
+	return Rets{math.Sin(x)}, nil
 }
 
-func math_sinh(args Args) Ret {
+func math_sinh(args Args) (r Rets, err error) {
 	x := args.GetNumber()
 
-	return math.Sinh(x)
+	return Rets{math.Sinh(x)}, nil
 }
 
-func math_sqrt(args Args) Ret {
+func math_sqrt(args Args) (r Rets, err error) {
 	x := args.GetNumber()
 
-	return math.Sqrt(x)
+	return Rets{math.Sqrt(x)}, nil
 }
 
-func math_tan(args Args) Ret {
+func math_tan(args Args) (r Rets, err error) {
 	x := args.GetNumber()
 
-	return math.Tan(x)
+	return Rets{math.Tan(x)}, nil
 }
 
-func math_tanh(args Args) Ret {
+func math_tanh(args Args) (r Rets, err error) {
 	x := args.GetNumber()
 
-	return math.Tanh(x)
+	return Rets{math.Tanh(x)}, nil
 }
 
 var libmath = NewTable([][2]any{
-	MakeFn1("abs", math_abs),
-	MakeFn1("acos", math_acos),
-	MakeFn1("asin", math_asin),
-	MakeFn1("atan", math_atan),
-	MakeFn1("atan2", math_atan2),
-	MakeFn1("ceil", math_ceil),
-	MakeFn1("clamp", math_clamp),
-	MakeFn1("cos", math_cos),
-	MakeFn1("cosh", math_cosh),
-	MakeFn1("deg", math_deg),
-	MakeFn1("exp", math_exp),
-	MakeFn1("floor", math_floor),
-	MakeFn1("fmod", math_fmod),
+	MakeFn("abs", math_abs),
+	MakeFn("acos", math_acos),
+	MakeFn("asin", math_asin),
+	MakeFn("atan", math_atan),
+	MakeFn("atan2", math_atan2),
+	MakeFn("ceil", math_ceil),
+	MakeFn("clamp", math_clamp),
+	MakeFn("cos", math_cos),
+	MakeFn("cosh", math_cosh),
+	MakeFn("deg", math_deg),
+	MakeFn("exp", math_exp),
+	MakeFn("floor", math_floor),
+	MakeFn("fmod", math_fmod),
 	MakeFn("frexp", math_frexp),
-	MakeFn1("ldexp", math_ldexp),
-	MakeFn1("lerp", math_lerp),
-	MakeFn1("log", math_log),
+	MakeFn("ldexp", math_ldexp),
+	MakeFn("lerp", math_lerp),
+	MakeFn("log", math_log),
 	// MakeFn("log10", math_log10), // deprecated
-	MakeFn1("map", math_map), // w00t
-	MakeFn1("max", math_max),
-	MakeFn1("min", math_min),
+	MakeFn("map", math_map), // w00t
+	MakeFn("max", math_max),
+	MakeFn("min", math_min),
 	MakeFn("modf", math_modf),
-	MakeFn1("noise", math_noise),
-	MakeFn1("pow", math_pow),
-	MakeFn1("rad", math_rad),
+	MakeFn("noise", math_noise),
+	MakeFn("pow", math_pow),
+	MakeFn("rad", math_rad),
 	// math.random and randomseed removed because we want determinism
-	MakeFn1("round", math_round),
-	MakeFn1("sign", math_sign),
-	MakeFn1("sin", math_sin),
-	MakeFn1("sinh", math_sinh),
-	MakeFn1("sqrt", math_sqrt),
-	MakeFn1("tan", math_tan),
-	MakeFn1("tanh", math_tanh),
+	MakeFn("round", math_round),
+	MakeFn("sign", math_sign),
+	MakeFn("sin", math_sin),
+	MakeFn("sinh", math_sinh),
+	MakeFn("sqrt", math_sqrt),
+	MakeFn("tan", math_tan),
+	MakeFn("tanh", math_tanh),
 
 	{"huge", math.Inf(1)},
 	{"pi", math.Pi},

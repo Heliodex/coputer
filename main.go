@@ -94,11 +94,7 @@ func (t *Table) SetArray(i int, v any) {
 		}
 
 		t.SetHash(float64(i), v)
-		return
-	}
-
-	l := len(*t.array)
-	if i < l+1 {
+	} else if l := len(*t.array); i < l+1 {
 		if v != nil {
 			// set in the array portion
 			(*t.array)[i-1] = v
@@ -326,11 +322,11 @@ var opList = [83]Operator{
 }
 
 type (
-	Function *func(co *Coroutine, args ...any) (Rets, error)
+	Function *func(co *Coroutine, args ...any) (r Rets, err error)
 	Status   uint8
 )
 
-func Fn(f func(co *Coroutine, args ...any) (Rets, error)) Function {
+func Fn(f func(co *Coroutine, args ...any) (r Rets, err error)) Function {
 	return Function(&f)
 }
 
@@ -396,7 +392,7 @@ func (co *Coroutine) Error(err error) {
 	co.yield <- Yield{nil, errorfmt(err, co.debugging)}
 }
 
-func (co *Coroutine) Resume(args ...any) (Rets, error) {
+func (co *Coroutine) Resume(args ...any) (r Rets, err error) {
 	if !co.started {
 		// fmt.Println("RM  starting", args)
 		co.started = true
@@ -442,7 +438,7 @@ func NamecallHandler(co *Coroutine, kv string, stack *[]any, c1, c2 int) (ok boo
 		str := (*stack)[c1].(string)
 		args := (*stack)[c1+1 : c2+1]
 
-		f, err := fmtstring(str, &Args{args, "format", co, 0})
+		f, err := fmtstring(str, &Args{Co: co, Args: args, name: "format"})
 		if err != nil {
 			return false, nil, err
 		}
@@ -464,16 +460,16 @@ var Extensions = map[any]any{
 	"vector": libvector,
 
 	// globals
-	"type": MakeFn1("type", global_type)[1],
-	// "typeof":   MakeFn1("typeof", global_type)[1], // same because no metatables
+	"type": MakeFn("type", global_type)[1],
+	// "typeof":   MakeFn("typeof", global_type)[1], // same because no metatables
 	"ipairs":   MakeFn("ipairs", global_ipairs)[1],
 	"pairs":    MakeFn("pairs", global_pairs)[1],
 	"next":     MakeFn("next", global_next)[1],
-	"tonumber": MakeFn1("tonumber", global_tonumber)[1],
-	"tostring": MakeFn1("tostring", global_tostring)[1],
+	"tonumber": MakeFn("tonumber", global_tonumber)[1],
+	"tostring": MakeFn("tostring", global_tostring)[1],
 	"_VERSION": "Luau", // todo: custom
 
-	"require": MakeFn1E("require", global_require)[1],
+	"require": MakeFn("require", global_require)[1],
 }
 
 // var VectorSize = 4
@@ -2100,7 +2096,7 @@ func execute(towrap ToWrap, debugging *Debugging, stack *[]any, co *Coroutine, v
 func wrapclosure(towrap ToWrap) Function {
 	proto := towrap.proto
 
-	return Fn(func(co *Coroutine, args ...any) (Rets, error) {
+	return Fn(func(co *Coroutine, args ...any) (r Rets, err error) {
 		maxs, np := proto.maxstacksize, proto.numparams // maxs 2 lel
 
 		la := uint8(len(args)) // we can't have more than 255 args anyway right?

@@ -5,10 +5,10 @@ import (
 	"strings"
 )
 
-func table_clear(args Args) (err error) {
+func table_clear(args Args) (r Rets, err error) {
 	t := args.GetTable()
 	if t.readonly {
-		return errors.New("attempt to modify a readonly table")
+		return nil, errors.New("attempt to modify a readonly table")
 	}
 
 	t.array = nil
@@ -16,7 +16,7 @@ func table_clear(args Args) (err error) {
 	return
 }
 
-func table_clone(args Args) Ret {
+func table_clone(args Args) (r Rets, err error) {
 	t := args.GetTable()
 
 	var a2 *[]any
@@ -36,20 +36,20 @@ func table_clone(args Args) Ret {
 		h2 = &h
 	}
 
-	return &Table{
+	return Rets{&Table{
 		array: a2,
 		node:  h2,
-	}
+	}}, nil
 }
 
-func table_concat(args Args) (Ret, error) {
+func table_concat(args Args) (r Rets, err error) {
 	t := args.GetTable()
 	sep := args.GetString("")
 	i := args.GetNumber(1)
 	j := args.GetNumber(float64(t.Len()))
 
 	if i > j {
-		return "", nil
+		return Rets{""}, nil
 	}
 
 	b := strings.Builder{}
@@ -65,20 +65,20 @@ func table_concat(args Args) (Ret, error) {
 		}
 	}
 
-	return b.String(), nil
+	return Rets{b.String()}, nil
 }
 
-func table_create(args Args) (Ret, error) {
+func table_create(args Args) (r Rets, err error) {
 	s := args.GetNumber()
 	if s < 0 {
 		return nil, errors.New("index out of range")
 	}
 
-	if len(args.args) == 1 {
+	if len(args.Args) == 1 {
 		array := make([]any, 0, int(s))
-		return &Table{
+		return Rets{&Table{
 			array: &array,
-		}, nil
+		}}, nil
 	}
 
 	array := make([]any, int(s))
@@ -86,12 +86,12 @@ func table_create(args Args) (Ret, error) {
 	for i := range array {
 		array[i] = value
 	}
-	return &Table{
+	return Rets{&Table{
 		array: &array,
-	}, nil
+	}}, nil
 }
 
-func table_find(args Args) (Ret, error) {
+func table_find(args Args) (r Rets, err error) {
 	haystack := args.GetTable()
 	needle := args.GetAny()
 	init := args.GetNumber(1)
@@ -100,27 +100,28 @@ func table_find(args Args) (Ret, error) {
 	}
 
 	if haystack.array != nil {
-		for i := int(init); i < haystack.Len(); i++ {
+		for i := int(init); i < len(*haystack.array); i++ {
 			v := (*haystack.array)[i-1]
 			if needle == v {
-				return float64(i), nil
+				return Rets{float64(i)}, nil
 			}
 		}
 	}
 	if haystack.node != nil {
 		for k, v := range *haystack.node {
 			if needle == v {
-				return k, nil
+				return Rets{k}, nil
 			}
 		}
 	}
-	return nil, nil
+	return Rets{nil}, nil
 }
 
-func table_freeze(args Args) Ret {
+func table_freeze(args Args) (r Rets, err error) {
 	t := args.GetTable()
+
 	t.readonly = true
-	return t
+	return Rets{t}, nil
 }
 
 func bumpelements(t *Table, start int) {
@@ -151,17 +152,17 @@ func bumpelements(t *Table, start int) {
 	// fmt.Println()
 }
 
-func table_insert(args Args) (err error) {
+func table_insert(args Args) (r Rets, err error) {
 	t := args.GetTable()
 	if t.readonly {
-		return errors.New("attempt to modify a readonly table")
+		return nil, errors.New("attempt to modify a readonly table")
 	}
 
 	n := t.Len()
 
 	var pos int
 
-	switch len(args.args) {
+	switch len(args.Args) {
 	case 2:
 		pos = n + 1
 	case 3:
@@ -173,7 +174,7 @@ func table_insert(args Args) (err error) {
 			bumpelements(t, pos)
 		}
 	default:
-		return errors.New("wrong number of arguments to 'insert'")
+		return nil, errors.New("wrong number of arguments to 'insert'")
 	}
 
 	v := args.GetAny()
@@ -182,12 +183,13 @@ func table_insert(args Args) (err error) {
 	return
 }
 
-func table_isfrozen(args Args) Ret {
+func table_isfrozen(args Args) (r Rets, err error) {
 	t := args.GetTable()
-	return t.readonly
+
+	return Rets{t.readonly}, nil
 }
 
-func table_maxn(args Args) Ret {
+func table_maxn(args Args) (r Rets, err error) {
 	t := args.GetTable()
 
 	var maxn float64
@@ -210,10 +212,10 @@ func table_maxn(args Args) Ret {
 		}
 	}
 
-	return maxn
+	return Rets{maxn}, nil
 }
 
-func table_move(args Args) (Ret, error) {
+func table_move(args Args) (r Rets, err error) {
 	src := args.GetTable()
 	a, b, t := args.GetNumber(), args.GetNumber(), args.GetNumber()
 	dst := args.GetTable(src)
@@ -225,22 +227,22 @@ func table_move(args Args) (Ret, error) {
 		dst.ForceSet(t+i-a, src.Get(i))
 	}
 
-	return dst, nil
+	return Rets{dst}, nil
 }
 
-func table_pack(args Args) Ret {
-	n := float64(len(args.args))
+func table_pack(args Args) (r Rets, err error) {
+	n := float64(len(args.Args))
 	t := &Table{
 		node: &map[any]any{"n": n},
 	}
-	for i, v := range args.args {
+	for i, v := range args.Args {
 		t.SetArray(i+1, v)
 	}
 
-	return t
+	return Rets{t}, nil
 }
 
-func table_remove(args Args) (r Ret, err error) {
+func table_remove(args Args) (r Rets, err error) {
 	t := args.GetTable()
 	if t.readonly {
 		return nil, errors.New("attempt to modify a readonly table")
@@ -249,7 +251,7 @@ func table_remove(args Args) (r Ret, err error) {
 	l := float64(t.Len())
 	pos := args.GetNumber(l)
 
-	r = t.Get(pos)
+	p := t.Get(pos)
 	if uint(pos) == uint(l) {
 		t.ForceSet(pos, nil)
 	} else if 0 < pos && pos < l {
@@ -258,7 +260,7 @@ func table_remove(args Args) (r Ret, err error) {
 		}
 		t.ForceSet(l, nil)
 	}
-	return
+	return Rets{p}, nil
 }
 
 // ltablib.cpp
@@ -444,19 +446,19 @@ func sort_rec(t *Table, l, u, limit int, comp Comp) (err error) {
 	return
 }
 
-func table_sort(args Args) (err error) {
+func table_sort(args Args) (r Rets, err error) {
 	t := args.GetTable()
 	if t.readonly {
-		return errors.New("attempt to modify a readonly table")
+		return nil, errors.New("attempt to modify a readonly table")
 	}
 
 	var comp Comp
-	if len(args.args) == 1 {
+	if len(args.Args) == 1 {
 		comp = jumpLt
 	} else {
 		fn := args.GetFunction()
 		comp = func(a, b any) (bool, error) {
-			res, err := (*fn)(args.co, a, b)
+			res, err := (*fn)(args.Co, a, b)
 			if err != nil {
 				return false, err
 			}
@@ -464,13 +466,13 @@ func table_sort(args Args) (err error) {
 		}
 	}
 
-	if n := int(t.Len()); n > 0 {
-		return sort_rec(t, 0, n-1, n, comp)
+	if n := t.Len(); n > 0 {
+		return nil, sort_rec(t, 0, n-1, n, comp)
 	}
 	return
 }
 
-func table_unpack(args Args) (values Rets) {
+func table_unpack(args Args) (r Rets, err error) {
 	list := args.GetTable()
 	i := args.GetNumber(1)
 	e := args.GetNumber(float64(list.Len()))
@@ -480,30 +482,30 @@ func table_unpack(args Args) (values Rets) {
 
 	ui, uj := int(i), int(e)
 	if uj <= len(*list.array) {
-		return (*list.array)[ui-1 : uj]
+		return (*list.array)[ui-1 : uj], nil
 	}
 
-	values = make([]any, uj-ui+1)
+	r = make([]any, uj-ui+1)
 	for k := i; k <= e; k++ {
-		values[int(k)-ui] = list.Get(k)
+		r[int(k)-ui] = list.Get(k)
 	}
 
 	return
 }
 
 var libtable = NewTable([][2]any{
-	MakeFn0E("clear", table_clear),
-	MakeFn1("clone", table_clone),
-	MakeFn1E("concat", table_concat),
-	MakeFn1E("create", table_create),
-	MakeFn1E("find", table_find),
-	MakeFn1("freeze", table_freeze),
-	MakeFn0E("insert", table_insert),
-	MakeFn1("isfrozen", table_isfrozen),
-	MakeFn1("maxn", table_maxn),
-	MakeFn1E("move", table_move),
-	MakeFn1("pack", table_pack),
-	MakeFn1E("remove", table_remove),
-	MakeFn0E("sort", table_sort),
+	MakeFn("clear", table_clear),
+	MakeFn("clone", table_clone),
+	MakeFn("concat", table_concat),
+	MakeFn("create", table_create),
+	MakeFn("find", table_find),
+	MakeFn("freeze", table_freeze),
+	MakeFn("insert", table_insert),
+	MakeFn("isfrozen", table_isfrozen),
+	MakeFn("maxn", table_maxn),
+	MakeFn("move", table_move),
+	MakeFn("pack", table_pack),
+	MakeFn("remove", table_remove),
+	MakeFn("sort", table_sort),
 	MakeFn("unpack", table_unpack),
 })

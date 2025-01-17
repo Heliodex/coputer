@@ -22,14 +22,14 @@ func utf8_posrelat(pos, len int) int {
 	return len + pos + 1
 }
 
-func utf8_char(args Args) Ret {
+func utf8_char(args Args) (r Rets, err error) {
 	b := strings.Builder{}
 
-	for range args.args {
+	for range args.Args {
 		a := args.GetNumber()
 		b.WriteRune(rune(a))
 	}
-	return b.String()
+	return Rets{b.String()}, nil
 }
 
 func iter_aux(args Args) (cps Rets, err error) {
@@ -56,11 +56,11 @@ func iter_aux(args Args) (cps Rets, err error) {
 	return Rets{float64(n + 1), float64(r)}, nil
 }
 
-func utf8_codes(args Args) Rets {
+func utf8_codes(args Args) (r Rets, err error) {
 	str := args.GetString()
 
-	fn := MakeFnE("codes", iter_aux)[1]
-	return Rets{fn, str, float64(0)}
+	fn := MakeFn("codes", iter_aux)[1]
+	return Rets{fn, str, float64(0)}, nil
 }
 
 const INT_MAX = int(^uint(0) >> 1)
@@ -98,7 +98,7 @@ func utf8_codepoint(args Args) (cps Rets, err error) {
 }
 
 // roblox docs says this returns 1 number (incorrect)
-func utf8_len(args Args) Rets {
+func utf8_len(args Args) (r Rets, err error) {
 	s := args.GetString()
 	i := args.GetNumber(1)
 	j := args.GetNumber(-1)
@@ -108,10 +108,10 @@ func utf8_len(args Args) Rets {
 	sl := s[max(posi-1, 0):min(pose, len(s))]
 	n := utf8.RuneCountInString(sl)
 
-	return Rets{float64(n)}
+	return Rets{float64(n)}, nil
 }
 
-func utf8_offset(args Args) (o Ret, err error) {
+func utf8_offset(args Args) (r Rets, err error) {
 	s := args.GetString()
 	n := args.GetNumber()
 	var posi int
@@ -128,7 +128,7 @@ func utf8_offset(args Args) (o Ret, err error) {
 		for posi > 0 && iscont(s[posi]) {
 			posi--
 		}
-		return float64(posi + 1), nil
+		return Rets{float64(posi + 1)}, nil
 	} else if iscont(s[posi]) {
 		return nil, errors.New("initial position is a continuation byte")
 	} else if n < 0 {
@@ -153,37 +153,37 @@ func utf8_offset(args Args) (o Ret, err error) {
 	}
 
 	if n == 0 { // did it find a given character?
-		return float64(posi + 1), nil
+		return Rets{float64(posi + 1)}, nil
 	}
 	// no such character
 	return
 }
 
-// func utf8_graphemes(args Args) Ret {
+// func utf8_graphemes(args Args) (r Rets, err error) {
 // 	panic("not implemented")
 // }
 
-func utf8_nfcnormalize(args Args) Ret {
+func utf8_nfcnormalize(args Args) (r Rets, err error) {
 	s := args.GetString()
 
-	return norm.NFC.String(s)
+	return Rets{norm.NFC.String(s)}, nil
 }
 
-func utf8_nfdnormalize(args Args) Ret {
+func utf8_nfdnormalize(args Args) (r Rets, err error) {
 	s := args.GetString()
 
-	return norm.NFD.String(s)
+	return Rets{norm.NFD.String(s)}, nil
 }
 
 var libutf8 = NewTable([][2]any{
-	MakeFn1("char", utf8_char),
+	MakeFn("char", utf8_char),
 	MakeFn("codes", utf8_codes),
-	MakeFnE("codepoint", utf8_codepoint),
+	MakeFn("codepoint", utf8_codepoint),
 	MakeFn("len", utf8_len),
-	MakeFn1E("offset", utf8_offset),
-	// MakeFn1("graphemes", utf8_graphemes), // we can't actually test this, mainly due to the fact it... doesn't exist in the reference implementation..?
-	MakeFn1("nfcnormalize", utf8_nfcnormalize), // these are also untestable but they're so trivial here
-	MakeFn1("nfdnormalize", utf8_nfdnormalize),
+	MakeFn("offset", utf8_offset),
+	// MakeFn("graphemes", utf8_graphemes), // we can't actually test this, mainly due to the fact it... doesn't exist in the reference implementation..?
+	MakeFn("nfcnormalize", utf8_nfcnormalize), // these are also untestable but they're so trivial here
+	MakeFn("nfdnormalize", utf8_nfdnormalize),
 
 	{"charpattern", "[\x00-\x7F\xC2-\xF4][\x80-\xBF]*"}, // unless we get pattern matching then this isn't all that useful either
 })
