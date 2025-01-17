@@ -96,6 +96,15 @@ func math_ldexp(args Args) Ret {
 	return math.Ldexp(x, int(e))
 }
 
+func math_lerp(args Args) Ret {
+	a, b, t := args.GetNumber(), args.GetNumber(), args.GetNumber()
+
+	if t == 1 {
+		return b
+	}
+	return a + (b-a)*t
+}
+
 func math_log(args Args) Ret {
 	x := args.GetNumber()
 
@@ -296,6 +305,7 @@ var libmath = NewTable([][2]any{
 	MakeFn1("fmod", math_fmod),
 	MakeFn("frexp", math_frexp),
 	MakeFn1("ldexp", math_ldexp),
+	MakeFn1("lerp", math_lerp),
 	MakeFn1("log", math_log),
 	// MakeFn("log10", math_log10), // deprecated
 	MakeFn1("map", math_map), // w00t

@@ -97,6 +97,8 @@ type num interface {
 	int8 | int16 | int32 | int64 | uint8 | uint16 | uint32 | uint64 | float32 | float64
 }
 
+var OOB = Rets{"buffer access out of bounds", false}
+
 func writeValues[V num](args *Args) (b Buffer, offset int, value V) {
 	b, offset = readValues(args)
 	value = V(args.GetNumber())
@@ -106,7 +108,7 @@ func writeValues[V num](args *Args) (b Buffer, offset int, value V) {
 func buffer_writei8(args Args) Rets {
 	b, offset, value := writeValues[int8](&args)
 	if offset+1 > len(b) || offset < 0 {
-		return Rets{"buffer access out of bounds", false}
+		return OOB
 	}
 
 	b[offset] = byte(value)
@@ -116,7 +118,7 @@ func buffer_writei8(args Args) Rets {
 func buffer_writeu8(args Args) Rets {
 	b, offset, value := writeValues[uint8](&args)
 	if offset+1 > len(b) || offset < 0 {
-		return Rets{"buffer access out of bounds", false}
+		return OOB
 	}
 
 	b[offset] = byte(value)
@@ -126,7 +128,7 @@ func buffer_writeu8(args Args) Rets {
 func buffer_writei16(args Args) Rets {
 	b, offset, value := writeValues[int16](&args)
 	if offset+2 > len(b) || offset < 0 {
-		return Rets{"buffer access out of bounds", false}
+		return OOB
 	}
 
 	b2 := b[offset : offset+2]
@@ -137,7 +139,7 @@ func buffer_writei16(args Args) Rets {
 func buffer_writeu16(args Args) Rets {
 	b, offset, value := writeValues[uint16](&args)
 	if offset+2 > len(b) || offset < 0 {
-		return Rets{"buffer access out of bounds", false}
+		return OOB
 	}
 
 	b2 := b[offset : offset+2]
@@ -148,7 +150,7 @@ func buffer_writeu16(args Args) Rets {
 func buffer_writei32(args Args) Rets {
 	b, offset, value := writeValues[int32](&args)
 	if offset+4 > len(b) || offset < 0 {
-		return Rets{"buffer access out of bounds", false}
+		return OOB
 	}
 
 	b4 := b[offset : offset+4]
@@ -159,7 +161,7 @@ func buffer_writei32(args Args) Rets {
 func buffer_writeu32(args Args) Rets {
 	b, offset, value := writeValues[uint32](&args)
 	if offset+4 > len(b) || offset < 0 {
-		return Rets{"buffer access out of bounds", false}
+		return OOB
 	}
 
 	b4 := b[offset : offset+4]
@@ -170,7 +172,7 @@ func buffer_writeu32(args Args) Rets {
 func buffer_writef32(args Args) Rets {
 	b, offset, value := writeValues[float32](&args)
 	if offset+4 > len(b) || offset < 0 {
-		return Rets{"buffer access out of bounds", false}
+		return OOB
 	}
 
 	b4 := b[offset : offset+4]
@@ -181,7 +183,7 @@ func buffer_writef32(args Args) Rets {
 func buffer_writef64(args Args) Rets {
 	b, offset, value := writeValues[float64](&args)
 	if offset+8 > len(b) || offset < 0 {
-		return Rets{"buffer access out of bounds", false}
+		return OOB
 	}
 
 	b8 := b[offset : offset+8]
@@ -189,11 +191,73 @@ func buffer_writef64(args Args) Rets {
 	return Rets{nil, true}
 }
 
+func buffer_readbits(args Args) Rets {
+	b, bitoffset := readValues(&args)
+	bitcount := int(args.GetNumber())
+
+	if bitoffset < 0 {
+		return OOB
+	} else if uint32(bitcount) > 32 {
+		return Rets{"bit count is out of range of [0; 32]", false}
+	} else if uint64(bitoffset+bitcount) > uint64(len(b)*8) {
+		return OOB
+	}
+
+	startbyte := uint32(bitoffset / 8)
+	endbyte := uint32((bitoffset + bitcount + 7) / 8)
+
+	var data uint64
+	dataa := b[startbyte:endbyte]
+	for i, v := range dataa {
+		data |= uint64(v) << (i * 8)
+	}
+
+	subbyteoffset := uint64(bitoffset & 7)
+	mask := uint64((1 << bitcount) - 1)
+
+	return Rets{float64((data >> subbyteoffset) & mask), true}
+}
+
+func buffer_writebits(args Args) Rets {
+	b, bitoffset := readValues(&args)
+	bitcount := int(args.GetNumber())
+	value := uint64(args.GetNumber())
+
+	if bitoffset < 0 {
+		return OOB
+	} else if uint32(bitcount) > 32 {
+		return Rets{"bit count is out of range of [0; 32]", false}
+	} else if uint64(bitoffset+bitcount) > uint64(len(b)*8) {
+		return OOB
+	}
+
+	startbyte := uint32(bitoffset / 8)
+	endbyte := uint32((bitoffset + bitcount + 7) / 8)
+
+	var data uint64
+	dataa := b[startbyte:endbyte]
+	for i, v := range dataa {
+		data |= uint64(v) << (i * 8)
+	}
+
+	subbyteoffset := uint64(bitoffset & 7)
+	mask := uint64((1<<bitcount)-1) << subbyteoffset
+
+	data = (data & ^mask) | (value << subbyteoffset)
+
+	bs := b[startbyte:endbyte]
+	var dataa2 [8]byte
+	binary.LittleEndian.PutUint64(dataa2[:], data)
+	copy(bs, dataa2[:])
+	
+	return Rets{nil, true}
+}
+
 func buffer_readstring(args Args) Rets {
 	b, offset := readValues(&args)
 	count := int(args.GetNumber())
 	if offset+count > len(b) || offset < 0 {
-		return Rets{"buffer access out of bounds", false}
+		return OOB
 	}
 
 	bl := b[offset : offset+count]
@@ -205,7 +269,7 @@ func buffer_writestring(args Args) Rets {
 	value := args.GetString()
 	count := int(args.GetNumber(float64(len(value))))
 	if offset+count > len(b) || offset < 0 {
-		return Rets{"buffer access out of bounds", false}
+		return OOB
 	}
 
 	copy(b[offset:offset+count], value)
@@ -219,7 +283,7 @@ func buffer_copy(args Args) Rets {
 	count := int(args.GetNumber(float64(len(source))))
 	if sourceOffset+count > len(source) || sourceOffset < 0 ||
 		targetOffset+count > len(target) || targetOffset < 0 {
-		return Rets{"buffer access out of bounds", false}
+		return OOB
 	}
 
 	copy(target[targetOffset:targetOffset+count], source[sourceOffset:sourceOffset+count])
@@ -230,7 +294,7 @@ func buffer_fill(args Args) Rets {
 	b, offset, value := writeValues[byte](&args)
 	count := int(args.GetNumber(float64(len(b))))
 	if offset+count > len(b) || offset < 0 {
-		return Rets{"buffer access out of bounds", false}
+		return OOB
 	}
 
 	for i := range count {
@@ -260,6 +324,8 @@ var libbuffer = NewTable([][2]any{
 	MakeFn("writeu32", buffer_writeu32),
 	MakeFn("writef32", buffer_writef32),
 	MakeFn("writef64", buffer_writef64),
+	MakeFn("readbits", buffer_readbits),
+	MakeFn("writebits", buffer_writebits),
 	MakeFn("readstring", buffer_readstring),
 	MakeFn("writestring", buffer_writestring),
 	MakeFn("copy", buffer_copy),

@@ -80,6 +80,17 @@ for i = 4, 8 do
 end
 -- print(buffer.readf64(b, 4)) -- bruh
 
+print()
+for i = 0, 32 do
+	p(buffer.readbits(b, 4, i))
+end
+for i = 0, 32 do
+	buffer.writebits(b, 4, i, 0b10101010)
+end
+for i = 0, 32 do
+	p(buffer.readbits(b, 4, i))
+end
+
 p(buffer.readstring(b, 4, 8))
 buffer.writestring(b, 4, "hellooooooo", 5)
 buffer.writestring(b, 8, "epic")

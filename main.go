@@ -1124,7 +1124,7 @@ func gettable(index, v any) (any, error) {
 	case Vector: // direction,,, and mmmagnitude!! oh yeah!!11!!
 		si, ok := index.(string)
 		if !ok {
-			return nil, invalidIndex("vector", index)
+			return nil, invalidIndex("main.Vector", index)
 		}
 
 		switch si {
@@ -1137,7 +1137,7 @@ func gettable(index, v any) (any, error) {
 			// case "w":
 			// 	(*stack)[inst.A] = t[3]
 		}
-		return nil, invalidIndex("vector", si)
+		return nil, invalidIndex("main.Vector", si)
 	}
 	return nil, invalidIndex(typeOf(v), index)
 }
