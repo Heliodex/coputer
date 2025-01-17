@@ -1,2 +1,2 @@
 Opcode: CALL
-(main):4: invalid argument #3 to 'create' (number expected, got vector)
+(main):3: invalid argument #3 to 'create' (number expected, got vector)

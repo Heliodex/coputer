@@ -352,7 +352,7 @@ type Coroutine struct {
 	filepath  string // lel nowhere else to put this
 	yield     chan Yield
 	resume    chan Rets
-	debugging Debugging
+	debugging *Debugging
 	status    Status
 	o         uint8
 	started   bool
@@ -367,7 +367,7 @@ func createCoroutine(body Function) *Coroutine {
 	}
 }
 
-func errorfmt(err error, d Debugging) error {
+func errorfmt(err error, d *Debugging) error {
 	op := "NONE"
 	if d.opcode != 255 {
 		op = opList[d.opcode].Name
@@ -378,16 +378,14 @@ func errorfmt(err error, d Debugging) error {
 
 		// PC removed for determinism between O levels
 		return fmt.Errorf(
-			// "Name: %s  PC: %d  Opcode: %s\n%d: %s",
 			"Opcode: %s\n%s:%d: %s",
 			op,
 			d.debugname,
-			d.instructionlineinfo[d.pc],
+			d.instructionlineinfo[d.pc-1],
 			err)
 	}
 
 	return fmt.Errorf(
-		// "Name: %s  PC: %d  Opcode: %s\n%s",
 		"Opcode: %s\n%s: %s",
 		op,
 		d.debugname,
@@ -1161,7 +1159,7 @@ type Debugging struct {
 	instructionlineinfo []uint32
 }
 
-func execute(towrap ToWrap, stack *[]any, co *Coroutine, vargsList []any, vargsLen uint8) (r Rets, err error) {
+func execute(towrap ToWrap, debugging *Debugging, stack *[]any, co *Coroutine, vargsList []any, vargsLen uint8) (r Rets, err error) {
 	proto, upvals, alive, protolist, env, requireCache := towrap.proto, towrap.upvals, towrap.alive, towrap.protolist, towrap.env, towrap.requireCache
 	protos, code := proto.protos, proto.code
 	pc, top, openUpvals, generalisedIterators := 1, -1, []*Upval{}, map[Inst]*Iterator{}
@@ -1194,13 +1192,12 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 		}
 		handlingBreak = false
 
-		co.debugging.pc = pc
-		co.debugging.top = top
-		co.debugging.opcode = inst.opcode
-
-		co.debugging.enabled = proto.lineinfoenabled
-		co.debugging.debugname = proto.debugname
-		co.debugging.instructionlineinfo = proto.instructionlineinfo
+		debugging.pc = pc
+		debugging.top = top
+		debugging.enabled = proto.lineinfoenabled
+		debugging.opcode = inst.opcode
+		debugging.debugname = proto.debugname
+		debugging.instructionlineinfo = proto.instructionlineinfo
 
 		// if len(upvals) > 0 {
 		// 	fmt.Println("upval", upvals[0])
@@ -1463,8 +1460,8 @@ func execute(towrap ToWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 
 			inst = *callInst
 			op = callOp
-			co.debugging.pc = pc
-			co.debugging.opcode = inst.opcode
+			debugging.pc = pc
+			debugging.opcode = inst.opcode
 
 			retCount := len(retList)
 
@@ -2118,13 +2115,12 @@ func wrapclosure(towrap ToWrap) Function {
 			list = args[np:]
 		}
 
-		co.debugging.pc = 0
-		co.debugging.opcode = 255
-		co.debugging.enabled = proto.lineinfoenabled
+		debugging := &Debugging{enabled: proto.lineinfoenabled, opcode: 255}
+		co.debugging = debugging
 
-		result, err := execute(towrap, &stack, co, list, max(la-np, 0))
+		result, err := execute(towrap, debugging, &stack, co, list, max(la-np, 0))
 		if err != nil {
-			return nil, errorfmt(err, co.debugging)
+			return nil, errorfmt(err, debugging)
 		}
 
 		return result, nil
@@ -2148,7 +2144,7 @@ func Load(module Deserialised, filepath string, o uint8, env map[any]any, requir
 		body:      wrapclosure(towrap),
 		env:       env,
 		filepath:  filepath,
-		debugging: Debugging{opcode: 255},
+		debugging: &Debugging{opcode: 255},
 		yield:     make(chan Yield, 1),
 		resume:    make(chan Rets, 1),
 		o:         o,

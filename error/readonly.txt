@@ -1,2 +1,2 @@
 Opcode: CALL
-(main):2: attempt to modify a readonly table
+(main):1: attempt to modify a readonly table

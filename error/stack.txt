@@ -1,0 +1,6 @@
+Opcode: CALL
+(main):10: Opcode: CALL
+f4:8: Opcode: CALL
+f3:7: Opcode: CALL
+f2:6: Opcode: CALL
+f1:3: attempt to call a string value

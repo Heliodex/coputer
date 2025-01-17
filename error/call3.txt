@@ -1,2 +1,2 @@
 Opcode: CALL
-(main):3: attempt to call a string value
+(main):2: attempt to call a string value
