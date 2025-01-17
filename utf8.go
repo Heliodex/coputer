@@ -63,7 +63,7 @@ func utf8_codes(args Args) (r Rets, err error) {
 	return Rets{fn, str, float64(0)}, nil
 }
 
-const INT_MAX = int(^uint(0) >> 1)
+const int_max = int(^uint(0) >> 1)
 
 func utf8_codepoint(args Args) (cps Rets, err error) {
 	s := args.GetString()
@@ -76,7 +76,7 @@ func utf8_codepoint(args Args) (cps Rets, err error) {
 	// luaL_argcheck(L, pose <= (int)len, 3, "out of range");
 	if posi > pose {
 		return // empty interval; return no values
-	} else if pose-posi >= INT_MAX { // (int -> int) overflow?
+	} else if pose-posi >= int_max { // (int -> int) overflow?
 		return nil, errors.New("string slice too long")
 	}
 	// n := pose - posi + 1

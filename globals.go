@@ -325,24 +325,24 @@ func schubfach(exponent int, fraction uint64) (uint64, int) {
 	return s + b2i(rup), k
 }
 
-type BufPos struct {
+type bufPos struct {
 	buf [48]byte
 	pos int
 }
 
-func (b *BufPos) String() string {
+func (b *bufPos) String() string {
 	return string(b.buf[:b.pos])
 }
 
-func (b *BufPos) Get(i int) byte {
+func (b *bufPos) Get(i int) byte {
 	return b.buf[b.pos+i]
 }
 
-func (b *BufPos) Set(i int, v byte) {
+func (b *bufPos) Set(i int, v byte) {
 	b.buf[b.pos+i] = v
 }
 
-func printunsignedrev(end *BufPos, num uint64) *BufPos {
+func printunsignedrev(end *bufPos, num uint64) *bufPos {
 	for num >= 10000 {
 		tail := num % 10000
 
@@ -372,7 +372,7 @@ func printunsignedrev(end *BufPos, num uint64) *BufPos {
 	return end
 }
 
-func printexp(buf *BufPos, v int) string {
+func printexp(buf *bufPos, v int) string {
 	p := buf.pos
 	b := buf.buf
 
@@ -397,7 +397,7 @@ func printexp(buf *BufPos, v int) string {
 	return string(b[:p+4])
 }
 
-func trimzero(end *BufPos) *BufPos {
+func trimzero(end *bufPos) *bufPos {
 	for end.Get(-1) == '0' {
 		end.pos--
 	}
@@ -405,13 +405,13 @@ func trimzero(end *BufPos) *BufPos {
 	return end
 }
 
-func num2str2(exponent int, fraction uint64, buf *BufPos) string {
+func num2str2(exponent int, fraction uint64, buf *bufPos) string {
 	// convert binary to decimal using Schubfach
 	s, k := schubfach(exponent, fraction)
 
 	// print the decimal to a temporary buffer; we'll need to insert the decimal point and figure out the format
 	const decend = 20 // significand needs at most 17 digits; the rest of the buffer may be copied using fixed length memcpy
-	db2 := &BufPos{[48]byte{}, decend}
+	db2 := &bufPos{[48]byte{}, decend}
 	dec := printunsignedrev(db2, s)
 
 	declen := decend - dec.pos
@@ -512,7 +512,7 @@ func num2str(n float64) string {
 		return "-0"
 	}
 
-	buf := &BufPos{[48]byte{}, 0}
+	buf := &bufPos{[48]byte{}, 0}
 	s := num2str2(exponent, fraction, buf)
 
 	// sign bit
@@ -571,8 +571,8 @@ func hasValidPrefix(path string) bool {
 	return path[:2] == "./" || path[:3] == "../"
 }
 
-type LoadParams struct {
-	deserialised Deserialised
+type loadParams struct {
+	deserialised deserialised
 	path         string
 	o            uint8
 	env          map[any]any
@@ -606,5 +606,5 @@ func global_require(args Args) (r Rets, err error) {
 		return nil, errors.New("error running luau-compile")
 	}
 
-	return Rets{LoadParams{Deserialise(bytecode), path, o, args.Co.env}}, nil
+	return Rets{loadParams{Deserialise(bytecode), path, o, args.Co.env}}, nil
 }

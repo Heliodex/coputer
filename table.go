@@ -264,7 +264,7 @@ func table_remove(args Args) (r Rets, err error) {
 }
 
 // ltablib.cpp
-type Comp func(a, b any) (bool, error)
+type comp func(a, b any) (bool, error) // ton, compton, aint no city quite like miiine
 
 func sort_swap(t *Table, i, j int) {
 	arr := *t.array
@@ -275,11 +275,11 @@ func sort_swap(t *Table, i, j int) {
 	arr[i], arr[j] = arr[j], arr[i]
 }
 
-func sort_less(t *Table, i, j int, comp Comp) (res bool, err error) {
+func sort_less(t *Table, i, j int, c comp) (res bool, err error) {
 	arr, n := *t.array, len(*t.array)
 	// LUAU_ASSERT(unsigned(i) < unsigned(n) && unsigned(j) < unsigned(n)) // contract maintained in sort_less after predicate call
 
-	res, err = comp(arr[i], arr[j])
+	res, err = c(arr[i], arr[j])
 
 	// predicate call may resize the table, which is invalid
 	if len(*t.array) != n {
@@ -288,7 +288,7 @@ func sort_less(t *Table, i, j int, comp Comp) (res bool, err error) {
 	return
 }
 
-func sort_siftheap(t *Table, l, u int, comp Comp, root int) (err error) {
+func sort_siftheap(t *Table, l, u int, c comp, root int) (err error) {
 	// LUAU_ASSERT(l <= u)
 	count := u - l + 1
 
@@ -296,17 +296,17 @@ func sort_siftheap(t *Table, l, u int, comp Comp, root int) (err error) {
 	for root*2+2 < count {
 		left, right := root*2+1, root*2+2
 		next := root
-		if r, err := sort_less(t, l+next, l+left, comp); err != nil {
+		if r, err := sort_less(t, l+next, l+left, c); err != nil {
 			return err
 		} else if r {
 			next = left
 		}
-		if r, err := sort_less(t, l+next, l+left, comp); err != nil {
+		if r, err := sort_less(t, l+next, l+left, c); err != nil {
 			return err
 		} else if r {
 			next = left
 		}
-		if r, err := sort_less(t, l+next, l+right, comp); err != nil {
+		if r, err := sort_less(t, l+next, l+right, c); err != nil {
 			return err
 		} else if r {
 			next = right
@@ -322,7 +322,7 @@ func sort_siftheap(t *Table, l, u int, comp Comp, root int) (err error) {
 
 	// process last element if it has just one child
 	if lastleft := root*2 + 1; lastleft == count-1 {
-		if r, err := sort_less(t, l+root, l+lastleft, comp); err != nil {
+		if r, err := sort_less(t, l+root, l+lastleft, c); err != nil {
 			return err
 		} else if r {
 			sort_swap(t, l+root, l+lastleft)
@@ -332,28 +332,28 @@ func sort_siftheap(t *Table, l, u int, comp Comp, root int) (err error) {
 	return
 }
 
-func sort_heap(t *Table, l, u int, comp Comp) {
+func sort_heap(t *Table, l, u int, c comp) {
 	// LUAU_ASSERT(l <= u)
 	count := u - l + 1
 
 	for i := count/2 - 1; i >= 0; i-- {
-		sort_siftheap(t, l, u, comp, i)
+		sort_siftheap(t, l, u, c, i)
 	}
 
 	for i := count - 1; i > 0; i-- {
 		sort_swap(t, l, l+i)
-		sort_siftheap(t, l, l+i-1, comp, 0)
+		sort_siftheap(t, l, l+i-1, c, 0)
 	}
 }
 
-func sort_rec(t *Table, l, u, limit int, comp Comp) (err error) {
+func sort_rec(t *Table, l, u, limit int, c comp) (err error) {
 	// sort range [l..u] (inclusive, 0-based)
 	for l < u {
 		// if the limit has been reached, quick sort is going over the permitted nlogn complexity, so we fall back to heap sort
 		if limit == 0 {
-			sort_heap(t, l, u, comp)
+			sort_heap(t, l, u, c)
 			return
-		} else if r, err := sort_less(t, u, l, comp); err != nil {
+		} else if r, err := sort_less(t, u, l, c); err != nil {
 			return err
 		} else if r { // a[u] < a[l]?
 			// sort elements a[l], a[(l+u)/2] and a[u]
@@ -365,11 +365,11 @@ func sort_rec(t *Table, l, u, limit int, comp Comp) (err error) {
 		}
 
 		m := l + ((u - l) >> 1) // midpoint
-		if r, err := sort_less(t, m, l, comp); err != nil {
+		if r, err := sort_less(t, m, l, c); err != nil {
 			return err
 		} else if r { // a[m]<a[l]?
 			sort_swap(t, m, l)
-		} else if r, err := sort_less(t, u, m, comp); err != nil {
+		} else if r, err := sort_less(t, u, m, c); err != nil {
 			return err
 		} else if r { // a[u]<a[m]?
 			sort_swap(t, m, u)
@@ -390,7 +390,7 @@ func sort_rec(t *Table, l, u, limit int, comp Comp) (err error) {
 			// repeat ++i until a[i] >= P
 			i++
 			for {
-				r, err := sort_less(t, i, p, comp)
+				r, err := sort_less(t, i, p, c)
 				if err != nil {
 					return err
 				} else if !r {
@@ -404,7 +404,7 @@ func sort_rec(t *Table, l, u, limit int, comp Comp) (err error) {
 			// repeat --j until a[j] <= P
 			j--
 			for {
-				r, err := sort_less(t, p, j, comp)
+				r, err := sort_less(t, p, j, c)
 				if err != nil {
 					return err
 				} else if !r {
@@ -429,13 +429,13 @@ func sort_rec(t *Table, l, u, limit int, comp Comp) (err error) {
 		// a[l..i-1] <= a[i] == P <= a[i+1..u]
 		// sort smaller half recursively; the larger half is sorted in the next loop iteration
 		if i-l < u-i {
-			err := sort_rec(t, l, i-1, limit, comp)
+			err := sort_rec(t, l, i-1, limit, c)
 			if err != nil {
 				return err
 			}
 			l = i + 1
 		} else {
-			err := sort_rec(t, i+1, u, limit, comp)
+			err := sort_rec(t, i+1, u, limit, c)
 			if err != nil {
 				return err
 			}
@@ -452,12 +452,12 @@ func table_sort(args Args) (r Rets, err error) {
 		return nil, errors.New("attempt to modify a readonly table")
 	}
 
-	var comp Comp
+	var c comp
 	if len(args.Args) == 1 {
-		comp = jumpLt
+		c = jumpLt
 	} else {
 		fn := args.GetFunction()
-		comp = func(a, b any) (bool, error) {
+		c = func(a, b any) (bool, error) {
 			res, err := (*fn)(args.Co, a, b)
 			if err != nil {
 				return false, err
@@ -467,7 +467,7 @@ func table_sort(args Args) (r Rets, err error) {
 	}
 
 	if n := t.Len(); n > 0 {
-		return nil, sort_rec(t, 0, n-1, n, comp)
+		return nil, sort_rec(t, 0, n-1, n, c)
 	}
 	return
 }

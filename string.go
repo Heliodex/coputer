@@ -89,9 +89,9 @@ func string_find(args Args) (r Rets, err error) {
 	}, nil
 }
 
-var (
-	L_ESC = byte('%')
-	FLAGS = "-+ #0"
+const (
+	l_esc = byte('%')
+	flags = "-+ #0"
 )
 
 func isdigit(c byte) bool {
@@ -124,10 +124,10 @@ func addquoted(args *Args, b *strings.Builder) {
 
 func scanformat(strfrmt string) (byte, string, int, error) {
 	var p int
-	for strings.ContainsRune(FLAGS, rune(strfrmt[p])) {
+	for strings.ContainsRune(flags, rune(strfrmt[p])) {
 		p++ // skip flags
 	}
-	if p > len(FLAGS) {
+	if p > len(flags) {
 		return 0, "", 0, fmt.Errorf("invalid format (repeated flags)")
 	}
 	if isdigit(strfrmt[p]) {
@@ -161,12 +161,12 @@ func fmtstring(strfrmt string, args *Args) (string, error) {
 	b := strings.Builder{}
 
 	for i, sfl := 0, len(strfrmt); i < sfl; {
-		if strfrmt[i] != L_ESC {
+		if strfrmt[i] != l_esc {
 			b.WriteByte(strfrmt[i])
 			i++
 			continue
-		} else if i++; strfrmt[i] == L_ESC {
-			b.WriteByte(L_ESC) // %%
+		} else if i++; strfrmt[i] == l_esc {
+			b.WriteByte(l_esc) // %%
 			i++
 			continue
 		} else if strfrmt[i] == '*' {

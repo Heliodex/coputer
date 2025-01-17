@@ -3,22 +3,22 @@ package litecode
 import "math/bits"
 
 const (
-	NBITS   = 32
-	ALLONES = ^uint32(0)
+	nbits   = 32
+	allones = ^uint32(0)
 )
 
 // trim extra bits
 func trim(x uint32) uint32 {
-	return x & ALLONES
+	return x & allones
 }
 
 // builds a number with 'n' ones (1 <= n <= NBITS)
 func mask(n int) uint32 {
-	return ^((ALLONES - 1) << (n - 1))
+	return ^((allones - 1) << (n - 1))
 }
 
 func andaux(args Args) uint32 {
-	x := ALLONES
+	x := allones
 	for range args.Args {
 		x &= uint32(args.GetNumber())
 	}
@@ -45,15 +45,15 @@ func bit32_arshift(args Args) (r Rets, err error) {
 	x := uint32(args.GetNumber())
 	i := int(args.GetNumber())
 
-	if i < 0 || (x&(1<<(NBITS-1)) == 0) {
+	if i < 0 || (x&(1<<(nbits-1)) == 0) {
 		return Rets{float64(b_shift(x, -i))}, nil
 	}
 
 	// arithmetic shift for 'negative' number
-	if i >= NBITS {
-		return Rets{float64(ALLONES)}, nil
+	if i >= nbits {
+		return Rets{float64(allones)}, nil
 	}
-	return Rets{float64(trim((x >> i) | ^(ALLONES >> i)))}, nil
+	return Rets{float64(trim((x >> i) | ^(allones >> i)))}, nil
 }
 
 func bit32_band(args Args) (r Rets, err error) {
@@ -116,7 +116,7 @@ func fieldargs(args Args) (f, w int, msg string, ok bool) {
 		return 0, 0, "field cannot be negative", false
 	} else if w < 1 {
 		return 0, 0, "width must be positive", false
-	} else if f+w > NBITS {
+	} else if f+w > nbits {
 		return 0, 0, "trying to access non-existent bits", false
 	}
 	return f, w, "", true

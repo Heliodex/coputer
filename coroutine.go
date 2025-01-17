@@ -7,7 +7,7 @@ import "errors"
 func coroutine_close(args Args) (r Rets, err error) {
 	co := args.GetCoroutine()
 
-	co.status = Dead
+	co.status = CoDead
 	return
 }
 
@@ -25,9 +25,9 @@ func coroutine_resume(args Args) (r Rets, err error) {
 	co := args.GetCoroutine()
 	a := args.Args[1:]
 
-	if co.status == Dead {
+	if co.status == CoDead {
 		return Rets{false, "cannot resume dead coroutine"}, nil
-	} else if co.status == Running {
+	} else if co.status == CoRunning {
 		return Rets{false, "cannot resume running coroutine"}, nil
 	}
 
@@ -49,11 +49,11 @@ func coroutine_status(args Args) (r Rets, err error) {
 	co := args.GetCoroutine()
 
 	switch co.status {
-	case Suspended:
+	case CoSuspended:
 		return Rets{"suspended"}, nil
-	case Running:
+	case CoRunning:
 		return Rets{"running"}, nil
-	case Normal:
+	case CoNormal:
 		return Rets{"normal"}, nil
 	}
 	return Rets{"dead"}, nil
@@ -64,9 +64,9 @@ func coroutine_wrap(args Args) (r Rets, err error) {
 
 	co := createCoroutine(f)
 	return Rets{Fn(func(_ *Coroutine, args ...any) (r Rets, err error) {
-		if co.status == Dead {
+		if co.status == CoDead {
 			return nil, errors.New("cannot resume dead coroutine") // ought to be better (return false, error message) if we can figure out how
-		} else if co.status == Running {
+		} else if co.status == CoRunning {
 			return nil, errors.New("cannot resume running coroutine")
 		}
 		return co.Resume(args...)
@@ -76,13 +76,13 @@ func coroutine_wrap(args Args) (r Rets, err error) {
 func coroutine_yield(args Args) (r Rets, err error) {
 	a, co := args.Args, args.Co
 
-	if co.status == Running {
+	if co.status == CoRunning {
 		// fmt.Println("C.Y suspending coroutine")
-		co.status = Suspended
+		co.status = CoSuspended
 	}
 
 	// fmt.Println("C.Y yielding", a)
-	co.yield <- Yield{rets: a}
+	co.yield <- yield{rets: a}
 	// fmt.Println("C.Y yielded", a, "waiting for resume")
 	return <-co.resume, nil
 	// fmt.Println("C.Y resumed", r)
