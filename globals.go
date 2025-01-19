@@ -30,9 +30,9 @@ func ipairs_iter(args Args) (r Rets, err error) {
 
 	i++
 
-	if a.array == nil || int(i) > len(*a.array) {
+	if a.array == nil || int(i) > len(a.array) {
 		return Rets{}, nil
-	} else if v := (*a.array)[int(i)-1]; v != nil {
+	} else if v := a.array[int(i)-1]; v != nil {
 		return Rets{i, v}, nil
 	}
 	return Rets{}, nil // would prefer nil, nil but whateverrrrr
@@ -243,7 +243,7 @@ func schubfach(exponent int, fraction uint64) (uint64, int) {
 	q := exponent - 1023 - 51
 
 	if exponent != 0 { // normal numbers have implicit leading 1
-		c |= (1 << 52)
+		c |= 1 << 52
 		q--
 	}
 

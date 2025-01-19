@@ -19,27 +19,23 @@ func table_clear(args Args) (r Rets, err error) {
 func table_clone(args Args) (r Rets, err error) {
 	t := args.GetTable()
 
-	var a2 *[]any
-	var h2 *map[any]any
+	nt := &Table{}
 
 	if t.array != nil {
-		a := make([]any, len(*t.array))
-		copy(a, *t.array)
-		a2 = &a
+		a := make([]any, len(t.array))
+		copy(a, t.array)
+		nt.array = a
 	}
 
-	if t.node == nil {
-		h := make(map[any]any, len(*t.node))
-		for k, v := range *t.node {
+	if t.node != nil {
+		h := make(map[any]any, len(t.node))
+		for k, v := range t.node {
 			h[k] = v
 		}
-		h2 = &h
+		nt.node = h
 	}
 
-	return Rets{&Table{
-		array: a2,
-		node:  h2,
-	}}, nil
+	return Rets{nt}, nil
 }
 
 func table_concat(args Args) (r Rets, err error) {
@@ -77,7 +73,7 @@ func table_create(args Args) (r Rets, err error) {
 	if len(args.List) == 1 {
 		a := make([]any, 0, s)
 		return Rets{&Table{
-			array: &a,
+			array: a,
 		}}, nil
 	}
 
@@ -87,7 +83,7 @@ func table_create(args Args) (r Rets, err error) {
 		a[i] = value
 	}
 	return Rets{&Table{
-		array: &a,
+		array: a,
 	}}, nil
 }
 
@@ -100,15 +96,15 @@ func table_find(args Args) (r Rets, err error) {
 	}
 
 	if haystack.array != nil {
-		for i := int(init); i < len(*haystack.array); i++ {
-			v := (*haystack.array)[i-1]
+		for i := int(init); i < len(haystack.array); i++ {
+			v := haystack.array[i-1]
 			if needle == v {
 				return Rets{float64(i)}, nil
 			}
 		}
 	}
 	if haystack.node != nil {
-		for k, v := range *haystack.node {
+		for k, v := range haystack.node {
 			if needle == v {
 				return Rets{k}, nil
 			}
@@ -196,7 +192,7 @@ func table_maxn(args Args) (r Rets, err error) {
 
 	// array kvs
 	if t.array != nil {
-		for i, v := range *t.array {
+		for i, v := range t.array {
 			if fi := float64(i + 1); v != nil && fi > maxn {
 				maxn = fi
 			}
@@ -205,7 +201,7 @@ func table_maxn(args Args) (r Rets, err error) {
 
 	// hash kvs
 	if t.node != nil {
-		for k, v := range *t.node {
+		for k, v := range t.node {
 			if fk, ok := k.(float64); ok && v != nil && fk > maxn {
 				maxn = fk
 			}
@@ -231,15 +227,14 @@ func table_move(args Args) (r Rets, err error) {
 }
 
 func table_pack(args Args) (r Rets, err error) {
-	n := float64(len(args.List))
-	t := &Table{
-		node: &map[any]any{"n": n},
-	}
-	for i, v := range args.List {
-		t.SetArray(i+1, v)
-	}
+	l := len(args.List)
+	a := make([]any, l)
+	copy(a, args.List)
 
-	return Rets{t}, nil
+	return Rets{&Table{
+		node:  map[any]any{"n": float64(l)},
+		array: a,
+	}}, nil
 }
 
 func table_remove(args Args) (r Rets, err error) {
@@ -267,22 +262,21 @@ func table_remove(args Args) (r Rets, err error) {
 type comp func(a, b any) (bool, error) // ton, compton, aint no city quite like miiine
 
 func sort_swap(t *Table, i, j int) {
-	arr := *t.array
-	// n := t.asize
+	a := t.array
 	// LUAU_ASSERT(unsigned(i) < unsigned(n) && unsigned(j) < unsigned(n)) // contract maintained in sort_less after predicate call
 
 	// no barrier required because both elements are in the array before and after the swap
-	arr[i], arr[j] = arr[j], arr[i]
+	a[i], a[j] = a[j], a[i]
 }
 
 func sort_less(t *Table, i, j int, c comp) (res bool, err error) {
-	arr, n := *t.array, len(*t.array)
+	a, n := t.array, len(t.array)
 	// LUAU_ASSERT(unsigned(i) < unsigned(n) && unsigned(j) < unsigned(n)) // contract maintained in sort_less after predicate call
 
-	res, err = c(arr[i], arr[j])
+	res, err = c(a[i], a[j])
 
 	// predicate call may resize the table, which is invalid
-	if len(*t.array) != n {
+	if len(a) != n {
 		return false, errors.New("table modified during sorting")
 	}
 	return
@@ -390,8 +384,7 @@ func sort_rec(t *Table, l, u, limit int, c comp) (err error) {
 			// repeat ++i until a[i] >= P
 			i++
 			for {
-				r, err := sort_less(t, i, p, c)
-				if err != nil {
+				if r, err := sort_less(t, i, p, c); err != nil {
 					return err
 				} else if !r {
 					break
@@ -404,8 +397,7 @@ func sort_rec(t *Table, l, u, limit int, c comp) (err error) {
 			// repeat --j until a[j] <= P
 			j--
 			for {
-				r, err := sort_less(t, p, j, c)
-				if err != nil {
+				if r, err := sort_less(t, p, j, c); err != nil {
 					return err
 				} else if !r {
 					break
@@ -481,8 +473,8 @@ func table_unpack(args Args) (r Rets, err error) {
 	}
 
 	ui, uj := int(i), int(e)
-	if uj <= len(*list.array) {
-		return (*list.array)[ui-1 : uj], nil
+	if uj <= len(list.array) {
+		return list.array[ui-1 : uj], nil
 	}
 
 	r = make(Rets, uj-ui+1)

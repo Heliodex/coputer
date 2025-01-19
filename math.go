@@ -205,12 +205,8 @@ func grad(hash int, x, y, z float32) float32 {
 	return g[0]*x + g[1]*y + g[2]*z
 }
 
-func floor32(x float32) float32 {
-	return float32(math.Floor(float64(x)))
-}
-
 func perlin(x, y, z float32) float64 {
-	xflr, yflr, zflr := floor32(x), floor32(y), floor32(z)
+	xflr, yflr, zflr := f32Floor(x), f32Floor(y), f32Floor(z)
 	xi, yi, zi := int(xflr)&255, int(yflr)&255, int(zflr)&255
 	xf, yf, zf := x-xflr, y-yflr, z-zflr
 	u, v, w := fade(xf), fade(yf), fade(zf)

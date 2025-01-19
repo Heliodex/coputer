@@ -20,148 +20,6 @@ func arrayKey(k any) (int, bool) {
 	return ik, float64(ik) == fk && 1 <= ik
 }
 
-// Q why are tables like this
-// A
-// 1: the reference implementation of tables is too complex: rehashing and resizing is a pain but not too bad, array boundaries are worse and I don't want 1.5k lines of code just for that, and Go does a resizing-like thing automatically with slices anyway
-// 2: the way nodes are implemented works well in C++ and not in Go (plus I don't know if it's actually O(1) for node lookups??)
-// 3: rehashing etc is slower than just using a slice... somehow. most of this program is between 10-20x slower than the reference implementation, but the tables (which were previously like 50x slower) are now only like 2-3x slower for large allocations (bench/largealloc.luau)
-// 4: having an array part is actually nice for iteration and for large tables (as opposed to the lua4 way, where it's *just* a hash part), the way it's done here is simpler though we have to move stuff around and between the array and node parts more explicitly
-// 5: very weird quirks arise from table length implementations etc. the nil stuff can easily be forgiven, it's the stuff with creating a table and getting a length afterwards (see tests/clear.luau) that is fucking devilish; this is one of the few parts that puts Luau, as the language at the top of my favourites list, in jeopardy
-// 6: we don't actually break *that* much compatibility doing it this way, right??
-// 7: if anyone tells you tables are simple THEY ARE LYING, CALL THEM OUT ON THEIR SHIT
-type Table struct {
-	array    *[]any
-	node     *map[any]any
-	readonly bool
-}
-
-func (t *Table) String() (s string) {
-	if t.array == nil {
-		s += "  array: nil"
-	} else {
-		s += fmt.Sprintf("  array: %v\n", *t.array)
-	}
-
-	if t.node == nil {
-		s += "  node: nil"
-	} else {
-		s += fmt.Sprintf("  node:  %v", *t.node)
-	}
-	return
-}
-
-func NewTable(toHash [][2]any) *Table {
-	// remember, no duplicates
-	hash := make(map[any]any, len(toHash))
-	for _, v := range toHash {
-		hash[v[0]] = v[1]
-	}
-	return &Table{
-		readonly: true,
-		node:     &hash,
-	}
-}
-
-// O(1) length, bitchesss
-func (t *Table) Len() int {
-	if t.array == nil {
-		return 0
-	}
-	return len(*t.array)
-}
-
-func (t *Table) SetHash(i, v any) {
-	if t.node == nil {
-		if v == nil {
-			return
-		}
-		t.node = &map[any]any{i: v}
-		return
-	}
-
-	if v == nil {
-		delete(*t.node, i)
-	} else {
-		(*t.node)[i] = v
-	}
-}
-
-func (t *Table) SetArray(i int, v any) {
-	if t.array == nil {
-		if i == 1 {
-			t.array = &[]any{v}
-			return
-		}
-
-		t.SetHash(float64(i), v)
-	} else if l := len(*t.array); i < l+1 {
-		if v != nil {
-			// set in the array portion
-			(*t.array)[i-1] = v
-			return
-		}
-
-		// cut the array portion
-		after := (*t.array)[i:]
-		*t.array = (*t.array)[:i-1]
-
-		// move the rest to the hash part
-		for i2, v2 := range after {
-			t.SetHash(float64(i+i2), v2)
-		}
-	} else if i == l+1 {
-		// append to the end
-		*t.array = append(*t.array, v)
-
-		// check if we can move some stuff from the hash part to the array part
-		if t.node == nil {
-			return
-		}
-
-		for i2 := l + 2; ; i2++ {
-			if v2, ok := (*t.node)[float64(i2)]; ok {
-				*t.array = append(*t.array, v2)
-				delete(*t.node, float64(i2))
-			} else {
-				break
-			}
-		}
-	} else {
-		// add to the hash part instead
-		t.SetHash(float64(i), v)
-	}
-}
-
-func (t *Table) ForceSet(i, v any) {
-	if ak, ok := arrayKey(i); ok {
-		t.SetArray(ak, v)
-		return
-	}
-	t.SetHash(i, v)
-}
-
-func (t *Table) Set(i, v any) error {
-	if t.readonly {
-		return errors.New("attempt to modify a readonly table")
-	}
-	t.ForceSet(i, v)
-	return nil
-}
-
-func (t *Table) GetHash(i any) any {
-	if t.node == nil {
-		return nil
-	}
-	return (*t.node)[i]
-}
-
-func (t *Table) Get(i any) any {
-	if ak, ok := arrayKey(i); ok && ak <= t.Len() {
-		return (*t.array)[ak-1]
-	}
-	return t.GetHash(i)
-}
-
 func mapKeySort(a, b any) int {
 	// It doesn't have to be pretty for map keys
 	// (in fact, the reference implementation of Luau has a rather insane sort order)
@@ -191,15 +49,166 @@ func iterHash(hash map[any]any, y func(any, any) bool) {
 	}
 }
 
+// Q why are tables like this
+//
+// A:
+//
+// 1: the reference implementation of tables is too complex: rehashing and resizing is a pain but not too bad, array boundaries are worse and I don't want 1.5k lines of code just for that, and Go does a resizing-like thing automatically with slices anyway
+//
+// 2: the way nodes are implemented works well in C++ and not in Go (plus I don't know if it's actually O(1) for node lookups??)
+//
+// 3: rehashing etc is slower than just using a slice... somehow. most of this program is between 10-20x slower than the reference implementation, but the tables (which were previously like 50x slower) are now only like 2-3x slower for large allocations (bench/largealloc.luau)
+//
+// 4: having an array part is actually nice for iteration and for large tables (as opposed to the lua4 way, where it's *just* a hash part), the way it's done here is simpler though we have to move stuff around and between the array and node parts more explicitly
+//
+// 5: very weird quirks arise from table length implementations etc. the nil stuff can easily be forgiven, it's the stuff with creating a table and getting a length afterwards (see tests/clear.luau) that is fucking devilish; this is one of the few parts that puts Luau, as the language at the top of my favourites list, in jeopardy
+//
+// 6: we don't actually break *that* much compatibility doing it this way, right??
+//
+// 7: if anyone tells you tables are simple THEY ARE LYING, CALL THEM OUT ON THEIR SHIT
+type Table struct {
+	array    []any
+	node     map[any]any
+	readonly bool
+}
+
+// dbg
+func (t *Table) String() (s string) {
+	if t.array == nil {
+		s += "  array: nil"
+	} else {
+		s += fmt.Sprintf("  array: %v\n", t.array)
+	}
+
+	if t.node == nil {
+		s += "  node: nil"
+	} else {
+		s += fmt.Sprintf("  node:  %v", t.node)
+	}
+	return
+}
+
+// O(1) length, bitchesss
+func (t *Table) Len() int {
+	if t.array == nil {
+		return 0
+	}
+	return len(t.array)
+}
+
+func (t *Table) SetHash(k, v any) {
+	if t.node == nil {
+		if v == nil {
+			return
+		}
+		t.node = map[any]any{k: v}
+		return
+	}
+
+	if v == nil {
+		delete(t.node, k)
+	} else {
+		t.node[k] = v
+	}
+}
+
+func (t *Table) SetArray(i int, v any) {
+	if t.array == nil {
+		if i == 1 {
+			t.array = []any{v}
+			return
+		}
+
+		t.SetHash(float64(i), v)
+	} else if l := len(t.array); i < l+1 {
+		if v != nil {
+			// set in the array portion
+			t.array[i-1] = v
+			return
+		}
+
+		// cut the array portion
+		after := t.array[i:]
+		t.array = t.array[:i-1]
+
+		// move the rest to the hash part
+		for i2, v2 := range after {
+			t.SetHash(float64(i+i2), v2)
+		}
+	} else if i == l+1 {
+		// append to the end
+		t.array = append(t.array, v)
+
+		// check if we can move some stuff from the hash part to the array part
+		if t.node == nil {
+			return
+		}
+
+		for f2 := float64(l + 2); ; f2++ {
+			v2, ok := t.node[f2]
+			if !ok {
+				break
+			}
+			t.array = append(t.array, v2)
+			delete(t.node, f2)
+		}
+	} else {
+		// add to the hash part instead
+		t.SetHash(float64(i), v)
+	}
+}
+
+func (t *Table) ForceSet(k, v any) {
+	if ak, ok := arrayKey(k); ok {
+		t.SetArray(ak, v)
+		return
+	}
+	t.SetHash(k, v)
+}
+
+func (t *Table) Set(k, v any) error {
+	if t.readonly {
+		return errors.New("attempt to modify a readonly table")
+	}
+	t.ForceSet(k, v)
+	return nil
+}
+
+func (t *Table) GetHash(k any) any {
+	if t.node == nil {
+		return nil
+	}
+	return t.node[k]
+}
+
+func (t *Table) Get(k any) any {
+	if ak, ok := arrayKey(k); ok && ak <= t.Len() {
+		return t.array[ak-1]
+	}
+	return t.GetHash(k)
+}
+
 // 1.23 goes hard
 func (t *Table) Iter() iter.Seq2[any, any] {
 	return func(y func(any, any) bool) {
 		if t.array != nil {
-			iterArray(*t.array, y)
+			iterArray(t.array, y)
 		}
 		if t.node != nil {
-			iterHash(*t.node, y)
+			iterHash(t.node, y)
 		}
+	}
+}
+
+func NewTable(toHash [][2]any) *Table {
+	// remember, no duplicates
+	hash := make(map[any]any, len(toHash))
+	for _, v := range toHash {
+		hash[v[0]] = v[1]
+	}
+	return &Table{
+		readonly: true,
+		node:     hash,
 	}
 }
 
@@ -319,6 +328,7 @@ var opList = [83]struct {
 	{"IDIVK", 3, 2, false},
 }
 
+// Functions and Tables are used as pointees normally, as they need to be hashed
 type (
 	Function *func(co *Coroutine, args ...any) (r Rets, err error)
 	Status   uint8
@@ -338,6 +348,14 @@ const (
 type yield struct {
 	rets Rets
 	err  error
+}
+
+type debugging struct {
+	top     int
+	line    uint32
+	enabled bool
+	opcode  uint8
+	dbgname string
 }
 
 type Coroutine struct {
@@ -368,26 +386,32 @@ func errorfmt(err error, d *debugging) error {
 	}
 
 	if d.enabled {
-		// fmt.Println(d.instlineinfo)
-
 		// PC removed for determinism between O levels
-		return fmt.Errorf(
-			"Opcode: %s\n%s:%d: %w",
-			op,
-			d.debugname,
-			d.instlineinfo[d.pc-1],
-			err)
+		return fmt.Errorf("Opcode: %s\n%s:%d: %w", op, d.dbgname, d.line, err)
 	}
 
-	return fmt.Errorf(
-		"Opcode: %s\n%s: %w",
-		op,
-		d.debugname,
-		err)
+	return fmt.Errorf("Opcode: %s\n%s: %w", op, d.dbgname, err)
 }
 
 func (co *Coroutine) Error(err error) {
 	co.yield <- yield{nil, errorfmt(err, co.dbg)}
+}
+
+func startCoroutine(co *Coroutine, args []any) {
+	// fmt.Println(" RG calling coroutine body with", args)
+	r, err := (*co.body)(co, args...)
+
+	// fmt.Println("RG  yielding", r)
+	co.yield <- yield{r, err}
+	// fmt.Println("RG  yielded", r)
+
+	co.status = CoDead
+	if len(co.yield) == 0 {
+		// finish up
+		// fmt.Println("RG  yielding, finishing up")
+		co.yield <- yield{}
+		// fmt.Println("RG  yielding, finished up")
+	}
 }
 
 func (co *Coroutine) Resume(args ...any) (r Rets, err error) {
@@ -396,22 +420,7 @@ func (co *Coroutine) Resume(args ...any) (r Rets, err error) {
 		co.started = true
 		co.status = CoRunning
 
-		go func() {
-			// fmt.Println(" RG calling coroutine body with", args)
-			r, err := (*co.body)(co, args...)
-
-			// fmt.Println("RG  yielding", r)
-			co.yield <- yield{r, err}
-			// fmt.Println("RG  yielded", r)
-
-			co.status = CoDead
-			if len(co.yield) == 0 {
-				// finish up
-				// fmt.Println("RG  yielding, finishing up")
-				co.yield <- yield{}
-				// fmt.Println("RG  yielding, finished up")
-			}
-		}()
+		go startCoroutine(co, args)
 	} else {
 		co.status = CoRunning
 		// fmt.Println("RM  resuming", args)
@@ -483,11 +492,11 @@ type inst struct {
 }
 
 type proto struct {
-	debugname            string
+	dbgname              string
 	k                    []any
 	code                 []*inst
 	instlineinfo, protos []uint32
-	debugcode            []uint8
+	dbgcode              []uint8
 
 	linedefined, sizecode, sizek, sizep, bytecodeid uint32
 	maxstacksize, numparams, nups                   uint8
@@ -551,6 +560,10 @@ func (s *stream) rByte() (b byte) {
 	return
 }
 
+func (s *stream) rBool() bool {
+	return s.rByte() != 0
+}
+
 func (s *stream) rWord() (w uint32) {
 	w = uint32(s.data[s.pos]) |
 		uint32(s.data[s.pos+1])<<8 |
@@ -571,9 +584,9 @@ func (s *stream) rFloat64() float64 {
 func (s *stream) rVarInt() (r uint32) {
 	for i := range 4 {
 		v := uint32(s.rByte())
-		r |= (v & 0x7F << (i * 7))
+		r |= v & 0x7F << (i * 7)
 		if v&0x80 == 0 {
-			break
+			return
 		}
 	}
 	return
@@ -596,6 +609,7 @@ func (s *stream) CheckEnd() {
 	}
 }
 
+// reads either 1 or 2 words
 func readInst(codeList *[]*inst, s *stream) (usesAux bool) {
 	value := s.rWord()
 	opcode := uint8(value & 0xFF)
@@ -650,16 +664,13 @@ func readInst(codeList *[]*inst, s *stream) (usesAux bool) {
 }
 
 func readProto(bytecodeid uint32, stringList []string, s *stream) (proto, error) {
-	maxstacksize := s.rByte()
-	numparams := s.rByte()
-	nups := s.rByte()
-	isvararg := s.rByte() != 0
+	maxstacksize, numparams, nups, isvararg := s.rByte(), s.rByte(), s.rByte(), s.rBool()
 
 	s.rByte()            // -- flags
 	s.pos += s.rVarInt() // typesize
 
 	sizecode := s.rVarInt()
-	codelist := new([]*inst)
+	codelist := []*inst{}
 
 	var skipnext bool
 	for range sizecode {
@@ -667,12 +678,12 @@ func readProto(bytecodeid uint32, stringList []string, s *stream) (proto, error)
 			skipnext = false
 			continue
 		}
-		skipnext = readInst(codelist, s)
+		skipnext = readInst(&codelist, s)
 	}
 
-	debugcodelist := make([]uint8, sizecode)
+	dbgcodelist := make([]uint8, sizecode)
 	for i := range sizecode {
-		debugcodelist[i] = (*codelist)[i].opcode
+		dbgcodelist[i] = codelist[i].opcode
 	}
 
 	sizek := s.rVarInt()
@@ -683,7 +694,7 @@ func readProto(bytecodeid uint32, stringList []string, s *stream) (proto, error)
 		case 0: // Nil
 			klist[i] = nil
 		case 1: // Bool
-			klist[i] = s.rByte() != 0
+			klist[i] = s.rBool()
 		case 2: // Number
 			klist[i] = s.rFloat64()
 		case 3: // String
@@ -710,7 +721,7 @@ func readProto(bytecodeid uint32, stringList []string, s *stream) (proto, error)
 
 	// -- 2nd pass to replace constant references in the instruction
 	for i := range sizecode {
-		checkkmode((*codelist)[i], klist)
+		checkkmode(codelist[i], klist)
 	}
 
 	sizep := s.rVarInt()
@@ -721,15 +732,15 @@ func readProto(bytecodeid uint32, stringList []string, s *stream) (proto, error)
 
 	linedefined := s.rVarInt()
 
-	var debugname string
-	if debugnameindex := s.rVarInt(); debugnameindex == 0 {
-		debugname = "(??)"
+	var dbgname string
+	if dbgnamei := s.rVarInt(); dbgnamei == 0 {
+		dbgname = "(??)"
 	} else {
-		debugname = stringList[debugnameindex-1]
+		dbgname = stringList[dbgnamei-1]
 	}
 
 	// -- lineinfo
-	lineinfoenabled := s.rByte() != 0
+	lineinfoenabled := s.rBool()
 	var instlineinfo []uint32
 
 	if lineinfoenabled {
@@ -744,10 +755,11 @@ func readProto(bytecodeid uint32, stringList []string, s *stream) (proto, error)
 		}
 
 		abslineinfo := make([]uint32, intervals)
-		var lastline uint64
+		var lastline uint32
 		for i := range intervals {
-			lastline += uint64(s.rWord())
-			abslineinfo[i] = uint32(lastline % (1 << 32))
+			lastline += s.rWord()
+			// fmt.Println("lastline", lastline)
+			abslineinfo[i] = lastline // overflow babyy (faster than % (1 << 32))
 		}
 
 		instlineinfo = make([]uint32, sizecode)
@@ -758,7 +770,7 @@ func readProto(bytecodeid uint32, stringList []string, s *stream) (proto, error)
 	}
 
 	// -- debuginfo
-	if s.rByte() != 0 {
+	if s.rBool() {
 		// fmt.Println("DEBUGINFO")
 		for range s.rVarInt() { // sizel
 			s.rVarInt()
@@ -772,12 +784,12 @@ func readProto(bytecodeid uint32, stringList []string, s *stream) (proto, error)
 	}
 
 	return proto{
-		debugname,
+		dbgname,
 		klist,
-		*codelist,
+		codelist,
 		instlineinfo,
 		ps,
-		debugcodelist,
+		dbgcodelist,
 
 		linedefined,
 		sizecode,
@@ -812,7 +824,7 @@ func Deserialise(data []byte) (deserialised, error) {
 	}
 
 	// userdataRemapping (not used in VM, left unused)
-	for i := s.rByte(); i != 0; i = s.rByte() {
+	for i := s.rBool(); i; i = s.rBool() {
 		s.rVarInt()
 	}
 
@@ -827,7 +839,7 @@ func Deserialise(data []byte) (deserialised, error) {
 	}
 
 	mainProto := protoList[s.rVarInt()]
-	mainProto.debugname = "(main)"
+	mainProto.dbgname = "(main)"
 	s.CheckEnd()
 
 	return deserialised{mainProto, protoList}, nil
@@ -840,7 +852,7 @@ type iterator struct {
 
 type upval struct {
 	value   any
-	store   *[]any
+	store   []any
 	index   int
 	selfRef bool
 }
@@ -1024,26 +1036,26 @@ func aIdiv(a, b any) (any, error) {
 	vb, ok4 := b.(Vector)
 	if ok3 && ok4 {
 		return Vector{
-			fFloor(va[0] / vb[0]),
-			fFloor(va[1] / vb[1]),
-			fFloor(va[2] / vb[2]),
-			fFloor(va[3] / vb[3]),
+			f32Floor(va[0] / vb[0]),
+			f32Floor(va[1] / vb[1]),
+			f32Floor(va[2] / vb[2]),
+			f32Floor(va[3] / vb[3]),
 		}, nil
 	} else if ok1 && ok4 {
 		f := float32(fa)
 		return Vector{
-			fFloor(f / vb[0]),
-			fFloor(f / vb[1]),
-			fFloor(f / vb[2]),
-			fFloor(f / vb[3]),
+			f32Floor(f / vb[0]),
+			f32Floor(f / vb[1]),
+			f32Floor(f / vb[2]),
+			f32Floor(f / vb[3]),
 		}, nil
 	} else if ok3 && ok2 {
 		f := float32(fb)
 		return Vector{
-			fFloor(va[0] / f),
-			fFloor(va[1] / f),
-			fFloor(va[2] / f),
-			fFloor(va[3] / f),
+			f32Floor(va[0] / f),
+			f32Floor(va[1] / f),
+			f32Floor(va[2] / f),
+			f32Floor(va[3] / f),
 		}, nil
 	}
 
@@ -1149,12 +1161,22 @@ type toWrap struct {
 	requireCache map[string]Rets
 }
 
-type debugging struct {
-	pc, top      int
-	enabled      bool
-	opcode       uint8
-	debugname    string
-	instlineinfo []uint32
+func iterate(c *iterator) {
+	args := *<-c.args
+	c.args = nil // we're done here
+	c.running = true
+	// fmt.Println("-2- generating iterator", args)
+
+	for i, v := range args[0].(*Table).Iter() {
+		if !c.running {
+			return
+		}
+		// fmt.Println("-2- yielding", i, v)
+		c.resume <- &[]any{i, v}
+		// fmt.Println("-2- yielded!")
+	}
+
+	c.resume <- nil
 }
 
 func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsList []any, vargsLen uint8) (r Rets, err error) {
@@ -1190,12 +1212,11 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 		}
 		handlingBreak = false
 
-		dbg.pc = pc
+		dbg.line = p.instlineinfo[pc-1]
 		dbg.top = top
 		dbg.enabled = p.lineinfoenabled
 		dbg.opcode = i.opcode
-		dbg.debugname = p.debugname
-		dbg.instlineinfo = p.instlineinfo
+		dbg.dbgname = p.dbgname
 
 		// if len(upvals) > 0 {
 		// 	fmt.Println("upval", upvals[0])
@@ -1207,7 +1228,7 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 			pc++
 			// -- Do nothing
 		case 1: // BREAK
-			op = p.debugcode[pc]
+			op = p.dbgcode[pc]
 			handlingBreak = true
 		case 2: // LOADNIL
 			pc++
@@ -1252,14 +1273,14 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 				(*stack)[i.A] = uv.value
 			} else {
 				// fmt.Println("GETTING UPVAL", uv)
-				// fmt.Println("Setting stacka to", (*uv.store)[uv.index])
+				// fmt.Println("Setting stacka to", uv.store[uv.index])
 
-				(*stack)[i.A] = (*uv.store)[uv.index]
+				(*stack)[i.A] = uv.store[uv.index]
 			}
 		case 10: // SETUPVAL
 			pc++
 			if uv := upvals[i.B]; !uv.selfRef {
-				(*uv.store)[uv.index] = (*stack)[i.A]
+				uv.store[uv.index] = (*stack)[i.A]
 			} else {
 				uv.value = (*stack)[i.A]
 			}
@@ -1270,7 +1291,7 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 					continue
 				}
 				// fmt.Println("closing upvalue", uv)
-				uv.value = (*uv.store)[uv.index]
+				uv.value = uv.store[uv.index]
 				uv.store = nil
 				uv.selfRef = true
 				openUpvals[n] = nil
@@ -1352,7 +1373,7 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 			t := (*stack)[i.B].(*Table)
 			if t.readonly {
 				return nil, errors.New("attempt to modify a readonly table")
-			} else if i, v := int(i.C+1), (*stack)[i.A]; 1 <= i || i > len(*t.array) {
+			} else if i, v := int(i.C+1), (*stack)[i.A]; 1 <= i || i > len(t.array) {
 				t.SetArray(i, v)
 			} else {
 				t.SetHash(float64(i), v)
@@ -1397,7 +1418,7 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 
 					if prev == nil {
 						prev = &upval{
-							store: stack,
+							store: *stack,
 							index: index,
 						}
 
@@ -1458,7 +1479,7 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 
 			i = *callInst
 			op = callOp
-			dbg.pc = pc
+			dbg.line = p.instlineinfo[pc-1]
 			dbg.opcode = i.opcode
 
 			retCount := len(retList)
@@ -1814,7 +1835,7 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 			// one-indexed lol
 			for n, v := range (*stack)[B:min(B+c, len(*stack))] {
 				ui := int(n + i.aux)
-				if 1 <= ui || ui > len(*s.array) {
+				if 1 <= ui || ui > len(s.array) {
 					s.SetArray(ui, v)
 					continue
 				}
@@ -2008,8 +2029,8 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 				break
 			}
 
-			loopInstruction := *code[pc-1]
-			if generalisedIterators[loopInstruction] != nil {
+			loopInst := *code[pc-1]
+			if generalisedIterators[loopInst] != nil {
 				break
 			}
 
@@ -2017,26 +2038,8 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 				args:   make(chan *[]any),
 				resume: make(chan *[]any),
 			}
-
-			go func() {
-				args := *<-c.args
-				c.args = nil // we're done here
-				c.running = true
-				// fmt.Println("-2- generating iterator", args)
-
-				for i, v := range args[0].(*Table).Iter() {
-					if !c.running {
-						return
-					}
-					// fmt.Println("-2- yielding", i, v)
-					c.resume <- &[]any{i, v}
-					// fmt.Println("-2- yielded!")
-				}
-
-				c.resume <- nil
-			}()
-
-			generalisedIterators[loopInstruction] = c
+			go iterate(c)
+			generalisedIterators[loopInst] = c
 		case 77: // JUMPXEQKNIL
 			ra := (*stack)[i.A]
 
@@ -2077,20 +2080,21 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 		}
 	}
 
-	for i, uv := range openUpvals {
-		openUpvals[i] = nil
+	for _, uv := range openUpvals {
 		if uv.selfRef {
 			continue
 		}
-		uv.value = (*uv.store)[uv.index]
+		uv.value = uv.store[uv.index]
 		uv.store = nil
 		uv.selfRef = true
 	}
+	openUpvals = nil
 
-	for i := range generalisedIterators {
-		generalisedIterators[i].running = false
-		delete(generalisedIterators, i)
+	for _, v := range generalisedIterators {
+		v.running = false
 	}
+	generalisedIterators = nil
+
 	return
 }
 

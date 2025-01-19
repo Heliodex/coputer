@@ -6,11 +6,10 @@ const wide4 = false
 
 // float32 maths
 const (
-	uvnan      = 0x7FE00000
-	mask       = 0xFF
-	shift      = 32 - 8 - 1
-	bias       = 127
-	maxFloat32 = 3.40282346638528859811704183484516925440e+38 // 2^127 * (2^24 - 1) / 2^23
+	uvnan = 0x7FE00000
+	mask  = 0xFF
+	shift = 32 - 8 - 1
+	bias  = 127
 )
 
 func f32NaN() float32 {
@@ -21,14 +20,53 @@ func f32IsNaN(f float32) bool {
 	return f != f
 }
 
-func f32IsInf(f float32) bool {
-	return f > maxFloat32
+func f32IsInf(f float32, sign int) bool {
+	return sign >= 0 && f > math.MaxFloat32 || sign <= 0 && f < -math.MaxFloat32
+}
+
+func f32Modf(f float32) (i float32, frac float32) {
+	if f < 1 {
+		switch {
+		case f < 0:
+			i, frac = f32Modf(-f)
+			return -i, -frac
+		case f == 0:
+			return f, f // Return -0, -0 when f == -0
+		}
+		return 0, f
+	}
+
+	x := math.Float32bits(f)
+	e := uint(x>>shift)&mask - bias
+
+	// Keep the top 9+e bits, the integer part; clear the rest.
+	if e < 32-9 {
+		x &^= 1<<(32-9-e) - 1
+	}
+	i = math.Float32frombits(x)
+	frac = f - i
+	return
+}
+
+func f32Floor(x float32) float32 {
+	if x == 0 || f32IsNaN(x) || f32IsInf(x, 0) {
+		return x
+	} else if x < 0 {
+		d, fract := f32Modf(-x)
+		if fract != 0 {
+			d += 1
+		}
+		return -d
+	}
+
+	d, _ := f32Modf(x)
+	return d
 }
 
 func f32Sqrt(x float32) float32 {
 	// special cases
 	switch {
-	case x == 0 || f32IsNaN(x) || f32IsInf(x):
+	case x == 0 || f32IsNaN(x) || f32IsInf(x, 1):
 		return x
 	case x < 0:
 		return f32NaN()
@@ -129,10 +167,6 @@ func fPow(a, b float32) float32 {
 	return float32(math.Pow(float64(a), float64(b)))
 }
 
-func fFloor(v float32) float32 {
-	return float32(math.Floor(float64(v)))
-}
-
 func fCeil(v float32) float32 {
 	return float32(math.Ceil(float64(v)))
 }
@@ -161,7 +195,7 @@ func vector_angle(args Args) (r Rets, err error) {
 func vector_floor(args Args) (r Rets, err error) {
 	v := args.GetVector()
 
-	return Rets{Vector{fFloor(v[0]), fFloor(v[1]), fFloor(v[2]), fFloor(v[3])}}, nil
+	return Rets{Vector{f32Floor(v[0]), f32Floor(v[1]), f32Floor(v[2]), f32Floor(v[3])}}, nil
 }
 
 func vector_ceil(args Args) (r Rets, err error) {

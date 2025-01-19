@@ -289,6 +289,7 @@ func string_split(args Args) (r Rets, err error) {
 	s := args.GetString()
 	separator := args.GetString(",")
 
+	// can't copy (or copy()) []string to []any
 	split := strings.Split(s, separator)
 	a := make([]any, len(split))
 	for i, v := range split {
@@ -296,7 +297,7 @@ func string_split(args Args) (r Rets, err error) {
 	}
 
 	return Rets{&Table{
-		array: &a,
+		array: a,
 	}}, nil
 }
 

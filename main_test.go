@@ -104,7 +104,7 @@ func TestConformance(t *testing.T) {
 		return
 	}
 
-	// onlyTest := "libbuffer.luau"
+	// onlyTest := "libtable.luau"
 
 	for _, f := range files {
 		if f.IsDir() {
