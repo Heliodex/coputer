@@ -1,7 +1,6 @@
 package litecode
 
 import (
-	"errors"
 	"fmt"
 	"iter"
 	"math"
@@ -512,8 +511,7 @@ func num2str(n float64) string {
 		return "-0"
 	}
 
-	buf := &bufPos{[48]byte{}, 0}
-	s := num2str2(exponent, fraction, buf)
+	s := num2str2(exponent, fraction, &bufPos{})
 
 	// sign bit
 	if sign == 0 {
@@ -589,11 +587,8 @@ func global_require(args Args) (r Rets, err error) {
 		return nil, invalidArg(1, "require", "require path must start with a valid prefix: ./ or ../")
 	}
 
-	// this is where we take it to the top babbyyyyy
-	currentpath := args.Co.filepath
-
 	// combine filepath and name to get the new path
-	path := filepath.Join(filepath.Dir(currentpath), name) + ".luau"
+	path := filepath.Join(filepath.Dir(args.Co.filepath), name) + ".luau"
 	path = strings.ReplaceAll(path, "\\", "/")
 	// fmt.Println("REQUIRING", path)
 
@@ -603,8 +598,14 @@ func global_require(args Args) (r Rets, err error) {
 	cmd := exec.Command("luau-compile", "--binary", fmt.Sprintf("-O%d", o), path)
 	bytecode, err := cmd.Output()
 	if err != nil {
-		return nil, errors.New("error running luau-compile")
+		return nil, fmt.Errorf("error running luau-compile: %w", err)
 	}
 
-	return Rets{loadParams{Deserialise(bytecode), path, o, args.Co.env}}, nil
+	deser, err := Deserialise(bytecode)
+	if err != nil {
+		return nil, fmt.Errorf("error deserialising bytecode: %w", err)
+	}
+
+	// this is where we take it to the top babbyyyyy
+	return Rets{loadParams{deser, path, o, args.Co.env}}, nil
 }

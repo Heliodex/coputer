@@ -4,6 +4,76 @@ import "math"
 
 const wide4 = false
 
+// float32 maths
+const (
+	uvnan      = 0x7FE00000
+	mask       = 0xFF
+	shift      = 32 - 8 - 1
+	bias       = 127
+	maxFloat32 = 3.40282346638528859811704183484516925440e+38 // 2^127 * (2^24 - 1) / 2^23
+)
+
+func f32NaN() float32 {
+	return math.Float32frombits(uvnan)
+}
+
+func f32IsNaN(f float32) bool {
+	return f != f
+}
+
+func f32IsInf(f float32) bool {
+	return f > maxFloat32
+}
+
+func f32Sqrt(x float32) float32 {
+	// special cases
+	switch {
+	case x == 0 || f32IsNaN(x) || f32IsInf(x):
+		return x
+	case x < 0:
+		return f32NaN()
+	}
+	ix := math.Float32bits(x)
+
+	// normalize x
+	exp := int((ix >> shift) & mask)
+	if exp == 0 { // subnormal x
+		for ix&(1<<shift) == 0 {
+			ix <<= 1
+			exp--
+		}
+		exp++
+	}
+	exp -= bias // unbias exponent
+	ix &^= mask << shift
+	ix |= 1 << shift
+	if exp&1 == 1 { // odd exp, double x to make it even
+		ix <<= 1
+	}
+	exp >>= 1 // exp = exp/2, exponent of square root
+	// generate sqrt(x) bit by bit
+	ix <<= 1
+	var q, s uint32 // q = sqrt(x)
+
+	// r = moving bit from MSB to LSB
+	for r := uint32(1 << (shift + 1)); r != 0; {
+		if t := s + r; t <= ix {
+			s = t + r
+			ix -= t
+			q += r
+		}
+		ix <<= 1
+		r >>= 1
+	}
+
+	// final rounding
+	if ix != 0 { // remainder, result not exact
+		q += q & 1 // round according to extra bit
+	}
+	ix = q>>1 + uint32(exp-1+bias)<<shift // significand + biased exponent
+	return math.Float32frombits(ix)
+}
+
 func vector_create(args Args) (r Rets, err error) {
 	x := float32(args.GetNumber())
 	y := float32(args.GetNumber())
@@ -17,7 +87,7 @@ func vector_create(args Args) (r Rets, err error) {
 }
 
 func mag(v Vector) float32 {
-	return float32(math.Sqrt(float64(v[0]*v[0] + v[1]*v[1] + v[2]*v[2] + v[3]*v[3])))
+	return f32Sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2] + v[3]*v[3])
 }
 
 func vector_magnitude(args Args) (r Rets, err error) {
@@ -159,19 +229,12 @@ func vector_max(args Args) (r Rets, err error) {
 
 	result := Vector{first[0], first[1], first[2], first[3]}
 
-	for range len(args.Args) - 1 {
+	for range len(args.List) - 1 {
 		b := args.GetVector()
-		if b[0] > result[0] {
-			result[0] = b[0]
-		}
-		if b[1] > result[1] {
-			result[1] = b[1]
-		}
-		if b[2] > result[2] {
-			result[2] = b[2]
-		}
-		if b[3] > result[3] {
-			result[3] = b[3]
+		for i, v := range b {
+			if v > result[i] {
+				result[i] = v
+			}
 		}
 	}
 
@@ -183,19 +246,12 @@ func vector_min(args Args) (r Rets, err error) {
 
 	result := Vector{first[0], first[1], first[2], first[3]}
 
-	for range len(args.Args) - 1 {
+	for range len(args.List) - 1 {
 		b := args.GetVector()
-		if b[0] < result[0] {
-			result[0] = b[0]
-		}
-		if b[1] < result[1] {
-			result[1] = b[1]
-		}
-		if b[2] < result[2] {
-			result[2] = b[2]
-		}
-		if b[3] < result[3] {
-			result[3] = b[3]
+		for i, v := range b {
+			if v < result[i] {
+				result[i] = v
+			}
 		}
 	}
 

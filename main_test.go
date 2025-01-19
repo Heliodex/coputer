@@ -11,14 +11,17 @@ import (
 )
 
 func litecode(t *testing.T, f string, o uint8) (string, time.Duration) {
-	cmd := exec.Command("luau-compile", "--binary", fmt.Sprintf("-O%d", o), f)
-	bytecode, err := cmd.Output()
+	bytecode, err := Compile(f, o)
 	if err != nil {
-		t.Error("error running luau-compile:", err, cmd.Args)
+		t.Error("error running luau-compile:", err)
 		return "", 0
 	}
 
-	deserialised := Deserialise(bytecode)
+	deserialised, err := Deserialise(bytecode)
+	if err != nil {
+		t.Error("error deserialising bytecode:", err)
+		return "", 0
+	}
 
 	b := strings.Builder{}
 	luau_print := Fn(func(co *Coroutine, args ...any) (r Rets, err error) {
@@ -36,7 +39,7 @@ func litecode(t *testing.T, f string, o uint8) (string, time.Duration) {
 
 	co, _ := Load(deserialised, f, o, map[any]any{
 		"print": luau_print,
-	}, map[string]Rets{})
+	})
 
 	startTime := time.Now()
 	_, err = co.Resume()
@@ -49,14 +52,17 @@ func litecode(t *testing.T, f string, o uint8) (string, time.Duration) {
 }
 
 func litecodeE(t *testing.T, f string, o uint8) (string, error) {
-	cmd := exec.Command("luau-compile", "--binary", fmt.Sprintf("-O%d", o), f)
-	bytecode, err := cmd.Output()
+	bytecode, err := Compile(f, o)
 	if err != nil {
-		t.Error("error running luau-compile:", err, cmd.Args)
+		t.Error("error running luau-compile:", err)
 		return "", err
 	}
 
-	deserialised := Deserialise(bytecode)
+	deserialised, err := Deserialise(bytecode)
+	if err != nil {
+		t.Error("error deserialising bytecode:", err)
+		return "", err
+	}
 
 	b := strings.Builder{}
 	luau_print := Fn(func(co *Coroutine, args ...any) (r Rets, err error) {
@@ -74,7 +80,7 @@ func litecodeE(t *testing.T, f string, o uint8) (string, error) {
 
 	co, _ := Load(deserialised, f, o, map[any]any{
 		"print": luau_print,
-	}, map[string]Rets{})
+	})
 
 	_, err = co.Resume()
 

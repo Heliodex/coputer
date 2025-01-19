@@ -23,7 +23,7 @@ func arrayKey(k any) (int, bool) {
 // Q why are tables like this
 // A
 // 1: the reference implementation of tables is too complex: rehashing and resizing is a pain but not too bad, array boundaries are worse and I don't want 1.5k lines of code just for that, and Go does a resizing-like thing automatically with slices anyway
-// 2: the way nodes are implemented works well in C++ and not in Go (plus I don't know if it's actually O(1) for lookups??)
+// 2: the way nodes are implemented works well in C++ and not in Go (plus I don't know if it's actually O(1) for node lookups??)
 // 3: rehashing etc is slower than just using a slice... somehow. most of this program is between 10-20x slower than the reference implementation, but the tables (which were previously like 50x slower) are now only like 2-3x slower for large allocations (bench/largealloc.luau)
 // 4: having an array part is actually nice for iteration and for large tables (as opposed to the lua4 way, where it's *just* a hash part), the way it's done here is simpler though we have to move stuff around and between the array and node parts more explicitly
 // 5: very weird quirks arise from table length implementations etc. the nil stuff can easily be forgiven, it's the stuff with creating a table and getting a length afterwards (see tests/clear.luau) that is fucking devilish; this is one of the few parts that puts Luau, as the language at the top of my favourites list, in jeopardy
@@ -230,9 +230,9 @@ func extract(n, field, width int) uint32 {
 // HasAux boolean specifies whether the instruction is followed up with an AUX word, which may be used to execute the instruction.
 
 var opList = [83]struct {
-	Name        string
-	Mode, KMode uint8
-	HasAux      bool
+	name        string
+	mode, kMode uint8
+	hasAux      bool
 }{
 	{"NOP", 0, 0, false},
 	{"BREAK", 0, 0, false},
@@ -347,8 +347,8 @@ type Coroutine struct {
 	yield    chan yield
 	resume   chan Rets
 	dbg      *debugging
-	status   Status
 	o        uint8
+	status   Status
 	started  bool
 }
 
@@ -364,7 +364,7 @@ func createCoroutine(body Function) *Coroutine {
 func errorfmt(err error, d *debugging) error {
 	op := "NONE"
 	if d.opcode != 255 {
-		op = opList[d.opcode].Name
+		op = opList[d.opcode].name
 	}
 
 	if d.enabled {
@@ -372,7 +372,7 @@ func errorfmt(err error, d *debugging) error {
 
 		// PC removed for determinism between O levels
 		return fmt.Errorf(
-			"Opcode: %s\n%s:%d: %s",
+			"Opcode: %s\n%s:%d: %w",
 			op,
 			d.debugname,
 			d.instlineinfo[d.pc-1],
@@ -380,7 +380,7 @@ func errorfmt(err error, d *debugging) error {
 	}
 
 	return fmt.Errorf(
-		"Opcode: %s\n%s: %s",
+		"Opcode: %s\n%s: %w",
 		op,
 		d.debugname,
 		err)
@@ -436,7 +436,7 @@ func namecallHandler(co *Coroutine, kv string, stack *[]any, c1, c2 int) (ok boo
 		str := (*stack)[c1].(string)
 		args := (*stack)[c1+1 : c2+1]
 
-		f, err := fmtstring(str, &Args{Co: co, Args: args, name: "format"})
+		f, err := fmtstring(str, &Args{Co: co, List: args, name: "format"})
 		if err != nil {
 			return false, nil, err
 		}
@@ -601,12 +601,12 @@ func readInst(codeList *[]*inst, s *stream) (usesAux bool) {
 	opcode := uint8(value & 0xFF)
 
 	opinfo := opList[opcode]
-	opmode := opinfo.Mode
-	usesAux = opinfo.HasAux
+	opmode := opinfo.mode
+	usesAux = opinfo.hasAux
 
 	i := &inst{
-		opname:  opinfo.Name,
-		kmode:   opinfo.KMode,
+		opname:  opinfo.name,
+		kmode:   opinfo.kMode,
 		opcode:  opcode,
 		opmode:  opmode,
 		usesAux: usesAux,
@@ -649,7 +649,7 @@ func readInst(codeList *[]*inst, s *stream) (usesAux bool) {
 	return
 }
 
-func readProto(bytecodeid uint32, stringList []string, s *stream) proto {
+func readProto(bytecodeid uint32, stringList []string, s *stream) (proto, error) {
 	maxstacksize := s.rByte()
 	numparams := s.rByte()
 	nups := s.rByte()
@@ -704,7 +704,7 @@ func readProto(bytecodeid uint32, stringList []string, s *stream) proto {
 		case 7: // Vector
 			klist[i] = vectorCtor(s.rFloat32(), s.rFloat32(), s.rFloat32(), s.rFloat32())
 		default:
-			panic(fmt.Sprintf("Unknown ktype %d", kt))
+			return proto{}, fmt.Errorf("Unknown ktype %d", kt)
 		}
 	}
 
@@ -791,18 +791,18 @@ func readProto(bytecodeid uint32, stringList []string, s *stream) proto {
 
 		isvararg,
 		lineinfoenabled,
-	}
+	}, nil
 }
 
-func Deserialise(data []byte) deserialised {
+func Deserialise(data []byte) (deserialised, error) {
 	s := &stream{data: data}
 
 	if luauVersion := s.rByte(); luauVersion == 0 {
-		panic("the provided bytecode is an error message")
+		return deserialised{}, errors.New("the provided bytecode is an error message")
 	} else if luauVersion != 6 {
-		panic("the version of the provided bytecode is unsupported")
+		return deserialised{}, errors.New("the version of the provided bytecode is unsupported")
 	} else if s.rByte() != 3 { // types version
-		panic("the types version of the provided bytecode is unsupported")
+		return deserialised{}, errors.New("the types version of the provided bytecode is unsupported")
 	}
 
 	stringCount := s.rVarInt()
@@ -819,14 +819,18 @@ func Deserialise(data []byte) deserialised {
 	protoCount := s.rVarInt()
 	protoList := make([]proto, protoCount)
 	for i := range protoCount {
-		protoList[i] = readProto(i-1, stringList, s)
+		p, err := readProto(i-1, stringList, s)
+		if err != nil {
+			return deserialised{}, err
+		}
+		protoList[i] = p
 	}
 
 	mainProto := protoList[s.rVarInt()]
 	mainProto.debugname = "(main)"
 	s.CheckEnd()
 
-	return deserialised{mainProto, protoList}
+	return deserialised{mainProto, protoList}, nil
 }
 
 type iterator struct {
@@ -2069,7 +2073,7 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 				pc += 2
 			}
 		default:
-			panic(fmt.Sprintf("Unsupported Opcode: %s op: %d", i.opname, op))
+			return nil, fmt.Errorf("Unsupported Opcode: %s op: %d", i.opname, op)
 		}
 	}
 
@@ -2099,9 +2103,7 @@ func wrapclosure(towrap toWrap) Function {
 		la := uint8(len(args)) // we can't have more than 255 args anyway right?
 		// fmt.Println("MAX STACK SIZE", maxs)
 		stack := make([]any, maxs)
-		for i := range min(np, la) {
-			stack[i] = args[i]
-		}
+		copy(stack, args[:min(np, la)])
 
 		var list []any
 		if np < la {
@@ -2120,26 +2122,32 @@ func wrapclosure(towrap toWrap) Function {
 	})
 }
 
-func Load(module deserialised, filepath string, o uint8, env map[any]any, requireCache map[string]Rets) (Coroutine, func()) {
-	protolist := module.protoList
+func Load(module deserialised, filepath string, o uint8, env map[any]any, requireCache ...map[string]Rets) (co Coroutine, cancel func()) {
 	alive := true
+
+	var cache map[string]Rets
+	if len(requireCache) > 0 {
+		cache = requireCache[0]
+	} else {
+		cache = map[string]Rets{}
+	}
 
 	towrap := toWrap{
 		module.mainProto,
 		[]*upval{},
 		&alive,
-		protolist,
+		module.protoList,
 		env,
-		requireCache,
+		cache,
 	}
 
 	return Coroutine{
 		body:     wrapclosure(towrap),
 		env:      env,
 		filepath: filepath,
-		dbg:      &debugging{opcode: 255},
 		yield:    make(chan yield, 1),
 		resume:   make(chan Rets, 1),
+		dbg:      &debugging{opcode: 255},
 		o:        o,
 	}, func() { alive = false }
 }

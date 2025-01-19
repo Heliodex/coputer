@@ -12,14 +12,14 @@ func trim(x uint32) uint32 {
 	return x & allones
 }
 
-// builds a number with 'n' ones (1 <= n <= NBITS)
-func mask(n int) uint32 {
+// builds a number with 'n' ones (1 <= n <= nbits)
+func bitmask(n int) uint32 {
 	return ^((allones - 1) << (n - 1))
 }
 
 func andaux(args Args) uint32 {
 	x := allones
-	for range args.Args {
+	for range args.List {
 		x &= uint32(args.GetNumber())
 	}
 	return trim(x)
@@ -28,14 +28,14 @@ func andaux(args Args) uint32 {
 func b_shift(r uint32, i int) uint32 {
 	if i < 0 { // shift right?
 		i = -i
-		// if i >= NBITS {
+		// if i >= nbits {
 		// 	return 0
 		// }
 		return trim(r) >> i
 	}
 
 	// shift left
-	// if i >= NBITS {
+	// if i >= nbits {
 	// 	return 0
 	// }
 	return trim(r << i)
@@ -67,8 +67,8 @@ func bit32_bnot(args Args) (r Rets, err error) {
 }
 
 func bit32_bor(args Args) (r Rets, err error) {
-	x := uint32(0)
-	for range args.Args {
+	var x uint32
+	for range args.List {
 		x |= uint32(args.GetNumber())
 	}
 	return Rets{float64(trim(x))}, nil
@@ -79,8 +79,8 @@ func bit32_btest(args Args) (r Rets, err error) {
 }
 
 func bit32_bxor(args Args) (r Rets, err error) {
-	x := uint32(0)
-	for range args.Args {
+	var x uint32
+	for range args.List {
 		x ^= uint32(args.GetNumber())
 	}
 	return Rets{float64(trim(x))}, nil
@@ -129,7 +129,7 @@ func bit32_extract(args Args) (r Rets, err error) {
 	if !ok {
 		return Rets{msg, false}, nil
 	}
-	return Rets{float64((x >> f) & mask(w)), true}, nil
+	return Rets{float64((x >> f) & bitmask(w)), true}, nil
 }
 
 func bit32_replace(args Args) (r Rets, err error) {
@@ -140,7 +140,7 @@ func bit32_replace(args Args) (r Rets, err error) {
 	if !ok {
 		return Rets{msg, false}, nil
 	}
-	m := mask(w)
+	m := bitmask(w)
 	v &= m // erase bits outside given width
 	return Rets{float64((x & ^(m << f)) | (v << f)), true}, nil
 }

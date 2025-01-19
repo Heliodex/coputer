@@ -69,25 +69,25 @@ func table_concat(args Args) (r Rets, err error) {
 }
 
 func table_create(args Args) (r Rets, err error) {
-	s := args.GetNumber()
+	s := int(args.GetNumber())
 	if s < 0 {
 		return nil, errors.New("index out of range")
 	}
 
-	if len(args.Args) == 1 {
-		array := make([]any, 0, int(s))
+	if len(args.List) == 1 {
+		a := make([]any, 0, s)
 		return Rets{&Table{
-			array: &array,
+			array: &a,
 		}}, nil
 	}
 
-	array := make([]any, int(s))
+	a := make([]any, s)
 	value := args.GetAny()
-	for i := range array {
-		array[i] = value
+	for i := range a {
+		a[i] = value
 	}
 	return Rets{&Table{
-		array: &array,
+		array: &a,
 	}}, nil
 }
 
@@ -162,7 +162,7 @@ func table_insert(args Args) (r Rets, err error) {
 
 	var pos int
 
-	switch len(args.Args) {
+	switch len(args.List) {
 	case 2:
 		pos = n + 1
 	case 3:
@@ -231,11 +231,11 @@ func table_move(args Args) (r Rets, err error) {
 }
 
 func table_pack(args Args) (r Rets, err error) {
-	n := float64(len(args.Args))
+	n := float64(len(args.List))
 	t := &Table{
 		node: &map[any]any{"n": n},
 	}
-	for i, v := range args.Args {
+	for i, v := range args.List {
 		t.SetArray(i+1, v)
 	}
 
@@ -453,7 +453,7 @@ func table_sort(args Args) (r Rets, err error) {
 	}
 
 	var c comp
-	if len(args.Args) == 1 {
+	if len(args.List) == 1 {
 		c = jumpLt
 	} else {
 		fn := args.GetFunction()
@@ -485,7 +485,7 @@ func table_unpack(args Args) (r Rets, err error) {
 		return (*list.array)[ui-1 : uj], nil
 	}
 
-	r = make([]any, uj-ui+1)
+	r = make(Rets, uj-ui+1)
 	for k := i; k <= e; k++ {
 		r[int(k)-ui] = list.Get(k)
 	}

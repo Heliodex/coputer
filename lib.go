@@ -19,7 +19,7 @@ func invalidArg(i int, fn, msg string) error {
 
 type Args struct {
 	Co   *Coroutine
-	Args []any
+	List []any
 	name string
 	pos  int
 }
@@ -28,7 +28,7 @@ type Rets []any
 
 func getArg[T any](a *Args, optV []T, tx ...string) (g T) {
 	a.pos++
-	if a.pos > len(a.Args) {
+	if a.pos > len(a.List) {
 		if len(optV) == 0 {
 			a.Co.Error(invalidNumArgs(a.name, a.pos, tx...))
 			return
@@ -36,7 +36,7 @@ func getArg[T any](a *Args, optV []T, tx ...string) (g T) {
 		return optV[0]
 	}
 
-	possibleArg := a.Args[a.pos-1]
+	possibleArg := a.List[a.pos-1]
 
 	arg, ok := possibleArg.(T)
 	if !ok {
@@ -47,7 +47,7 @@ func getArg[T any](a *Args, optV []T, tx ...string) (g T) {
 }
 
 func (a *Args) CheckNextArg() {
-	if a.pos >= len(a.Args) {
+	if a.pos >= len(a.List) {
 		a.Co.Error(invalidNumArgs(a.name, a.pos+1))
 	}
 }
@@ -86,7 +86,7 @@ func (a *Args) GetVector(optV ...Vector) Vector {
 
 func (a *Args) GetAny(optV ...any) (arg any) {
 	a.pos++
-	if a.pos > len(a.Args) {
+	if a.pos > len(a.List) {
 		if len(optV) == 0 {
 			a.Co.Error(invalidNumArgs(a.name, a.pos))
 			return
@@ -94,11 +94,11 @@ func (a *Args) GetAny(optV ...any) (arg any) {
 		return optV[0]
 	}
 
-	return a.Args[a.pos-1]
+	return a.List[a.pos-1]
 }
 
 func MakeFn(name string, fn func(args Args) (r Rets, err error)) [2]any {
 	return [2]any{name, Fn(func(co *Coroutine, vargs ...any) (r Rets, err error) {
-		return fn(Args{Co: co, Args: vargs, name: name})
+		return fn(Args{Co: co, List: vargs, name: name})
 	})}
 }

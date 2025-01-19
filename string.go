@@ -49,7 +49,7 @@ func string_byte(args Args) (bytes Rets, err error) {
 }
 
 func string_char(args Args) (r Rets, err error) {
-	l := len(args.Args)
+	l := len(args.List)
 
 	bytes := make([]byte, l)
 	for i := range bytes {

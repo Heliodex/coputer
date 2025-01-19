@@ -23,7 +23,7 @@ func coroutine_isyieldable(args Args) (r Rets, err error) {
 
 func coroutine_resume(args Args) (r Rets, err error) {
 	co := args.GetCoroutine()
-	a := args.Args[1:]
+	a := args.List[1:]
 
 	if co.status == CoDead {
 		return Rets{false, "cannot resume dead coroutine"}, nil
@@ -37,7 +37,7 @@ func coroutine_resume(args Args) (r Rets, err error) {
 	if err != nil {
 		return
 	}
-	return append([]any{true}, res...), nil
+	return append(Rets{true}, res...), nil
 }
 
 func coroutine_running(args Args) (r Rets, err error) {
@@ -74,18 +74,18 @@ func coroutine_wrap(args Args) (r Rets, err error) {
 }
 
 func coroutine_yield(args Args) (r Rets, err error) {
-	a, co := args.Args, args.Co
+	co := args.Co
 
 	if co.status == CoRunning {
 		// fmt.Println("C.Y suspending coroutine")
 		co.status = CoSuspended
 	}
 
-	// fmt.Println("C.Y yielding", a)
-	co.yield <- yield{rets: a}
-	// fmt.Println("C.Y yielded", a, "waiting for resume")
+	// fmt.Println("C.Y yielding")
+	co.yield <- yield{rets: args.List}
+	// fmt.Println("C.Y yielded", "waiting for resume")
 	return <-co.resume, nil
-	// fmt.Println("C.Y resumed", r)
+	// fmt.Println("C.Y resumed")
 }
 
 var libcoroutine = NewTable([][2]any{

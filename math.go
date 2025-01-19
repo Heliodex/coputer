@@ -110,7 +110,7 @@ func math_lerp(args Args) (r Rets, err error) {
 func math_log(args Args) (r Rets, err error) {
 	x := args.GetNumber()
 
-	if len(args.Args) > 1 {
+	if len(args.List) > 1 {
 		base := args.GetNumber()
 		return Rets{math.Log(x) / math.Log(base)}, nil
 	}
@@ -120,7 +120,8 @@ func math_log(args Args) (r Rets, err error) {
 // Deprecated
 // func math_log10(args Args) (r Rets, err error) {
 // 	x := args.GetNumber()
-// 	return math.Log10(x)
+
+// 	return Rets{math.Log10(x)}, nil
 // }
 
 func math_map(args Args) (r Rets, err error) {
@@ -133,7 +134,7 @@ func math_map(args Args) (r Rets, err error) {
 func math_max(args Args) (r Rets, err error) {
 	first := args.GetNumber()
 
-	for range len(args.Args) - 1 {
+	for range len(args.List) - 1 {
 		if n := args.GetNumber(); n > first {
 			first = n
 		}
@@ -144,7 +145,7 @@ func math_max(args Args) (r Rets, err error) {
 func math_min(args Args) (r Rets, err error) {
 	first := args.GetNumber()
 
-	for range len(args.Args) - 1 {
+	for range len(args.List) - 1 {
 		if n := args.GetNumber(); n < first {
 			first = n
 		}
