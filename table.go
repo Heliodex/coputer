@@ -11,8 +11,8 @@ func table_clear(args Args) (r Rets, err error) {
 		return nil, errors.New("attempt to modify a readonly table")
 	}
 
-	t.array = nil
-	t.node = nil
+	t.Array = nil
+	t.Hash = nil
 	return
 }
 
@@ -21,18 +21,18 @@ func table_clone(args Args) (r Rets, err error) {
 
 	nt := &Table{}
 
-	if t.array != nil {
-		a := make([]any, len(t.array))
-		copy(a, t.array)
-		nt.array = a
+	if t.Array != nil {
+		a := make([]any, len(t.Array))
+		copy(a, t.Array)
+		nt.Array = a
 	}
 
-	if t.node != nil {
-		h := make(map[any]any, len(t.node))
-		for k, v := range t.node {
+	if t.Hash != nil {
+		h := make(map[any]any, len(t.Hash))
+		for k, v := range t.Hash {
 			h[k] = v
 		}
-		nt.node = h
+		nt.Hash = h
 	}
 
 	return Rets{nt}, nil
@@ -73,7 +73,7 @@ func table_create(args Args) (r Rets, err error) {
 	if len(args.List) == 1 {
 		a := make([]any, 0, s)
 		return Rets{&Table{
-			array: a,
+			Array: a,
 		}}, nil
 	}
 
@@ -83,7 +83,7 @@ func table_create(args Args) (r Rets, err error) {
 		a[i] = value
 	}
 	return Rets{&Table{
-		array: a,
+		Array: a,
 	}}, nil
 }
 
@@ -95,16 +95,15 @@ func table_find(args Args) (r Rets, err error) {
 		return nil, errors.New("index out of range")
 	}
 
-	if haystack.array != nil {
-		for i := int(init); i < len(haystack.array); i++ {
-			v := haystack.array[i-1]
-			if needle == v {
-				return Rets{float64(i)}, nil
+	if haystack.Array != nil {
+		for i := int(init) - 1; i < len(haystack.Array); i++ {
+			if needle == haystack.Array[i] {
+				return Rets{float64(i + 1)}, nil
 			}
 		}
 	}
-	if haystack.node != nil {
-		for k, v := range haystack.node {
+	if haystack.Hash != nil {
+		for k, v := range haystack.Hash {
 			if needle == v {
 				return Rets{k}, nil
 			}
@@ -191,8 +190,8 @@ func table_maxn(args Args) (r Rets, err error) {
 	var maxn float64
 
 	// array kvs
-	if t.array != nil {
-		for i, v := range t.array {
+	if t.Array != nil {
+		for i, v := range t.Array {
 			if fi := float64(i + 1); v != nil && fi > maxn {
 				maxn = fi
 			}
@@ -200,8 +199,8 @@ func table_maxn(args Args) (r Rets, err error) {
 	}
 
 	// hash kvs
-	if t.node != nil {
-		for k, v := range t.node {
+	if t.Hash != nil {
+		for k, v := range t.Hash {
 			if fk, ok := k.(float64); ok && v != nil && fk > maxn {
 				maxn = fk
 			}
@@ -232,8 +231,8 @@ func table_pack(args Args) (r Rets, err error) {
 	copy(a, args.List)
 
 	return Rets{&Table{
-		node:  map[any]any{"n": float64(l)},
-		array: a,
+		Hash:  map[any]any{"n": float64(l)},
+		Array: a,
 	}}, nil
 }
 
@@ -262,7 +261,7 @@ func table_remove(args Args) (r Rets, err error) {
 type comp func(a, b any) (bool, error) // ton, compton, aint no city quite like miiine
 
 func sort_swap(t *Table, i, j int) {
-	a := t.array
+	a := t.Array
 	// LUAU_ASSERT(unsigned(i) < unsigned(n) && unsigned(j) < unsigned(n)) // contract maintained in sort_less after predicate call
 
 	// no barrier required because both elements are in the array before and after the swap
@@ -270,7 +269,7 @@ func sort_swap(t *Table, i, j int) {
 }
 
 func sort_less(t *Table, i, j int, c comp) (res bool, err error) {
-	a, n := t.array, len(t.array)
+	a, n := t.Array, len(t.Array)
 	// LUAU_ASSERT(unsigned(i) < unsigned(n) && unsigned(j) < unsigned(n)) // contract maintained in sort_less after predicate call
 
 	res, err = c(a[i], a[j])
@@ -473,8 +472,8 @@ func table_unpack(args Args) (r Rets, err error) {
 	}
 
 	ui, uj := int(i), int(e)
-	if uj <= len(list.array) {
-		return list.array[ui-1 : uj], nil
+	if uj <= len(list.Array) {
+		return list.Array[ui-1 : uj], nil
 	}
 
 	r = make(Rets, uj-ui+1)

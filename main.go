@@ -67,69 +67,69 @@ func iterHash(hash map[any]any, y func(any, any) bool) {
 //
 // 7: if anyone tells you tables are simple THEY ARE LYING, CALL THEM OUT ON THEIR SHIT
 type Table struct {
-	array    []any
-	node     map[any]any
+	Array    []any
+	Hash     map[any]any
 	readonly bool
 }
 
 // dbg
 func (t *Table) String() (s string) {
-	if t.array == nil {
+	if t.Array == nil {
 		s += "  array: nil"
 	} else {
-		s += fmt.Sprintf("  array: %v\n", t.array)
+		s += fmt.Sprintf("  array: %v\n", t.Array)
 	}
 
-	if t.node == nil {
+	if t.Hash == nil {
 		s += "  node: nil"
 	} else {
-		s += fmt.Sprintf("  node:  %v", t.node)
+		s += fmt.Sprintf("  node:  %v", t.Hash)
 	}
 	return
 }
 
 // O(1) length, bitchesss
 func (t *Table) Len() int {
-	if t.array == nil {
+	if t.Array == nil {
 		return 0
 	}
-	return len(t.array)
+	return len(t.Array)
 }
 
 func (t *Table) SetHash(k, v any) {
-	if t.node == nil {
+	if t.Hash == nil {
 		if v == nil {
 			return
 		}
-		t.node = map[any]any{k: v}
+		t.Hash = map[any]any{k: v}
 		return
 	}
 
 	if v == nil {
-		delete(t.node, k)
+		delete(t.Hash, k)
 	} else {
-		t.node[k] = v
+		t.Hash[k] = v
 	}
 }
 
 func (t *Table) SetArray(i int, v any) {
-	if t.array == nil {
+	if t.Array == nil {
 		if i == 1 {
-			t.array = []any{v}
+			t.Array = []any{v}
 			return
 		}
 
 		t.SetHash(float64(i), v)
-	} else if l := len(t.array); i < l+1 {
+	} else if l := len(t.Array); i < l+1 {
 		if v != nil {
 			// set in the array portion
-			t.array[i-1] = v
+			t.Array[i-1] = v
 			return
 		}
 
 		// cut the array portion
-		after := t.array[i:]
-		t.array = t.array[:i-1]
+		after := t.Array[i:]
+		t.Array = t.Array[:i-1]
 
 		// move the rest to the hash part
 		for i2, v2 := range after {
@@ -137,20 +137,20 @@ func (t *Table) SetArray(i int, v any) {
 		}
 	} else if i == l+1 {
 		// append to the end
-		t.array = append(t.array, v)
+		t.Array = append(t.Array, v)
 
 		// check if we can move some stuff from the hash part to the array part
-		if t.node == nil {
+		if t.Hash == nil {
 			return
 		}
 
 		for f2 := float64(l + 2); ; f2++ {
-			v2, ok := t.node[f2]
+			v2, ok := t.Hash[f2]
 			if !ok {
 				break
 			}
-			t.array = append(t.array, v2)
-			delete(t.node, f2)
+			t.Array = append(t.Array, v2)
+			delete(t.Hash, f2)
 		}
 	} else {
 		// add to the hash part instead
@@ -175,15 +175,15 @@ func (t *Table) Set(k, v any) error {
 }
 
 func (t *Table) GetHash(k any) any {
-	if t.node == nil {
+	if t.Hash == nil {
 		return nil
 	}
-	return t.node[k]
+	return t.Hash[k]
 }
 
 func (t *Table) Get(k any) any {
 	if ak, ok := arrayKey(k); ok && ak <= t.Len() {
-		return t.array[ak-1]
+		return t.Array[ak-1]
 	}
 	return t.GetHash(k)
 }
@@ -191,11 +191,11 @@ func (t *Table) Get(k any) any {
 // 1.23 goes hard
 func (t *Table) Iter() iter.Seq2[any, any] {
 	return func(y func(any, any) bool) {
-		if t.array != nil {
-			iterArray(t.array, y)
+		if t.Array != nil {
+			iterArray(t.Array, y)
 		}
-		if t.node != nil {
-			iterHash(t.node, y)
+		if t.Hash != nil {
+			iterHash(t.Hash, y)
 		}
 	}
 }
@@ -208,7 +208,7 @@ func NewTable(toHash [][2]any) *Table {
 	}
 	return &Table{
 		readonly: true,
-		node:     hash,
+		Hash:     hash,
 	}
 }
 
@@ -395,6 +395,9 @@ func errorfmt(err error, d *debugging) error {
 
 func (co *Coroutine) Error(err error) {
 	co.yield <- yield{nil, errorfmt(err, co.dbg)}
+
+	// ostensibly blocks forever, but the coroutine is dead/to be killed very soon so it doesn't matter
+	select {}
 }
 
 func startCoroutine(co *Coroutine, args []any) {
@@ -747,11 +750,11 @@ func readProto(bytecodeid uint32, stringList []string, s *stream) (proto, error)
 		linegaplog2 := s.rByte()
 		intervals := uint32((sizecode-1)>>linegaplog2) + 1
 
-		lineinfo := make([]uint32, sizecode)
-		var lastoffset uint32
-		for i := range sizecode {
-			lastoffset += uint32(s.rByte())
-			lineinfo[i] = lastoffset
+		lineinfo := make([]uint8, sizecode)
+		var lastoffset uint8
+		for j := range sizecode {
+			lastoffset += s.rByte() // yeah this is how the reference implementation does it, whatever hpppens happens
+			lineinfo[j] = lastoffset
 		}
 
 		abslineinfo := make([]uint32, intervals)
@@ -765,7 +768,7 @@ func readProto(bytecodeid uint32, stringList []string, s *stream) (proto, error)
 		instlineinfo = make([]uint32, sizecode)
 		for i := range sizecode {
 			// -- p->abslineinfo[pc >> p->linegaplog2] + p->lineinfo[pc];
-			instlineinfo[i] = abslineinfo[i>>linegaplog2] + lineinfo[i]
+			instlineinfo[i] = abslineinfo[i>>linegaplog2] + uint32(lineinfo[i])
 		}
 	}
 
@@ -845,9 +848,16 @@ func Deserialise(data []byte) (deserialised, error) {
 	return deserialised{mainProto, protoList}, nil
 }
 
+//	type iterArgs struct {
+//		table *Table
+//		rest  []any
+//	}
+type iterArgs []any
+
 type iterator struct {
-	args, resume chan *[]any
-	running      bool
+	args    chan *iterArgs
+	resume  chan *[]any
+	running bool
 }
 
 type upval struct {
@@ -1223,6 +1233,7 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 		// }
 		// fmt.Printf("OP %-2d PC %-3d UV %d\n", op, pc+1, len(upvals))
 
+	mainswitch:
 		switch op {
 		case 0: // NOP
 			pc++
@@ -1373,7 +1384,7 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 			t := (*stack)[i.B].(*Table)
 			if t.readonly {
 				return nil, errors.New("attempt to modify a readonly table")
-			} else if i, v := int(i.C+1), (*stack)[i.A]; 1 <= i || i > len(t.array) {
+			} else if i, v := int(i.C+1), (*stack)[i.A]; 1 <= i || i > len(t.Array) {
 				t.SetArray(i, v)
 			} else {
 				t.SetHash(float64(i), v)
@@ -1467,7 +1478,7 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 			} else if !ok {
 				t := (*stack)[B].(*Table)
 
-				if t.node == nil {
+				if t.Hash == nil {
 					(*stack)[A] = nil
 				} else {
 					(*stack)[A] = t.GetHash(kv)
@@ -1479,6 +1490,7 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 
 			i = *callInst
 			op = callOp
+
 			dbg.line = p.instlineinfo[pc-1]
 			dbg.opcode = i.opcode
 
@@ -1835,7 +1847,7 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 			// one-indexed lol
 			for n, v := range (*stack)[B:min(B+c, len(*stack))] {
 				ui := int(n + i.aux)
-				if 1 <= ui || ui > len(s.array) {
+				if 1 <= ui || ui > len(s.Array) {
 					s.SetArray(ui, v)
 					continue
 				}
@@ -1893,9 +1905,10 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 			top = A + 6
 			it := (*stack)[A]
 
-			if fn, ok := it.(Function); ok {
+			switch itt := it.(type) {
+			case Function:
 				// fmt.Println("IT func", fn, (*stack)[A+1], (*stack)[A+2])
-				vals, err := (*fn)(co, (*stack)[A+1], (*stack)[A+2])
+				vals, err := (*itt)(co, (*stack)[A+1], (*stack)[A+2])
 				if err != nil {
 					return nil, err
 				}
@@ -1905,35 +1918,38 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 
 				if (*stack)[A+3] == nil {
 					pc += 2
-					break
+					break mainswitch
 				}
 
 				(*stack)[A+2] = (*stack)[A+3]
 				pc += i.D + 1
-				break
+				break mainswitch
+			case *Table:
+				// fmt.Println("GETTING GENITER", typeOf(it))
+				iter := *generalisedIterators[i]
+
+				if !iter.running {
+					// fmt.Println("-1- sending thru the wire")
+					iter.args <- &iterArgs{it, []any{(*stack)[A+1], (*stack)[A+2]}}
+					// fmt.Println("-1- sent")
+				}
+
+				vals := <-iter.resume
+				// fmt.Println("-1- received!", vals)
+
+				if vals == nil {
+					delete(generalisedIterators, i)
+					pc += 2
+					break mainswitch
+				}
+
+				moveStack(*vals, res, A+3)
+
+				(*stack)[A+2] = (*stack)[A+3]
+				pc += i.D + 1
+			default:
+				return nil, fmt.Errorf("attempt to iterate over a %s value", typeOf(it))
 			}
-
-			iter := *generalisedIterators[i]
-
-			if !iter.running {
-				// fmt.Println("-1- sending thru the wire")
-				iter.args <- &[]any{it, (*stack)[A+1], (*stack)[A+2]}
-				// fmt.Println("-1- sent")
-			}
-
-			vals := <-iter.resume
-			// fmt.Println("-1- received!", vals)
-
-			if vals == nil {
-				delete(generalisedIterators, i)
-				pc += 2
-				break
-			}
-
-			moveStack(*vals, res, A+3)
-
-			(*stack)[A+2] = (*stack)[A+3]
-			pc += i.D + 1
 		case 59, 61: // FORGPREP_INEXT, FORGPREP_NEXT
 			if _, ok := (*stack)[i.A].(Function); !ok {
 				return nil, fmt.Errorf("attempt to iterate over a %s value", typeOf((*stack)[i.A])) // -- encountered non-function value
@@ -1970,12 +1986,10 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 			for i := range nups {
 				switch pseudo := code[pc]; pseudo.A {
 				case 0: // value
-					uv := &upval{
+					uvs[i] = &upval{
 						value:   (*stack)[pseudo.B],
 						selfRef: true,
 					}
-					uv.store = nil
-					uvs[i] = uv
 
 				// -- references dont get handled by DUPCLOSURE
 				case 2: // upvalue
@@ -2035,10 +2049,11 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 			}
 
 			c := &iterator{
-				args:   make(chan *[]any),
+				args:   make(chan *iterArgs),
 				resume: make(chan *[]any),
 			}
 			go iterate(c)
+			// fmt.Println("SETTING GENITER", loopInst)
 			generalisedIterators[loopInst] = c
 		case 77: // JUMPXEQKNIL
 			ra := (*stack)[i.A]

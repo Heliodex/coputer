@@ -129,8 +129,7 @@ func scanformat(strfrmt string) (byte, string, int, error) {
 	}
 	if p > len(flags) {
 		return 0, "", 0, fmt.Errorf("invalid format (repeated flags)")
-	}
-	if isdigit(strfrmt[p]) {
+	} else if isdigit(strfrmt[p]) {
 		p++ // skip width
 		if isdigit(strfrmt[p]) {
 			p++ // (2 digits at most)
@@ -145,6 +144,7 @@ func scanformat(strfrmt string) (byte, string, int, error) {
 			}
 		}
 	}
+
 	if isdigit(strfrmt[p]) {
 		return 0, "", 0, fmt.Errorf("invalid format (width or precision too long)")
 	}
@@ -297,7 +297,7 @@ func string_split(args Args) (r Rets, err error) {
 	}
 
 	return Rets{&Table{
-		array: a,
+		Array: a,
 	}}, nil
 }
 

@@ -26,21 +26,19 @@ func f32IsInf(f float32, sign int) bool {
 
 func f32Modf(f float32) (i float32, frac float32) {
 	if f < 1 {
-		switch {
-		case f < 0:
+		if f < 0 {
 			i, frac = f32Modf(-f)
 			return -i, -frac
-		case f == 0:
+		} else if f == 0 {
 			return f, f // Return -0, -0 when f == -0
 		}
 		return 0, f
 	}
 
 	x := math.Float32bits(f)
-	e := uint(x>>shift)&mask - bias
 
 	// Keep the top 9+e bits, the integer part; clear the rest.
-	if e < 32-9 {
+	if e := uint(x>>shift)&mask - bias; e < 32-9 {
 		x &^= 1<<(32-9-e) - 1
 	}
 	i = math.Float32frombits(x)
@@ -65,10 +63,9 @@ func f32Floor(x float32) float32 {
 
 func f32Sqrt(x float32) float32 {
 	// special cases
-	switch {
-	case x == 0 || f32IsNaN(x) || f32IsInf(x, 1):
+	if x == 0 || f32IsNaN(x) || f32IsInf(x, 1) {
 		return x
-	case x < 0:
+	} else if x < 0 {
 		return f32NaN()
 	}
 	ix := math.Float32bits(x)
@@ -236,25 +233,25 @@ func clamp(v, min, max float32) float32 {
 
 func vector_clamp(args Args) (r Rets, err error) {
 	v := args.GetVector()
-	min := args.GetVector()
-	max := args.GetVector()
+	vmin := args.GetVector()
+	vmax := args.GetVector()
 
-	if min[0] > max[0] {
+	if vmin[0] > vmax[0] {
 		// return nil, errors.New("max.x must be greater than or equal to min.x")
-		min[0], max[0] = max[0], min[0]
-	} else if min[1] > max[1] {
+		vmin[0], vmax[0] = vmax[0], vmin[0]
+	} else if vmin[1] > vmax[1] {
 		// return nil, errors.New("max.y must be greater than or equal to min.y")
-		min[1], max[1] = max[1], min[1]
-	} else if min[2] > max[2] {
+		vmin[1], vmax[1] = vmax[1], vmin[1]
+	} else if vmin[2] > vmax[2] {
 		// return nil, errors.New("max.z must be greater than or equal to min.z")
-		min[2], max[2] = max[2], min[2]
+		vmin[2], vmax[2] = vmax[2], vmin[2]
 	}
 
 	return Rets{Vector{
-		clamp(v[0], min[0], max[0]),
-		clamp(v[1], min[1], max[1]),
-		clamp(v[2], min[2], max[2]),
-		clamp(v[3], min[3], max[3]),
+		clamp(v[0], vmin[0], vmax[0]),
+		clamp(v[1], vmin[1], vmax[1]),
+		clamp(v[2], vmin[2], vmax[2]),
+		clamp(v[3], vmin[3], vmax[3]),
 	}}, nil
 }
 

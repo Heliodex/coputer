@@ -30,9 +30,9 @@ func ipairs_iter(args Args) (r Rets, err error) {
 
 	i++
 
-	if a.array == nil || int(i) > len(a.array) {
+	if a.Array == nil || int(i) > len(a.Array) {
 		return Rets{}, nil
-	} else if v := a.array[int(i)-1]; v != nil {
+	} else if v := a.Array[int(i)-1]; v != nil {
 		return Rets{i, v}, nil
 	}
 	return Rets{}, nil // would prefer nil, nil but whateverrrrr

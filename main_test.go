@@ -104,7 +104,7 @@ func TestConformance(t *testing.T) {
 		return
 	}
 
-	// onlyTest := "libtable.luau"
+	// onlyTest := "2.luau"
 
 	for _, f := range files {
 		if f.IsDir() {
@@ -172,7 +172,7 @@ func TestErrors(t *testing.T) {
 		}
 	}
 
-	// onlyTest := "costack"
+	// onlyTest := "iter1"
 
 	for _, name := range has {
 		// if name != onlyTest {

@@ -1,0 +1,2 @@
+Opcode: FORGLOOP
+(main):1: attempt to iterate over a string value
