@@ -127,9 +127,8 @@ func bumpelements(t *Table, start int) {
 	fstart := float64(start)
 	var keys float64
 	for i := fstart; ; i++ {
-		v := t.Get(i)
-		// fmt.Println("starting with", i, v)
-		if v == nil {
+		// fmt.Println("starting with", i)
+		if t.Get(i) == nil {
 			keys = i - 1
 			break
 		}
@@ -192,7 +191,9 @@ func table_maxn(args Args) (r Rets, err error) {
 	// array kvs
 	if t.Array != nil {
 		for i, v := range t.Array {
-			if fi := float64(i + 1); v != nil && fi > maxn {
+			if v == nil {
+				continue
+			} else if fi := float64(i + 1); fi > maxn {
 				maxn = fi
 			}
 		}
@@ -201,7 +202,9 @@ func table_maxn(args Args) (r Rets, err error) {
 	// hash kvs
 	if t.Hash != nil {
 		for k, v := range t.Hash {
-			if fk, ok := k.(float64); ok && v != nil && fk > maxn {
+			if v == nil {
+				continue
+			} else if fk, ok := k.(float64); ok && fk > maxn {
 				maxn = fk
 			}
 		}
@@ -314,14 +317,13 @@ func sort_siftheap(t *Table, l, u int, c comp, root int) (err error) {
 	}
 
 	// process last element if it has just one child
-	if lastleft := root*2 + 1; lastleft == count-1 {
-		if r, err := sort_less(t, l+root, l+lastleft, c); err != nil {
-			return err
-		} else if r {
-			sort_swap(t, l+root, l+lastleft)
-		}
+	if lastleft := root*2 + 1; lastleft != count-1 {
+		return
+	} else if r, err := sort_less(t, l+root, l+lastleft, c); err != nil {
+		return err
+	} else if r {
+		sort_swap(t, l+root, l+lastleft)
 	}
-
 	return
 }
 
@@ -357,7 +359,7 @@ func sort_rec(t *Table, l, u, limit int, c comp) (err error) {
 			break // only 2 elements
 		}
 
-		m := l + ((u - l) >> 1) // midpoint
+		m := l + (u-l)>>1 // midpoint
 		if r, err := sort_less(t, m, l, c); err != nil {
 			return err
 		} else if r { // a[m]<a[l]?
@@ -415,7 +417,7 @@ func sort_rec(t *Table, l, u, limit int, c comp) (err error) {
 		sort_swap(t, p, i)
 
 		// adjust limit to allow 1.5 log2N recursive steps
-		limit = (limit >> 1) + (limit >> 2)
+		limit = limit>>1 + limit>>2
 
 		// a[l..i-1] <= a[i] == P <= a[i+1..u]
 		// sort smaller half recursively; the larger half is sorted in the next loop iteration

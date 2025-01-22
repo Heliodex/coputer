@@ -104,7 +104,7 @@ func TestConformance(t *testing.T) {
 		return
 	}
 
-	// onlyTest := "2.luau"
+	// onlyTest := "stringfind.luau"
 
 	for _, f := range files {
 		if f.IsDir() {

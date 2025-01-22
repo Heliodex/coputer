@@ -47,10 +47,8 @@ func bit32_arshift(args Args) (r Rets, err error) {
 
 	if i < 0 || (x&(1<<(nbits-1)) == 0) {
 		return Rets{float64(b_shift(x, -i))}, nil
-	}
-
-	// arithmetic shift for 'negative' number
-	if i >= nbits {
+	} else if i >= nbits {
+		// arithmetic shift for 'negative' number
 		return Rets{float64(allones)}, nil
 	}
 	return Rets{float64(trim((x >> i) | ^(allones >> i)))}, nil
