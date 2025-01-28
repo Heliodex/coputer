@@ -70,3 +70,6 @@ print(string.find(ss, "l+", 15))
 print(string.find(ss, "l+", 16))
 print(string.find(ss, "c+", 16))
 print(string.find(ss, "c*", 16))
+
+print(string.find("m", "m?m"))
+print(string.find("mu", "c?u"))
