@@ -1,6 +1,5 @@
 do
 	local s = "hello 世界"
-
 	print(string.find(s, "hello"))
 	print(string.find(s, "hello", -12))
 	print(string.find(s, "世界", 7))
@@ -79,17 +78,18 @@ print(string.find("mu", "c?u"))
 print(string.find(ss, "c?u", 2))
 print(string.find(ss, "c?u", 3))
 
-print(string.find("sup", "^"))
-print(string.find("sup", "$"))
-print(string.find("sup", "$", 4))
-print(string.find("sup", "$", 5))
+ss = "sup"
+print(string.find(ss, "^"))
+print(string.find(ss, "$"))
+print(string.find(ss, "$", 4))
+print(string.find(ss, "$", 5))
 
-print(string.find("sup", "p$"))
-print(string.find("sup", "^sup$"))
-print(string.find("sup", "^sip$"))
-print(string.find("sup", "^s.+"))
-print(string.find("sup", "^u.+"))
-print(string.find("sup", "u.+"))
+print(string.find(ss, "p$"))
+print(string.find(ss, "^sup$"))
+print(string.find(ss, "^sip$"))
+print(string.find(ss, "^s.+"))
+print(string.find(ss, "^u.+"))
+print(string.find(ss, "u.+"))
 
 print(string.find("Price: $123.45", "%$%d+%.%d+"))
 print(string.find("Price: $123.45", "$%d+%.%d+"))
@@ -97,3 +97,40 @@ print(string.find("Price: $123.45", "%$(%d+%.%d+)"))
 print(string.find("yea$123yea", "$%d+"))
 print(string.find("yea$123yea", "$(%d+)"))
 print(string.find("yea$123yea", "($%d+)"))
+
+ss = "Deadline is 30/05/1999, firm"
+print(string.find(ss, "%d%d/%d%d/%d%d%d%d"))
+print(string.find(ss, "(%d%d/%d%d/%d%d%d%d)"))
+print(string.find(ss, "(%d%d)/(%d%d)/(%d%d%d%d)"))
+print(string.find(ss, "(%d+)/(%d+)/(%d+)"))
+print(string.find("hello, up-down!", "%a+"))
+print(string.find("hello, up-down!", "%A+"))
+print(string.find("the \0 null charact\0\0er", "%z"))
+print(string.find("the \0 null charact\0\0er", "%z+", 10))
+print(string.find("Full stop.", "."))
+print(string.find("Full stop.", "%."))
+print(string.find("10% luck 20% skill 15% contentrated power of will", "%%"))
+
+print(string.find("Hello!", "^Hell"))
+print(string.find("World, Hello!", "^Hell"))
+
+ss = "HELLO! worldz"
+print(string.find(ss, "[a-z]"))
+print(string.find(ss, "[a-y]"))
+print(string.find(ss, "[A-Z]"))
+print(string.find(ss, "[A-M]"))
+print(string.find(ss, "[a-z]+"))
+print(string.find(ss, "[a-y]+"))
+print(string.find(ss, "[A-Z]+"))
+print(string.find(ss, "[A-M]+"))
+
+print(string.find("1234567890abcdefghijklmnop", "%x+"))
+print(string.find("abcbabcbdefedefebac", "[abc]+"))
+
+print(string.find("-20", "[+-]?%d+"))
+print(string.find("It's -20K", "([+-]?%d+)")) -- lolwut
+print(string.find("It's 20K", "([+-]?%d+)"))
+print(string.find("It's +K", "([+-]?%d+)"))
+
+print(string.find("duplicateduplicate", "(%a+)%1"))
+print(string.find("dupe dupe", "(%a+) %1"))

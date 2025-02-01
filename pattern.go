@@ -1,3 +1,6 @@
+// Pattern matching seems to be some sort of "great filter" for Lua/Luau VM implementations in other languages.
+// Where I now stand, many have fallen before me.
+
 package litecode
 
 import (
@@ -247,6 +250,15 @@ type captures struct {
 	captures []capture
 }
 
+func checkCapture(l int, caps *captures) (int, error) {
+	l -= '1'
+	if l < 0 || l >= caps.level || caps.captures[l].len == cap_unfinished {
+		return 0, fmt.Errorf("invalid capture index %%%d", l+1)
+	}
+
+	return l, nil
+}
+
 func captureToClose(caps *captures) (int, error) {
 	for level := caps.level - 1; level >= 0; level-- {
 		fmt.Println(" cap level", level, caps.captures, caps.captures[level])
@@ -299,6 +311,21 @@ func endCapture(s, p string, si, pi int, caps *captures) (si2 int, err error) {
 	fmt.Println("endcapture done", si, caps.captures)
 
 	return si, nil
+}
+
+func matchCapture(s string, si, l int, caps *captures) (i int, err error) {
+	if l, err = checkCapture(l, caps); err != nil {
+		return
+	}
+	fmt.Println("matching catching", s, si, l)
+	cap := caps.captures[l]
+
+	if ll := cap.len; len(s) >= ll {
+		if s1, s2 := s[cap.init:], s[si:]; s1[:min(len(s1), ll)] == s2[:min(len(s2), ll)] {
+			return si + ll, nil
+		}
+	}
+	return -1, nil
 }
 
 func optSuffix(s, p string, si, pi, epi int, caps *captures) (cont bool, si2, pi2 int, err error) {
@@ -417,6 +444,14 @@ func matchPos(s, p string, si, pis int, caps *captures) (si2 int, err error) {
 			case 'b': // balanced string?
 			case 'f': // frontier?
 			case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9': // capture results (%0-%9)?
+				if si, err = matchCapture(s, si, int(p[pi+1]), caps); err != nil {
+					return 0, err
+				} else if si != -1 {
+					dlog("matched catched")
+					pi += 2
+					continue
+				}
+				return si, nil
 			default:
 				// go to default
 				var cont bool

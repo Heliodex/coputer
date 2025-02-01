@@ -1,0 +1,2 @@
+Opcode: CALL
+(main):1: invalid capture index %2

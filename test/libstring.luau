@@ -49,8 +49,13 @@ print(string.format("%*", "anythingyyy"))
 print(string.format("%*", 500))
 print(string.format("%*", 500.5))
 
--- print(string.format("%e", 42))
--- print(string.format("%E", 42))
+print(string.format("The magic word is %s", "Roblox"))
+print(string.format "Roblox")
+print(string.format("The magic word is %q", "Roblox"))
+print(string.format("%q", "Skip to \na new line and \nanother new line!"))
+
+print(string.format("%e", 42))
+print(string.format("%E", 42))
 
 -- docs things
 local str
@@ -105,11 +110,11 @@ print(string.reverse(s))
 
 print(table.unpack(string.split("hello world", " ")))
 print(table.unpack(string.split("hello world", "")))
-print(table.unpack(string.split("hello,world")))
-print(table.unpack(string.split(",,,")))
+print(table.unpack(string.split "hello,world"))
+print(table.unpack(string.split ",,,"))
 print(table.unpack(string.split("", "")))
 print(table.unpack(string.split("", "test")))
-print(table.unpack(string.split("")))
+print(table.unpack(string.split ""))
 
 print(string.sub("hello world", 1, 1))
 print(string.sub("hello world", 1, -11))
