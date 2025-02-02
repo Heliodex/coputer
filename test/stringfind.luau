@@ -133,4 +133,26 @@ print(string.find("It's 20K", "([+-]?%d+)"))
 print(string.find("It's +K", "([+-]?%d+)"))
 
 print(string.find("duplicateduplicate", "(%a+)%1"))
+print(string.find("duplicateduplicate after", "(%a+)%1 after"))
 print(string.find("dupe dupe", "(%a+) %1"))
+print(string.find("dupe dupe after", "(%a+) %1 after"))
+
+print(string.find("one |two| three |four| five", "|[^|]*|"))
+print(string.find("foo: 123 bar: 456", "(%a+):%s*(%d+)%s+(%a+):%s*(%d+)"))
+print(string.find("%j", "%j"))
+print(string.find("%j", "%%j"))
+print(string.find("12345712301-helloworld8yeah", "([0-7%l%-]+)"))
+
+print(string.find("no meaning no", "[%a-z]+"))
+print(string.find("no meaning no", "[^%a-z]+"))
+print(string.find("no meaning no", "[a-%%]+"))
+print(string.find("no meaning no", "[^a-%%]+"))
+
+print(string.find("these (are (balanced)) parentheses", "%b()"))
+print(string.find("these (are (balanced)) parentheses", "ese (%b()) paren"))
+print(string.find("(these (aren't (balanced)) parentheses", "%b()"))
+print(string.find("these (aren't (balanced)) parentheses)", "%b()"))
+
+-- the final frointer
+print(string.find("abcabcdefdef", "%f[def]"))
+print(string.find("abcabcdefdef", "(%f[def])"))

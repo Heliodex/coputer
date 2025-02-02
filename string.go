@@ -99,7 +99,7 @@ func string_find(args Args) (r Rets, err error) {
 	i := int(args.GetNumber(1))
 	plain := args.GetBool(false)
 
-	return str_find_aux(s, p, i, plain, true)
+	return stringFindAux(s, p, i, plain, true)
 }
 
 func addquoted(args *Args, b *strings.Builder) {

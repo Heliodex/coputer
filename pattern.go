@@ -9,18 +9,19 @@ import (
 	"strings"
 )
 
-var depth = 0
+// loggin shit for login' shit
+// var depth = 0
 
-func dlog(a ...any) {
-	fmt.Print(strings.Repeat("  ", depth))
-	fmt.Println(a...)
-}
+// func dlog(a ...any) {
+// 	fmt.Print(strings.Repeat("  ", depth))
+// 	fmt.Println(a...)
+// }
 
 func classend(p string, pi int) (int, error) {
 	// dlog("CLASSEND", p, pi, string(p[pi]))
 
-	depth++
-	defer func() { depth-- }()
+	// depth++
+	// defer func() { depth-- }()
 
 	switch p[pi] {
 	case l_esc:
@@ -54,7 +55,7 @@ func classend(p string, pi int) (int, error) {
 	return pi + 1, nil
 }
 
-func match_class(c, cl byte) (res bool) {
+func matchclass(c, cl byte) (res bool) {
 	switch tolower(cl) {
 	case 'a':
 		res = isalpha(c)
@@ -95,15 +96,10 @@ func matchbracketclass(c byte, p string, pi, eci int) bool {
 		pi++ // skip the '^'
 	}
 
-	for {
-		pi++
-		if pi >= eci {
-			break
-		}
-
+	for ; pi < eci; pi++ {
 		if p[pi] == l_esc {
 			pi++
-			if match_class(c, p[pi]) {
+			if matchclass(c, p[pi]) {
 				return sig
 			}
 		} else if p[pi+1] == '-' && pi+2 < eci {
@@ -120,7 +116,7 @@ func matchbracketclass(c byte, p string, pi, eci int) bool {
 }
 
 func singlematch(s, p string, si, pi, epi int) bool {
-	dlog("SINGLEMATCH", s, p, si, pi, epi)
+	// dlog("SINGLEMATCH", s, p, si, pi, epi)
 
 	if si >= len(s) {
 		return false
@@ -132,8 +128,8 @@ func singlematch(s, p string, si, pi, epi int) bool {
 		return true
 	case l_esc:
 
-		m := match_class(c, p[pi+1])
-		dlog("  match class", string(c), p[pi+1], m)
+		m := matchclass(c, p[pi+1])
+		// dlog("  match class", string(c), p[pi+1], m)
 		return m
 	case '[':
 		return matchbracketclass(c, p, pi, epi-1)
@@ -141,15 +137,45 @@ func singlematch(s, p string, si, pi, epi int) bool {
 	return p[pi] == c
 }
 
-func push_onecapture(s string, start, end, i int, caps *captures) (any, error) {
-	fmt.Println("    push", start, end, i, caps)
+func matchbalance(s, p string, si, pi int) (int, error) {
+	if pi >= len(p)-1 {
+		return 0, errors.New("malformed pattern (missing arguments to '%b')")
+	}
+
+	b := p[pi]
+	if s[si] != b {
+		return -1, nil
+	}
+
+	e := p[pi+1]
+	for cont := 1; ; {
+		si++
+		if si >= len(s) {
+			break
+		}
+
+		if s[si] == e {
+			cont--
+			if cont == 0 {
+				return si + 1, nil
+			}
+		} else if s[si] == b {
+			cont++
+		}
+	}
+
+	return -1, nil // string ends out of balance
+}
+
+func pushCapture(s string, start, end, i int, caps *captures) (any, error) {
+	// fmt.Println("    push", start, end, i, caps)
 
 	if i >= caps.level {
 		if i != 0 {
 			return nil, errors.New("invalid capture index")
 		}
 		// caps.level == 0, too
-		fmt.Println("    adding whole match")
+		// fmt.Println("    adding whole match")
 		if start == -1 {
 			return s, nil // add whole string
 		}
@@ -161,36 +187,36 @@ func push_onecapture(s string, start, end, i int, caps *captures) (any, error) {
 	if l == cap_unfinished {
 		return nil, errors.New("unfinished capture")
 	} else if l == cap_position {
-		fmt.Println("    adding cap position")
+		// fmt.Println("    adding cap position")
 		return float64(i + 1), nil
 	}
-	fmt.Println("    adding normal")
+	// fmt.Println("    adding normal")
 	return s[start+i : start+i+l], nil
 }
 
-func push_captures(s string, start, end int, find bool, caps *captures) (r Rets, err error) {
-	fmt.Println("  PUSHING CAPS", start, end, caps)
+func pushCaptures(s string, start, end int, find bool, caps *captures) (r Rets, err error) {
+	// fmt.Println("  PUSHING CAPS", start, end, caps)
 
 	nlevels := caps.level
 	if nlevels == 0 { // hmm
 		if find {
-			fmt.Println("  no nlevels")
+			// fmt.Println("  no nlevels")
 			return
 		}
 		nlevels = 1
 	}
 
-	fmt.Println("  nlevels", nlevels)
+	// fmt.Println("  nlevels", nlevels)
 
 	r = make(Rets, nlevels)
 	for i := range nlevels {
-		if r[i], err = push_onecapture(s, start, end, i, caps); err != nil {
+		if r[i], err = pushCapture(s, start, end, i, caps); err != nil {
 			return nil, err
 		}
-		fmt.Println("  captured", r[i])
+		// fmt.Println("  captured", r[i])
 	}
 
-	fmt.Println("  PUSHED", r)
+	// fmt.Println("  PUSHED", r)
 
 	return
 }
@@ -212,18 +238,18 @@ func maxExpand(s, p string, si, pi, epi int, caps *captures) (si2 int, err error
 	}
 
 	// keeps trying to match with the maximum repetitions
-	dlog("xpanding", i)
+	// dlog("xpanding", i)
 	for i >= 0 {
 		if si, err = matchPos(s, p, si+i, epi+1, caps); err != nil {
 			return 0, err
 		} else if si != -1 {
-			dlog("xpandmatched", si, caps.captures)
+			// dlog("xpandmatched", si, caps.captures)
 			return si, nil
 		}
 		i-- // else didn't match; reduce 1 repetition to try again
 	}
 
-	dlog("xpandfailed")
+	// dlog("xpandfailed")
 	return -1, nil
 }
 
@@ -261,7 +287,7 @@ func checkCapture(l int, caps *captures) (int, error) {
 
 func captureToClose(caps *captures) (int, error) {
 	for level := caps.level - 1; level >= 0; level-- {
-		fmt.Println(" cap level", level, caps.captures, caps.captures[level])
+		// fmt.Println(" cap level", level, caps.captures, caps.captures[level])
 		if caps.captures[level].len == cap_unfinished {
 			return level, nil
 		}
@@ -298,17 +324,17 @@ func endCapture(s, p string, si, pi int, caps *captures) (si2 int, err error) {
 		return 0, err
 	}
 
-	fmt.Println("endcapture", l, caps.captures, caps.captures[l])
+	// fmt.Println("endcapture", l, caps.captures, caps.captures[l])
 
 	caps.captures[l].len = si - caps.captures[l].init // close capture
 	if si, err = matchPos(s, p, si, pi, caps); err != nil {
 		return 0, err
 	} else if si == -1 { // match failed?
-		fmt.Println("undo capture")
+		// fmt.Println("undo capture")
 		caps.captures[l].len = cap_unfinished // undo capture
 	}
 
-	fmt.Println("endcapture done", si, caps.captures)
+	// fmt.Println("endcapture done", si, caps.captures)
 
 	return si, nil
 }
@@ -317,7 +343,7 @@ func matchCapture(s string, si, l int, caps *captures) (i int, err error) {
 	if l, err = checkCapture(l, caps); err != nil {
 		return
 	}
-	fmt.Println("matching catching", s, si, l)
+	// fmt.Println("matching catching", s, si, l)
 	cap := caps.captures[l]
 
 	if ll := cap.len; len(s) >= ll {
@@ -331,21 +357,20 @@ func matchCapture(s string, si, l int, caps *captures) (i int, err error) {
 func optSuffix(s, p string, si, pi, epi int, caps *captures) (cont bool, si2, pi2 int, err error) {
 	switch p[epi] {
 	case '?': // optional
-		dlog("optional", s[si+1:], p[epi+1:])
+		// dlog("optional", s[si+1:], p[epi+1:])
 
 		si2, err = matchPos(s, p, si+1, epi+1, caps)
 		if err != nil {
 			return
 		}
 
-		dlog("optional done", si, si2)
+		// dlog("optional done", si, si2)
 
 		if si2 != -1 {
 			si = si2
 		} else {
-			dlog("pi is", pi, epi+1)
-			pi = epi
-			return true, si, pi, nil
+			// dlog("pi is", pi, epi+1)
+			return true, si, epi, nil
 		}
 	case '+': // 1 or more repetitions
 		si++        // 1 match already done
@@ -359,10 +384,9 @@ func optSuffix(s, p string, si, pi, epi int, caps *captures) (cont bool, si2, pi
 			return
 		}
 	default: // no suffix
-		dlog("no suffix")
+		// dlog("no suffix")
 		si++
-		pi = epi - 1
-		return true, si, pi, nil
+		return true, si, epi - 1, nil
 	}
 
 	return false, si, pi, nil
@@ -409,24 +433,24 @@ func defaultCase(s, p string, si, pi, epi int, caps *captures) (cont bool, si2, 
 func matchPos(s, p string, si, pis int, caps *captures) (si2 int, err error) {
 	// dlog("MATCHPOS", s, p, si, pis)
 
-	depth++
-	defer func() { depth-- }()
+	// depth++
+	// defer func() { depth-- }()
 
 	for pi := pis; pi < len(p); pi++ {
-		dlog("ITER", pi, string(p[pi]))
+		// dlog("ITER", pi, string(p[pi]), s[si:])
 
 		switch p[pi] {
 		case '(': // start capture
 			what := cap_unfinished
 			if p[pi+1] == ')' { // position capture?
-				dlog("POSITION CAPTURE")
+				// dlog("POSITION CAPTURE")
 				what = cap_position
 			}
 
-			dlog("start", what, pi, pi-what)
+			// dlog("start", what, pi, pi-what)
 			return startCapture(s, p, si, pi-what, what, caps)
 		case ')': // end capture
-			dlog("end", s, p, si, pi, caps.captures)
+			// dlog("end", s, p, si, pi, caps.captures)
 			return endCapture(s, p, si, pi+1, caps)
 		case '$':
 			if pi+1 != len(p) { // s the '$' the last char in pattern?
@@ -436,29 +460,53 @@ func matchPos(s, p string, si, pis int, caps *captures) (si2 int, err error) {
 					return si, err
 				}
 			} else if si != len(s) { // check end of string
-				dlog("not end of string", len(s)-si)
+				// dlog("not end of string", len(s)-si)
 				return -1, nil
 			}
 		case l_esc: // escaped sequences not in the format class[*+?-]?
 			switch p[pi+1] {
 			case 'b': // balanced string?
+				if si, err = matchbalance(s, p, si, pi+2); err != nil {
+					return 0, err
+				} else if si != -1 {
+					pi += 3 // 1 less beacuse increment
+					// dlog("matched balanced", pi < len(p))
+					continue
+				} // else fail (s == -1)
+				return si, nil
 			case 'f': // frontier?
+				pi += 2
+				if p[pi] != '[' {
+					return 0, errors.New("missing '[' after '%f' in pattern")
+				}
+
+				ep, err := classend(p, pi) // points to what is next
+				if err != nil {
+					return 0, err
+				}
+
+				var previous byte // \0
+				if si != 0 {
+					previous = s[si-1]
+				}
+
+				if !matchbracketclass(previous, p, pi, ep-1) && matchbracketclass(s[si], p, pi, ep-1) {
+					pi = ep - 1
+					continue
+				}
+				return -1, nil // match failed
 			case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9': // capture results (%0-%9)?
 				if si, err = matchCapture(s, si, int(p[pi+1]), caps); err != nil {
 					return 0, err
 				} else if si != -1 {
-					dlog("matched catched")
-					pi += 2
+					// dlog("matched catched")
+					pi += 1
 					continue
 				}
 				return si, nil
-			default:
-				// go to default
-				var cont bool
-				if cont, si, pi, err = defaultCase(s, p, si, pi, len(p), caps); !cont {
-					return si, err
-				}
 			}
+			// go to default
+			fallthrough
 		default:
 			// go to default; do not pass go, do not collect £200
 			var cont bool
@@ -484,12 +532,12 @@ func match(s, p string, caps *captures) (start, end int, err error) {
 		// reprep state
 		caps.level = 0
 
-		depth++
+		// depth++
 		e, err := matchPos(s[start:], p, 0, pis, caps)
 		if err != nil {
-			return -1, -1, err
+			return 0, 0, err
 		}
-		depth--
+		// depth--
 
 		// dlog("MATCH DONE", start, e)
 
@@ -502,7 +550,7 @@ func match(s, p string, caps *captures) (start, end int, err error) {
 	return -1, -1, nil
 }
 
-func str_find_aux(s, p string, i int, plain, find bool) (r Rets, err error) {
+func stringFindAux(s, p string, i int, plain, find bool) (r Rets, err error) {
 	ls := len(s)
 
 	init := string_posrelat(i, ls)
@@ -535,16 +583,16 @@ func str_find_aux(s, p string, i int, plain, find bool) (r Rets, err error) {
 		return Rets{nil}, nil // not found
 	}
 
-	fmt.Println("DONE!", caps)
+	// fmt.Println("DONE!", caps)
 
-	rs, err := push_captures(s, start, end, find, caps)
+	rs, err := pushCaptures(s, start, end, find, caps)
 	if err != nil {
 		return nil, err
 	} else if !find {
 		return rs, nil
 	}
 
-	fmt.Println("pushed", rs)
+	// fmt.Println("pushed", rs)
 
 	return append(Rets{
 		float64(start + init),
