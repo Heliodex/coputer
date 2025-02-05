@@ -156,3 +156,80 @@ print(string.find("these (aren't (balanced)) parentheses)", "%b()"))
 -- the final frointer
 print(string.find("abcabcdefdef", "%f[def]"))
 print(string.find("abcabcdefdef", "(%f[def])"))
+
+print(string.find("This is a string", "(.()(%a+))"))
+print(string.find("\a\b\f\n\r\t\v", "^%c%c%c%c%c%c%c$"))
+
+print(string.find("", "")) -- empty patterns are tricky
+print(string.find("alo", ""))
+print(string.find("a\0o a\0o a\0o", "a", 1)) -- first position
+print(string.find("a\0o a\0o a\0o", "a\0o", 2)) -- starts in the middle
+print(string.find("a\0o a\0o a\0o", "a\0o", 9)) -- starts in the middle
+print(string.find("a\0a\0a\0a\0\0ab", "\0ab", 2)) -- finds at the end
+print(string.find("a\0a\0a\0a\0\0ab", "b")) -- last position
+print(string.find("a\0a\0a\0a\0\0ab", "b\0")) -- check ending
+print(string.find("", "\0"))
+print(string.find("alo123alo", "12"))
+print(string.find("alo123alo", "^12"))
+
+local function f(s, p)
+	local i, e = string.find(s, p)
+	if i then
+		print(i, e, string.sub(s, i, e))
+	else
+		print(nil)
+	end
+end
+
+f("aloALO", "%l*")
+f("aLo_ALO", "%a*")
+
+f("  \n\r*&\n\r   xuxu  \n\n", "%g%g%g+")
+
+f("aaab", "a*")
+f("aaa", "^.*$")
+f("aaa", "b*")
+f("aaa", "ab*a")
+f("aba", "ab*a")
+f("aaab", "a+")
+f("aaa", "^.+$")
+f("aaa", "b+")
+f("aaa", "ab+a")
+f("aba", "ab+a")
+f("a$a", ".$")
+f("a$a", ".%$")
+f("a$a", ".$.")
+f("a$a", "$$")
+f("a$b", "a$")
+f("a$a", "$")
+f("", "b*")
+f("aaa", "bb*")
+f("aaab", "a-")
+f("aaa", "^.-$")
+
+f("bbb", "b.*b")
+f("baaabaaab", "b.*b")
+f("aabaaabaaabaaaba", "b.*b")
+f("aabaaabaaabaaaba", "b.-b")
+
+f("alo xo", ".o$")
+f(" \n isto � assim", "%S%S*")
+f(" \n isto � assim", "%S*$")
+f(" \n isto � assim", "[a-z]*$")
+f("um caracter ? extra", "[^%sa-z]")
+f("", "a?")
+f("�", "�?")
+f("�bl", "�?b?l?")
+f("  �bl", "�?b?l?")
+f("aa", "^aa?a?a")
+f("]]]�b", "[^]]")
+f("0alo alo", "%x*")
+f("alo alo", "%C+")
+
+print(string.find("(�lo)", "%(�"))
+
+-- big strings
+local a = string.rep("a", 300000)
+print(string.find(a, "^a*.?$"))
+print(string.find(a, "^a*.?b$"))
+print(string.find(a, "^a-.?$"))

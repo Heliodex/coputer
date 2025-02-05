@@ -231,20 +231,21 @@ func nospecials(p string) bool {
 	return true // no special characters found
 }
 
-func maxExpand(s, p string, si, pi, epi int, caps *captures) (si2 int, err error) {
+func maxExpand(s, p string, si, pi, epi int, caps *captures) (res int, err error) {
 	i := 0 // counts maximum expand for item
 	for singlematch(s, p, si+i, pi, epi) {
 		i++
 	}
 
 	// keeps trying to match with the maximum repetitions
-	// dlog("xpanding", i)
+	// dlog("xpanding", si, i)
 	for i >= 0 {
-		if si, err = matchPos(s, p, si+i, epi+1, caps); err != nil {
-			return 0, err
-		} else if si != -1 {
+		// dlog("reduced", si, i)
+		if res, err = matchPos(s, p, si+i, epi+1, caps); err != nil {
+			return
+		} else if res != -1 {
 			// dlog("xpandmatched", si, caps.captures)
-			return si, nil
+			return res, nil
 		}
 		i-- // else didn't match; reduce 1 repetition to try again
 	}
@@ -407,7 +408,7 @@ func defaultCase(s, p string, si, pi, epi int, caps *captures) (cont bool, si2, 
 			// accept empty?
 			// dlog("  accept empty")
 			pi = epi
-			// dlog("  pi is", pi, epi+1, string(p[epi+1]))
+			// dlog("  pi is", pi, epi, string(p[epi]))
 			return true, si, pi, nil // get out of default free card
 		}
 
