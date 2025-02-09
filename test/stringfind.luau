@@ -157,6 +157,14 @@ print(string.find("these (aren't (balanced)) parentheses)", "%b()"))
 print(string.find("abcabcdefdef", "%f[def]"))
 print(string.find("abcabcdefdef", "(%f[def])"))
 
+print(string.find("a", "%f[a]"))
+print(string.find("a", "%f[^%z]"))
+print(string.find("a", "%f[^%l]"))
+print(string.find("aba", "%f[a%z]"))
+print(string.find("aba", "%f[%z]"))
+print(string.find("aba", "%f[%l%z]"))
+print(string.find("aba", "%f[^%l%z]"))
+
 print(string.find("This is a string", "(.()(%a+))"))
 print(string.find("\a\b\f\n\r\t\v", "^%c%c%c%c%c%c%c$"))
 

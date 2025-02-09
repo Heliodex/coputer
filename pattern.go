@@ -42,7 +42,7 @@ func classend(p string, pi int) (int, error) {
 			if pi == len(p) {
 				return 0, errors.New("malformed pattern (missing ']')")
 			} else if p[pi] == l_esc && pi+1 < len(p) {
-				pi++
+				pi++ // skip escapes (eg. '%]')
 			}
 			pi++
 
@@ -89,26 +89,31 @@ func matchclass(c, cl byte) (res bool) {
 	return !res
 }
 
-func matchbracketclass(c byte, p string, pi, eci int) bool {
-	sig := true
+func matchbracketclass(c byte, p string, pi, eci int) (sig bool) {
+	// fmt.Println("MBC", p[pi:eci], pi, eci)
+
+	sig = true // nock mont 3
 	if p[pi+1] == '^' {
 		sig = false
 		pi++ // skip the '^'
 	}
 
 	for ; pi < eci; pi++ {
+		// fmt.Printf("  %d %c, %d\n", c, p[pi], pi)
 		if p[pi] == l_esc {
+			// fmt.Println("it's a %")
 			pi++
 			if matchclass(c, p[pi]) {
-				return sig
+				// fmt.Println("MATCHEDClass")
+				return
 			}
 		} else if p[pi+1] == '-' && pi+2 < eci {
 			pi += 2
 			if p[pi-2] <= c && c <= p[pi] {
-				return sig
+				return
 			}
 		} else if p[pi] == c {
-			return sig
+			return
 		}
 	}
 
@@ -191,7 +196,7 @@ func pushCapture(s string, start, end, i int, caps *captures) (any, error) {
 		return float64(i + 1), nil
 	}
 	// fmt.Println("    adding normal")
-	return s[start+i : start+i+l], nil
+	return s[i : i+l], nil
 }
 
 func pushCaptures(s string, start, end int, find bool, caps *captures) (r Rets, err error) {
@@ -476,6 +481,8 @@ func matchPos(s, p string, si, pis int, caps *captures) (si2 int, err error) {
 				} // else fail (s == -1)
 				return si, nil
 			case 'f': // frontier?
+				// dlog("the final frontier", si)
+
 				pi += 2
 				if p[pi] != '[' {
 					return 0, errors.New("missing '[' after '%f' in pattern")
@@ -485,16 +492,32 @@ func matchPos(s, p string, si, pis int, caps *captures) (si2 int, err error) {
 				if err != nil {
 					return 0, err
 				}
+				// dlog(" P", pi)
+				// dlog("EP", ep)
 
+				// dlog("do it equal", si)
 				var previous byte // \0
 				if si != 0 {
 					previous = s[si-1]
 				}
+				// dlog("previous", previous, fmt.Sprint(previous))
 
-				if !matchbracketclass(previous, p, pi, ep-1) && matchbracketclass(s[si], p, pi, ep-1) {
-					pi = ep - 1
-					continue
+				// the frontier thing
+				// dlog("m1", m1)
+				if !matchbracketclass(previous, p, pi, ep-1) {
+					var sc byte
+					if si != len(s) {
+						sc = s[si]
+					}
+
+					// dlog("m2", m2)
+					if matchbracketclass(sc, p, pi, ep-1) {
+						// dlog("  FRONTiER MATCHED")
+						pi = ep - 1
+						continue
+					}
 				}
+				// dlog("  frontIer failed")
 				return -1, nil // match failed
 			case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9': // capture results (%0-%9)?
 				if si, err = matchCapture(s, si, int(p[pi+1]), caps); err != nil {
@@ -534,18 +557,18 @@ func match(s, p string, caps *captures) (start, end int, err error) {
 		caps.level = 0
 
 		// depth++
-		e, err := matchPos(s[start:], p, 0, pis, caps)
+		end, err = matchPos(s, p, start, pis, caps)
 		if err != nil {
 			return 0, 0, err
 		}
 		// depth--
 
-		// dlog("MATCH DONE", start, e)
+		// dlog("MATCH DONE", start, end)
 
-		if e == -1 {
+		if end == -1 {
 			continue
 		}
-		return start, start + e, nil
+		return
 	}
 
 	return -1, -1, nil
