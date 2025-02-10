@@ -104,7 +104,7 @@ func TestConformance(t *testing.T) {
 		return
 	}
 
-	// onlyTest := "stringfind.luau"
+	// onlyTest := "gmatch.luau"
 
 	for _, f := range files {
 		if f.IsDir() {
@@ -140,7 +140,7 @@ func TestConformance(t *testing.T) {
 				ogLines := strings.Split(og, "\n")
 				for i, line := range ogLines {
 					if line != oLines[i] {
-						t.Errorf("mismatched line: \n%s\n%v\n%s\n%v", line, []byte(line), oLines[i], []byte(oLines[i]))
+						t.Errorf("mismatched line: \n%s\n%s", line, oLines[i])
 					}
 				}
 

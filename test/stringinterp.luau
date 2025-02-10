@@ -22,6 +22,7 @@ print(`Welcome to {nameNotConstantEvaluated}!`)
 
 -- should error?
 print(`This {localName} does not exist`)
+print(`This {nil} does not exist`)
 
 print(`Welcome to \
 {name}!`)

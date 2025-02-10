@@ -29,11 +29,11 @@ func ipairs_iter(args Args) (r Rets, err error) {
 	i := args.GetNumber() + 1
 
 	if a.Array == nil || int(i) > len(a.Array) {
-		return Rets{}, nil
+		return
 	} else if v := a.Array[int(i)-1]; v != nil {
 		return Rets{i, v}, nil
 	}
-	return Rets{}, nil // would prefer nil, nil but whateverrrrr
+	return // would prefer nil, nil but whateverrrrr
 }
 
 var ipairs = MakeFn("ipairs", ipairs_iter)[1]

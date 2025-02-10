@@ -415,13 +415,13 @@ func defaultCase(s, p string, si, pi, epi int, caps *captures) (cont bool, si2, 
 	return optSuffix(s, p, si, pi, epi, caps)
 }
 
-func matchPos(s, p string, si, pis int, caps *captures) (si2 int, err error) {
+func matchPos(s, p string, si, pi int, caps *captures) (si2 int, err error) {
 	// dlog("MATCHPOS", s, p, si, pis)
 
 	// depth++
 	// defer func() { depth-- }()
 
-	for pi := pis; pi < len(p); pi++ {
+	for ; pi < len(p); pi++ {
 		// dlog("ITER", pi, string(p[pi]), s[si:])
 
 		switch p[pi] {

@@ -103,13 +103,6 @@ func string_find(args Args) (r Rets, err error) {
 	return stringFindAux(s, p, i, plain, true)
 }
 
-func string_match(args Args) (r Rets, err error) {
-	s, p := args.GetString(), args.GetString()
-	i := int(args.GetNumber(1))
-
-	return stringFindAux(s, p, i, false, false)
-}
-
 func addquoted(args *Args, b *strings.Builder) {
 	s := args.GetString()
 	l := len(s)
@@ -259,9 +252,35 @@ func string_format(args Args) (r Rets, err error) {
 	return Rets{res}, nil
 }
 
-// func string_gmatch(args Args) (r Rets, err error) {
-// 	panic("not implemented")
-// }
+func string_gmatch(args Args) (r Rets, err error) {
+	s, p := args.GetString(), args.GetString()
+	ls := len(s)
+
+	var start int
+	gmatchIter := MakeFn("gmatch", func(args Args) (r Rets, err error) {
+		caps := &captures{}
+
+		for ; start <= ls; start++ {
+			caps.level = 0
+
+			end, err := matchPos(s, p, start, 0, caps)
+			if err != nil {
+				return nil, err
+			} else if end == -1 {
+				continue
+			}
+
+			// we got a match
+			r, err = pushCaptures(s, start, end, false, caps)
+			start = end + 1
+			return r, err
+		}
+
+		return
+	})[1]
+
+	return Rets{gmatchIter}, nil
+}
 
 // func string_gsub(args Args) (r Rets, err error) {
 // 	panic("not implemented")
@@ -277,6 +296,13 @@ func string_lower(args Args) (r Rets, err error) {
 	s := args.GetString()
 
 	return Rets{strings.ToLower(s)}, nil
+}
+
+func string_match(args Args) (r Rets, err error) {
+	s, p := args.GetString(), args.GetString()
+	i := int(args.GetNumber(1))
+
+	return stringFindAux(s, p, i, false, false)
 }
 
 func string_rep(args Args) (r Rets, err error) {
@@ -344,7 +370,7 @@ var libstring = NewTable([][2]any{
 	MakeFn("char", string_char),
 	MakeFn("find", string_find),
 	MakeFn("format", string_format),
-	// MakeFn("gmatch", string_gmatch),
+	MakeFn("gmatch", string_gmatch),
 	// MakeFn("gsub", string_gsub),
 	MakeFn("len", string_len),
 	MakeFn("lower", string_lower),

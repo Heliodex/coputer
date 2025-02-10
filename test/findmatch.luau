@@ -174,8 +174,17 @@ for _, func in { stringfind, stringmatch } do
 	print(func(" alo aalo allo", "%f[%S].-%f[%s].-%f[%S]"))
 
 	-- \0 in patterns
+	-- print(func("b$a", "$\0?"))
+	-- print(func("abc\0efg", "%\0"))
+
+	-- \0 in patterns
+	print(func("ab\0\1\2c", "[\0-\2]+"))
+	print(func("ab\0\1\2c", "[\0-\0]+"))
 	print(func("b$a", "$\0?"))
 	print(func("abc\0efg", "%\0"))
+	print(func("abc\0efg\0\1e\1g", "%b\0\1"))
+	print(func("abc\0\0\0", "%\0+"))
+	print(func("abc\0\0\0", "%\0%\0?"))
 
 	-- magic char after \0
 	print(func("abc\0\0", "\0."))
