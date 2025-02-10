@@ -11,10 +11,7 @@ func string_posrelat(pos, l int) int {
 	if pos < 0 {
 		pos += l + 1
 	}
-	if pos >= 0 {
-		return pos
-	}
-	return 0
+	return max(0, pos)
 }
 
 func string_byte(args Args) (bytes Rets, err error) {
@@ -26,12 +23,7 @@ func string_byte(args Args) (bytes Rets, err error) {
 	j := args.GetNumber(float64(posi))
 	pose := string_posrelat(int(j), l)
 
-	if posi <= 0 {
-		posi = 1
-	}
-	if pose > l {
-		pose = l
-	}
+	posi, pose = max(posi, 1), min(pose, l)
 
 	n := pose - posi + 1
 	if n < 0 {
@@ -41,9 +33,8 @@ func string_byte(args Args) (bytes Rets, err error) {
 	}
 
 	bytes = make(Rets, n)
-	chars := []byte(s)
 	for b := range bytes {
-		bytes[b] = float64(chars[posi+b-1])
+		bytes[b] = float64(s[posi+b-1])
 	}
 	return
 }
@@ -103,14 +94,11 @@ func string_find(args Args) (r Rets, err error) {
 	return stringFindAux(s, p, i, plain, true)
 }
 
-func addquoted(args *Args, b *strings.Builder) {
+func addquoted(args Args, b *strings.Builder) {
 	s := args.GetString()
-	l := len(s)
-	var i uint
 
 	b.WriteByte('"')
-	for l > 0 {
-		l--
+	for i, l := uint(0), len(s); l > 0; l-- {
 		switch w := s[i]; w {
 		case '"', '\\', '\n':
 			b.WriteByte('\\')
@@ -164,7 +152,7 @@ func format(form string, formatIndicator byte, sub any) string {
 	return fmt.Sprintf(f, sub)
 }
 
-func fmtstring(strfrmt string, args *Args) (string, error) {
+func fmtstring(strfrmt string, args Args) (string, error) {
 	b := strings.Builder{}
 
 	for i, sfl := 0, len(strfrmt); i < sfl; {
@@ -245,7 +233,7 @@ func fmtstring(strfrmt string, args *Args) (string, error) {
 func string_format(args Args) (r Rets, err error) {
 	strfrmt := args.GetString()
 
-	res, err := fmtstring(strfrmt, &args)
+	res, err := fmtstring(strfrmt, args)
 	if err != nil {
 		return
 	}
@@ -257,10 +245,8 @@ func string_gmatch(args Args) (r Rets, err error) {
 	ls := len(s)
 
 	var start int
-	gmatchIter := MakeFn("gmatch", func(args Args) (r Rets, err error) {
-		caps := &captures{}
-
-		for ; start <= ls; start++ {
+	gmatch := func(args Args) (r Rets, err error) {
+		for caps := (&captures{}); start <= ls; start++ {
 			caps.level = 0
 
 			end, err := matchPos(s, p, start, 0, caps)
@@ -272,14 +258,14 @@ func string_gmatch(args Args) (r Rets, err error) {
 
 			// we got a match
 			r, err = pushCaptures(s, start, end, false, caps)
-			start = end + 1
+			start = max(start+1, end)
 			return r, err
 		}
 
 		return
-	})[1]
+	}
 
-	return Rets{gmatchIter}, nil
+	return Rets{MakeFn("gmatch", gmatch)[1]}, nil
 }
 
 // func string_gsub(args Args) (r Rets, err error) {
@@ -326,32 +312,24 @@ func string_split(args Args) (r Rets, err error) {
 	s := args.GetString()
 	separator := args.GetString(",")
 
-	// can't copy (or copy()) []string to []any
 	split := strings.Split(s, separator)
+
+	// can't copy (or copy()) []string to []any
 	a := make([]any, len(split))
 	for i, v := range split {
 		a[i] = v
 	}
 
-	return Rets{&Table{
-		Array: a,
-	}}, nil
+	return Rets{&Table{Array: a}}, nil
 }
 
 func string_sub(args Args) (r Rets, err error) {
 	s := args.GetString()
-	i := args.GetNumber(1)
-	j := args.GetNumber(-1)
+	i, j := args.GetNumber(1), args.GetNumber(-1)
 
 	l := len(s)
-	start := string_posrelat(int(i), l)
-	end := string_posrelat(int(j), l)
-	if start < 1 {
-		start = 1
-	}
-	if end > l {
-		end = l
-	}
+	start, end := string_posrelat(int(i), l), string_posrelat(int(j), l)
+	start, end = max(start, 1), min(end, l)
 
 	if end < start {
 		return Rets{""}, nil

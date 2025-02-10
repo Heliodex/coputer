@@ -448,7 +448,7 @@ func namecallHandler(co *Coroutine, kv string, stack *[]any, c1, c2 int) (ok boo
 		str := (*stack)[c1].(string)
 		args := (*stack)[c1+1 : c2+1]
 
-		f, err := fmtstring(str, &Args{Co: co, List: args, name: "format"})
+		f, err := fmtstring(str, Args{Co: co, List: args, name: "format"})
 		if err != nil {
 			return false, nil, err
 		}

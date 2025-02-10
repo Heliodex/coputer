@@ -25,3 +25,13 @@ print(#t2)
 for i, v in string.gmatch("13 14 10 = 11, 15= 16, 22=23", "(%d+)%s*=%s*(%d+)") do
 	print(i, v)
 end
+
+local s = "abcdefg"
+for i in string.gmatch(s, ".") do
+	print(i)
+end
+
+local unicode = "你好屌"
+for i in string.gmatch(unicode, utf8.charpattern) do
+	print(i)
+end

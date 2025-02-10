@@ -72,19 +72,16 @@ func table_create(args Args) (r Rets, err error) {
 
 	if len(args.List) == 1 {
 		a := make([]any, 0, s)
-		return Rets{&Table{
-			Array: a,
-		}}, nil
+		return Rets{&Table{Array: a}}, nil
 	}
 
-	a := make([]any, s)
 	value := args.GetAny()
+	a := make([]any, s)
 	for i := range a {
 		a[i] = value
 	}
-	return Rets{&Table{
-		Array: a,
-	}}, nil
+
+	return Rets{&Table{Array: a}}, nil
 }
 
 func table_find(args Args) (r Rets, err error) {
@@ -109,6 +106,7 @@ func table_find(args Args) (r Rets, err error) {
 			}
 		}
 	}
+
 	return Rets{nil}, nil
 }
 

@@ -231,7 +231,7 @@ func nospecials(p string) bool {
 }
 
 func maxExpand(s, p string, si, pi, epi int, caps *captures) (res int, err error) {
-	i := 0 // counts maximum expand for item
+	var i int // counts maximum expand for item
 	for singlematch(s, p, si+i, pi, epi) {
 		i++
 	}

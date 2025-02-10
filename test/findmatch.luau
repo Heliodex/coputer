@@ -111,8 +111,8 @@ for _, func in { stringfind, stringmatch } do
 	print(func(ss, "(%d+)/(%d+)/(%d+)"))
 	print(func("hello, up-down!", "%a+"))
 	print(func("hello, up-down!", "%A+"))
-	print(func("the \0 null charact\0\0er", "%z"))
-	print(func("the \0 null charact\0\0er", "%z+", 10))
+	print(func("the \0 nil charact\0\0er", "%z")) -- null nil lel lul
+	print(func("the \0 nil charact\0\0er", "%z+", 10))
 	print(func("Full stop.", "."))
 	print(func("Full stop.", "%."))
 	print(func("10% luck 20% skill 15% contentrated power of will", "%%"))

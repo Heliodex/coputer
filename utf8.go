@@ -114,6 +114,7 @@ func utf8_len(args Args) (r Rets, err error) {
 func utf8_offset(args Args) (r Rets, err error) {
 	s := args.GetString()
 	n := args.GetNumber()
+
 	var posi int
 	if n >= 0 {
 		posi = int(args.GetNumber(1))
@@ -132,8 +133,7 @@ func utf8_offset(args Args) (r Rets, err error) {
 	} else if iscont(s[posi]) {
 		return nil, errors.New("initial position is a continuation byte")
 	} else if n < 0 {
-		for n < 0 && posi > 0 { // move back
-			posi--
+		for ; n < 0 && posi > 0; posi-- { // move back
 			// find beginning of previous character
 			for posi > 0 && iscont(s[posi]) {
 				posi--
@@ -142,8 +142,7 @@ func utf8_offset(args Args) (r Rets, err error) {
 		}
 	} else {
 		n-- // do not move for 1st character
-		for n > 0 && posi < len(s) {
-			posi++
+		for ; n > 0 && posi < len(s); posi++ {
 			// find beginning of next character
 			for iscont(s[posi]) {
 				posi++
@@ -152,11 +151,11 @@ func utf8_offset(args Args) (r Rets, err error) {
 		}
 	}
 
-	if n == 0 { // did it find a given character?
-		return Rets{float64(posi + 1)}, nil
+	if n != 0 { // did it find a given character?
+		// no such character
+		return
 	}
-	// no such character
-	return
+	return Rets{float64(posi + 1)}, nil
 }
 
 // func utf8_graphemes(args Args) (r Rets, err error) {
@@ -185,5 +184,5 @@ var libutf8 = NewTable([][2]any{
 	MakeFn("nfcnormalize", utf8_nfcnormalize), // these are also untestable but they're so trivial here
 	MakeFn("nfdnormalize", utf8_nfdnormalize),
 
-	{"charpattern", "[\x00-\x7F\xC2-\xF4][\x80-\xBF]*"}, // unless we get pattern matching then this isn't all that useful either
+	{"charpattern", "[\x00-\x7F\xC2-\xF4][\x80-\xBF]*"},
 })

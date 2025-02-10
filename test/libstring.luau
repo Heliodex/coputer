@@ -38,6 +38,8 @@ print(string.format("%x %X", 255, 255))
 print(string.format("%o", -25))
 print(string.format("%x %X", -255, -255)) -- LOL
 print(string.format("%s", "whatsup"))
+print(string.format("%q", ""))
+print(string.format("%q", "n\0il b\0ytez"))
 print(string.format("%q", "whatsup"))
 print(string.format("%q", 'print "hello"'))
 print(string.format("%q", [[
