@@ -103,6 +103,13 @@ func string_find(args Args) (r Rets, err error) {
 	return stringFindAux(s, p, i, plain, true)
 }
 
+func string_match(args Args) (r Rets, err error) {
+	s, p := args.GetString(), args.GetString()
+	i := int(args.GetNumber(1))
+
+	return stringFindAux(s, p, i, false, false)
+}
+
 func addquoted(args *Args, b *strings.Builder) {
 	s := args.GetString()
 	l := len(s)
@@ -272,10 +279,6 @@ func string_lower(args Args) (r Rets, err error) {
 	return Rets{strings.ToLower(s)}, nil
 }
 
-// func string_match(args Args) (r Rets, err error) {
-// 	panic("not implemented")
-// }
-
 func string_rep(args Args) (r Rets, err error) {
 	s := args.GetString()
 	n := args.GetNumber()
@@ -345,7 +348,7 @@ var libstring = NewTable([][2]any{
 	// MakeFn("gsub", string_gsub),
 	MakeFn("len", string_len),
 	MakeFn("lower", string_lower),
-	// MakeFn("match", string_match),
+	MakeFn("match", string_match),
 	// buffer should be used instead of pack/packsize
 	MakeFn("rep", string_rep),
 	MakeFn("reverse", string_reverse),

@@ -887,28 +887,20 @@ var luautype = map[string]string{
 	"litecode.Vector":     "vector",
 }
 
-func invalidCompare(op string, ta, tb string) error {
+func invalidCompare(op, ta, tb string) error {
 	return fmt.Errorf("attempt to compare %s %s %s", luautype[ta], op, luautype[tb])
-}
-
-func incomparableType(t string, eq bool) error {
-	return fmt.Errorf("type %s cannot be compared; this comparison would always return %t", luautype[t], eq)
 }
 
 func uncallableType(v string) error {
 	return fmt.Errorf("attempt to call a %s value", luautype[v])
 }
 
-func invalidArithmetic(op string, ta, tb string) error {
+func invalidArithmetic(op, ta, tb string) error {
 	return fmt.Errorf("attempt to perform arithmetic (%s) on %s and %s", op, luautype[ta], luautype[tb])
 }
 
 func invalidUnm(t string) error {
 	return fmt.Errorf("attempt to perform arithmetic (unm) on %s", luautype[t])
-}
-
-func invalidCond(t string) error {
-	return fmt.Errorf("attempt to compare non-boolean type %s in condition", luautype[t])
 }
 
 func invalidFor(pos, t string) error {

@@ -24,7 +24,7 @@ func f32IsInf(f float32, sign int) bool {
 	return sign >= 0 && f > math.MaxFloat32 || sign <= 0 && f < -math.MaxFloat32
 }
 
-func f32Modf(f float32) (i float32, frac float32) {
+func f32Modf(f float32) (i, frac float32) {
 	if f < 1 {
 		if f < 0 {
 			i, frac = f32Modf(-f)
@@ -109,6 +109,14 @@ func f32Sqrt(x float32) float32 {
 	return math.Float32frombits(ix)
 }
 
+func f32Ceil(v float32) float32 {
+	return float32(math.Ceil(float64(v)))
+}
+
+func f32Abs(v float32) float32 {
+	return float32(math.Abs(float64(v)))
+}
+
 func vector_create(args Args) (r Rets, err error) {
 	x := float32(args.GetNumber())
 	y := float32(args.GetNumber())
@@ -147,34 +155,19 @@ func cross(a, b Vector) Vector {
 }
 
 func vector_cross(args Args) (r Rets, err error) {
-	a := args.GetVector()
-	b := args.GetVector()
+	a, b := args.GetVector(), args.GetVector()
 
 	return Rets{cross(a, b)}, nil
 }
 
 func vector_dot(args Args) (r Rets, err error) {
-	a := args.GetVector()
-	b := args.GetVector()
+	a, b := args.GetVector(), args.GetVector()
 
 	return Rets{float64(a[0]*b[0] + a[1]*b[1] + a[2]*b[2] + a[3]*b[3])}, nil
 }
 
-func fPow(a, b float32) float32 {
-	return float32(math.Pow(float64(a), float64(b)))
-}
-
-func fCeil(v float32) float32 {
-	return float32(math.Ceil(float64(v)))
-}
-
-func fAbs(v float32) float32 {
-	return float32(math.Abs(float64(v)))
-}
-
 func vector_angle(args Args) (r Rets, err error) {
-	a := args.GetVector()
-	b := args.GetVector()
+	a, b := args.GetVector(), args.GetVector()
 	axis := args.GetVector(Vector{})
 
 	c := cross(a, b)
@@ -198,13 +191,13 @@ func vector_floor(args Args) (r Rets, err error) {
 func vector_ceil(args Args) (r Rets, err error) {
 	v := args.GetVector()
 
-	return Rets{Vector{fCeil(v[0]), fCeil(v[1]), fCeil(v[2]), fCeil(v[3])}}, nil
+	return Rets{Vector{f32Ceil(v[0]), f32Ceil(v[1]), f32Ceil(v[2]), f32Ceil(v[3])}}, nil
 }
 
 func vector_abs(args Args) (r Rets, err error) {
 	v := args.GetVector()
 
-	return Rets{Vector{fAbs(v[0]), fAbs(v[1]), fAbs(v[2]), fAbs(v[3])}}, nil
+	return Rets{Vector{f32Abs(v[0]), f32Abs(v[1]), f32Abs(v[2]), f32Abs(v[3])}}, nil
 }
 
 func sign(v float32) float32 {
@@ -233,8 +226,7 @@ func clamp(v, min, max float32) float32 {
 
 func vector_clamp(args Args) (r Rets, err error) {
 	v := args.GetVector()
-	vmin := args.GetVector()
-	vmax := args.GetVector()
+	vmin, vmax := args.GetVector(), args.GetVector()
 
 	if vmin[0] > vmax[0] {
 		// return nil, errors.New("max.x must be greater than or equal to min.x")
@@ -262,10 +254,9 @@ func vector_max(args Args) (r Rets, err error) {
 
 	for range len(args.List) - 1 {
 		b := args.GetVector()
+
 		for i, v := range b {
-			if v > result[i] {
-				result[i] = v
-			}
+			result[i] = max(result[i], v)
 		}
 	}
 
@@ -279,10 +270,9 @@ func vector_min(args Args) (r Rets, err error) {
 
 	for range len(args.List) - 1 {
 		b := args.GetVector()
+
 		for i, v := range b {
-			if v < result[i] {
-				result[i] = v
-			}
+			result[i] = min(result[i], v)
 		}
 	}
 

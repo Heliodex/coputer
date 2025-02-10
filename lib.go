@@ -9,7 +9,7 @@ func invalidNumArgs(fn string, nx int, tx ...string) error {
 	return fmt.Errorf("missing argument #%d to '%s'", nx, fn)
 }
 
-func invalidArgType(i int, fn string, tx, tg string) error {
+func invalidArgType(i int, fn, tx, tg string) error {
 	return fmt.Errorf("invalid argument #%d to '%s' (%s expected, got %s)", i, fn, luautype[tx], luautype[tg])
 }
 

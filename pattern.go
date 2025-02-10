@@ -83,10 +83,7 @@ func matchclass(c, cl byte) (res bool) {
 		return cl == c
 	}
 
-	if islower(cl) {
-		return
-	}
-	return !res
+	return res == islower(cl)
 }
 
 func matchbracketclass(c byte, p string, pi, eci int) (sig bool) {
@@ -132,10 +129,8 @@ func singlematch(s, p string, si, pi, epi int) bool {
 	case '.': // matches any char
 		return true
 	case l_esc:
-
-		m := matchclass(c, p[pi+1])
 		// dlog("  match class", string(c), p[pi+1], m)
-		return m
+		return matchclass(c, p[pi+1])
 	case '[':
 		return matchbracketclass(c, p, pi, epi-1)
 	}
@@ -178,17 +173,16 @@ func pushCapture(s string, start, end, i int, caps *captures) (any, error) {
 	if i >= caps.level {
 		if i != 0 {
 			return nil, errors.New("invalid capture index")
-		}
-		// caps.level == 0, too
-		// fmt.Println("    adding whole match")
-		if start == -1 {
+		} else if start == -1 {
+			// caps.level == 0, too
+			// fmt.Println("    adding whole match")
 			return s, nil // add whole string
 		}
 		return s[start:end], nil // add whole match
 	}
 
-	cap := caps.captures[i]
-	l, i := cap.len, cap.init
+	c := caps.captures[i]
+	l, i := c.len, c.init
 	if l == cap_unfinished {
 		return nil, errors.New("unfinished capture")
 	} else if l == cap_position {
@@ -216,7 +210,7 @@ func pushCaptures(s string, start, end int, find bool, caps *captures) (r Rets, 
 	r = make(Rets, nlevels)
 	for i := range nlevels {
 		if r[i], err = pushCapture(s, start, end, i, caps); err != nil {
-			return nil, err
+			return
 		}
 		// fmt.Println("  captured", r[i])
 	}
@@ -259,17 +253,14 @@ func maxExpand(s, p string, si, pi, epi int, caps *captures) (res int, err error
 	return -1, nil
 }
 
-func minExpand(s, p string, si, pi, epi int, caps *captures) (int, error) {
-	for {
-		if res, err := matchPos(s, p, si, epi+1, caps); err != nil {
-			return 0, err
-		} else if res != -1 {
-			return res, nil
-		} else if singlematch(s, p, si, pi, epi) {
-			si++ // try with one more repetition
-		} else {
+func minExpand(s, p string, si, pi, epi int, caps *captures) (res int, err error) {
+	for ; ; si++ {
+		if res, err = matchPos(s, p, si, epi+1, caps); err != nil || res != -1 {
+			return
+		} else if !singlematch(s, p, si, pi, epi) {
 			return -1, nil
 		}
+		// try with one more repetition
 	}
 }
 
@@ -350,10 +341,10 @@ func matchCapture(s string, si, l int, caps *captures) (i int, err error) {
 		return
 	}
 	// fmt.Println("matching catching", s, si, l)
-	cap := caps.captures[l]
+	c := caps.captures[l]
 
-	if ll := cap.len; len(s) >= ll {
-		if s1, s2 := s[cap.init:], s[si:]; s1[:min(len(s1), ll)] == s2[:min(len(s2), ll)] {
+	if ll := c.len; len(s) >= ll {
+		if s2 := s[si:]; s[c.init:][:ll] == s2[:min(len(s2), ll)] {
 			return si + ll, nil
 		}
 	}
@@ -364,15 +355,10 @@ func optSuffix(s, p string, si, pi, epi int, caps *captures) (cont bool, si2, pi
 	switch p[epi] {
 	case '?': // optional
 		// dlog("optional", s[si+1:], p[epi+1:])
-
-		si2, err = matchPos(s, p, si+1, epi+1, caps)
-		if err != nil {
+		if si2, err = matchPos(s, p, si+1, epi+1, caps); err != nil {
 			return
-		}
-
-		// dlog("optional done", si, si2)
-
-		if si2 != -1 {
+		} else if si2 != -1 {
+			// dlog("optional done", si, si2)
 			si = si2
 		} else {
 			// dlog("pi is", pi, epi+1)
@@ -391,8 +377,7 @@ func optSuffix(s, p string, si, pi, epi int, caps *captures) (cont bool, si2, pi
 		}
 	default: // no suffix
 		// dlog("no suffix")
-		si++
-		return true, si, epi - 1, nil
+		return true, si + 1, epi - 1, nil
 	}
 
 	return false, si, pi, nil
@@ -412,24 +397,18 @@ func defaultCase(s, p string, si, pi, epi int, caps *captures) (cont bool, si2, 
 		if epi < len(p) && (p[epi] == '*' || p[epi] == '?' || p[epi] == '-') {
 			// accept empty?
 			// dlog("  accept empty")
-			pi = epi
 			// dlog("  pi is", pi, epi, string(p[epi]))
-			return true, si, pi, nil // get out of default free card
+			return true, si, epi, nil // get out of default free card
 		}
 
 		// '+' or no suffix
 		// dlog("  '+' or no suffix")
 		return false, -1, pi, nil // fail
-	}
-
-	// matched once
-	// dlog("matched once")
-
-	if epi >= len(p) {
+	} else if epi >= len(p) {
+		// matched once
+		// dlog("matched once")
 		// dlog("after end")
-		si++
-		pi = epi - 1
-		return true, si, pi, nil
+		return true, si + 1, epi - 1, nil
 	}
 
 	// handle optional suffix
@@ -529,7 +508,7 @@ func matchPos(s, p string, si, pis int, caps *captures) (si2 int, err error) {
 				}
 				return si, nil
 			}
-			// go to default
+			// go to default (escaped character)
 			fallthrough
 		default:
 			// go to default; do not pass go, do not collect £200
@@ -548,7 +527,7 @@ func match(s, p string, caps *captures) (start, end int, err error) {
 	// dlog("MATCH", s, p, len(s), len(p))
 
 	m, pis := 0, 1
-	if p[0] != '^' {
+	if len(p) != 0 && p[0] != '^' {
 		m, pis = len(s), 0
 	}
 
@@ -557,18 +536,12 @@ func match(s, p string, caps *captures) (start, end int, err error) {
 		caps.level = 0
 
 		// depth++
-		end, err = matchPos(s, p, start, pis, caps)
-		if err != nil {
-			return 0, 0, err
+		if end, err = matchPos(s, p, start, pis, caps); err != nil || end != -1 {
+			return
 		}
 		// depth--
 
 		// dlog("MATCH DONE", start, end)
-
-		if end == -1 {
-			continue
-		}
-		return
 	}
 
 	return -1, -1, nil
@@ -577,17 +550,16 @@ func match(s, p string, caps *captures) (start, end int, err error) {
 func stringFindAux(s, p string, i int, plain, find bool) (r Rets, err error) {
 	ls := len(s)
 
-	init := string_posrelat(i, ls)
-	if init < 1 {
-		init = 1
-	} else if init > ls+1 { // start after string's end?
+	init := max(1, string_posrelat(i, ls))
+	if init > ls+1 { // start after string's end?
 		return Rets{nil}, nil // cannot find anything
 	}
 
 	// explicit request or no special characters?
+	is := s[init-1:]
 	if find && (plain || nospecials(p)) {
 		// do a plain search, good-style
-		pos := strings.Index(s[init-1:], p)
+		pos := strings.Index(is, p)
 		if pos == -1 {
 			return Rets{nil}, nil // one nil
 		}
@@ -600,20 +572,16 @@ func stringFindAux(s, p string, i int, plain, find bool) (r Rets, err error) {
 	// pattern matching
 	caps := &captures{}
 
-	start, end, err := match(s[init-1:], p, caps)
+	start, end, err := match(is, p, caps)
 	if err != nil {
-		return nil, err
+		return
 	} else if start == -1 {
 		return Rets{nil}, nil // not found
 	}
 
 	// fmt.Println("DONE!", caps)
-
-	rs, err := pushCaptures(s, start, end, find, caps)
-	if err != nil {
-		return nil, err
-	} else if !find {
-		return rs, nil
+	if r, err = pushCaptures(is, start, end, find, caps); err != nil || !find {
+		return
 	}
 
 	// fmt.Println("pushed", rs)
@@ -621,5 +589,5 @@ func stringFindAux(s, p string, i int, plain, find bool) (r Rets, err error) {
 	return append(Rets{
 		float64(start + init),
 		float64(end + init - 1),
-	}, rs...), nil
+	}, r...), nil
 }
