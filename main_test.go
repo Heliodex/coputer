@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"runtime/pprof"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -97,6 +98,8 @@ func luau(f string) (string, error) {
 	return string(o), nil
 }
 
+const parallel = false
+
 func TestConformance(t *testing.T) {
 	files, err := os.ReadDir("test")
 	if err != nil {
@@ -104,7 +107,8 @@ func TestConformance(t *testing.T) {
 		return
 	}
 
-	// onlyTest := "gmatch.luau"
+	// onlyTest := "gsub.luau"
+	var wg sync.WaitGroup
 
 	for _, f := range files {
 		if f.IsDir() {
@@ -116,40 +120,56 @@ func TestConformance(t *testing.T) {
 		// 	continue
 		// }
 
-		fmt.Println(" -- Testing", name, "--")
-		filename := fmt.Sprintf("./test/%s", name) // ./ required for requires
-
-		og, err := luau(filename)
-		if err != nil {
-			t.Error("error running luau:", err)
-			return
-		}
-
-		o0, _ := litecode(t, filename, 0)
-		o1, _ := litecode(t, filename, 1)
-		o2, _ := litecode(t, filename, 2)
-		fmt.Println()
-
-		for i, o := range []string{o0, o1, o2} {
-			if o != og {
-				t.Errorf("%d output mismatch:\n-- Expected\n%s\n-- Got\n%s", i, og, o)
-				fmt.Println()
-
-				// print mismatch
-				oLines := strings.Split(o, "\n")
-				ogLines := strings.Split(og, "\n")
-				for i, line := range ogLines {
-					if line != oLines[i] {
-						t.Errorf("mismatched line: \n%s\n%s", line, oLines[i])
-					}
-				}
-
-				return
+		run := func() {
+			if parallel {
+				defer wg.Done()
 			}
+
+			fmt.Println(" -- Testing", name, "--")
+			filename := fmt.Sprintf("./test/%s", name) // ./ required for requires
+
+			og, err := luau(filename)
+			if err != nil {
+				fmt.Println("error running luau:", err)
+				os.Exit(1)
+			}
+
+			o0, _ := litecode(t, filename, 0)
+			o1, _ := litecode(t, filename, 1)
+			o2, _ := litecode(t, filename, 2)
+			fmt.Println()
+
+			for i, o := range []string{o0, o1, o2} {
+				if o != og {
+					fmt.Printf("%d output mismatch:\n-- Expected\n%s\n-- Got\n%s\n", i, og, o)
+					fmt.Println()
+
+					// print mismatch
+					oLines := strings.Split(o, "\n")
+					ogLines := strings.Split(og, "\n")
+					for i, line := range ogLines {
+						if line != oLines[i] {
+							fmt.Printf("mismatched line: \n%s\n%s\n", line, oLines[i])
+						}
+					}
+
+					os.Exit(1)
+				}
+			}
+
+			fmt.Println(og)
 		}
 
-		fmt.Println(og)
+		if parallel {
+			wg.Add(1)
+
+			go run()
+		} else {
+			run()
+		}
 	}
+
+	wg.Wait()
 
 	fmt.Println("-- Done! --")
 	fmt.Println()

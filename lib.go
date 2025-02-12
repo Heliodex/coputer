@@ -26,11 +26,11 @@ type Args struct {
 
 type Rets []any
 
-func getArg[T any](a *Args, optV []T, tx ...string) (g T) {
+func getArg[T any](a *Args, optV []T, tx string) (g T) {
 	a.pos++
 	if a.pos > len(a.List) {
 		if len(optV) == 0 {
-			a.Co.Error(invalidNumArgs(a.name, a.pos, tx...))
+			a.Co.Error(invalidNumArgs(a.name, a.pos, tx))
 			return
 		}
 		return optV[0]
