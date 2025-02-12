@@ -167,7 +167,7 @@ func matchbalance(s, p string, si, pi int) (int, error) {
 	return -1, nil // string ends out of balance
 }
 
-func pushCapture(s string, start, end, i int, caps *captures) (any, error) {
+func pushCapture(caps *captures, s string, start, end, i int) (any, error) {
 	// fmt.Println("    push", start, end, i, caps)
 
 	if i >= caps.level {
@@ -193,7 +193,7 @@ func pushCapture(s string, start, end, i int, caps *captures) (any, error) {
 	return s[i : i+l], nil
 }
 
-func pushCaptures(s string, start, end int, find bool, caps *captures) (r Rets, err error) {
+func pushCaptures(caps *captures, s string, start, end int, find bool) (r Rets, err error) {
 	// fmt.Println("  PUSHING CAPS", start, end, caps)
 
 	nlevels := caps.level
@@ -209,7 +209,7 @@ func pushCaptures(s string, start, end int, find bool, caps *captures) (r Rets, 
 
 	r = make(Rets, nlevels)
 	for i := range nlevels {
-		if r[i], err = pushCapture(s, start, end, i, caps); err != nil {
+		if r[i], err = pushCapture(caps, s, start, end, i); err != nil {
 			return
 		}
 		// fmt.Println("  captured", r[i])
@@ -527,7 +527,7 @@ func match(s, p string, caps *captures) (start, end int, err error) {
 	// dlog("MATCH", s, p, len(s), len(p))
 
 	m, pis := 0, 1
-	if len(p) != 0 && p[0] != '^' {
+	if len(p) > 0 && p[0] != '^' {
 		m, pis = len(s), 0
 	}
 
@@ -580,7 +580,7 @@ func stringFindAux(s, p string, i int, plain, find bool) (r Rets, err error) {
 	}
 
 	// fmt.Println("DONE!", caps)
-	if r, err = pushCaptures(is, start, end, find, caps); err != nil || !find {
+	if r, err = pushCaptures(caps, is, start, end, find); err != nil || !find {
 		return
 	}
 

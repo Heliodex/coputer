@@ -257,7 +257,7 @@ func string_gmatch(args Args) (r Rets, err error) {
 			}
 
 			// we got a match
-			r, err = pushCaptures(s, start, end, false, caps)
+			r, err = pushCaptures(caps, s, start, end, false)
 			start = max(start+1, end)
 			return r, err
 		}
@@ -268,9 +268,125 @@ func string_gmatch(args Args) (r Rets, err error) {
 	return Rets{MakeFn("gmatch", gmatch)[1]}, nil
 }
 
-// func string_gsub(args Args) (r Rets, err error) {
-// 	panic("not implemented")
-// }
+func add_s(caps *captures, b *strings.Builder, s string, si, ei int, news string) (err error) {
+	l := len(news)
+
+	for i := 0; i < l; i++ {
+		if news[i] != l_esc {
+			b.WriteByte(news[i])
+			continue
+		}
+
+		i++ // skip ESC
+		if !isdigit(news[i]) {
+			if news[i] != l_esc {
+				return fmt.Errorf("invalid use of '%c' in replacement string", l_esc)
+			}
+			b.WriteByte(l_esc) // always %?
+		} else if news[i] == '0' {
+			b.WriteString(s[si:ei])
+		} else {
+			r, err := pushCapture(caps, s, si, ei, int(news[i]-'1'))
+			if err != nil {
+				return err
+			}
+
+			b.WriteString(ToString(r)) // add capture to accumulated result
+		}
+	}
+
+	return
+}
+
+func add_value(caps *captures, b *strings.Builder, co *Coroutine, s string, si, ei int, next any) (err error) {
+	var value any
+
+	switch n := next.(type) {
+	case string:
+		return add_s(caps, b, s, si, ei, n)
+	case Function:
+		rets, err := (*n)(co, s[si:ei])
+		if err != nil {
+			return err
+		} else if len(rets) != 0 {
+			value = rets[0]
+		}
+	case *Table:
+		r, err := pushCapture(caps, s, si, ei, 0)
+		if err != nil {
+			return err
+		}
+
+		value = n.GetHash(r) // at least pretty sure this'll always be in the #
+	}
+
+	if !truthy(value) { // nil or false?
+		b.WriteString(s[si:ei]) // keep original text
+		return
+	} else if _, ok := value.(string); !ok {
+		return fmt.Errorf("invalid replacement value (a %s)", luautype[typeOf(value)])
+	}
+
+	// add result to accumulator?
+	b.WriteString(ToString(value))
+	return
+}
+
+func string_gsub(args Args) (r Rets, err error) {
+	src := args.GetString()
+	p := args.GetString()
+	next := args.GetAny()
+
+	switch next.(type) {
+	case string, Function, *Table:
+	default:
+		return nil, fmt.Errorf("invalid argument #3 to 'gsub' (string/function/table expected, got %s)", luautype[typeOf(next)])
+	}
+
+	srcl := len(src)
+	max_s := args.GetNumber(float64(srcl + 1))
+
+	m, pis, sis := int(max_s), 0, 0
+	var anchor bool
+	if len(p) > 0 && p[0] == '^' {
+		anchor = true
+		pis = 1
+	}
+
+	var n int // number of replacements
+	caps := &captures{}
+	b := strings.Builder{}
+
+	for n < m {
+		caps.level = 0
+		e, err := matchPos(src, p, sis, pis, caps)
+		if err != nil {
+			return nil, err
+		} else if e != -1 {
+			n++
+			add_value(caps, &b, args.Co, src, sis, e, next)
+		}
+
+		if e != -1 && e > sis { // non-empty match?
+			sis = e // skip it
+		} else if sis < srcl {
+			b.WriteByte(src[sis])
+			sis++
+		} else {
+			break
+		}
+
+		if anchor {
+			break
+		}
+	}
+
+	if sis < srcl {
+		b.WriteString(src[sis:])
+	}
+
+	return Rets{b.String(), float64(n)}, nil
+}
 
 func string_len(args Args) (r Rets, err error) {
 	s := args.GetString()
@@ -349,7 +465,7 @@ var libstring = NewTable([][2]any{
 	MakeFn("find", string_find),
 	MakeFn("format", string_format),
 	MakeFn("gmatch", string_gmatch),
-	// MakeFn("gsub", string_gsub),
+	MakeFn("gsub", string_gsub),
 	MakeFn("len", string_len),
 	MakeFn("lower", string_lower),
 	MakeFn("match", string_match),

@@ -35,3 +35,7 @@ local unicode = "你好屌"
 for i in string.gmatch(unicode, utf8.charpattern) do
 	print(i)
 end
+
+for i in string.gmatch("bruhtest", "^bruh") do -- nothing
+	print(i)
+end
