@@ -3,7 +3,6 @@ package keys
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/ChainSafe/go-schnorrkel"
 )
@@ -13,8 +12,8 @@ type Keypair struct {
 	sk SK
 }
 
-func GenerateKeys(threads uint8, found chan<- Keypair, done <-chan struct{} /* signal to stop*/) {
-	var hashes, seconds uint64
+func GenerateKeys(threads uint8, stop <-chan struct{}) Keypair {
+	found := make(chan Keypair)
 
 	for range threads {
 		go func() {
@@ -22,8 +21,6 @@ func GenerateKeys(threads uint8, found chan<- Keypair, done <-chan struct{} /* s
 				// 🔥🔥 HOT PATH 🔥🔥
 				skm, _ := schnorrkel.GenerateMiniSecretKey()
 				sk := skm.ExpandEd25519().Encode()
-
-				hashes++
 
 				pk, err := SKtoPK(sk)
 				if err != nil {
@@ -35,26 +32,14 @@ func GenerateKeys(threads uint8, found chan<- Keypair, done <-chan struct{} /* s
 				select {
 				case found <- Keypair{pk, sk}:
 					fmt.Println("sent keypair")
-				case <-done:
+				case <-stop:
 					return
 				}
 			}
 		}()
 	}
 
-	go func() {
-		for {
-			time.Sleep(time.Second * 3)
-			seconds += 3
-			fmt.Println("hashes per second:", hashes/seconds)
-
-			select {
-			case <-done:
-				return
-			default:
-			}
-		}
-	}()
+	return <-found
 }
 
 func SKtoPK(skBytes SK) (PK, error) {
