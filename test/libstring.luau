@@ -92,6 +92,10 @@ str = "Once upon a time, there was a dragon named %s and it had %.8f horns."
 print(string.format(str, "Pi", math.pi))
 -- -- Output: Once upon a time, there was a dragon named Pi and it had 3.14159265 horns.
 
+-- uncomment when https://github.com/luau-lang/luau/issues/1650
+-- print(string.format("%c", 0) == "\0") -- huehuehuehuehuehehehe
+-- print(string.format("%c", 0) == "")
+
 print(string.len "hello")
 print(string.len "世界")
 print(string.len "")
