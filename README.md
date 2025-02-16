@@ -1,3 +1,3 @@
-# litecode
- 
-Semi-working Luau bytecode interpreter
+# ![litecode logo](./litecode.svg)
+
+Deterministic Luau virtual machine and library toolkit
