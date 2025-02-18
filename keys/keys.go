@@ -55,7 +55,7 @@ func keypair(pk, sk [32]byte) (kp Keypair, err error) {
 
 func KeypairSK(sk [32]byte) (kp Keypair, err error) {
 	pk, _, err := box.GenerateKey(bytes.NewReader(sk[:]))
-	if err != nil {
+	if err != nil { // doesn't ever error as sk is always of sufficient size
 		return
 	}
 
@@ -63,15 +63,17 @@ func KeypairSK(sk [32]byte) (kp Keypair, err error) {
 }
 
 // Who needs nonces anyway? Every request is idempotent becaue every computation is deterministic.
+// Exactly-once delivery 4 tha win
 var ZeroNonce = new([24]byte)
 
+// todo: version cyphertexts
 func (kp Keypair) Decrypt(ct []byte) (msg []byte, from PK, ok bool) {
 	pk := new([32]byte)
 	copy(pk[3:], kp.Pk[:])
 
 	// first decrypt anonymous message
-	skb := [32]byte(kp.Sk)
-	inter, ok := box.OpenAnonymous(nil, ct, pk, &skb) // removes 48 bytes (includes ephemeral 32-byte pk)
+	sk := [32]byte(kp.Sk)
+	inter, ok := box.OpenAnonymous(nil, ct, pk, &sk) // removes 48 bytes (includes ephemeral 32-byte pk)
 	if !ok {
 		return
 	}
@@ -84,7 +86,7 @@ func (kp Keypair) Decrypt(ct []byte) (msg []byte, from PK, ok bool) {
 	copy(peerpk[3:], interpk)
 
 	// next decrypt with known peer pk (could use a signature here)
-	msg, ok = box.Open(nil, interct, ZeroNonce, peerpk, &skb) // removes 16 bytes
+	msg, ok = box.Open(nil, interct, ZeroNonce, peerpk, &sk) // removes 16 bytes
 
 	return msg, PK(interpk), ok
 }
