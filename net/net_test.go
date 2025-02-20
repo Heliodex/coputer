@@ -1,19 +1,17 @@
 package net
 
 import (
+	"fmt"
 	"testing"
-	"time"
 )
 
 // signet lel
 func TestNet(t *testing.T) {
 	lnet := LocalNet{}
 
-	lnet.NewNode()
+	n1 := lnet.NewNode()
 
-	time.Sleep(time.Second)
-
-	lnet.NewNode()
+	fmt.Println(n1.FindString())
 
 	select {}
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"golang.org/x/crypto/nacl/box"
+	"golang.org/x/crypto/nacl/sign"
 )
 
 type Keypair struct {
@@ -106,4 +107,18 @@ func (kp Keypair) Encrypt(msg []byte, to PK) ([]byte, error) {
 
 	// next encrypt inter anonymously
 	return box.SealAnonymous(nil, inter, pk, nil) // adds 48 bytes (includes ephemeral 32-byte pk)
+}
+
+func (sk SK) Sign(msg []byte) []byte {
+	skb := new([64]byte)
+	copy(skb[:], sk[:])
+
+	return sign.Sign(nil, msg, skb) // adds 64 bytes
+}
+
+func (pk PK) Verify(sig []byte) (msg []byte, ok bool) {
+	pkb := new([32]byte)
+	copy(pkb[3:], pk[:])
+
+	return sign.Open(nil, sig, pkb) // removes 64 bytes
 }

@@ -42,19 +42,28 @@ func (n *LocalNet) AddPeer(p Peer, recv chan<- Message) {
 
 func (n LocalNet) Send(p Peer, m Message) {
 	for _, ep := range n.ExistingPeers {
-		if ep.Peer == p {
+		if p.Equals(ep.Peer) {
 			ep.Receive <- m
+			return
 		}
 	}
 }
 
 func (n *LocalNet) NewNode() (node Node) {
 	kp := getSampleKeypair()
-	addr := Address{sampleKeysUsed} // sequential placeholder
-	recv := make(chan Message)
+	peer := Peer{
+		kp.Pk,
+		[]Address{{sampleKeysUsed}}, // sequential placeholder
+	}
 
-	n.AddPeer(Peer{kp.Pk, addr}, recv)
-	node = Node{kp, addr, []Peer{}, n.Send, recv}
+	recv := make(chan Message)
+	n.AddPeer(peer, recv)
+	node = Node{
+		Peer:    peer,
+		Kp:      kp,
+		Send:    n.Send,
+		Receive: recv,
+	}
 
 	go node.Start()
 	return
