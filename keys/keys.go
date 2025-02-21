@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"errors"
+	"slices"
 
 	"golang.org/x/crypto/nacl/box"
 )
@@ -11,6 +12,24 @@ import (
 type Keypair struct {
 	Pk PK
 	Sk SK
+}
+
+const AddressLen = 16
+
+type Address [AddressLen]byte // can be whatever (probably an ipv6 lel)
+
+type Peer struct {
+	Pk        PK
+	Addresses []Address
+}
+
+type ThisPeer struct {
+	Peer
+	Kp Keypair
+}
+
+func (p Peer) Equals(p2 Peer) bool {
+	return p.Pk == p2.Pk && slices.Equal(p.Addresses, p2.Addresses)
 }
 
 func KeyWorker(found chan<- Keypair, stop <-chan struct{}) {
@@ -66,46 +85,90 @@ func KeypairSK(sk [32]byte) (kp Keypair, err error) {
 // Exactly-once delivery 4 tha win
 var ZeroNonce = new([24]byte)
 
+const EncPKLen = PKSize + box.AnonymousOverhead
+
 // todo: version cyphertexts
-func (kp Keypair) Decrypt(ct []byte) (msg []byte, from PK, ok bool) {
+func (kp Keypair) Decrypt(ct []byte) (from Peer, msg []byte, ok bool) {
 	pk := new([32]byte)
 	copy(pk[3:], kp.Pk[:])
-
-	// first decrypt anonymous message
 	sk := [32]byte(kp.Sk)
-	inter, ok := box.OpenAnonymous(nil, ct, pk, &sk) // removes 48 bytes (includes ephemeral 32-byte pk)
+
+	// first decrypt sender public key
+	encpk, ct := ct[:EncPKLen], ct[EncPKLen:]
+
+	interpk, ok := box.OpenAnonymous(nil, encpk, pk, &sk)
 	if !ok {
 		return
 	}
-
-	// inter is 29 bytes of pk and rest is ciphertext
-	interpk, interct := inter[:29], inter[29:] // removes 29 bytes
 
 	// we now know whom the message is from
 	peerpk := new([32]byte)
 	copy(peerpk[3:], interpk)
 
-	// next decrypt with known peer pk (could use a signature here)
-	msg, ok = box.Open(nil, interct, ZeroNonce, peerpk, &sk) // removes 16 bytes
+	// next decrypt ct with known peer pk
+	inter, ok := box.Open(nil, ct, ZeroNonce, peerpk, &sk)
+	if !ok {
+		return
+	}
 
-	return msg, PK(interpk), ok
+	// inter is 1 byte of number of addresses and rest is addresses and message
+	numAddrs, inter := inter[0], inter[1:]
+	allAddrsLen := int(numAddrs) * AddressLen
+	allAddrs, msg := inter[:allAddrsLen], inter[allAddrsLen:]
+
+	addresses := make([]Address, numAddrs)
+	for i := range addresses {
+		copy(addresses[i][:], allAddrs[i*AddressLen:][:AddressLen])
+	}
+
+	return Peer{PK(peerpk[3:]), addresses}, msg, true
 }
 
-// encryption adds total 93 bytes of overhead
 // We could do real anonymous messages someday but having keys for every message at the moment is valuable
-func (kp Keypair) Encrypt(msg []byte, to PK) ([]byte, error) {
+
+// --- Sender pk [29]
+// anonymously encrypted [48] with recipient pk [total 77]
+// --- Number of addresses [1]
+// --- Addresses [16]...
+// --- Actual message [...]
+// encrypted [16] with recipient pk
+func (p ThisPeer) Encrypt(msg []byte, to PK) (out []byte, err error) {
+	interLen := 1 + AddressLen*len(p.Addresses) + len(msg)
+	outLen := EncPKLen + interLen + box.Overhead
+
+	out = make([]byte, 0, outLen)
+
+	// Sender pk [29]
 	pk := new([32]byte)
 	copy(pk[3:], to[:])
 
-	// first encrypt message with our own pk (could use a signature here)
-	sk := [32]byte(kp.Sk)
-	inter := box.Seal(nil, msg, ZeroNonce, pk, &sk) // adds 16 bytes (doesn't include 32-byte pk)
+	// anonymously encrypted [48] with recipient pk [total 77]
+	encpk, err := box.SealAnonymous(nil, p.Kp.Pk[:], pk, nil)
+	if err != nil {
+		return
+	}
 
-	// inter is 29 bytes of pk and rest is ciphertext
-	inter = append(kp.Pk[:], inter...) // adds 29 bytes
+	// add it to the message
+	out = append(out, encpk...)
 
-	// next encrypt inter anonymously
-	return box.SealAnonymous(nil, inter, pk, nil) // adds 48 bytes (includes ephemeral 32-byte pk)
+	inter := make([]byte, 1, interLen)
+
+	// Number of addresses [1]
+	inter[0] = byte(len(p.Addresses)) // if it's over 255 gfy
+
+	// Addresses [16]...
+	for _, addr := range p.Addresses {
+		inter = append(inter, addr[:]...)
+	}
+
+	// Actual message [...]
+	inter = append(inter, msg...)
+
+	// encrypted [16] with recipient pk
+	sk := [32]byte(p.Kp.Sk)
+	encinter := box.Seal(nil, inter, ZeroNonce, pk, &sk)
+
+	return append(out, encinter...), nil
 }
 
 // fake signatures with encryption
