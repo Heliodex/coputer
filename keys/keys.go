@@ -6,7 +6,6 @@ import (
 	"errors"
 
 	"golang.org/x/crypto/nacl/box"
-	"golang.org/x/crypto/nacl/sign"
 )
 
 type Keypair struct {
@@ -109,16 +108,22 @@ func (kp Keypair) Encrypt(msg []byte, to PK) ([]byte, error) {
 	return box.SealAnonymous(nil, inter, pk, nil) // adds 48 bytes (includes ephemeral 32-byte pk)
 }
 
+// fake signatures with encryption
+// because at the moment, signing with ed25519 with key conversion from curve25519 is a pain, converting from existing curve25519 keys to ed25519 is even worse, and while using ristretto255 for everything would be nice, that would require me rolling my own everything which would actually be not nice, and also I'm pissy that I'd have to use 64-byte private keys with edwards curves
+// this would kill any competent cryptographer from a mile away lmao
+
 func (sk SK) Sign(msg []byte) []byte {
-	skb := new([64]byte)
+	skb := new([32]byte)
 	copy(skb[:], sk[:])
 
-	return sign.Sign(nil, msg, skb) // adds 64 bytes
+	// encrypt to a pk everyone knows with our sk
+	return box.Seal(nil, msg, ZeroNonce, ZeroPK, skb)
 }
 
 func (pk PK) Verify(sig []byte) (msg []byte, ok bool) {
 	pkb := new([32]byte)
 	copy(pkb[3:], pk[:])
 
-	return sign.Open(nil, sig, pkb) // removes 64 bytes
+	// decrypt with a sk everyone knows and their pk
+	return box.Open(nil, sig, ZeroNonce, pkb, ZeroSK)
 }

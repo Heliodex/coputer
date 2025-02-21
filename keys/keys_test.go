@@ -53,9 +53,9 @@ func TestEncrypt(t *testing.T) {
 	fmt.Println(len(enc) == len(message)+93)
 	fmt.Println()
 
-	dec, rpk, correct := kp2.Decrypt(enc)
+	dec, rpk, ok := kp2.Decrypt(enc)
 	fmt.Println(string(dec))
-	fmt.Println(correct)
+	fmt.Println(ok)
 	fmt.Println("from", rpk.Encode())
 	fmt.Println()
 }
@@ -63,16 +63,9 @@ func TestEncrypt(t *testing.T) {
 func TestSign(t *testing.T) {
 	sk1, err := DecodeSK(skf1)
 	Assert(err)
-	sk2, err := DecodeSK(skf2)
-	Assert(err)
 
 	kp1, err := KeypairSK(sk1)
 	Assert(err)
-	kp2, err := KeypairSK(sk2)
-	Assert(err)
-
-	_ = kp1
-	_ = kp2
 
 	//
 
@@ -81,6 +74,9 @@ func TestSign(t *testing.T) {
 	sig := kp1.Sk.Sign(message)
 
 	fmt.Println(len(sig), len(message))
-	fmt.Println(len(sig) == len(message)+64)
-	fmt.Println(string(sig))
+	fmt.Println(len(sig) == len(message)+16) // hey wouldya look at that, 16 bytes of overhead, i'm a genuis
+
+	ver, ok := kp1.Pk.Verify(sig)
+	fmt.Println(string(ver))
+	fmt.Println(ok)
 }

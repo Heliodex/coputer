@@ -49,7 +49,7 @@ func (n LocalNet) Send(p Peer, m Message) {
 	}
 }
 
-func (n *LocalNet) NewNode() (node Node) {
+func (n *LocalNet) NewNode(ps ...Peer) (node Node) {
 	kp := getSampleKeypair()
 	peer := Peer{
 		kp.Pk,
@@ -58,12 +58,7 @@ func (n *LocalNet) NewNode() (node Node) {
 
 	recv := make(chan Message)
 	n.AddPeer(peer, recv)
-	node = Node{
-		Peer:    peer,
-		Kp:      kp,
-		Send:    n.Send,
-		Receive: recv,
-	}
+	node = Node{peer, kp, ps, n.Send, recv}
 
 	go node.Start()
 	return
