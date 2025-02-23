@@ -3,8 +3,8 @@ package net
 import (
 	"encoding/base64"
 	"fmt"
-	"iter"
 	"strings"
+	"time"
 
 	"github.com/Heliodex/litecode/keys"
 )
@@ -45,18 +45,27 @@ func PeerFromFindString(find string) (p keys.Peer, err error) {
 
 type EncryptedMessage []byte
 
+type MessageType uint8
+
+const (
+	Msg1 = iota
+)
+
+type Message struct {
+	From keys.Peer
+	Type MessageType
+	Body []byte
+}
+
 func (m EncryptedMessage) Decode(kp keys.Keypair) (msg Message, ok bool) {
 	from, body, ok := kp.Decrypt(m)
 	if !ok {
 		return
 	}
 
-	return Message{from, body}, true
-}
+	t, body := MessageType(body[0]), body[1:]
 
-type Message struct {
-	From keys.Peer
-	Body []byte
+	return Message{from, t, body}, true
 }
 
 type Node struct {
@@ -67,8 +76,19 @@ type Node struct {
 	ReceiveRaw <-chan EncryptedMessage
 }
 
+func (n *Node) Send(p keys.Peer, t MessageType, msg []byte) (err error) {
+	msg = append([]byte{byte(t)}, msg...)
+
+	ct, err := n.ThisPeer.Encrypt(msg, p.Pk)
+	if err != nil {
+		return
+	}
+
+	return n.SendRaw(p, ct)
+}
+
 // A find string encodes the pk and addresses
-func (n Node) FindString() string {
+func (n *Node) FindString() string {
 	pk := n.Kp.Pk.Encode()[6:]
 
 	addrs := make([]byte, len(n.Addresses)*keys.AddressLen)
@@ -82,56 +102,41 @@ func (n Node) FindString() string {
 }
 
 // unoptimised; debug
-func (n Node) log(msg ...any) {
+func (n *Node) log(msg ...any) {
 	pke := n.Kp.Pk.Encode()
 	logId := pke[6:8]
 
 	m := strings.ReplaceAll(fmt.Sprint(msg...), "\n", "\n     ")
-	fmt.Printf("[%s] %s\n", logId, m)
+	fmt.Printf("[%s]\n     %s\n", logId, m)
 }
 
-func (n Node) Send(p keys.Peer, str string) (err error) {
-	ct, err := n.ThisPeer.Encrypt([]byte(str), p.Pk)
-	if err != nil {
-		return
-	}
-
-	return n.SendRaw(p, ct)
-}
-
-func (n Node) Receive() iter.Seq[Message] {
-	return func(y func(Message) bool) {
-		ct, ok := <-n.ReceiveRaw
-		if !ok {
-			return
-		}
-
-		msg, ok := ct.Decode(n.Kp)
-		if !ok {
-			return
-		}
-
-		y(msg)
-	}
-}
-
-func (n Node) Start() {
+func (n *Node) Start() {
 	pke := n.Kp.Pk.Encode()
 
 	n.log(
 		"Starting\n",
 		"I'm ", pke, "\n",
-		"My primary address is ", n.Addresses[0])
-
-	n.log("I know ", len(n.Peers), " peers")
+		"My primary address is ", n.Addresses[0], "\n",
+		"I know ", len(n.Peers), " peers")
 
 	// Receiver
 	go func() {
-		for msg := range n.Receive() {
+		for {
+			msg, ok := (<-n.ReceiveRaw).Decode(n.Kp)
+			if !ok {
+				continue
+			}
+
 			n.log(
 				"Received ", string(msg.Body), "\n",
+				"Type ", msg.Type, "\n",
 				"From ", msg.From.Pk.Encode(), "\n",
-				"@ ", msg.From.Addresses[0])
+				"@ ", msg.From.Addresses[0], "\n",
+				"Sending back...")
+
+			time.Sleep(time.Second)
+
+			n.Send(msg.From, Msg1, []byte("Hello again, peer!"))
 		}
 	}()
 
@@ -140,6 +145,7 @@ func (n Node) Start() {
 		n.log(
 			"Sending to ", peer.Pk.Encode(), "\n",
 			"@ ", peer.Addresses[0])
-		n.Send(peer, "Hello, peer!")
+
+		n.Send(peer, Msg1, []byte("Hello, peer!"))
 	}
 }

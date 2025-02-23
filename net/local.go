@@ -40,7 +40,7 @@ func (n *LocalNet) AddPeer(p keys.Peer, recv chan<- EncryptedMessage) {
 	n.ExistingPeers = append(n.ExistingPeers, LocalPeer{p, recv})
 }
 
-func (n LocalNet) SendRaw(p keys.Peer, m []byte) (err error) {
+func (n *LocalNet) SendRaw(p keys.Peer, m []byte) (err error) {
 	for _, ep := range n.ExistingPeers {
 		if p.Equals(ep.Peer) {
 			ep.Receive <- m // assume we're sending from 1st addr for now.. ugh
