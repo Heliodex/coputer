@@ -4,15 +4,16 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Heliodex/litecode/keys"
 )
 
 const FindStart = "cofind:"
 
-func PeerFromFindString(find string) (p keys.Peer, err error) {
+func PeerFromFindString(find string) (p *keys.Peer, err error) {
 	if !strings.HasPrefix(find, FindStart) || find[56] != '.' {
-		return keys.Peer{}, fmt.Errorf("not a valid find string")
+		return nil, fmt.Errorf("not a valid find string")
 	}
 
 	pk, err := keys.DecodePK(keys.PubStart + find[7:56]) // up until 1st dot
@@ -29,9 +30,9 @@ func PeerFromFindString(find string) (p keys.Peer, err error) {
 
 	addrs, ok := pk.Verify(decodedAddrs)
 	if !ok {
-		return keys.Peer{}, fmt.Errorf("invalid addresses signature")
+		return nil, fmt.Errorf("invalid addresses signature")
 	} else if len(addrs)%keys.AddressLen != 0 {
-		return keys.Peer{}, fmt.Errorf("invalid addresses part length")
+		return nil, fmt.Errorf("invalid addresses part length")
 	}
 
 	addresses := make([]keys.Address, len(addrs)/keys.AddressLen)
@@ -39,7 +40,7 @@ func PeerFromFindString(find string) (p keys.Peer, err error) {
 		copy(addresses[i][:], addrs[i*keys.AddressLen:][:keys.AddressLen])
 	}
 
-	return keys.Peer{Pk: pk, Addresses: addresses}, nil
+	return &keys.Peer{Pk: pk, Addresses: addresses}, nil
 }
 
 type (
@@ -52,7 +53,7 @@ const (
 )
 
 type Message struct {
-	From keys.Peer
+	From *keys.Peer
 	Type MessageType
 	Body []byte
 }
@@ -64,7 +65,7 @@ func (m EncryptedMessage) Decode(kp keys.Keypair) (msg Message, err error) {
 	}
 
 	return Message{
-		From: from,
+		From: &from,
 		Type: MessageType(body[0]),
 		Body: body[1:],
 	}, nil
@@ -73,20 +74,25 @@ func (m EncryptedMessage) Decode(kp keys.Keypair) (msg Message, err error) {
 type Node struct {
 	keys.ThisPeer
 
-	Peers      []keys.Peer // known peers
-	SendRaw    func(peer keys.Peer, msg []byte) (err error)
+	Peers      map[keys.PK]*keys.Peer // known peers
+	SendRaw    func(peer *keys.Peer, msg []byte) (err error)
 	ReceiveRaw <-chan EncryptedMessage
 }
 
-func (n *Node) Send(p keys.Peer, t MessageType, msg []byte) (err error) {
+func (n *Node) send(pk keys.PK, t MessageType, msg []byte) (err error) {
+	peer, ok := n.Peers[pk]
+	if !ok {
+		return fmt.Errorf("unknown peer")
+	}
+
 	msg = append([]byte{byte(t)}, msg...)
 
-	ct, err := n.ThisPeer.Encrypt(msg, p.Pk)
+	ct, err := n.Encrypt(msg, pk)
 	if err != nil {
 		return
 	}
 
-	return n.SendRaw(p, ct)
+	return n.SendRaw(peer, ct)
 }
 
 // A find string encodes the pk and addresses
@@ -112,11 +118,18 @@ func (n *Node) log(msg ...any) {
 	fmt.Printf("[%s]\n     %s\n", logId, m)
 }
 
-func (n *Node) HandleMessage(msg Message) {
+func (n *Node) handleMessage(msg Message) {
 	switch msg.Type {
 	case Msg1:
-		n.Send(msg.From, Msg1, []byte("sup")) // infinite loop can't be avoided if you take a route straight through what is known as
+		n.send(msg.From.Pk, Msg1, []byte("sup")) // infinite loop can't be avoided if you take a route straight through what is known as
 	}
+}
+
+func (n *Node) seenPeer(p *keys.Peer) {
+	if _, ok := n.Peers[p.Pk]; !ok {
+		n.Peers[p.Pk] = p
+	}
+	n.Peers[p.Pk].LastSeen = time.Now()
 }
 
 func (n *Node) Start() {
@@ -138,12 +151,14 @@ func (n *Node) Start() {
 				continue
 			}
 
+			n.seenPeer(msg.From)
+
 			n.log(
 				"Received ", len(msg.Body), "\n",
 				"From ", msg.From.Pk.Encode(), "\n",
 				"@ ", msg.From.Addresses[0], "\n")
 
-			n.HandleMessage(msg)
+			n.handleMessage(msg)
 		}
 	}()
 
@@ -153,6 +168,6 @@ func (n *Node) Start() {
 			"To   ", peer.Pk.Encode(), "\n",
 			"@ ", peer.Addresses[0])
 
-		n.Send(peer, Msg1, []byte("Hello, peer!"))
+		n.send(peer.Pk, Msg1, []byte("Hello, peer!"))
 	}
 }

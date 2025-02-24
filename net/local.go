@@ -40,7 +40,7 @@ func (n *LocalNet) AddPeer(p keys.Peer, recv chan<- EncryptedMessage) {
 	n.ExistingPeers = append(n.ExistingPeers, LocalPeer{p, recv})
 }
 
-func (n *LocalNet) SendRaw(p keys.Peer, m []byte) (err error) {
+func (n *LocalNet) SendRaw(p *keys.Peer, m []byte) (err error) {
 	for _, ep := range n.ExistingPeers {
 		if p.Equals(ep.Peer) {
 			ep.Receive <- m // assume we're sending from 1st addr for now.. ugh
@@ -52,11 +52,16 @@ func (n *LocalNet) SendRaw(p keys.Peer, m []byte) (err error) {
 	return
 }
 
-func (n *LocalNet) NewNode(ps ...keys.Peer) (node Node) {
+func (n *LocalNet) NewNode(ps ...*keys.Peer) (node Node) {
 	kp := getSampleKeypair()
 	peer := keys.Peer{
 		Pk:        kp.Pk,
 		Addresses: []keys.Address{{sampleKeysUsed}}, // sequential placeholder
+	}
+
+	peers := make(map[keys.PK]*keys.Peer)
+	for _, p := range ps {
+		peers[p.Pk] = p
 	}
 
 	recv := make(chan EncryptedMessage)
@@ -64,7 +69,7 @@ func (n *LocalNet) NewNode(ps ...keys.Peer) (node Node) {
 	node = Node{keys.ThisPeer{
 		Peer: peer,
 		Kp:   kp,
-	}, ps, n.SendRaw, recv}
+	}, peers, n.SendRaw, recv}
 
 	go node.Start()
 	return

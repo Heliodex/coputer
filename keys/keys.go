@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"slices"
+	"time"
 
 	"golang.org/x/crypto/nacl/box"
 )
@@ -21,6 +22,7 @@ type Address [AddressLen]byte // can be whatever (probably an ipv6 lel)
 type Peer struct {
 	Pk        PK
 	Addresses []Address
+	LastSeen  time.Time
 }
 
 type ThisPeer struct {
