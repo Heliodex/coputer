@@ -24,7 +24,7 @@ func TestNet(t *testing.T) {
 		panic(err)
 	}
 
-	 lnet.NewNode(p1) // tell it about n1
+	lnet.NewNode(p1) // tell it about n1
 
 	select {}
 }

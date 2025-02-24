@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/Heliodex/litecode/keys"
 )
@@ -43,9 +42,10 @@ func PeerFromFindString(find string) (p keys.Peer, err error) {
 	return keys.Peer{Pk: pk, Addresses: addresses}, nil
 }
 
-type EncryptedMessage []byte
-
-type MessageType uint8
+type (
+	EncryptedMessage []byte
+	MessageType      uint8
+)
 
 const (
 	Msg1 = iota
@@ -57,15 +57,17 @@ type Message struct {
 	Body []byte
 }
 
-func (m EncryptedMessage) Decode(kp keys.Keypair) (msg Message, ok bool) {
-	from, body, ok := kp.Decrypt(m)
-	if !ok {
+func (m EncryptedMessage) Decode(kp keys.Keypair) (msg Message, err error) {
+	from, body, err := kp.Decrypt(m)
+	if err != nil {
 		return
 	}
 
-	t, body := MessageType(body[0]), body[1:]
-
-	return Message{from, t, body}, true
+	return Message{
+		From: from,
+		Type: MessageType(body[0]),
+		Body: body[1:],
+	}, nil
 }
 
 type Node struct {
@@ -110,6 +112,13 @@ func (n *Node) log(msg ...any) {
 	fmt.Printf("[%s]\n     %s\n", logId, m)
 }
 
+func (n *Node) HandleMessage(msg Message) {
+	switch msg.Type {
+	case Msg1:
+		n.Send(msg.From, Msg1, []byte("sup")) // infinite loop can't be avoided if you take a route straight through what is known as
+	}
+}
+
 func (n *Node) Start() {
 	pke := n.Kp.Pk.Encode()
 
@@ -122,28 +131,26 @@ func (n *Node) Start() {
 	// Receiver
 	go func() {
 		for {
-			msg, ok := (<-n.ReceiveRaw).Decode(n.Kp)
-			if !ok {
+			rec := <-n.ReceiveRaw
+			msg, err := rec.Decode(n.Kp)
+			if err != nil {
+				n.log("Failed to decode message\n", err)
 				continue
 			}
 
 			n.log(
-				"Received ", string(msg.Body), "\n",
-				"Type ", msg.Type, "\n",
+				"Received ", len(msg.Body), "\n",
 				"From ", msg.From.Pk.Encode(), "\n",
-				"@ ", msg.From.Addresses[0], "\n",
-				"Sending back...")
+				"@ ", msg.From.Addresses[0], "\n")
 
-			time.Sleep(time.Second)
-
-			n.Send(msg.From, Msg1, []byte("Hello again, peer!"))
+			n.HandleMessage(msg)
 		}
 	}()
 
 	// Sender
 	for _, peer := range n.Peers {
 		n.log(
-			"Sending to ", peer.Pk.Encode(), "\n",
+			"To   ", peer.Pk.Encode(), "\n",
 			"@ ", peer.Addresses[0])
 
 		n.Send(peer, Msg1, []byte("Hello, peer!"))
