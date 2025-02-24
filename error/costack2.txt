@@ -1,7 +1,7 @@
-Opcode: CALL
-(main):14: Opcode: CALL
-(??):11: Opcode: CALL
-f4:9: Opcode: CALL
-f3:8: Opcode: CALL
-f2:7: Opcode: CALL
+opcode: CALL
+(main):14: opcode: CALL
+(??):11: opcode: CALL
+f4:9: opcode: CALL
+f3:8: opcode: CALL
+f2:7: opcode: CALL
 f1:4: attempt to call a string value

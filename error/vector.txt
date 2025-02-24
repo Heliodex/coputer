@@ -1,2 +1,2 @@
-Opcode: GETTABLEKS
+opcode: GETTABLEKS
 (main):4: attempt to index vector with 'hello'

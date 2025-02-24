@@ -1,2 +1,2 @@
-Opcode: GETTABLEKS
+opcode: GETTABLEKS
 (main):2: attempt to index nil with 'y'

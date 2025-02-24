@@ -1,2 +1,2 @@
-Opcode: CALL
+opcode: CALL
 (main):1: wrong number of arguments to 'insert'

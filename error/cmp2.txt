@@ -1,2 +1,2 @@
-Opcode: JUMPIFLE
+opcode: JUMPIFLE
 (main):4: attempt to compare vector <= vector

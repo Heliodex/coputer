@@ -387,10 +387,10 @@ func errorfmt(err error, d *debugging) error {
 
 	if d.enabled {
 		// PC removed for determinism between O levels
-		return fmt.Errorf("Opcode: %s\n%s:%d: %w", op, d.dbgname, d.line, err)
+		return fmt.Errorf("opcode: %s\n%s:%d: %w", op, d.dbgname, d.line, err)
 	}
 
-	return fmt.Errorf("Opcode: %s\n%s: %w", op, d.dbgname, err)
+	return fmt.Errorf("opcode: %s\n%s: %w", op, d.dbgname, err)
 }
 
 func (co *Coroutine) Error(err error) {
@@ -718,7 +718,7 @@ func readProto(bytecodeid uint32, stringList []string, s *stream) (proto, error)
 		case 7: // Vector
 			klist[i] = vectorCtor(s.rFloat32(), s.rFloat32(), s.rFloat32(), s.rFloat32())
 		default:
-			return proto{}, fmt.Errorf("Unknown ktype %d", kt)
+			return proto{}, fmt.Errorf("unknown ktype %d", kt)
 		}
 	}
 
@@ -2083,7 +2083,7 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 				pc += 2
 			}
 		default:
-			return nil, fmt.Errorf("Unsupported Opcode: %s op: %d", i.opname, op)
+			return nil, fmt.Errorf("unsupported opcode: %s op: %d", i.opname, op)
 		}
 	}
 

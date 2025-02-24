@@ -53,11 +53,8 @@ func global_next(args Args) (r Rets, err error) {
 		next, stop := iter.Pull2(t.Iter())
 		defer stop()
 
-		for {
-			k, v, ok := next()
-			if !ok {
-				break
-			}
+		k, v, ok := next()
+		if ok {
 			return Rets{k, v}, nil
 		}
 	}

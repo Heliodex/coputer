@@ -383,11 +383,11 @@ func optSuffix(s, p string, si, pi, epi int, caps *captures) (cont bool, si2, pi
 	return false, si, pi, nil
 }
 
-func defaultCase(s, p string, si, pi, epi int, caps *captures) (cont bool, si2, pi2 int, err error) {
+func defaultCase(s, p string, si, pi int, caps *captures) (cont bool, si2, pi2 int, err error) {
 	// dlog("default", s, "[", si, pi, "]")
 
 	// pattern class plus optional suffix
-	epi, err = classend(p, pi) // points to optional suffix
+	epi, err := classend(p, pi) // points to optional suffix
 	if err != nil {
 		return false, 0, 0, err
 	} else if !singlematch(s, p, si, pi, epi) {
@@ -441,7 +441,7 @@ func matchPos(s, p string, si, pi int, caps *captures) (si2 int, err error) {
 			if pi+1 != len(p) { // s the '$' the last char in pattern?
 				// no; go to default
 				var cont bool
-				if cont, si, pi, err = defaultCase(s, p, si, pi, len(p), caps); !cont {
+				if cont, si, pi, err = defaultCase(s, p, si, pi, caps); !cont {
 					return si, err
 				}
 			} else if si != len(s) { // check end of string
@@ -513,7 +513,7 @@ func matchPos(s, p string, si, pi int, caps *captures) (si2 int, err error) {
 		default:
 			// go to default; do not pass go, do not collect £200
 			var cont bool
-			if cont, si, pi, err = defaultCase(s, p, si, pi, len(p), caps); !cont {
+			if cont, si, pi, err = defaultCase(s, p, si, pi, caps); !cont {
 				return si, err
 			}
 		}

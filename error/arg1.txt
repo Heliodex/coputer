@@ -1,2 +1,2 @@
-Opcode: CALL
+opcode: CALL
 (main):1: invalid argument #1 to 'sin' (number expected, got string)

@@ -1,2 +1,2 @@
-Opcode: CONCAT
+opcode: CONCAT
 (main):4: attempt to concatenate number with string

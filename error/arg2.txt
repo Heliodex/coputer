@@ -1,2 +1,2 @@
-Opcode: CALL
+opcode: CALL
 (main):3: invalid argument #3 to 'create' (number expected, got vector)

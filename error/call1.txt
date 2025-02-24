@@ -1,2 +1,2 @@
-Opcode: CALL
+opcode: CALL
 (main):2: attempt to call a nil value

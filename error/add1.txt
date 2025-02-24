@@ -1,2 +1,2 @@
-Opcode: ADD
+opcode: ADD
 (main):4: attempt to perform arithmetic (add) on number and string

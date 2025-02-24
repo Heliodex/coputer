@@ -1,2 +1,2 @@
-Opcode: CALL
+opcode: CALL
 (main):1: missing argument #2 to 'format'

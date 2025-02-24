@@ -1,2 +1,2 @@
-Opcode: DIV
+opcode: DIV
 (main):4: attempt to perform arithmetic (div) on string and vector
