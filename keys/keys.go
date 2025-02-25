@@ -94,85 +94,6 @@ const (
 	chunkSize = chunkEnc - box.Overhead
 )
 
-func decryptKey(encryptedKey []byte, pk *[32]byte, sk [32]byte) (peerpk PK, addrcount int, ok bool) {
-	// anonymously encrypted [48] with recipient pk
-	dec, ok := box.OpenAnonymous(nil, encryptedKey, pk, &sk)
-	if !ok {
-		return
-	}
-
-	return PK(dec[:29]), int(dec[29]), true
-}
-
-func decryptAddrs(encryptedAddrs []byte, peerpk *[32]byte, sk [32]byte) (addrs []Address, ok bool) {
-	// encrypted [16] with recipient pk
-	dec, ok := box.Open(nil, encryptedAddrs, ZeroNonce, peerpk, &sk)
-	if !ok || len(dec)%AddressLen != 0 {
-		return
-	}
-
-	addrs = make([]Address, len(dec)/AddressLen)
-	for i := range addrs {
-		copy(addrs[i][:], dec[i*AddressLen:][:AddressLen])
-	}
-
-	return addrs, true
-}
-
-// todo: version cyphertexts
-func (kp Keypair) Decrypt(ct []byte) (from Peer, msg []byte, err error) {
-	pk := new([32]byte)
-	copy(pk[3:], kp.Pk[:])
-	sk := [32]byte(kp.Sk)
-
-	// Sender pk [29] + Address count [1]
-	encryptedKey, ct := ct[:keyEnc], ct[keyEnc:]
-	ppk, addrCount, ok := decryptKey(encryptedKey, pk, sk)
-	if !ok {
-		return Peer{}, nil, errors.New("key decryption failed")
-	}
-
-	from.Pk = ppk
-
-	peerpk := new([32]byte)
-	copy(peerpk[3:], ppk[:])
-
-	addrsSize := 16 * addrCount
-	addrsEnc := addrsSize + box.Overhead
-
-	// Addresses [16]...
-	encryptedAddrs, ct := ct[:addrsEnc], ct[addrsEnc:]
-	addrs, ok := decryptAddrs(encryptedAddrs, peerpk, sk)
-	if !ok {
-		return Peer{}, nil, errors.New("addresses decryption failed")
-	}
-
-	from.Addresses = addrs
-
-	// chunking time
-	chunksCount := len(ct) / chunkEnc
-	if len(ct)%chunkEnc != 0 {
-		chunksCount++
-	}
-
-	msg = make([]byte, 0, len(ct)-chunksCount*box.Overhead)
-
-	var chunk []byte
-	for len(ct) > 0 {
-		clen := min(chunkEnc, len(ct))
-		chunk, ct = ct[:clen], ct[clen:]
-		dec, ok := box.Open(nil, chunk, ZeroNonce, peerpk, &sk)
-
-		if !ok {
-			return Peer{}, nil, errors.New("chunk decryption failed")
-		}
-
-		msg = append(msg, dec...)
-	}
-
-	return
-}
-
 // We could do real anonymous messages someday but having keys for every message at the moment is valuable
 
 // --- Sender pk [29]
@@ -255,6 +176,85 @@ func (p ThisPeer) Encrypt(msg []byte, to PK) (out []byte, err error) {
 	}
 
 	return out, nil
+}
+
+func decryptKey(encryptedKey []byte, pk *[32]byte, sk [32]byte) (peerpk PK, addrcount int, ok bool) {
+	// anonymously encrypted [48] with recipient pk
+	dec, ok := box.OpenAnonymous(nil, encryptedKey, pk, &sk)
+	if !ok {
+		return
+	}
+
+	return PK(dec[:29]), int(dec[29]), true
+}
+
+func decryptAddrs(encryptedAddrs []byte, peerpk *[32]byte, sk [32]byte) (addrs []Address, ok bool) {
+	// encrypted [16] with recipient pk
+	dec, ok := box.Open(nil, encryptedAddrs, ZeroNonce, peerpk, &sk)
+	if !ok || len(dec)%AddressLen != 0 {
+		return
+	}
+
+	addrs = make([]Address, len(dec)/AddressLen)
+	for i := range addrs {
+		copy(addrs[i][:], dec[i*AddressLen:][:AddressLen])
+	}
+
+	return addrs, true
+}
+
+// todo: version cyphertexts
+func (kp Keypair) Decrypt(ct []byte) (from Peer, msg []byte, err error) {
+	pk := new([32]byte)
+	copy(pk[3:], kp.Pk[:])
+	sk := [32]byte(kp.Sk)
+
+	// Sender pk [29] + Address count [1]
+	encryptedKey, ct := ct[:keyEnc], ct[keyEnc:]
+	ppk, addrCount, ok := decryptKey(encryptedKey, pk, sk)
+	if !ok {
+		return Peer{}, nil, errors.New("key decryption failed")
+	}
+
+	from.Pk = ppk
+
+	peerpk := new([32]byte)
+	copy(peerpk[3:], ppk[:])
+
+	addrsSize := 16 * addrCount
+	addrsEnc := addrsSize + box.Overhead
+
+	// Addresses [16]...
+	encryptedAddrs, ct := ct[:addrsEnc], ct[addrsEnc:]
+	addrs, ok := decryptAddrs(encryptedAddrs, peerpk, sk)
+	if !ok {
+		return Peer{}, nil, errors.New("addresses decryption failed")
+	}
+
+	from.Addresses = addrs
+
+	// chunking time
+	chunksCount := len(ct) / chunkEnc
+	if len(ct)%chunkEnc != 0 {
+		chunksCount++
+	}
+
+	msg = make([]byte, 0, len(ct)-chunksCount*box.Overhead)
+
+	var chunk []byte
+	for len(ct) > 0 {
+		clen := min(chunkEnc, len(ct))
+		chunk, ct = ct[:clen], ct[clen:]
+		dec, ok := box.Open(nil, chunk, ZeroNonce, peerpk, &sk)
+
+		if !ok {
+			return Peer{}, nil, errors.New("chunk decryption failed")
+		}
+
+		msg = append(msg, dec...)
+	}
+
+	return
 }
 
 // fake signatures with encryption
