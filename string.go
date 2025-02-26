@@ -123,7 +123,7 @@ func scanformat(strfrmt string) (byte, string, int, error) {
 		p++ // skip flags
 	}
 	if p > len(flags) {
-		return 0, "", 0, fmt.Errorf("invalid format (repeated flags)")
+		return 0, "", 0, errors.New("invalid format (repeated flags)")
 	} else if isdigit(strfrmt[p]) {
 		p++ // skip width
 		if isdigit(strfrmt[p]) {
@@ -141,7 +141,7 @@ func scanformat(strfrmt string) (byte, string, int, error) {
 	}
 
 	if isdigit(strfrmt[p]) {
-		return 0, "", 0, fmt.Errorf("invalid format (width or precision too long)")
+		return 0, "", 0, errors.New("invalid format (width or precision too long)")
 	}
 
 	return strfrmt[p], strfrmt[:p], p, nil

@@ -1,0 +1,2 @@
+opcode: GETIMPORT
+(main):1: attempt to index nil with 'test'

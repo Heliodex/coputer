@@ -238,11 +238,13 @@ func extract(n, field, width int) uint32 {
 //		6 = AUX number low 24 bits
 // HasAux boolean specifies whether the instruction is followed up with an AUX word, which may be used to execute the instruction.
 
-var opList = [83]struct {
+type opInfo struct {
 	name        string
 	mode, kMode uint8
 	hasAux      bool
-}{
+}
+
+var opList = [83]opInfo{
 	{"NOP", 0, 0, false},
 	{"BREAK", 0, 0, false},
 	{"LOADNIL", 1, 0, false},
@@ -486,12 +488,12 @@ var exts = map[any]any{
 // var AllowProxyErrors = false
 
 type inst struct {
+	opInfo
+
 	K, K0, K1, K2          any
-	opname                 string
 	A, B, C, D, E, KC, aux int
-	value                  uint32
-	kmode, opcode, opmode  uint8
-	KN, usesAux            bool
+	opcode                 uint8
+	KN                     bool
 }
 
 type proto struct {
@@ -501,9 +503,9 @@ type proto struct {
 	instlineinfo, protos []uint32
 	dbgcode              []uint8
 
-	linedefined, sizecode, sizek, sizep, bytecodeid uint32
-	maxstacksize, numparams, nups                   uint8
-	isvararg, lineinfoenabled                       bool
+	// linedefined uint32
+	maxstacksize, numparams, nups uint8
+	lineinfoenabled               bool
 }
 
 type deserialised struct {
@@ -512,7 +514,7 @@ type deserialised struct {
 }
 
 func checkkmode(i *inst, k []any) {
-	switch i.kmode {
+	switch i.kMode {
 	case 1: // AUX
 		if i.aux < len(k) { // sometimes huge for some reason
 			i.K = k[i.aux]
@@ -535,7 +537,7 @@ func checkkmode(i *inst, k []any) {
 			id1 := (extend >> 10) & 0x3FF
 			i.K1 = k[id1]
 		}
-		if count == 3 { // >=?
+		if count == 3 { // should never be 3
 			id2 := extend & 0x3FF
 			i.K2 = k[id2]
 		}
@@ -612,26 +614,23 @@ func (s *stream) CheckEnd() {
 	}
 }
 
+var auxOp = opInfo{name: "auxvalue"}
+
 // reads either 1 or 2 words
-func readInst(codeList *[]*inst, s *stream) (usesAux bool) {
+func readInst(codeList *[]*inst, s *stream) bool {
 	value := s.rWord()
 	opcode := uint8(value & 0xFF)
 
 	opinfo := opList[opcode]
-	opmode := opinfo.mode
-	usesAux = opinfo.hasAux
 
 	i := &inst{
-		opname:  opinfo.name,
-		kmode:   opinfo.kMode,
-		opcode:  opcode,
-		opmode:  opmode,
-		usesAux: usesAux,
+		opInfo: opinfo,
+		opcode: opcode,
 	}
 
 	*codeList = append(*codeList, i)
 
-	switch opmode {
+	switch opinfo.mode {
 	case 1: // A
 		i.A = int(value>>8) & 0xFF
 	case 2: // AB
@@ -654,56 +653,50 @@ func readInst(codeList *[]*inst, s *stream) (usesAux bool) {
 		}
 	}
 
-	if usesAux {
-		aux := s.rWord()
-		i.aux = int(aux)
+	if opinfo.hasAux {
+		i.aux = int(s.rWord())
 
-		*codeList = append(*codeList, &inst{
-			opname: "auxvalue",
-			value:  aux,
-		})
+		*codeList = append(*codeList, &inst{opInfo: auxOp})
 	}
-	return
+
+	return opinfo.hasAux
 }
 
-func readProto(bytecodeid uint32, stringList []string, s *stream) (proto, error) {
-	maxstacksize, numparams, nups, isvararg := s.rByte(), s.rByte(), s.rByte(), s.rBool()
+func readProto(stringList []string, s *stream) (p proto, err error) {
+	p.maxstacksize, p.numparams, p.nups = s.rByte(), s.rByte(), s.rByte()
 
+	s.rBool()            // isvararg
 	s.rByte()            // -- flags
 	s.pos += s.rVarInt() // typesize
 
 	sizecode := s.rVarInt()
-	codelist := []*inst{}
 
-	var skipnext bool
-	for range sizecode {
-		if skipnext {
-			skipnext = false
-			continue
+	for i := uint32(0); i < sizecode; i++ {
+		if readInst(&p.code, s) {
+			i++
 		}
-		skipnext = readInst(&codelist, s)
 	}
 
-	dbgcodelist := make([]uint8, sizecode)
+	p.dbgcode = make([]uint8, sizecode)
 	for i := range sizecode {
-		dbgcodelist[i] = codelist[i].opcode
+		p.dbgcode[i] = p.code[i].opcode
 	}
 
 	sizek := s.rVarInt()
-	klist := make([]any, sizek)
+	p.k = make([]any, sizek)
 
 	for i := range sizek {
 		switch kt := s.rByte(); kt {
 		case 0: // Nil
-			klist[i] = nil
+			p.k[i] = nil
 		case 1: // Bool
-			klist[i] = s.rBool()
+			p.k[i] = s.rBool()
 		case 2: // Number
-			klist[i] = s.rFloat64()
+			p.k[i] = s.rFloat64()
 		case 3: // String
-			klist[i] = stringList[s.rVarInt()-1]
+			p.k[i] = stringList[s.rVarInt()-1]
 		case 4: // Function
-			klist[i] = s.rWord()
+			p.k[i] = s.rWord()
 		case 5: // Table
 			dataLength := s.rVarInt()
 			t := make([]uint32, dataLength)
@@ -712,11 +705,11 @@ func readProto(bytecodeid uint32, stringList []string, s *stream) (proto, error)
 				t[j] = s.rVarInt()
 			}
 
-			klist[i] = t
+			p.k[i] = t
 		case 6: // Closure
-			klist[i] = s.rVarInt()
+			p.k[i] = s.rVarInt()
 		case 7: // Vector
-			klist[i] = vectorCtor(s.rFloat32(), s.rFloat32(), s.rFloat32(), s.rFloat32())
+			p.k[i] = vectorCtor(s.rFloat32(), s.rFloat32(), s.rFloat32(), s.rFloat32())
 		default:
 			return proto{}, fmt.Errorf("unknown ktype %d", kt)
 		}
@@ -724,29 +717,26 @@ func readProto(bytecodeid uint32, stringList []string, s *stream) (proto, error)
 
 	// -- 2nd pass to replace constant references in the instruction
 	for i := range sizecode {
-		checkkmode(codelist[i], klist)
+		checkkmode(p.code[i], p.k)
 	}
 
 	sizep := s.rVarInt()
-	ps := make([]uint32, sizep)
+	p.protos = make([]uint32, sizep)
 	for i := range sizep {
-		ps[i] = s.rVarInt() + 1
+		p.protos[i] = s.rVarInt() + 1
 	}
 
-	linedefined := s.rVarInt()
+	// p.linedefined =
+	s.rVarInt()
 
-	var dbgname string
 	if dbgnamei := s.rVarInt(); dbgnamei == 0 {
-		dbgname = "(??)"
+		p.dbgname = "(??)"
 	} else {
-		dbgname = stringList[dbgnamei-1]
+		p.dbgname = stringList[dbgnamei-1]
 	}
 
 	// -- lineinfo
-	lineinfoenabled := s.rBool()
-	var instlineinfo []uint32
-
-	if lineinfoenabled {
+	if p.lineinfoenabled = s.rBool(); p.lineinfoenabled {
 		linegaplog2 := s.rByte()
 		intervals := uint32((sizecode-1)>>linegaplog2) + 1
 
@@ -765,10 +755,10 @@ func readProto(bytecodeid uint32, stringList []string, s *stream) (proto, error)
 			abslineinfo[i] = lastline // overflow babyy (faster than % (1 << 32))
 		}
 
-		instlineinfo = make([]uint32, sizecode)
+		p.instlineinfo = make([]uint32, sizecode)
 		for i := range sizecode {
 			// -- p->abslineinfo[pc >> p->linegaplog2] + p->lineinfo[pc];
-			instlineinfo[i] = abslineinfo[i>>linegaplog2] + uint32(lineinfo[i])
+			p.instlineinfo[i] = abslineinfo[i>>linegaplog2] + uint32(lineinfo[i])
 		}
 	}
 
@@ -786,27 +776,7 @@ func readProto(bytecodeid uint32, stringList []string, s *stream) (proto, error)
 		}
 	}
 
-	return proto{
-		dbgname,
-		klist,
-		codelist,
-		instlineinfo,
-		ps,
-		dbgcodelist,
-
-		linedefined,
-		sizecode,
-		sizek,
-		sizep,
-		bytecodeid,
-
-		maxstacksize,
-		numparams,
-		nups,
-
-		isvararg,
-		lineinfoenabled,
-	}, nil
+	return
 }
 
 func Deserialise(data []byte) (deserialised, error) {
@@ -834,7 +804,7 @@ func Deserialise(data []byte) (deserialised, error) {
 	protoCount := s.rVarInt()
 	protoList := make([]proto, protoCount)
 	for i := range protoCount {
-		p, err := readProto(i-1, stringList, s)
+		p, err := readProto(stringList, s)
 		if err != nil {
 			return deserialised{}, err
 		}
@@ -1134,12 +1104,7 @@ func gettable(index, v any) (any, error) {
 	case *Table:
 		return t.Get(index), nil
 	case Vector: // direction,,, and mmmagnitude!! oh yeah!!11!!
-		si, ok := index.(string)
-		if !ok {
-			return nil, invalidIndex("litecode.Vector", index)
-		}
-
-		switch si {
+		switch index {
 		case "x":
 			return t[0], nil
 		case "y":
@@ -1149,7 +1114,7 @@ func gettable(index, v any) (any, error) {
 			// case "w":
 			// 	(*stack)[i.A] = t[3]
 		}
-		return nil, invalidIndex("litecode.Vector", si)
+		return nil, invalidIndex("litecode.Vector", index)
 	}
 	return nil, invalidIndex(typeOf(v), index)
 }
@@ -1182,8 +1147,7 @@ func iterate(c *iterator) {
 }
 
 func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsList []any, vargsLen uint8) (r Rets, err error) {
-	p, upvals, alive, protolist, env, requireCache := towrap.proto, towrap.upvals, towrap.alive, towrap.protolist, towrap.env, towrap.requireCache
-	ps, code := p.protos, p.code
+	p, upvals := towrap.proto, towrap.upvals
 	pc, top, openUpvals, generalisedIterators := 1, -1, []*upval{}, map[inst]*iterator{}
 
 	moveStack := func(src []any, b, t int) {
@@ -1207,9 +1171,9 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 	// a a a a
 	// stayin' alive
 	// fmt.Println("starting with upvals", upvals)
-	for *alive {
+	for *towrap.alive {
 		if !handlingBreak {
-			i = *code[pc-1]
+			i = *p.code[pc-1]
 			op = i.opcode
 		}
 		handlingBreak = false
@@ -1257,7 +1221,7 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 			if exts[kv] != nil {
 				(*stack)[i.A] = exts[kv]
 			} else {
-				(*stack)[i.A] = env[kv]
+				(*stack)[i.A] = towrap.env[kv]
 			}
 
 			pc += 2 // -- adjust for aux
@@ -1304,24 +1268,32 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 			k0 := i.K0
 			imp := exts[k0]
 			if imp == nil {
-				imp = env[k0]
+				imp = towrap.env[k0]
 			}
 
-			// fmt.Println("IMPORTING", k0)
+			count := i.KC
 
-			switch i.KC { // count
-			case 1:
-				// fmt.Println("GETIMPORT1", i.A, imp)
-				(*stack)[i.A] = imp
-			case 2:
-				t := imp.(*Table)
-				// fmt.Println("GETIMPORT2", i.A, t.Get(i.K1))
-				(*stack)[i.A] = t.Get(i.K1)
-			case 3:
-				t := imp.(*Table)
-				// fmt.Println("GETIMPORT3", i.A, t.Get(i.K1).([]any)[i.K2.(uint32)-1])
-				(*stack)[i.A] = t.Get(i.K1).([]any)[i.K2.(uint32)-1]
+			if count >= 2 {
+				t, ok := imp.(*Table)
+				if !ok {
+					return nil, invalidIndex("nil", i.K1)
+				}
+
+				imp = t.Get(i.K1)
+				// fmt.Println("GETIMPORT2", i.A, (*stack)[i.A])
+
+				if count == 3 {
+					t1, ok := imp.(*Table)
+					if !ok {
+						return nil, invalidIndex(typeOf(imp), i.K2)
+					}
+
+					imp = t1.Get(i.K2)
+					// fmt.Println("GETIMPORT3", i.A, (*stack)[i.A])
+				}
 			}
+
+			(*stack)[i.A] = imp
 
 			pc += 2 // -- adjust for aux
 		case 13: // GETTABLE
@@ -1384,21 +1356,20 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 
 			pc++
 		case 19: // NEWCLOSURE
-			newProto := protolist[ps[i.D]-1]
+			newProto := towrap.protolist[p.protos[i.D]-1]
 
 			nups := newProto.nups
-			uvs := make([]*upval, nups)
+			towrap.upvals = make([]*upval, nups)
 
 			// wrap is reused for closures
 			towrap.proto = newProto
-			towrap.upvals = uvs
 
 			(*stack)[i.A] = wrapclosure(towrap)
 			// fmt.Println("WRAPPING WITH", uvs)
 
 			// fmt.Println("nups", nups)
 			for n := range nups {
-				switch pseudo := code[pc]; pseudo.A {
+				switch pseudo := p.code[pc]; pseudo.A {
 				case 0: // -- value
 					uv := &upval{
 						value:   (*stack)[pseudo.B],
@@ -1406,7 +1377,7 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 					}
 					uv.store = nil
 
-					uvs[n] = uv
+					towrap.upvals[n] = uv
 				case 1: // -- reference
 					index := pseudo.B
 					// fmt.Println("index", index, len(openUpvals))
@@ -1431,11 +1402,11 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 						openUpvals[index] = prev
 					}
 
-					uvs[n] = prev
+					towrap.upvals[n] = prev
 					// fmt.Println("set upvalue", i, "to", prev)
 				case 2: // -- upvalue
 					// fmt.Println("moving", i, pseudo.B)
-					uvs[n] = upvals[pseudo.B]
+					towrap.upvals[n] = upvals[pseudo.B]
 				}
 				pc++
 			}
@@ -1451,7 +1422,7 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 			(*stack)[A+1] = (*stack)[B]
 
 			// -- Special handling for native namecall behaviour
-			callInst := code[pc]
+			callInst := p.code[pc]
 			callOp := callInst.opcode
 
 			// -- Copied from the CALL handler
@@ -1528,16 +1499,16 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 			if retCount == 1 {
 				if p, ok := retList[0].(loadParams); ok {
 					// it's a require
-					if c, ok := requireCache[p.path]; ok {
+					if c, ok := towrap.requireCache[p.path]; ok {
 						retList = c
 					} else {
-						c2, _ := Load(p.deserialised, p.path, p.o, p.env, requireCache)
+						c2, _ := Load(p.deserialised, p.path, p.o, p.env, towrap.requireCache)
 						result, err := c2.Resume()
 						if err != nil {
 							return nil, err
 						}
 
-						requireCache[p.path] = result
+						towrap.requireCache[p.path] = result
 						retList = result
 					}
 				}
@@ -1838,7 +1809,7 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 
 			// one-indexed lol
 			for n, v := range (*stack)[B:min(B+c, len(*stack))] {
-				ui := int(n + i.aux)
+				ui := n + i.aux
 				if 1 <= ui || ui > len(s.Array) {
 					s.SetArray(ui, v)
 					continue
@@ -1965,27 +1936,27 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 			// (MAX STACK SIZE IS A LIE!!!!!!!!!!!!!!!!!!!!!!!)
 			moveStack(vargsList, b, A)
 		case 64: // DUPCLOSURE
-			newProto := protolist[i.K.(uint32)]
+			newProto := towrap.protolist[i.K.(uint32)]
 
 			nups := newProto.nups
-			uvs := make([]*upval, nups)
+			towrap.upvals = make([]*upval, nups)
 
+			// reusing wrapping again bcause we're eco friendly
 			towrap.proto = newProto
-			towrap.upvals = uvs
 
 			(*stack)[i.A] = wrapclosure(towrap)
 
 			for i := range nups {
-				switch pseudo := code[pc]; pseudo.A {
+				switch pseudo := p.code[pc]; pseudo.A {
 				case 0: // value
-					uvs[i] = &upval{
+					towrap.upvals[i] = &upval{
 						value:   (*stack)[pseudo.B],
 						selfRef: true,
 					}
 
 				// -- references dont get handled by DUPCLOSURE
 				case 2: // upvalue
-					uvs[i] = upvals[pseudo.B]
+					towrap.upvals[i] = upvals[pseudo.B]
 				}
 
 				pc++
@@ -2035,7 +2006,7 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 				break
 			}
 
-			loopInst := *code[pc-1]
+			loopInst := *p.code[pc-1]
 			if generalisedIterators[loopInst] != nil {
 				break
 			}
@@ -2083,7 +2054,7 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 				pc += 2
 			}
 		default:
-			return nil, fmt.Errorf("unsupported opcode: %s op: %d", i.opname, op)
+			return nil, fmt.Errorf("unsupported opcode: %s op: %d", i.name, op)
 		}
 	}
 

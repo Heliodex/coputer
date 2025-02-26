@@ -2,6 +2,7 @@ package net
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -13,7 +14,7 @@ const FindStart = "cofind:"
 
 func PeerFromFindString(find string) (p *keys.Peer, err error) {
 	if !strings.HasPrefix(find, FindStart) || find[56] != '.' {
-		return nil, fmt.Errorf("not a valid find string")
+		return nil, errors.New("not a valid find string")
 	}
 
 	pk, err := keys.DecodePK(keys.PubStart + find[7:56]) // up until 1st dot
@@ -30,9 +31,9 @@ func PeerFromFindString(find string) (p *keys.Peer, err error) {
 
 	addrs, ok := pk.Verify(decodedAddrs)
 	if !ok {
-		return nil, fmt.Errorf("invalid addresses signature")
+		return nil, errors.New("invalid addresses signature")
 	} else if len(addrs)%keys.AddressLen != 0 {
-		return nil, fmt.Errorf("invalid addresses part length")
+		return nil, errors.New("invalid addresses part length")
 	}
 
 	addresses := make([]keys.Address, len(addrs)/keys.AddressLen)
@@ -82,7 +83,7 @@ type Node struct {
 func (n *Node) send(pk keys.PK, t MessageType, msg []byte) (err error) {
 	peer, ok := n.Peers[pk]
 	if !ok {
-		return fmt.Errorf("unknown peer")
+		return errors.New("unknown peer")
 	}
 
 	msg = append([]byte{byte(t)}, msg...)
