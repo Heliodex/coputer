@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"iter"
 	"math"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -569,10 +568,8 @@ func hasValidPrefix(path string) bool {
 }
 
 type loadParams struct {
-	deserialised deserialised
-	path         string
-	o            uint8
-	env          map[any]any
+	compiled
+	env Env
 }
 
 func global_require(args Args) (r Rets, err error) {
@@ -591,20 +588,14 @@ func global_require(args Args) (r Rets, err error) {
 	path = strings.ReplaceAll(path, "\\", "/")
 	// fmt.Println("REQUIRING", path)
 
-	o := args.Co.o
+	c := args.Co.compiler
 
 	// compile bytecodeee
-	cmd := exec.Command("luau-compile", "--binary", fmt.Sprintf("-O%d", o), path)
-	bytecode, err := cmd.Output()
+	p, err := c.CompileAndDeserialise(path)
 	if err != nil {
-		return nil, fmt.Errorf("error running luau-compile: %w", err)
+		return
 	}
 
-	deser, err := Deserialise(bytecode)
-	if err != nil {
-		return nil, fmt.Errorf("error deserialising bytecode: %w", err)
-	}
-
-	// this is where we take it to the top babbyyyyy
-	return Rets{loadParams{deser, path, o, args.Co.env}}, nil
+	// this is where we take it to the top babbyyyyy (with the same as parent global env)
+	return Rets{loadParams{p, args.Co.env}}, nil
 }

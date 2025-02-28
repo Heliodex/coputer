@@ -97,7 +97,7 @@ func (n *Node) send(pk keys.PK, t MessageType, msg []byte) (err error) {
 }
 
 // A find string encodes the pk and addresses
-func (n *Node) FindString() string {
+func (n Node) FindString() string {
 	pk := n.Kp.Pk.Encode()[6:]
 
 	addrs := make([]byte, len(n.Addresses)*keys.AddressLen)
@@ -111,7 +111,7 @@ func (n *Node) FindString() string {
 }
 
 // unoptimised; debug
-func (n *Node) log(msg ...any) {
+func (n Node) log(msg ...any) {
 	pke := n.Kp.Pk.Encode()
 	logId := pke[6:8]
 

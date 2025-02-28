@@ -55,7 +55,6 @@ func bundleFile(p string) (bf File, err error) {
 	}
 
 	// remove walked directory from p (everything before first /)
-	// warning: can't use path as it is longer than p
 	s := strings.Split(p, string(filepath.Separator))
 	np := strings.Join(s[1:], "/")
 

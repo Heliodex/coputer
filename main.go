@@ -353,21 +353,23 @@ type yield struct {
 }
 
 type debugging struct {
-	top     int
+	// top     int
 	line    uint32
 	enabled bool
 	opcode  uint8
 	dbgname string
 }
 
+type Env map[any]any
+
 type Coroutine struct {
 	body     Function
-	env      map[any]any
+	env      Env
 	filepath string // lel nowhere else to put this
 	yield    chan yield
 	resume   chan Rets
 	dbg      *debugging
-	o        uint8
+	compiler *compiler
 	status   Status
 	started  bool
 }
@@ -459,7 +461,7 @@ func namecallHandler(co *Coroutine, kv string, stack *[]any, c1, c2 int) (ok boo
 	return
 }
 
-var exts = map[any]any{
+var exts = Env{
 	"math":      libmath,
 	"table":     libtable,
 	"string":    libstring,
@@ -1124,7 +1126,7 @@ type toWrap struct {
 	upvals       []*upval
 	alive        *bool
 	protolist    []proto
-	env          map[any]any
+	env          Env
 	requireCache map[string]Rets
 }
 
@@ -1179,7 +1181,7 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 		handlingBreak = false
 
 		dbg.line = p.instlineinfo[pc-1]
-		dbg.top = top
+		// dbg.top = top
 		dbg.enabled = p.lineinfoenabled
 		dbg.opcode = i.opcode
 		dbg.dbgname = p.dbgname
@@ -1218,8 +1220,8 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 		case 7: // GETGLOBAL
 			kv := i.K
 
-			if exts[kv] != nil {
-				(*stack)[i.A] = exts[kv]
+			if e, ok := exts[kv]; ok {
+				(*stack)[i.A] = e
 			} else {
 				(*stack)[i.A] = towrap.env[kv]
 			}
@@ -1229,7 +1231,7 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 			// LOL
 			kv := i.K
 			if _, ok := kv.(string); ok {
-				if exts[kv] != nil {
+				if _, ok := exts[kv]; ok {
 					return nil, fmt.Errorf("attempt to redefine global '%s'", kv)
 				}
 				return nil, fmt.Errorf("attempt to set global '%s'", kv)
@@ -1497,18 +1499,18 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 
 			// fmt.Println("COUNT", retCount)
 			if retCount == 1 {
-				if p, ok := retList[0].(loadParams); ok {
+				if lp, ok := retList[0].(loadParams); ok {
 					// it's a require
-					if c, ok := towrap.requireCache[p.path]; ok {
+					if c, ok := towrap.requireCache[lp.filepath]; ok {
 						retList = c
 					} else {
-						c2, _ := Load(p.deserialised, p.path, p.o, p.env, towrap.requireCache)
+						c2, _ := LoadModule(lp.compiled, lp.env, towrap.requireCache)
 						result, err := c2.Resume()
 						if err != nil {
 							return nil, err
 						}
 
-						towrap.requireCache[p.path] = result
+						towrap.requireCache[lp.filepath] = result
 						retList = result
 					}
 				}
@@ -2104,15 +2106,8 @@ func wrapclosure(towrap toWrap) Function {
 	})
 }
 
-func Load(module deserialised, filepath string, o uint8, env map[any]any, requireCache ...map[string]Rets) (co Coroutine, cancel func()) {
+func LoadModule(module compiled, env Env, requireCache map[string]Rets) (co Coroutine, cancel func()) {
 	alive := true
-
-	var cache map[string]Rets
-	if len(requireCache) > 0 {
-		cache = requireCache[0]
-	} else {
-		cache = map[string]Rets{}
-	}
 
 	towrap := toWrap{
 		module.mainProto,
@@ -2120,16 +2115,16 @@ func Load(module deserialised, filepath string, o uint8, env map[any]any, requir
 		&alive,
 		module.protoList,
 		env,
-		cache,
+		requireCache,
 	}
 
 	return Coroutine{
 		body:     wrapclosure(towrap),
 		env:      env,
-		filepath: filepath,
+		filepath: module.filepath,
 		yield:    make(chan yield, 1),
 		resume:   make(chan Rets, 1),
 		dbg:      &debugging{opcode: 255},
-		o:        o,
+		compiler: module.compiler,
 	}, func() { alive = false }
 }

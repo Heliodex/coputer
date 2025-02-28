@@ -4,23 +4,18 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"runtime/pprof"
+
+	// "runtime/pprof"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 )
 
-func litecode(t *testing.T, f string, o uint8) (string, time.Duration) {
-	bytecode, err := Compile(f, o)
+func litecode(t *testing.T, f string, c compiler) (string, time.Duration) {
+	p, err := c.CompileAndDeserialise(f)
 	if err != nil {
-		t.Error("error running luau-compile:", err)
-		return "", 0
-	}
-
-	deserialised, err := Deserialise(bytecode)
-	if err != nil {
-		t.Error("error deserialising bytecode:", err)
+		t.Error(err)
 		return "", 0
 	}
 
@@ -38,7 +33,7 @@ func litecode(t *testing.T, f string, o uint8) (string, time.Duration) {
 		return
 	})
 
-	co, _ := Load(deserialised, f, o, map[any]any{
+	co, _ := p.Load(Env{
 		"print": luau_print,
 	})
 
@@ -52,16 +47,10 @@ func litecode(t *testing.T, f string, o uint8) (string, time.Duration) {
 	return b.String(), endTime.Sub(startTime)
 }
 
-func litecodeE(t *testing.T, f string, o uint8) (string, error) {
-	bytecode, err := Compile(f, o)
+func litecodeE(t *testing.T, f string, c compiler) (string, error) {
+	p, err := c.CompileAndDeserialise(f)
 	if err != nil {
-		t.Error("error running luau-compile:", err)
-		return "", err
-	}
-
-	deserialised, err := Deserialise(bytecode)
-	if err != nil {
-		t.Error("error deserialising bytecode:", err)
+		t.Error(err)
 		return "", err
 	}
 
@@ -79,7 +68,7 @@ func litecodeE(t *testing.T, f string, o uint8) (string, error) {
 		return
 	})
 
-	co, _ := Load(deserialised, f, o, map[any]any{
+	co, _ := p.Load(Env{
 		"print": luau_print,
 	})
 
@@ -110,6 +99,8 @@ func TestConformance(t *testing.T) {
 	// onlyTest := "gsub.luau"
 	var wg sync.WaitGroup
 
+	c0, c1, c2 := NewCompiler(0), NewCompiler(1), NewCompiler(2)
+
 	for _, f := range files {
 		if f.IsDir() {
 			continue
@@ -134,9 +125,9 @@ func TestConformance(t *testing.T) {
 				os.Exit(1)
 			}
 
-			o0, _ := litecode(t, filename, 0)
-			o1, _ := litecode(t, filename, 1)
-			o2, _ := litecode(t, filename, 2)
+			o0, _ := litecode(t, filename, c0)
+			o1, _ := litecode(t, filename, c1)
+			o2, _ := litecode(t, filename, c2)
 			fmt.Println()
 
 			for i, o := range []string{o0, o1, o2} {
@@ -192,6 +183,8 @@ func TestErrors(t *testing.T) {
 		}
 	}
 
+	c1 := NewCompiler(1) // just test O1 for the time being
+
 	// onlyTest := "iter1"
 
 	for _, name := range has {
@@ -202,9 +195,9 @@ func TestErrors(t *testing.T) {
 		fmt.Println(" -- Testing", name, "--")
 		filename := fmt.Sprintf("error/%s.luau", name)
 
-		_, err0 := litecodeE(t, filename, 1) // just test O0 for the time being
+		_, lerr := litecodeE(t, filename, c1)
 
-		if err0 == nil {
+		if lerr == nil {
 			t.Error("expected error, got nil")
 			return
 		}
@@ -216,9 +209,9 @@ func TestErrors(t *testing.T) {
 			return
 		}
 
-		fmt.Println(err0)
-		if err0.Error() != strings.ReplaceAll(string(og), "\r\n", "\n") {
-			t.Errorf("error mismatch:\n-- Expected\n%s\n-- Got\n%s", og, err0)
+		fmt.Println(lerr)
+		if lerr.Error() != strings.ReplaceAll(string(og), "\r\n", "\n") {
+			t.Errorf("error mismatch:\n-- Expected\n%s\n-- Got\n%s", og, lerr)
 			return
 		}
 	}
@@ -235,14 +228,16 @@ func TestBenchmark(t *testing.T) {
 		return
 	}
 
-	f, err := os.Create("cpu.prof")
-	if err != nil {
-		panic(err)
-	}
-	pprof.StartCPUProfile(f)
-	defer pprof.StopCPUProfile()
+	// f, err := os.Create("cpu.prof")
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// pprof.StartCPUProfile(f)
+	// defer pprof.StopCPUProfile()
 
 	// onlyBench := "largealloc.luau"
+
+	compilers := []compiler{NewCompiler(0), NewCompiler(1), NewCompiler(2)}
 
 	for _, f := range files {
 		name := f.Name()
@@ -254,7 +249,7 @@ func TestBenchmark(t *testing.T) {
 		filename := fmt.Sprintf("bench/%s", name)
 
 		for o := range uint8(3) {
-			output, time := litecode(t, filename, o)
+			output, time := litecode(t, filename, compilers[o])
 
 			fmt.Println(" --", o, "Time:", time, "--")
 			fmt.Print(output)
