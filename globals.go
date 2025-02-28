@@ -522,6 +522,7 @@ func num2str(n float64) string {
 	return "-" + s
 }
 
+// ToString returns a string representation of any value.
 func ToString(a any) string {
 	switch v := a.(type) {
 	case nil:

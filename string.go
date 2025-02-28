@@ -305,7 +305,7 @@ func add_value(caps *captures, b *strings.Builder, co *Coroutine, s string, si, 
 	case string:
 		return add_s(caps, b, s, si, ei, n)
 	case Function:
-		rets, err := (*n.run)(co, s[si:ei])
+		rets, err := (*n.Run)(co, s[si:ei])
 		if err != nil {
 			return err
 		} else if len(rets) != 0 {

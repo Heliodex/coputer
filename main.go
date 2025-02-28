@@ -67,29 +67,15 @@ func iterHash(hash map[any]any, y func(any, any) bool) {
 // 6: we don't actually break *that* much compatibility doing it this way, right??
 //
 // 7: if anyone tells you tables are simple THEY ARE LYING, CALL THEM OUT ON THEIR SHIT
+
+// Table represents a Luau table, with resizeable array and hash pars. Luau type `table`
 type Table struct {
 	Array    []any
 	Hash     map[any]any
 	readonly bool
 }
 
-// dbg
-func (t *Table) String() (s string) {
-	if t.Array == nil {
-		s += "  array: nil"
-	} else {
-		s += fmt.Sprintf("  array: %v\n", t.Array)
-	}
-
-	if t.Hash == nil {
-		s += "  node: nil"
-	} else {
-		s += fmt.Sprintf("  node:  %v", t.Hash)
-	}
-	return
-}
-
-// O(1) length, bitchesss
+// Len returns the length of the array part of the table (the length of the array up until the first nil).
 func (t *Table) Len() int {
 	if t.Array == nil {
 		return 0
@@ -97,30 +83,27 @@ func (t *Table) Len() int {
 	return len(t.Array)
 }
 
+// SetHash updates or deletes a key-value pair in the hash part of the table.
 func (t *Table) SetHash(k, v any) {
 	if t.Hash == nil {
 		if v == nil {
 			return
 		}
 		t.Hash = map[any]any{k: v}
-		return
-	}
-
-	if v == nil {
+	} else if v == nil {
 		delete(t.Hash, k)
 	} else {
 		t.Hash[k] = v
 	}
 }
 
+// SetArray sets a value at an integer index, plcing it into the Array part or the Hash part and resizing each as appropriate.
 func (t *Table) SetArray(i int, v any) {
 	if t.Array == nil {
 		if i == 1 {
 			t.Array = []any{v}
 			return
 		}
-
-		t.SetHash(float64(i), v)
 	} else if l := len(t.Array); i < l+1 {
 		if v != nil {
 			// set in the array portion
@@ -136,6 +119,7 @@ func (t *Table) SetArray(i int, v any) {
 		for i2, v2 := range after {
 			t.SetHash(float64(i+i2), v2)
 		}
+		return
 	} else if i == l+1 {
 		// append to the end
 		t.Array = append(t.Array, v)
@@ -153,12 +137,13 @@ func (t *Table) SetArray(i int, v any) {
 			t.Array = append(t.Array, v2)
 			delete(t.Hash, f2)
 		}
-	} else {
-		// add to the hash part instead
-		t.SetHash(float64(i), v)
+		return
 	}
+	// add to the hash part instead
+	t.SetHash(float64(i), v)
 }
 
+// ForceSet sets a table value at a key, regardless of whether the table is readonly.
 func (t *Table) ForceSet(k, v any) {
 	if ak, ok := arrayKey(k); ok {
 		t.SetArray(ak, v)
@@ -167,6 +152,7 @@ func (t *Table) ForceSet(k, v any) {
 	t.SetHash(k, v)
 }
 
+// Set sets a table value at a key, returning an error if the table is readonly.
 func (t *Table) Set(k, v any) error {
 	if t.readonly {
 		return errors.New("attempt to modify a readonly table")
@@ -175,6 +161,7 @@ func (t *Table) Set(k, v any) error {
 	return nil
 }
 
+// GetHash returns a value at a key, only searching the hash part of the table.
 func (t *Table) GetHash(k any) any {
 	if t.Hash == nil {
 		return nil
@@ -182,6 +169,7 @@ func (t *Table) GetHash(k any) any {
 	return t.Hash[k]
 }
 
+// Get returns a value at a key in the table.
 func (t *Table) Get(k any) any {
 	if ak, ok := arrayKey(k); ok && ak <= t.Len() {
 		return t.Array[ak-1]
@@ -189,7 +177,7 @@ func (t *Table) Get(k any) any {
 	return t.GetHash(k)
 }
 
-// 1.23 goes hard
+// Iter returns an iterator over the table, yielding key-value pairs in a deterministic order.
 func (t *Table) Iter() iter.Seq2[any, any] {
 	return func(y func(any, any) bool) {
 		if t.Array != nil {
@@ -201,6 +189,7 @@ func (t *Table) Iter() iter.Seq2[any, any] {
 	}
 }
 
+// Vector represents a 3-wide or 4-wide vector value. Luau type `vector`
 type Vector [4]float32
 
 // bit32 extraction
@@ -319,18 +308,23 @@ var opList = [83]opInfo{
 	{"IDIVK", 3, 2, false},
 }
 
-// Functions and Tables are used as pointees normally, as they need to be hashed
+// Functions and Tables are used as pointers normally, as they need to be hashed
+
+// Function represents a native or wrapped Luau function. Luau type `function`
 type Function struct {
+	// Run is the native body of the function. Its coroutine argument is used to run the function in a coroutine.
+	Run  *func(co *Coroutine, args ...any) (r Rets, err error)
 	name string
-	run  *func(co *Coroutine, args ...any) (r Rets, err error)
 }
 
 func fn(name string, f func(co *Coroutine, args ...any) (r Rets, err error)) Function {
-	return Function{name, &f}
+	return Function{&f, name}
 }
 
+// Status represents the status of a coroutine.
 type Status uint8
 
+// Coroutine stati
 const (
 	CoSuspended Status = iota
 	CoRunning
@@ -351,6 +345,7 @@ type debugging struct {
 	dbgname string
 }
 
+// Env represents a global Luau environment.
 type Env map[any]any
 
 func (e *Env) AddFn(f Function) {
@@ -361,10 +356,11 @@ func (e *Env) AddFn(f Function) {
 	}
 }
 
+// Coroutine represents a Luau coroutine, including the main coroutine. Luau type `thread`
 type Coroutine struct {
 	body     Function
 	env      Env
-	filepath string // lel nowhere else to put this
+	filepath string // actually does well here
 	yield    chan yield
 	resume   chan Rets
 	dbg      *debugging
@@ -405,7 +401,7 @@ func (co *Coroutine) Error(err error) {
 
 func startCoroutine(co *Coroutine, args []any) {
 	// fmt.Println(" RG calling coroutine body with", args)
-	r, err := (*co.body.run)(co, args...)
+	r, err := (*co.body.Run)(co, args...)
 
 	// fmt.Println("RG  yielding", r)
 	co.yield <- yield{r, err}
@@ -420,6 +416,7 @@ func startCoroutine(co *Coroutine, args []any) {
 	}
 }
 
+// Resume executes the coroutine with the provided arguments, starting it with the given arguments if it is not already started, otherwise resuming it and passing the argument values back to the yielded function.
 func (co *Coroutine) Resume(args ...any) (r Rets, err error) {
 	if !co.started {
 		// fmt.Println("RM  starting", args)
@@ -780,7 +777,7 @@ func readProto(stringList []string, s *stream) (p proto, err error) {
 	return
 }
 
-func Deserialise(data []byte) (deserialised, error) {
+func deserialise(data []byte) (deserialised, error) {
 	s := &stream{data: data}
 
 	if luauVersion := s.rByte(); luauVersion == 0 {
@@ -836,10 +833,6 @@ type upval struct {
 	store   []any
 	index   int
 	selfRef bool
-}
-
-func (u upval) String() string {
-	return fmt.Sprintf("{\n  index: %d\n  store: %v\n  value: %v\n  selfRef: %t\n}", u.index, u.store, u.value, u.selfRef)
 }
 
 func truthy(v any) bool {
@@ -1488,7 +1481,7 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 			}
 
 			// fmt.Println("upvals1", len(upvals))
-			retList, err := (*fn.run)(co, (*stack)[A+1:A+params+1]...) // not inclusive
+			retList, err := (*fn.Run)(co, (*stack)[A+1:A+params+1]...) // not inclusive
 			// fmt.Println("upvals2", len(upvals))
 			if err != nil {
 				return nil, err
@@ -1503,7 +1496,7 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 					if c, ok := towrap.requireCache[lp.filepath]; ok {
 						retList = c
 					} else {
-						c2, _ := LoadModule(lp.compiled, lp.env, towrap.requireCache)
+						c2, _ := loadmodule(lp.compiled, lp.env, towrap.requireCache)
 						result, err := c2.Resume()
 						if err != nil {
 							return nil, err
@@ -1810,12 +1803,7 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 
 			// one-indexed lol
 			for n, v := range (*stack)[B:min(B+c, len(*stack))] {
-				ui := n + i.aux
-				if 1 <= ui || ui > len(s.Array) {
-					s.SetArray(ui, v)
-					continue
-				}
-				s.SetHash(float64(ui), v)
+				s.SetArray(n+i.aux, v)
 			}
 			// (*stack)[A] = s
 
@@ -1872,7 +1860,7 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 			switch itt := it.(type) {
 			case Function:
 				// fmt.Println("IT func", fn, (*stack)[A+1], (*stack)[A+2])
-				vals, err := (*itt.run)(co, (*stack)[A+1], (*stack)[A+2])
+				vals, err := (*itt.Run)(co, (*stack)[A+1], (*stack)[A+2])
 				if err != nil {
 					return nil, err
 				}
@@ -2105,14 +2093,14 @@ func wrapclosure(towrap toWrap) Function {
 	})
 }
 
-func LoadModule(module compiled, env Env, requireCache map[string]Rets) (co Coroutine, cancel func()) {
+func loadmodule(m compiled, env Env, requireCache map[string]Rets) (co Coroutine, cancel func()) {
 	alive := true
 
 	towrap := toWrap{
-		module.mainProto,
+		m.mainProto,
 		[]*upval{},
 		&alive,
-		module.protoList,
+		m.protoList,
 		env,
 		requireCache,
 	}
@@ -2120,10 +2108,10 @@ func LoadModule(module compiled, env Env, requireCache map[string]Rets) (co Coro
 	return Coroutine{
 		body:     wrapclosure(towrap),
 		env:      env,
-		filepath: module.filepath,
+		filepath: m.filepath,
 		yield:    make(chan yield, 1),
 		resume:   make(chan Rets, 1),
 		dbg:      &debugging{opcode: 255},
-		compiler: module.compiler,
+		compiler: m.compiler,
 	}, func() { alive = false }
 }

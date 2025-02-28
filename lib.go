@@ -17,13 +17,19 @@ func invalidArg(i int, fn, msg string) error {
 	return fmt.Errorf("invalid argument #%d to '%s' (%s)", i, fn, msg)
 }
 
+// Args represents the arguments passed to a user-defined native function.
+//
+// A number of helper functions are provided to extract arguments from the list. If these functions fail to extract the argument, the coroutine yields an invalid/missing argument error.
 type Args struct {
-	Co   *Coroutine
+	// Co is the coroutine that the function is running.
+	Co *Coroutine
+	// List is the list of all arguments passed to the function.
 	List []any
 	name string
 	pos  int
 }
 
+// Rets represents the return values of a user-defined native function.
 type Rets []any
 
 func getArg[T any](a *Args, optV []T, tx string) (g T) {
@@ -46,44 +52,54 @@ func getArg[T any](a *Args, optV []T, tx string) (g T) {
 	return arg
 }
 
+// CheckNextArg ensures that there is at least one more argument to be read. If there isn't, the coroutine yields a missing argument error.
 func (a *Args) CheckNextArg() {
 	if a.pos >= len(a.List) {
 		a.Co.Error(invalidNumArgs(a.name, a.pos+1))
 	}
 }
 
+// GetNumber returns the next argument as a float64 number value. An optional value can be passed if the argument is not required.
 func (a *Args) GetNumber(optV ...float64) float64 {
 	return getArg(a, optV, "number")
 }
 
+// GetString returns the next argument as a string value. An optional value can be passed if the argument is not required.
 func (a *Args) GetString(optV ...string) string {
 	return getArg(a, optV, "string")
 }
 
+// GetBool returns the next argument as a boolean value. An optional value can be passed if the argument is not required.
 func (a *Args) GetBool(optV ...bool) bool {
 	return getArg(a, optV, "boolean")
 }
 
+// GetTable returns the next argument as a table value. An optional value can be passed if the argument is not required.
 func (a *Args) GetTable(optV ...*Table) *Table {
 	return getArg(a, optV, "table")
 }
 
+// GetFunction returns the next argument as a function value. An optional value can be passed if the argument is not required.
 func (a *Args) GetFunction(optV ...Function) Function {
 	return getArg(a, optV, "function")
 }
 
+// GetCoroutine returns the next argument as a coroutine value. An optional value can be passed if the argument is not required.
 func (a *Args) GetCoroutine(optV ...*Coroutine) *Coroutine {
 	return getArg(a, optV, "thread")
 }
 
+// GetBuffer returns the next argument as a buffer value. An optional value can be passed if the argument is not required.
 func (a *Args) GetBuffer(optV ...*Buffer) *Buffer {
 	return getArg(a, optV, "buffer")
 }
 
+// GetVector returns the next argument as a vector value. An optional value can be passed if the argument is not required.
 func (a *Args) GetVector(optV ...Vector) Vector {
 	return getArg(a, optV, "vector")
 }
 
+// GetAny returns the next argument.
 func (a *Args) GetAny(optV ...any) (arg any) {
 	a.pos++
 	if a.pos > len(a.List) {
@@ -97,6 +113,7 @@ func (a *Args) GetAny(optV ...any) (arg any) {
 	return a.List[a.pos-1]
 }
 
+// NewLib creates a new library with a given table of functions and other values, such as constants. Functions can be created using MakeFn.
 func NewLib(functions []Function, other ...map[string]any) *Table {
 	// remember, no duplicates
 	hash := make(map[any]any, len(functions)+len(other))
@@ -115,6 +132,7 @@ func NewLib(functions []Function, other ...map[string]any) *Table {
 	}
 }
 
+// MakeFn creates a new function with a given name and body. Functions created by MakeFn can be added to a library using NewLib.
 func MakeFn(name string, f func(args Args) (r Rets, err error)) Function {
 	return fn(name, func(co *Coroutine, vargs ...any) (r Rets, err error) {
 		return f(Args{

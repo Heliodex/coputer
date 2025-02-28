@@ -449,7 +449,7 @@ func table_sort(args Args) (r Rets, err error) {
 	} else {
 		f := args.GetFunction()
 		c = func(a, b any) (bool, error) {
-			res, err := (*f.run)(args.Co, a, b)
+			res, err := (*f.Run)(args.Co, a, b)
 			if err != nil {
 				return false, err
 			}

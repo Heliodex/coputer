@@ -5,6 +5,7 @@ import (
 	"math"
 )
 
+// Buffer represents a Luau byte buffer. Luau type`buffer`
 type Buffer []byte
 
 func buffer_create(args Args) (r Rets, err error) {

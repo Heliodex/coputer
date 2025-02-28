@@ -23,6 +23,7 @@ type compiler struct {
 	o     uint8
 }
 
+// NewCompiler creates a new compiler with the given optimisation level.
 func NewCompiler(o uint8) compiler {
 	return compiler{
 		cache: make(map[[32]byte]deserialised),
@@ -38,7 +39,7 @@ func (c compiler) deserialise(b []byte, filepath string) (compiled, error) {
 		return compiled{d, filepath, &c}, nil
 	}
 
-	d, err := Deserialise(b)
+	d, err := deserialise(b)
 	if err != nil {
 		return compiled{}, fmt.Errorf("error deserialising bytecode: %w", err)
 	}
@@ -57,5 +58,5 @@ func (c compiler) CompileAndDeserialise(path string) (d compiled, err error) {
 }
 
 func (p compiled) Load(env Env) (co Coroutine, cancel func()) {
-	return LoadModule(p, env, map[string]Rets{})
+	return loadmodule(p, env, map[string]Rets{})
 }
