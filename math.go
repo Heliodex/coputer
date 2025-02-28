@@ -292,7 +292,7 @@ func math_tanh(args Args) (r Rets, err error) {
 	return Rets{math.Tanh(x)}, nil
 }
 
-var libmath = NewTable([][2]any{
+var libmath = NewLib([]Function{
 	MakeFn("abs", math_abs),
 	MakeFn("acos", math_acos),
 	MakeFn("asin", math_asin),
@@ -326,7 +326,7 @@ var libmath = NewTable([][2]any{
 	MakeFn("sqrt", math_sqrt),
 	MakeFn("tan", math_tan),
 	MakeFn("tanh", math_tanh),
-
-	{"huge", math.Inf(1)},
-	{"pi", math.Pi},
+}, map[string]any{
+	"huge": math.Inf(1),
+	"pi":   math.Pi,
 })

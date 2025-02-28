@@ -1,3 +1,4 @@
+// Package litecode is a deterministic Luau virtual machine and standard library toolkit.
 package litecode
 
 import (
@@ -200,18 +201,6 @@ func (t *Table) Iter() iter.Seq2[any, any] {
 	}
 }
 
-func NewTable(toHash [][2]any) *Table {
-	// remember, no duplicates
-	hash := make(map[any]any, len(toHash))
-	for _, v := range toHash {
-		hash[v[0]] = v[1]
-	}
-	return &Table{
-		readonly: true,
-		Hash:     hash,
-	}
-}
-
 type Vector [4]float32
 
 // bit32 extraction
@@ -331,14 +320,16 @@ var opList = [83]opInfo{
 }
 
 // Functions and Tables are used as pointees normally, as they need to be hashed
-type (
-	Function *func(co *Coroutine, args ...any) (r Rets, err error)
-	Status   uint8
-)
-
-func Fn(f func(co *Coroutine, args ...any) (r Rets, err error)) Function {
-	return Function(&f)
+type Function struct {
+	name string
+	run  *func(co *Coroutine, args ...any) (r Rets, err error)
 }
+
+func fn(name string, f func(co *Coroutine, args ...any) (r Rets, err error)) Function {
+	return Function{name, &f}
+}
+
+type Status uint8
 
 const (
 	CoSuspended Status = iota
@@ -361,6 +352,14 @@ type debugging struct {
 }
 
 type Env map[any]any
+
+func (e *Env) AddFn(f Function) {
+	if *e == nil {
+		*e = Env{f.name: f}
+	} else {
+		(*e)[f.name] = f
+	}
+}
 
 type Coroutine struct {
 	body     Function
@@ -406,7 +405,7 @@ func (co *Coroutine) Error(err error) {
 
 func startCoroutine(co *Coroutine, args []any) {
 	// fmt.Println(" RG calling coroutine body with", args)
-	r, err := (*co.body)(co, args...)
+	r, err := (*co.body.run)(co, args...)
 
 	// fmt.Println("RG  yielding", r)
 	co.yield <- yield{r, err}
@@ -474,16 +473,16 @@ var exts = Env{
 	"vector": libvector,
 
 	// globals
-	"type": MakeFn("type", global_type)[1],
+	"type": MakeFn("type", global_type),
 	// "typeof":   MakeFn("typeof", global_type)[1], // same because no metatables
-	"ipairs":   MakeFn("ipairs", global_ipairs)[1],
-	"pairs":    MakeFn("pairs", global_pairs)[1],
-	"next":     MakeFn("next", global_next)[1],
-	"tonumber": MakeFn("tonumber", global_tonumber)[1],
-	"tostring": MakeFn("tostring", global_tostring)[1],
+	"ipairs":   MakeFn("ipairs", global_ipairs),
+	"pairs":    MakeFn("pairs", global_pairs),
+	"next":     MakeFn("next", global_next),
+	"tonumber": MakeFn("tonumber", global_tonumber),
+	"tostring": MakeFn("tostring", global_tostring),
 	"_VERSION": "Luau", // todo: custom
 
-	"require": MakeFn("require", global_require)[1],
+	"require": MakeFn("require", global_require),
 }
 
 // var VectorSize = 4
@@ -1148,7 +1147,7 @@ func iterate(c *iterator) {
 	c.resume <- nil
 }
 
-func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsList []any, vargsLen uint8) (r Rets, err error) {
+func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsLen uint8) (r Rets, err error) {
 	p, upvals := towrap.proto, towrap.upvals
 	pc, top, openUpvals, generalisedIterators := 1, -1, []*upval{}, map[inst]*iterator{}
 
@@ -1180,11 +1179,11 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 		}
 		handlingBreak = false
 
-		dbg.line = p.instlineinfo[pc-1]
-		// dbg.top = top
-		dbg.enabled = p.lineinfoenabled
-		dbg.opcode = i.opcode
-		dbg.dbgname = p.dbgname
+		co.dbg.line = p.instlineinfo[pc-1]
+		// co.dbg.top = top
+		co.dbg.enabled = p.lineinfoenabled
+		co.dbg.opcode = i.opcode
+		co.dbg.dbgname = p.dbgname
 
 		// if len(upvals) > 0 {
 		// 	fmt.Println("upval", upvals[0])
@@ -1456,8 +1455,8 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 			i = *callInst
 			op = callOp
 
-			dbg.line = p.instlineinfo[pc-1]
-			dbg.opcode = i.opcode
+			co.dbg.line = p.instlineinfo[pc-1]
+			co.dbg.opcode = i.opcode
 
 			retCount := len(retList)
 
@@ -1489,7 +1488,7 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 			}
 
 			// fmt.Println("upvals1", len(upvals))
-			retList, err := (*fn)(co, (*stack)[A+1:A+params+1]...) // not inclusive
+			retList, err := (*fn.run)(co, (*stack)[A+1:A+params+1]...) // not inclusive
 			// fmt.Println("upvals2", len(upvals))
 			if err != nil {
 				return nil, err
@@ -1873,7 +1872,7 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 			switch itt := it.(type) {
 			case Function:
 				// fmt.Println("IT func", fn, (*stack)[A+1], (*stack)[A+2])
-				vals, err := (*itt)(co, (*stack)[A+1], (*stack)[A+2])
+				vals, err := (*itt.run)(co, (*stack)[A+1], (*stack)[A+2])
 				if err != nil {
 					return nil, err
 				}
@@ -2081,7 +2080,7 @@ func execute(towrap toWrap, dbg *debugging, stack *[]any, co *Coroutine, vargsLi
 func wrapclosure(towrap toWrap) Function {
 	proto := towrap.proto
 
-	return Fn(func(co *Coroutine, args ...any) (r Rets, err error) {
+	return fn("", func(co *Coroutine, args ...any) (r Rets, err error) {
 		maxs, np := proto.maxstacksize, proto.numparams // maxs 2 lel
 
 		la := uint8(len(args)) // we can't have more than 255 args anyway right?
@@ -2097,7 +2096,7 @@ func wrapclosure(towrap toWrap) Function {
 		dbg := &debugging{enabled: proto.lineinfoenabled, opcode: 255}
 		co.dbg = dbg
 
-		result, err := execute(towrap, dbg, &stack, co, list, max(la-np, 0))
+		result, err := execute(towrap, &stack, co, list, max(la-np, 0))
 		if err != nil {
 			return nil, errorfmt(err, dbg)
 		}

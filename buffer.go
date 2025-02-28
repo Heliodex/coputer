@@ -303,7 +303,7 @@ func buffer_fill(args Args) (r Rets, err error) {
 	return Rets{nil, true}, nil
 }
 
-var libbuffer = NewTable([][2]any{
+var libbuffer = NewLib([]Function{
 	MakeFn("create", buffer_create),
 	MakeFn("fromstring", buffer_fromstring),
 	MakeFn("tostring", buffer_tostring),

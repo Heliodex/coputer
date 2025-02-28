@@ -6,7 +6,7 @@ import (
 	"os/exec"
 )
 
-func Compile(path string, o uint8) (bytecode []byte, err error) {
+func compile(path string, o uint8) (bytecode []byte, err error) {
 	cmd := exec.Command("luau-compile", "--binary", fmt.Sprintf("-O%d", o), path)
 	return cmd.Output()
 }
@@ -48,7 +48,7 @@ func (c compiler) deserialise(b []byte, filepath string) (compiled, error) {
 }
 
 func (c compiler) CompileAndDeserialise(path string) (d compiled, err error) {
-	b, err := Compile(path, c.o)
+	b, err := compile(path, c.o)
 	if err != nil {
 		return compiled{}, fmt.Errorf("error compiling file: %w", err)
 	}

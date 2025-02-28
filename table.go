@@ -447,9 +447,9 @@ func table_sort(args Args) (r Rets, err error) {
 	if len(args.List) == 1 {
 		c = jumpLt
 	} else {
-		fn := args.GetFunction()
+		f := args.GetFunction()
 		c = func(a, b any) (bool, error) {
-			res, err := (*fn)(args.Co, a, b)
+			res, err := (*f.run)(args.Co, a, b)
 			if err != nil {
 				return false, err
 			}
@@ -484,7 +484,7 @@ func table_unpack(args Args) (r Rets, err error) {
 	return
 }
 
-var libtable = NewTable([][2]any{
+var libtable = NewLib([]Function{
 	MakeFn("clear", table_clear),
 	MakeFn("clone", table_clone),
 	MakeFn("concat", table_concat),

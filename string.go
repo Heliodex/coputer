@@ -265,7 +265,7 @@ func string_gmatch(args Args) (r Rets, err error) {
 		return
 	}
 
-	return Rets{MakeFn("gmatch", gmatch)[1]}, nil
+	return Rets{MakeFn("gmatch", gmatch)}, nil
 }
 
 func add_s(caps *captures, b *strings.Builder, s string, si, ei int, news string) (err error) {
@@ -305,7 +305,7 @@ func add_value(caps *captures, b *strings.Builder, co *Coroutine, s string, si, 
 	case string:
 		return add_s(caps, b, s, si, ei, n)
 	case Function:
-		rets, err := (*n)(co, s[si:ei])
+		rets, err := (*n.run)(co, s[si:ei])
 		if err != nil {
 			return err
 		} else if len(rets) != 0 {
@@ -459,7 +459,7 @@ func string_upper(args Args) (r Rets, err error) {
 	return Rets{strings.ToUpper(s)}, nil
 }
 
-var libstring = NewTable([][2]any{
+var libstring = NewLib([]Function{
 	MakeFn("byte", string_byte),
 	MakeFn("char", string_char),
 	MakeFn("find", string_find),

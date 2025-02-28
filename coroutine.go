@@ -63,7 +63,7 @@ func coroutine_wrap(args Args) (r Rets, err error) {
 	f := args.GetFunction()
 
 	co := createCoroutine(f)
-	return Rets{Fn(func(_ *Coroutine, args ...any) (r Rets, err error) {
+	return Rets{fn("wrap", func(_ *Coroutine, args ...any) (r Rets, err error) {
 		if co.status == CoDead {
 			return nil, errors.New("cannot resume dead coroutine") // ought to be better (return false, error message) if we can figure out how
 		} else if co.status == CoRunning {
@@ -88,7 +88,7 @@ func coroutine_yield(args Args) (r Rets, err error) {
 	// fmt.Println("C.Y resumed")
 }
 
-var libcoroutine = NewTable([][2]any{
+var libcoroutine = NewLib([]Function{
 	MakeFn("close", coroutine_close),
 	MakeFn("create", coroutine_create),
 	MakeFn("isyieldable", coroutine_isyieldable),

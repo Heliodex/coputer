@@ -59,8 +59,7 @@ func iter_aux(args Args) (cps Rets, err error) {
 func utf8_codes(args Args) (r Rets, err error) {
 	str := args.GetString()
 
-	fn := MakeFn("codes", iter_aux)[1]
-	return Rets{fn, str, float64(0)}, nil
+	return Rets{MakeFn("codes", iter_aux), str, float64(0)}, nil
 }
 
 const int_max = int(^uint(0) >> 1)
@@ -174,7 +173,7 @@ func utf8_nfdnormalize(args Args) (r Rets, err error) {
 	return Rets{norm.NFD.String(s)}, nil
 }
 
-var libutf8 = NewTable([][2]any{
+var libutf8 = NewLib([]Function{
 	MakeFn("char", utf8_char),
 	MakeFn("codes", utf8_codes),
 	MakeFn("codepoint", utf8_codepoint),
@@ -183,6 +182,6 @@ var libutf8 = NewTable([][2]any{
 	// MakeFn("graphemes", utf8_graphemes), // we can't actually test this, mainly due to the fact it... doesn't exist in the reference implementation..?
 	MakeFn("nfcnormalize", utf8_nfcnormalize), // these are also untestable but they're so trivial here
 	MakeFn("nfdnormalize", utf8_nfdnormalize),
-
-	{"charpattern", "[\x00-\x7F\xC2-\xF4][\x80-\xBF]*"},
+}, map[string]any{
+	"charpattern": "[\x00-\x7F\xC2-\xF4][\x80-\xBF]*",
 })

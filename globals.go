@@ -35,7 +35,7 @@ func ipairs_iter(args Args) (r Rets, err error) {
 	return // would prefer nil, nil but whateverrrrr
 }
 
-var ipairs = MakeFn("ipairs", ipairs_iter)[1]
+var ipairs = MakeFn("ipairs", ipairs_iter)
 
 func global_ipairs(args Args) (r Rets, err error) {
 	a := args.GetTable()
@@ -82,7 +82,7 @@ func global_next(args Args) (r Rets, err error) {
 func global_pairs(args Args) (r Rets, err error) {
 	t := args.GetTable()
 
-	return Rets{MakeFn("next", global_next)[1], t}, nil
+	return Rets{MakeFn("next", global_next), t}, nil
 }
 
 const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"

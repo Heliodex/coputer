@@ -20,7 +20,7 @@ func litecode(t *testing.T, f string, c compiler) (string, time.Duration) {
 	}
 
 	b := strings.Builder{}
-	luau_print := Fn(func(co *Coroutine, args ...any) (r Rets, err error) {
+	luau_print := fn("print", func(co *Coroutine, args ...any) (r Rets, err error) {
 		// b.WriteString(fmt.Sprint(args...))
 		for i, arg := range args {
 			b.WriteString(ToString(arg))
@@ -33,9 +33,10 @@ func litecode(t *testing.T, f string, c compiler) (string, time.Duration) {
 		return
 	})
 
-	co, _ := p.Load(Env{
-		"print": luau_print,
-	})
+	var env Env
+	env.AddFn(luau_print)
+
+	co, _ := p.Load(env)
 
 	startTime := time.Now()
 	_, err = co.Resume()
@@ -55,7 +56,7 @@ func litecodeE(t *testing.T, f string, c compiler) (string, error) {
 	}
 
 	b := strings.Builder{}
-	luau_print := Fn(func(co *Coroutine, args ...any) (r Rets, err error) {
+	luau_print := fn("print", func(co *Coroutine, args ...any) (r Rets, err error) {
 		// b.WriteString(fmt.Sprint(args...))
 		for i, arg := range args {
 			b.WriteString(ToString(arg))
@@ -68,9 +69,10 @@ func litecodeE(t *testing.T, f string, c compiler) (string, error) {
 		return
 	})
 
-	co, _ := p.Load(Env{
-		"print": luau_print,
-	})
+	var env Env
+	env.AddFn(luau_print)
+
+	co, _ := p.Load(env)
 
 	_, err = co.Resume()
 

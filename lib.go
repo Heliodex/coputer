@@ -2,11 +2,11 @@ package litecode
 
 import "fmt"
 
-func invalidNumArgs(fn string, nx int, tx ...string) error {
+func invalidNumArgs(f string, nx int, tx ...string) error {
 	if len(tx) > 0 {
-		return fmt.Errorf("missing argument #%d to '%s' (%s expected)", nx, fn, tx[0])
+		return fmt.Errorf("missing argument #%d to '%s' (%s expected)", nx, f, tx[0])
 	}
-	return fmt.Errorf("missing argument #%d to '%s'", nx, fn)
+	return fmt.Errorf("missing argument #%d to '%s'", nx, f)
 }
 
 func invalidArgType(i int, fn, tx, tg string) error {
@@ -97,8 +97,30 @@ func (a *Args) GetAny(optV ...any) (arg any) {
 	return a.List[a.pos-1]
 }
 
-func MakeFn(name string, fn func(args Args) (r Rets, err error)) [2]any {
-	return [2]any{name, Fn(func(co *Coroutine, vargs ...any) (r Rets, err error) {
-		return fn(Args{Co: co, List: vargs, name: name})
-	})}
+func NewLib(functions []Function, other ...map[string]any) *Table {
+	// remember, no duplicates
+	hash := make(map[any]any, len(functions)+len(other))
+	for _, f := range functions {
+		hash[f.name] = f
+	}
+	if len(other) > 0 {
+		for k, v := range other[0] {
+			hash[k] = v
+		}
+	}
+
+	return &Table{
+		readonly: true,
+		Hash:     hash,
+	}
+}
+
+func MakeFn(name string, f func(args Args) (r Rets, err error)) Function {
+	return fn(name, func(co *Coroutine, vargs ...any) (r Rets, err error) {
+		return f(Args{
+			Co:   co,
+			List: vargs,
+			name: name,
+		})
+	})
 }

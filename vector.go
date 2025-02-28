@@ -279,7 +279,7 @@ func vector_min(args Args) (r Rets, err error) {
 	return Rets{result}, nil
 }
 
-var libvector = NewTable([][2]any{
+var libvector = NewLib([]Function{
 	MakeFn("create", vector_create),
 	MakeFn("magnitude", vector_magnitude),
 	MakeFn("normalize", vector_normalize),
@@ -293,7 +293,7 @@ var libvector = NewTable([][2]any{
 	MakeFn("clamp", vector_clamp),
 	MakeFn("max", vector_max),
 	MakeFn("min", vector_min),
-
-	{"one", Vector{1, 1, 1, 0}}, // 3-wide otherwise it breaks
-	{"zero", Vector{0, 0, 0, 0}},
+}, map[string]any{
+	"one":  Vector{1, 1, 1, 0}, // 3-wide otherwise it breaks
+	"zero": Vector{0, 0, 0, 0},
 })
