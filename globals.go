@@ -568,11 +568,6 @@ func hasValidPrefix(path string) bool {
 	return path[:2] == "./" || path[:3] == "../"
 }
 
-type loadParams struct {
-	compiled
-	env Env
-}
-
 func global_require(args Args) (r Rets, err error) {
 	name := args.GetString()
 	if isAbsolutePath(name) {
@@ -598,5 +593,5 @@ func global_require(args Args) (r Rets, err error) {
 	}
 
 	// this is where we take it to the top babbyyyyy (with the same as parent global env)
-	return Rets{loadParams{p, args.Co.env}}, nil
+	return Rets{p}, nil
 }

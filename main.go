@@ -348,6 +348,7 @@ type debugging struct {
 // Env represents a global Luau environment.
 type Env map[any]any
 
+// AddFn adds a function to the environment.
 func (e *Env) AddFn(f Function) {
 	if *e == nil {
 		*e = Env{f.name: f}
@@ -392,6 +393,7 @@ func errorfmt(err error, d *debugging) error {
 	return fmt.Errorf("opcode: %s\n%s: %w", op, d.dbgname, err)
 }
 
+// Error yields an error to the coroutine, killing it shortly after.
 func (co *Coroutine) Error(err error) {
 	co.yield <- yield{nil, errorfmt(err, co.dbg)}
 
@@ -1490,20 +1492,20 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 			retCount := len(retList)
 
 			// fmt.Println("COUNT", retCount)
-			if retCount == 1 {
-				if lp, ok := retList[0].(loadParams); ok {
+			if retCount == 1 { // requires should return only 1 value anyway
+				if lc, ok := retList[0].(compiled); ok {
 					// it's a require
-					if c, ok := towrap.requireCache[lp.filepath]; ok {
-						retList = c
+					if c, ok := towrap.requireCache[lc.filepath]; ok {
+						retList = c[len(c)-1:]
 					} else {
-						c2, _ := loadmodule(lp.compiled, lp.env, towrap.requireCache)
-						result, err := c2.Resume()
+						c2, _ := loadmodule(lc, co.env, towrap.requireCache)
+						reqrets, err := c2.Resume()
 						if err != nil {
 							return nil, err
 						}
 
-						towrap.requireCache[lp.filepath] = result
-						retList = result
+						retList = reqrets[len(reqrets)-1:]
+						towrap.requireCache[lc.filepath] = retList
 					}
 				}
 			}
