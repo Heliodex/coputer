@@ -190,7 +190,7 @@ func pushCapture(caps *captures, s string, start, end, i int) (any, error) {
 		return float64(i + 1), nil
 	}
 	// fmt.Println("    adding normal")
-	return s[i : i+l], nil
+	return s[i:][:l], nil
 }
 
 func pushCaptures(caps *captures, s string, start, end int, find bool) (r Rets, err error) {

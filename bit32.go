@@ -45,13 +45,13 @@ func bit32_arshift(args Args) (r Rets, err error) {
 	x := uint32(args.GetNumber())
 	i := int(args.GetNumber())
 
-	if i < 0 || (x&(1<<(nbits-1)) == 0) {
+	if i < 0 || x&(1<<(nbits-1)) == 0 {
 		return Rets{float64(b_shift(x, -i))}, nil
 	} else if i >= nbits {
 		// arithmetic shift for 'negative' number
 		return Rets{float64(allones)}, nil
 	}
-	return Rets{float64(trim((x >> i) | ^(allones >> i)))}, nil
+	return Rets{float64(trim(x>>i | ^(allones >> i)))}, nil
 }
 
 func bit32_band(args Args) (r Rets, err error) {
@@ -127,7 +127,7 @@ func bit32_extract(args Args) (r Rets, err error) {
 	if !ok {
 		return Rets{msg, false}, nil
 	}
-	return Rets{float64((x >> f) & bitmask(w)), true}, nil
+	return Rets{float64(x >> f & bitmask(w)), true}, nil
 }
 
 func bit32_replace(args Args) (r Rets, err error) {
@@ -140,7 +140,7 @@ func bit32_replace(args Args) (r Rets, err error) {
 	}
 	m := bitmask(w)
 	v &= m // erase bits outside given width
-	return Rets{float64((x & ^(m << f)) | (v << f)), true}, nil
+	return Rets{float64(x & ^(m<<f) | v<<f), true}, nil
 }
 
 func bit32_lrotate(args Args) (r Rets, err error) {

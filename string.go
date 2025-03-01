@@ -213,7 +213,7 @@ func fmtstring(strfrmt string, args Args) (string, error) {
 		case 's':
 			s := args.GetString()
 			// no precision and string is too long to be formatted, or no format necessary to begin with
-			if len(form) <= 1 || (!strings.ContainsRune(form, '.') && len(s) > 100) {
+			if len(form) <= 1 || !strings.ContainsRune(form, '.') && len(s) > 100 {
 				b.WriteString(s)
 				break
 			}

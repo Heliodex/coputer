@@ -529,12 +529,12 @@ func checkkmode(i *inst, k []any) {
 		count := extend >> 30
 		i.KC = count
 
-		id0 := (extend >> 20) & 0x3FF
+		id0 := extend >> 20 & 0x3FF
 		i.K0 = k[id0] // maybe can .(string) this
 		// fmt.Println("AUX", i.K0)
 
 		if count >= 2 {
-			id1 := (extend >> 10) & 0x3FF
+			id1 := extend >> 10 & 0x3FF
 			i.K1 = k[id1]
 		}
 		if count == 3 { // should never be 3
@@ -1477,13 +1477,13 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 
 			f := (*stack)[A]
 			fn, ok := f.(Function)
-			// fmt.Println("calling with", (*stack)[A+1:A+params+1])
+			// fmt.Println("calling with", (*stack)[A+1:][:params])
 			if !ok {
 				return nil, uncallableType(typeOf(f))
 			}
 
 			// fmt.Println("upvals1", len(upvals))
-			retList, err := (*fn.Run)(co, (*stack)[A+1:A+params+1]...) // not inclusive
+			retList, err := (*fn.Run)(co, (*stack)[A+1:][:params]...) // not inclusive
 			// fmt.Println("upvals2", len(upvals))
 			if err != nil {
 				return nil, err
@@ -1498,6 +1498,7 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 					if c, ok := towrap.requireCache[lc.filepath]; ok {
 						retList = c[len(c)-1:]
 					} else {
+						// since environments only store global libraries etc, using the same env here should be fine??
 						c2, _ := loadmodule(lc, co.env, towrap.requireCache)
 						reqrets, err := c2.Resume()
 						if err != nil {
@@ -1597,54 +1598,54 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 				pc += 2
 			}
 		case 33: // arithmetic
-			pc++
 			j, err := aAdd((*stack)[i.B], (*stack)[i.C])
 			if err != nil {
 				return nil, err
 			}
 			(*stack)[i.A] = j
-		case 34:
 			pc++
+		case 34:
 			j, err := aSub((*stack)[i.B], (*stack)[i.C])
 			if err != nil {
 				return nil, err
 			}
 			(*stack)[i.A] = j
-		case 35:
 			pc++
+		case 35:
 			j, err := aMul((*stack)[i.B], (*stack)[i.C])
 			if err != nil {
 				return nil, err
 			}
 			(*stack)[i.A] = j
-		case 36:
 			pc++
+		case 36:
 			j, err := aDiv((*stack)[i.B], (*stack)[i.C])
 			if err != nil {
 				return nil, err
 			}
 			(*stack)[i.A] = j
-		case 37:
 			pc++
+		case 37:
 			j, err := aMod((*stack)[i.B], (*stack)[i.C])
 			if err != nil {
 				return nil, err
 			}
 			(*stack)[i.A] = j
-		case 38:
 			pc++
+		case 38:
 			j, err := aPow((*stack)[i.B], (*stack)[i.C])
 			if err != nil {
 				return nil, err
 			}
 			(*stack)[i.A] = j
-		case 81:
 			pc++
+		case 81:
 			j, err := aIdiv((*stack)[i.B], (*stack)[i.C])
 			if err != nil {
 				return nil, err
 			}
 			(*stack)[i.A] = j
+			pc++
 		case 39: // arithmetik
 			pc++
 			j, err := aAdd((*stack)[i.B], i.K)
@@ -1653,19 +1654,19 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 			}
 			(*stack)[i.A] = j
 		case 40:
-			pc++
 			j, err := aSub((*stack)[i.B], i.K)
 			if err != nil {
 				return nil, err
 			}
 			(*stack)[i.A] = j
-		case 41:
 			pc++
+		case 41:
 			j, err := aMul((*stack)[i.B], i.K)
 			if err != nil {
 				return nil, err
 			}
 			(*stack)[i.A] = j
+			pc++
 		case 42:
 			pc++
 			j, err := aDiv((*stack)[i.B], i.K)
@@ -1674,26 +1675,26 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 			}
 			(*stack)[i.A] = j
 		case 43:
-			pc++
 			j, err := aMod((*stack)[i.B], i.K)
 			if err != nil {
 				return nil, err
 			}
 			(*stack)[i.A] = j
-		case 44:
 			pc++
+		case 44:
 			j, err := aPow((*stack)[i.B], i.K)
 			if err != nil {
 				return nil, err
 			}
 			(*stack)[i.A] = j
-		case 82:
 			pc++
+		case 82:
 			j, err := aIdiv((*stack)[i.B], i.K)
 			if err != nil {
 				return nil, err
 			}
 			(*stack)[i.A] = j
+			pc++
 
 		case 45: // logic AND
 			pc++

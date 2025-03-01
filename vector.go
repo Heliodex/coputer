@@ -71,7 +71,7 @@ func f32Sqrt(x float32) float32 {
 	ix := math.Float32bits(x)
 
 	// normalize x
-	exp := int((ix >> shift) & mask)
+	exp := int(ix >> shift & mask)
 	if exp == 0 { // subnormal x
 		for ix&(1<<shift) == 0 {
 			ix <<= 1
@@ -176,7 +176,7 @@ func vector_angle(args Args) (r Rets, err error) {
 	cosA := float64(a[0]*b[0] + a[1]*b[1] + a[2]*b[2])
 	angle := math.Atan2(sinA, cosA)
 
-	if (c[0]*axis[0] + c[1]*axis[1] + c[2]*axis[2]) < 0 {
+	if c[0]*axis[0]+c[1]*axis[1]+c[2]*axis[2] < 0 {
 		return Rets{-angle}, nil
 	}
 	return Rets{angle}, nil

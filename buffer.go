@@ -55,42 +55,42 @@ func buffer_readu8(args Args) (r Rets, err error) {
 func buffer_readi16(args Args) (r Rets, err error) {
 	b, offset := readValues(&args)
 
-	b2 := b[offset : offset+2]
+	b2 := b[offset:][:2]
 	return Rets{float64(int16(binary.LittleEndian.Uint16(b2)))}, nil
 }
 
 func buffer_readu16(args Args) (r Rets, err error) {
 	b, offset := readValues(&args)
 
-	b2 := b[offset : offset+2]
+	b2 := b[offset:][:2]
 	return Rets{float64(binary.LittleEndian.Uint16(b2))}, nil
 }
 
 func buffer_readi32(args Args) (r Rets, err error) {
 	b, offset := readValues(&args)
 
-	b4 := b[offset : offset+4] // we are inb4
+	b4 := b[offset:][:4] // we are inb4
 	return Rets{float64(int32(binary.LittleEndian.Uint32(b4)))}, nil
 }
 
 func buffer_readu32(args Args) (r Rets, err error) {
 	b, offset := readValues(&args)
 
-	b4 := b[offset : offset+4]
+	b4 := b[offset:][:4]
 	return Rets{float64(binary.LittleEndian.Uint32(b4))}, nil
 }
 
 func buffer_readf32(args Args) (r Rets, err error) {
 	b, offset := readValues(&args)
 
-	b4 := b[offset : offset+4]
+	b4 := b[offset:][:4]
 	return Rets{float64(math.Float32frombits(binary.LittleEndian.Uint32(b4)))}, nil
 }
 
 func buffer_readf64(args Args) (r Rets, err error) {
 	b, offset := readValues(&args)
 
-	b8 := b[offset : offset+8]
+	b8 := b[offset:][:8]
 	return Rets{float64(math.Float64frombits(binary.LittleEndian.Uint64(b8)))}, nil
 }
 
@@ -132,7 +132,7 @@ func buffer_writei16(args Args) (r Rets, err error) {
 		return oob, nil
 	}
 
-	b2 := b[offset : offset+2]
+	b2 := b[offset:][:2]
 	binary.LittleEndian.PutUint16(b2, uint16(value))
 	return Rets{nil, true}, nil
 }
@@ -143,7 +143,7 @@ func buffer_writeu16(args Args) (r Rets, err error) {
 		return oob, nil
 	}
 
-	b2 := b[offset : offset+2]
+	b2 := b[offset:][:2]
 	binary.LittleEndian.PutUint16(b2, value)
 	return Rets{nil, true}, nil
 }
@@ -154,7 +154,7 @@ func buffer_writei32(args Args) (r Rets, err error) {
 		return oob, nil
 	}
 
-	b4 := b[offset : offset+4]
+	b4 := b[offset:][:4]
 	binary.LittleEndian.PutUint32(b4, uint32(value))
 	return Rets{nil, true}, nil
 }
@@ -165,7 +165,7 @@ func buffer_writeu32(args Args) (r Rets, err error) {
 		return oob, nil
 	}
 
-	b4 := b[offset : offset+4]
+	b4 := b[offset:][:4]
 	binary.LittleEndian.PutUint32(b4, value)
 	return Rets{nil, true}, nil
 }
@@ -176,7 +176,7 @@ func buffer_writef32(args Args) (r Rets, err error) {
 		return oob, nil
 	}
 
-	b4 := b[offset : offset+4]
+	b4 := b[offset:][:4]
 	binary.LittleEndian.PutUint32(b4, math.Float32bits(value))
 	return Rets{nil, true}, nil
 }
@@ -187,7 +187,7 @@ func buffer_writef64(args Args) (r Rets, err error) {
 		return oob, nil
 	}
 
-	b8 := b[offset : offset+8]
+	b8 := b[offset:][:8]
 	binary.LittleEndian.PutUint64(b8, math.Float64bits(value))
 	return Rets{nil, true}, nil
 }
@@ -214,9 +214,9 @@ func buffer_readbits(args Args) (r Rets, err error) {
 	}
 
 	subbyteoffset := uint64(bitoffset & 7)
-	mask := uint64((1 << bitcount) - 1)
+	mask := uint64(1<<bitcount - 1)
 
-	return Rets{float64((data >> subbyteoffset) & mask), true}, nil
+	return Rets{float64(data >> subbyteoffset & mask), true}, nil
 }
 
 func buffer_writebits(args Args) (r Rets, err error) {
@@ -242,9 +242,9 @@ func buffer_writebits(args Args) (r Rets, err error) {
 	}
 
 	subbyteoffset := uint64(bitoffset & 7)
-	mask := uint64((1<<bitcount)-1) << subbyteoffset
+	mask := uint64(1<<bitcount-1) << subbyteoffset
 
-	data = (data & ^mask) | (value << subbyteoffset)
+	data = data & ^mask | value<<subbyteoffset
 
 	bs := b[startbyte:endbyte]
 	var dataa2 [8]byte
@@ -261,7 +261,7 @@ func buffer_readstring(args Args) (r Rets, err error) {
 		return oob, nil
 	}
 
-	bl := b[offset : offset+count]
+	bl := b[offset:][:count]
 	return Rets{string(bl), true}, nil
 }
 
@@ -273,7 +273,7 @@ func buffer_writestring(args Args) (r Rets, err error) {
 		return oob, nil
 	}
 
-	copy(b[offset:offset+count], value)
+	copy(b[offset:][:count], value)
 	return Rets{nil, true}, nil
 }
 
@@ -287,7 +287,7 @@ func buffer_copy(args Args) (r Rets, err error) {
 		return oob, nil
 	}
 
-	copy(target[targetOffset:targetOffset+count], source[sourceOffset:sourceOffset+count])
+	copy(target[targetOffset:][:count], source[sourceOffset:][:count])
 	return Rets{nil, true}, nil
 }
 
