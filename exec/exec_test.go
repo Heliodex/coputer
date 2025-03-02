@@ -14,6 +14,18 @@ func TestExec(t *testing.T) {
 		panic(err)
 	}
 
+	
+}
+
+func TestBundle(t *testing.T) {
+	path := "./test"
+	entrypoint := "main.luau"
+
+	b, err := Bundle(path, entrypoint)
+	if err != nil {
+		panic(err)
+	}
+
 	fmt.Println("Bundle:", len(b))
 	ub, err := Unbundle(b)
 	if err != nil {
