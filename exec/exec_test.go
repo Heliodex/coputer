@@ -38,9 +38,9 @@ func TestExec(t *testing.T) {
 	var env lc.Env
 	env.AddFn(luau_print)
 
-	u := NewUnbundler()
+	c := lc.NewCompiler(1)
 
-	co, err := u.Execute(b, env)
+	co, err := Execute(c, b, env)
 	if err != nil {
 		panic(err)
 	}

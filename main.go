@@ -608,10 +608,11 @@ func (s *stream) rString() string {
 	return string(s.data[s.pos-size : s.pos])
 }
 
-func (s *stream) CheckEnd() {
+func (s *stream) CheckEnd() error {
 	if s.pos != uint32(len(s.data)) {
-		panic("deserialiser position mismatch")
+		return errors.New("deserialiser position mismatch")
 	}
+	return nil
 }
 
 var auxOp = opInfo{name: "auxvalue"}
@@ -813,9 +814,8 @@ func deserialise(data []byte) (deserialised, error) {
 
 	mainProto := protoList[s.rVarInt()]
 	mainProto.dbgname = "(main)"
-	s.CheckEnd()
 
-	return deserialised{mainProto, protoList}, nil
+	return deserialised{mainProto, protoList}, s.CheckEnd()
 }
 
 //	type iterArgs struct {

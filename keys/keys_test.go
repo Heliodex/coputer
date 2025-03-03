@@ -42,9 +42,14 @@ func TestSign(t *testing.T) {
 	sig := kp1.Sk.Sign(message)
 
 	fmt.Println(len(sig), len(message))
-	fmt.Println(len(sig) == len(message)+16) // hey wouldya look at that, 16 bytes of overhead, i'm a genuis
+	if len(sig) != len(message)+16 { // hey wouldya look at that, 16 bytes of overhead, i'm a genuis
+		panic("signature length mismatch")
+	}
 
 	ver, ok := kp1.Pk.Verify(sig)
 	fmt.Println(string(ver))
-	fmt.Println(ok)
+
+	if !ok {
+		panic("signature verification failed")
+	}
 }

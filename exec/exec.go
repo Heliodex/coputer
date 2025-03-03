@@ -9,33 +9,24 @@ import (
 	lc "github.com/Heliodex/litecode"
 )
 
-type Unbundler struct {
-	cache    map[[32]byte]string // hash -> entrypoint
-	compiler lc.Compiler
-}
-
-func NewUnbundler() Unbundler {
-	return Unbundler{
-		cache:    make(map[[32]byte]string),
-		compiler: lc.NewCompiler(1),
-	}
-}
-
-func (u *Unbundler) unbundleToDir(b []byte, d string) (entrypoint string, err error) {
+func unbundleToDir(b []byte, d string) (entrypath string, err error) {
 	hash := sha3.Sum256(b)
-	if entrypoint, ok := u.cache[hash]; ok {
-		return entrypoint, nil
-	}
-
 	hexhash := hex.EncodeToString(hash[:])
+
+	path := filepath.Join(d, hexhash)
+
+	// if dir exists, return
+	if e, err := os.ReadFile(filepath.Join(d, hexhash, "entrypoint.txt")); err == nil {
+		return filepath.Join(path, string(e)), nil
+	}
 
 	ub, err := Unbundle(b)
 	if err != nil {
 		return
 	}
 
-	path := filepath.Join(d, hexhash)
-	entrypoint = filepath.Join(path, ub[0].path)
+	entrypoint := ub[0].path
+	entrypath = filepath.Join(path, entrypoint)
 
 	if err = os.MkdirAll(path, 0o755); err != nil {
 		return
@@ -47,16 +38,18 @@ func (u *Unbundler) unbundleToDir(b []byte, d string) (entrypoint string, err er
 		}
 	}
 
-	return
+	// write entrypoint to file
+	// (maybe just have 1 entrypoint for all programs? likely main.luau)
+	return entrypath, os.WriteFile(filepath.Join(path, "entrypoint.txt"), []byte(entrypoint), 0o644)
 }
 
-func (u *Unbundler) Execute(b []byte, env lc.Env) (lc.Coroutine, error) {
-	entrypoint, err := u.unbundleToDir(b, "data")
+func Execute(c lc.Compiler, b []byte, env lc.Env) (lc.Coroutine, error) {
+	entrypoint, err := unbundleToDir(b, "data")
 	if err != nil {
 		return lc.Coroutine{}, err
 	}
 
-	p, err := u.compiler.CompileAndDeserialise(entrypoint)
+	p, err := c.CompileAndDeserialise(entrypoint)
 	if err != nil {
 		return lc.Coroutine{}, err
 	}
