@@ -1,113 +1,66 @@
 package exec
 
 import (
-	"bytes"
-	"compress/gzip"
-	"encoding/binary"
+	"crypto/sha3"
+	"encoding/hex"
 	"os"
 	"path/filepath"
-	"strings"
+
+	lc "github.com/Heliodex/litecode"
 )
 
-var gzheader = []byte{0x1f, 0x8b, 0x08, 0x08, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff}
-
-type File struct {
-	path string
-	data []byte
+type Unbundler struct {
+	cache    map[[32]byte]string // hash -> entrypoint
+	compiler lc.Compiler
 }
 
-func Compress(n string, f []byte) (cf File, err error) {
-	var b bytes.Buffer
-	w := gzip.NewWriter(&b)
+func NewUnbundler() Unbundler {
+	return Unbundler{
+		cache:    make(map[[32]byte]string),
+		compiler: lc.NewCompiler(1),
+	}
+}
 
-	w.Name = n
-	if _, err = w.Write(f); err != nil {
-		return
-	} else if err = w.Close(); err != nil {
-		return
+func (u *Unbundler) unbundleToDir(b []byte, d string) (entrypoint string, err error) {
+	hash := sha3.Sum256(b)
+	if entrypoint, ok := u.cache[hash]; ok {
+		return entrypoint, nil
 	}
 
-	return File{n, b.Bytes()[len(gzheader):]}, nil // remove the header
-}
+	hexhash := hex.EncodeToString(hash[:])
 
-func Decompress(c []byte) (f File, err error) {
-	// add the header
-	c = append(gzheader, c...)
-
-	var b bytes.Buffer
-	r, err := gzip.NewReader(bytes.NewReader(c))
-	if err != nil {
-		return
-	} else if _, err = b.ReadFrom(r); err != nil {
-		return
-	} else if err = r.Close(); err != nil {
-		return
-	}
-
-	return File{r.Name, b.Bytes()}, nil
-}
-
-func bundleFile(p string) (bf File, err error) {
-	// read
-	f, err := os.ReadFile(p)
+	ub, err := Unbundle(b)
 	if err != nil {
 		return
 	}
 
-	// remove walked directory from p (everything before first /)
-	s := strings.Split(p, string(filepath.Separator))
-	np := strings.Join(s[1:], "/")
+	path := filepath.Join(d, hexhash)
+	entrypoint = filepath.Join(path, ub[0].path)
 
-	return Compress(np, f)
-}
+	if err = os.MkdirAll(path, 0o755); err != nil {
+		return
+	}
 
-func Bundle(path, entrypoint string) (b []byte, err error) {
-	var cFiles []File
-
-	// walk through the directory
-	if err = filepath.WalkDir(path, func(p string, info os.DirEntry, err error) error {
-		if err != nil || info.IsDir() {
-			return err
-		} else if bf, err := bundleFile(p); err != nil {
-			return err
-		} else if bf.path == entrypoint {
-			cFiles = append([]File{bf}, cFiles...) // entrypoint goes first
-		} else {
-			cFiles = append(cFiles, bf)
+	for _, f := range ub {
+		if err = os.WriteFile(filepath.Join(path, f.path), f.data, 0o644); err != nil {
+			return
 		}
-
-		return nil
-	}); err != nil {
-		return
-	}
-
-	// write compressed files
-	for _, c := range cFiles {
-		// add file length as uvarint
-		b = binary.AppendUvarint(b, uint64(len(c.data)))
-		b = append(b, c.data...)
 	}
 
 	return
 }
 
-func Unbundle(b []byte) (fs []File, err error) {
-	for i, lb := uint64(0), uint64(len(b)); i < lb; {
-		// read file length
-		l, n := binary.Uvarint(b[i:])
-		i += uint64(n)
-
-		// read file
-		c := b[i:][:l]
-		i += l
-
-		f, err := Decompress(c)
-		if err != nil {
-			return nil, err
-		}
-
-		fs = append(fs, f)
+func (u *Unbundler) Execute(b []byte, env lc.Env) (lc.Coroutine, error) {
+	entrypoint, err := u.unbundleToDir(b, "data")
+	if err != nil {
+		return lc.Coroutine{}, err
 	}
 
-	return
+	p, err := u.compiler.CompileAndDeserialise(entrypoint)
+	if err != nil {
+		return lc.Coroutine{}, err
+	}
+
+	co, _ := p.Load(env)
+	return co, nil
 }

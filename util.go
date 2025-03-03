@@ -1,7 +1,7 @@
 package litecode
 
 import (
-	"crypto/sha256"
+	"crypto/sha3"
 	"fmt"
 	"os/exec"
 )
@@ -15,24 +15,25 @@ func compile(path string, o uint8) (bytecode []byte, err error) {
 type compiled struct {
 	deserialised
 	filepath string
-	compiler *compiler
+	compiler *Compiler
 }
 
-type compiler struct {
+// Compiler allows programs to be compiled and deserialised with a cache and given optimisation level.
+type Compiler struct {
 	cache map[[32]byte]deserialised
 	o     uint8
 }
 
 // NewCompiler creates a new compiler with the given optimisation level.
-func NewCompiler(o uint8) compiler {
-	return compiler{
+func NewCompiler(o uint8) Compiler {
+	return Compiler{
 		cache: make(map[[32]byte]deserialised),
 		o:     o,
 	}
 }
 
-func (c compiler) deserialise(b []byte, filepath string) (compiled, error) {
-	hash := sha256.Sum256(b)
+func (c Compiler) deserialise(b []byte, filepath string) (compiled, error) {
+	hash := sha3.Sum256(b)
 
 	d, ok := c.cache[hash]
 	if ok {
@@ -48,7 +49,7 @@ func (c compiler) deserialise(b []byte, filepath string) (compiled, error) {
 	return compiled{d, filepath, &c}, nil
 }
 
-func (c compiler) CompileAndDeserialise(path string) (d compiled, err error) {
+func (c Compiler) CompileAndDeserialise(path string) (p compiled, err error) {
 	b, err := compile(path, c.o)
 	if err != nil {
 		return compiled{}, fmt.Errorf("error compiling file: %w", err)

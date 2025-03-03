@@ -365,7 +365,7 @@ type Coroutine struct {
 	yield    chan yield
 	resume   chan Rets
 	dbg      *debugging
-	compiler *compiler
+	compiler *Compiler
 	status   Status
 	started  bool
 }

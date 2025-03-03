@@ -11,3 +11,5 @@ local res = fn(x)
 
 print "got res"
 print(res)
+
+return "done"

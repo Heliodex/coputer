@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func litecode(t *testing.T, f string, c compiler) (string, time.Duration) {
+func litecode(t *testing.T, f string, c Compiler) (string, time.Duration) {
 	p, err := c.CompileAndDeserialise(f)
 	if err != nil {
 		t.Error(err)
@@ -48,7 +48,7 @@ func litecode(t *testing.T, f string, c compiler) (string, time.Duration) {
 	return b.String(), endTime.Sub(startTime)
 }
 
-func litecodeE(t *testing.T, f string, c compiler) (string, error) {
+func litecodeE(t *testing.T, f string, c Compiler) (string, error) {
 	p, err := c.CompileAndDeserialise(f)
 	if err != nil {
 		t.Error(err)
@@ -239,7 +239,7 @@ func TestBenchmark(t *testing.T) {
 
 	// onlyBench := "largealloc.luau"
 
-	compilers := []compiler{NewCompiler(0), NewCompiler(1), NewCompiler(2)}
+	compilers := []Compiler{NewCompiler(0), NewCompiler(1), NewCompiler(2)}
 
 	for _, f := range files {
 		name := f.Name()
