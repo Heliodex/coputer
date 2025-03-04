@@ -9,6 +9,11 @@ import (
 	lc "github.com/Heliodex/litecode"
 )
 
+const (
+	entrypointFilename = "entrypoint.txt"
+	programsDir        = "data/programs"
+)
+
 func unbundleToDir(b []byte, d string) (entrypath string, err error) {
 	hash := sha3.Sum256(b)
 	hexhash := hex.EncodeToString(hash[:])
@@ -16,7 +21,7 @@ func unbundleToDir(b []byte, d string) (entrypath string, err error) {
 	path := filepath.Join(d, hexhash)
 
 	// if dir exists, return
-	if e, err := os.ReadFile(filepath.Join(d, hexhash, "entrypoint.txt")); err == nil {
+	if e, err := os.ReadFile(filepath.Join(d, hexhash, entrypointFilename)); err == nil {
 		return filepath.Join(path, string(e)), nil
 	}
 
@@ -40,16 +45,16 @@ func unbundleToDir(b []byte, d string) (entrypath string, err error) {
 
 	// write entrypoint to file
 	// (maybe just have 1 entrypoint for all programs? likely main.luau)
-	return entrypath, os.WriteFile(filepath.Join(path, "entrypoint.txt"), []byte(entrypoint), 0o644)
+	return entrypath, os.WriteFile(filepath.Join(path, entrypointFilename), []byte(entrypoint), 0o644)
 }
 
 func Execute(c lc.Compiler, b []byte, env lc.Env) (lc.Coroutine, error) {
-	entrypoint, err := unbundleToDir(b, "data")
+	entrypoint, err := unbundleToDir(b, programsDir)
 	if err != nil {
 		return lc.Coroutine{}, err
 	}
 
-	p, err := c.CompileAndDeserialise(entrypoint)
+	p, err := c.Compile(entrypoint)
 	if err != nil {
 		return lc.Coroutine{}, err
 	}

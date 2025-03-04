@@ -587,7 +587,7 @@ func global_require(args Args) (r Rets, err error) {
 	c := args.Co.compiler
 
 	// compile bytecodeee
-	p, err := c.CompileAndDeserialise(path)
+	p, err := c.Compile(path)
 	if err != nil {
 		return
 	}

@@ -51,24 +51,16 @@ func iterHash(hash map[any]any, y func(any, any) bool) {
 }
 
 // Q why are tables like this
-//
 // A:
-//
 // 1: the reference implementation of tables is too complex: rehashing and resizing is a pain but not too bad, array boundaries are worse and I don't want 1.5k lines of code just for that, and Go does a resizing-like thing automatically with slices anyway
-//
 // 2: the way nodes are implemented works well in C++ and not in Go (plus I don't know if it's actually O(1) for node lookups??)
-//
 // 3: rehashing etc is slower than just using a slice... somehow. most of this program is between 10-20x slower than the reference implementation, but the tables (which were previously like 50x slower) are now only like 2-3x slower for large allocations (bench/largealloc.luau)
-//
 // 4: having an array part is actually nice for iteration and for large tables (as opposed to the lua4 way, where it's *just* a hash part), the way it's done here is simpler though we have to move stuff around and between the array and node parts more explicitly
-//
 // 5: very weird quirks arise from table length implementations etc. the nil stuff can easily be forgiven, it's the stuff with creating a table and getting a length afterwards (see tests/clear.luau) that is fucking devilish; this is one of the few parts that puts Luau, as the language at the top of my favourites list, in jeopardy
-//
 // 6: we don't actually break *that* much compatibility doing it this way, right??
-//
 // 7: if anyone tells you tables are simple THEY ARE LYING, CALL THEM OUT ON THEIR SHIT
 
-// Table represents a Luau table, with resizeable array and hash pars. Luau type `table`
+// Table represents a Luau table, with resizeable array and hash parts. Luau type `table`
 type Table struct {
 	Array    []any
 	Hash     map[any]any

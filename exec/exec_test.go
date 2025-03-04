@@ -2,21 +2,17 @@ package exec
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	lc "github.com/Heliodex/litecode"
 )
 
+const (
+	path       = "../testb"
+	entrypoint = "main.luau"
+)
+
 func TestExec(t *testing.T) {
-	// clear data directory
-	if err := os.RemoveAll("data"); err != nil {
-		panic(err)
-	}
-
-	path := "./test"
-	entrypoint := "main.luau"
-
 	b, err := Bundle(path, entrypoint)
 	if err != nil {
 		panic(err)
@@ -55,9 +51,6 @@ func TestExec(t *testing.T) {
 }
 
 func TestBundle(t *testing.T) {
-	path := "./test"
-	entrypoint := "main.luau"
-
 	b, err := Bundle(path, entrypoint)
 	if err != nil {
 		panic(err)

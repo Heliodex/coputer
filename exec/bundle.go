@@ -54,8 +54,11 @@ func bundleFile(p string) (bf File, err error) {
 		return
 	}
 
+	// trim ../ or ..\ from p
+	fps := string(filepath.Separator)
+	p = strings.TrimPrefix(p, ".."+fps)
 	// remove walked directory from p (everything before first /)
-	s := strings.Split(p, string(filepath.Separator))
+	s := strings.Split(p, fps)
 	np := strings.Join(s[1:], "/")
 
 	return Compress(np, f)

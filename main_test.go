@@ -13,7 +13,7 @@ import (
 )
 
 func litecode(t *testing.T, f string, c Compiler) (string, time.Duration) {
-	p, err := c.CompileAndDeserialise(f)
+	p, err := c.Compile(f)
 	if err != nil {
 		t.Error(err)
 		return "", 0
@@ -49,7 +49,7 @@ func litecode(t *testing.T, f string, c Compiler) (string, time.Duration) {
 }
 
 func litecodeE(t *testing.T, f string, c Compiler) (string, error) {
-	p, err := c.CompileAndDeserialise(f)
+	p, err := c.Compile(f)
 	if err != nil {
 		t.Error(err)
 		return "", err

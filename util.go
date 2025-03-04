@@ -6,7 +6,7 @@ import (
 	"os/exec"
 )
 
-func compile(path string, o uint8) (bytecode []byte, err error) {
+func luauCompile(path string, o uint8) (bytecode []byte, err error) {
 	cmd := exec.Command("luau-compile", "--binary", fmt.Sprintf("-O%d", o), path)
 	return cmd.Output()
 }
@@ -35,8 +35,7 @@ func NewCompiler(o uint8) Compiler {
 func (c Compiler) deserialise(b []byte, filepath string) (compiled, error) {
 	hash := sha3.Sum256(b)
 
-	d, ok := c.cache[hash]
-	if ok {
+	if d, ok := c.cache[hash]; ok {
 		return compiled{d, filepath, &c}, nil
 	}
 
@@ -49,8 +48,9 @@ func (c Compiler) deserialise(b []byte, filepath string) (compiled, error) {
 	return compiled{d, filepath, &c}, nil
 }
 
-func (c Compiler) CompileAndDeserialise(path string) (p compiled, err error) {
-	b, err := compile(path, c.o)
+// Compile compiles a program at a specific path to bytecode and returns its deserialised form.
+func (c Compiler) Compile(path string) (p compiled, err error) {
+	b, err := luauCompile(path, c.o)
 	if err != nil {
 		return compiled{}, fmt.Errorf("error compiling file: %w", err)
 	}
