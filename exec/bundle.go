@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/binary"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -64,7 +65,7 @@ func bundleFile(p string) (bf File, err error) {
 	return Compress(np, f)
 }
 
-func Bundle(path, entrypoint string) (b []byte, err error) {
+func Bundle(path string) (b []byte, err error) {
 	var cFiles []File
 
 	// walk through the directory
@@ -73,7 +74,7 @@ func Bundle(path, entrypoint string) (b []byte, err error) {
 			return err
 		} else if bf, err := bundleFile(p); err != nil {
 			return err
-		} else if bf.path == entrypoint {
+		} else if bf.path == entrypointFilename {
 			cFiles = append([]File{bf}, cFiles...) // entrypoint goes first
 		} else {
 			cFiles = append(cFiles, bf)
@@ -82,6 +83,10 @@ func Bundle(path, entrypoint string) (b []byte, err error) {
 		return nil
 	}); err != nil {
 		return
+	}
+
+	if cFiles[0].path != entrypointFilename {
+		return nil, errors.New("entrypoint (init.luau) not found")
 	}
 
 	// write compressed files

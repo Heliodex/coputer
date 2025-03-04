@@ -12,4 +12,8 @@ local res = fn(x)
 print "got res"
 print(res)
 
+local dir = require "./dir2"
+
+print(dir())
+
 return "done"

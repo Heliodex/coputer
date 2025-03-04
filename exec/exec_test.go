@@ -7,13 +7,10 @@ import (
 	lc "github.com/Heliodex/litecode"
 )
 
-const (
-	path       = "../testb"
-	entrypoint = "main.luau"
-)
+const path = "../testb"
 
 func TestExec(t *testing.T) {
-	b, err := Bundle(path, entrypoint)
+	b, err := Bundle(path)
 	if err != nil {
 		panic(err)
 	}
@@ -51,7 +48,7 @@ func TestExec(t *testing.T) {
 }
 
 func TestBundle(t *testing.T) {
-	b, err := Bundle(path, entrypoint)
+	b, err := Bundle(path)
 	if err != nil {
 		panic(err)
 	}
@@ -68,7 +65,7 @@ func TestBundle(t *testing.T) {
 	}
 
 	// rebundle
-	b2, err := Bundle(path, entrypoint)
+	b2, err := Bundle(path)
 	if err != nil {
 		panic(err)
 	}

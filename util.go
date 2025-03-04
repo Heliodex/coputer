@@ -3,6 +3,7 @@ package litecode
 import (
 	"crypto/sha3"
 	"fmt"
+	"os"
 	"os/exec"
 )
 
@@ -50,6 +51,13 @@ func (c Compiler) deserialise(b []byte, filepath string) (compiled, error) {
 
 // Compile compiles a program at a specific path to bytecode and returns its deserialised form.
 func (c Compiler) Compile(path string) (p compiled, err error) {
+	// find if file at path exists
+	if _, err := os.Stat(path); err != nil {
+		path += ".luau"
+	} else if _, err := os.Stat(path); err != nil {
+		return compiled{}, fmt.Errorf("error finding file: %w", err)
+	}
+
 	b, err := luauCompile(path, c.o)
 	if err != nil {
 		return compiled{}, fmt.Errorf("error compiling file: %w", err)

@@ -10,7 +10,11 @@ import (
 )
 
 const (
-	entrypointFilename = "entrypoint.txt"
+	// one entrypoint to rule them all
+	// one entrypoint to find them
+	// one entrypoint to bring them all
+	// and in the darkness require() them
+	entrypointFilename = "init.luau"
 	programsDir        = "data/programs"
 )
 
@@ -19,10 +23,11 @@ func unbundleToDir(b []byte, d string) (entrypath string, err error) {
 	hexhash := hex.EncodeToString(hash[:])
 
 	path := filepath.Join(d, hexhash)
+	entrypath = filepath.Join(path, entrypointFilename)
 
 	// if dir exists, return
-	if e, err := os.ReadFile(filepath.Join(d, hexhash, entrypointFilename)); err == nil {
-		return filepath.Join(path, string(e)), nil
+	if _, err = os.Stat(entrypath); err == nil {
+		return
 	}
 
 	ub, err := Unbundle(b)
@@ -30,22 +35,16 @@ func unbundleToDir(b []byte, d string) (entrypath string, err error) {
 		return
 	}
 
-	entrypoint := ub[0].path
-	entrypath = filepath.Join(path, entrypoint)
-
-	if err = os.MkdirAll(path, 0o755); err != nil {
-		return
-	}
-
 	for _, f := range ub {
-		if err = os.WriteFile(filepath.Join(path, f.path), f.data, 0o644); err != nil {
+		p := filepath.Join(path, f.path)
+		if err = os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			return
+		} else if err = os.WriteFile(p, f.data, 0o644); err != nil {
 			return
 		}
 	}
 
-	// write entrypoint to file
-	// (maybe just have 1 entrypoint for all programs? likely main.luau)
-	return entrypath, os.WriteFile(filepath.Join(path, entrypointFilename), []byte(entrypoint), 0o644)
+	return
 }
 
 func Execute(c lc.Compiler, b []byte, env lc.Env) (lc.Coroutine, error) {

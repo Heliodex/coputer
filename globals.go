@@ -580,7 +580,7 @@ func global_require(args Args) (r Rets, err error) {
 	}
 
 	// combine filepath and name to get the new path
-	path := filepath.Join(filepath.Dir(args.Co.filepath), name) + ".luau"
+	path := filepath.Join(filepath.Dir(args.Co.filepath), name)
 	path = strings.ReplaceAll(path, "\\", "/")
 	// fmt.Println("REQUIRING", path)
 
