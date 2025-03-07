@@ -1,6 +1,6 @@
 package net
 
-import "github.com/Heliodex/litecode/keys"
+import "github.com/Heliodex/coputer/keys"
 
 // real secret keys for the purposes of testing
 var sampleKeys = [...]string{

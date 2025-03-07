@@ -1,4 +1,4 @@
-package litecode
+package vm
 
 import (
 	"fmt"

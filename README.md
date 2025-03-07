@@ -1,3 +1,5 @@
-# ![litecode logo](./litecode.svg)
+# ⚠️ Notice
 
-Deterministic Luau virtual machine and library toolkit
+This project is about to be rebranded
+
+> "coputer: the collaborative execution environment"

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	lc "github.com/Heliodex/litecode"
+	lc "github.com/Heliodex/coputer/litecode/vm"
 )
 
 const path = "../testb"

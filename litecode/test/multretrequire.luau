@@ -7,4 +7,4 @@ print(found.x, found.y) -- does it only return the final one???
 local found2 = require "./dir/multret2"
 print "ran2"
 
-print(found2())
+print(found2()) -- found 2 fall in love

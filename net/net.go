@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Heliodex/litecode/keys"
+	"github.com/Heliodex/coputer/keys"
 )
 
 const FindStart = "cofind:"

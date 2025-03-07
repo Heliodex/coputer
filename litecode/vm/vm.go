@@ -1,5 +1,5 @@
-// Package litecode is a deterministic Luau virtual machine and standard library toolkit.
-package litecode
+// package vm implements Litecode's deterministic Luau virtual machine and standard library toolkit.
+package vm
 
 import (
 	"errors"
@@ -833,16 +833,18 @@ func truthy(v any) bool {
 	return v != nil && v != false
 }
 
+const typeprefix = "main."
+
 var luautype = map[string]string{
-	"nil":                 "nil",
-	"float64":             "number",
-	"string":              "string",
-	"bool":                "boolean",
-	"*litecode.Table":     "table",
-	"litecode.Function":   "function",
-	"*litecode.Coroutine": "thread",
-	"*litecode.Buffer":    "buffer",
-	"litecode.Vector":     "vector",
+	"nil":                          "nil",
+	"float64":                      "number",
+	"string":                       "string",
+	"bool":                         "boolean",
+	"*" + typeprefix + "Table":     "table",
+	typeprefix + "Function":        "function",
+	"*" + typeprefix + "Coroutine": "thread",
+	"*" + typeprefix + "Buffer":    "buffer",
+	typeprefix + "Vector":          "vector",
 }
 
 func invalidCompare(op, ta, tb string) error {
@@ -1102,7 +1104,7 @@ func gettable(index, v any) (any, error) {
 			// case "w":
 			// 	(*stack)[i.A] = t[3]
 		}
-		return nil, invalidIndex("litecode.Vector", index)
+		return nil, invalidIndex(typeprefix+"Vector", index)
 	}
 	return nil, invalidIndex(typeOf(v), index)
 }
@@ -1177,7 +1179,7 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 		// }
 		// fmt.Printf("OP %-2d PC %-3d UV %d\n", op, pc+1, len(upvals))
 
-	mainswitch:
+	mainswitch: // dw not using this 4 gotos
 		switch op {
 		case 0: // NOP
 			pc++

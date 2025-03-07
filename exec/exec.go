@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	lc "github.com/Heliodex/litecode"
+	lc "github.com/Heliodex/coputer/litecode/vm"
 )
 
 const (

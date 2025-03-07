@@ -1,4 +1,4 @@
-package litecode
+package vm
 
 import (
 	"fmt"
@@ -98,7 +98,7 @@ func TestConformance(t *testing.T) {
 		return
 	}
 
-	// onlyTest := "gsub.luau"
+	// onlyTest := "calls.luau"
 	var wg sync.WaitGroup
 
 	c0, c1, c2 := NewCompiler(0), NewCompiler(1), NewCompiler(2)
