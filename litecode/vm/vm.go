@@ -833,7 +833,7 @@ func truthy(v any) bool {
 	return v != nil && v != false
 }
 
-const typeprefix = "main."
+const typeprefix = "vm."
 
 var luautype = map[string]string{
 	"nil":                          "nil",
