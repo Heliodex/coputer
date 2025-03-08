@@ -5,8 +5,6 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
-
-	lc "github.com/Heliodex/coputer/litecode/vm"
 )
 
 const (
@@ -14,16 +12,16 @@ const (
 	// one entrypoint to find them
 	// one entrypoint to bring them all
 	// and in the darkness require() them
-	entrypointFilename = "init.luau"
-	programsDir        = "data/programs"
+	EntrypointFilename = "init.luau"
+	ProgramsDir        = "./data/programs"
 )
 
-func unbundleToDir(b []byte, d string) (entrypath string, err error) {
+func UnbundleToDir(b []byte) (entrypath string, err error) {
 	hash := sha3.Sum256(b)
 	hexhash := hex.EncodeToString(hash[:])
 
-	path := filepath.Join(d, hexhash)
-	entrypath = filepath.Join(path, entrypointFilename)
+	path := filepath.Join(ProgramsDir, hexhash)
+	entrypath = filepath.Join(path, EntrypointFilename)
 
 	// if dir exists, return
 	if _, err = os.Stat(entrypath); err == nil {
@@ -47,17 +45,9 @@ func unbundleToDir(b []byte, d string) (entrypath string, err error) {
 	return
 }
 
-func Execute(c lc.Compiler, b []byte, env lc.Env) (lc.Coroutine, error) {
-	entrypoint, err := unbundleToDir(b, programsDir)
-	if err != nil {
-		return lc.Coroutine{}, err
-	}
+func BundleStored(hexhash string) (b bool) {
+	path := filepath.Join(ProgramsDir, hexhash)
+	_, err := os.Stat(path)
 
-	p, err := c.Compile(entrypoint)
-	if err != nil {
-		return lc.Coroutine{}, err
-	}
-
-	co, _ := p.Load(env)
-	return co, nil
+	return err == nil
 }

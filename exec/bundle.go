@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -74,7 +75,7 @@ func Bundle(path string) (b []byte, err error) {
 			return err
 		} else if bf, err := bundleFile(p); err != nil {
 			return err
-		} else if bf.path == entrypointFilename {
+		} else if bf.path == EntrypointFilename {
 			cFiles = append([]File{bf}, cFiles...) // entrypoint goes first
 		} else {
 			cFiles = append(cFiles, bf)
@@ -85,7 +86,7 @@ func Bundle(path string) (b []byte, err error) {
 		return
 	}
 
-	if cFiles[0].path != entrypointFilename {
+	if cFiles[0].path != EntrypointFilename {
 		return nil, errors.New("entrypoint (init.luau) not found")
 	}
 
@@ -100,10 +101,18 @@ func Bundle(path string) (b []byte, err error) {
 }
 
 func Unbundle(b []byte) (fs []File, err error) {
+	if len(b) == 0 {
+		return nil, errors.New("bad bundle: 0 length")
+	}
+
 	for i, lb := uint64(0), uint64(len(b)); i < lb; {
 		// read file length
 		l, n := binary.Uvarint(b[i:])
 		i += uint64(n)
+
+		if i+l > lb {
+			return nil, errors.New("bad bundle: file length exceeds bundle length")
+		}
 
 		// read file
 		c := b[i:][:l]
@@ -111,7 +120,7 @@ func Unbundle(b []byte) (fs []File, err error) {
 
 		f, err := Decompress(c)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("bad bundle: %w", err)
 		}
 
 		fs = append(fs, f)

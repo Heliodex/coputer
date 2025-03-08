@@ -34,23 +34,22 @@ func NewCompiler(o uint8) Compiler {
 }
 
 func (c Compiler) deserialise(b []byte, filepath string) (compiled, error) {
-	hash := sha3.Sum256(b)
-
-	if d, ok := c.cache[hash]; ok {
-		return compiled{d, filepath, &c}, nil
-	}
-
 	d, err := deserialise(b)
 	if err != nil {
 		return compiled{}, fmt.Errorf("error deserialising bytecode: %w", err)
 	}
 
-	c.cache[hash] = d
 	return compiled{d, filepath, &c}, nil
 }
 
 // Compile compiles a program at a specific path to bytecode and returns its deserialised form.
 func (c Compiler) Compile(path string) (p compiled, err error) {
+	// hash path instead of bytecode
+	hash := sha3.Sum256([]byte(path))
+	if p, ok := c.cache[hash]; ok {
+		return compiled{p, path, &c}, nil
+	}
+
 	// find if file at path exists
 	if _, err := os.Stat(path); err != nil {
 		path += ".luau"
@@ -63,7 +62,13 @@ func (c Compiler) Compile(path string) (p compiled, err error) {
 		return compiled{}, fmt.Errorf("error compiling file: %w", err)
 	}
 
-	return c.deserialise(b, path)
+	p, err = c.deserialise(b, path)
+	if err != nil {
+		return
+	}
+
+	c.cache[hash] = p.deserialised
+	return
 }
 
 func (p compiled) Load(env Env) (co Coroutine, cancel func()) {
