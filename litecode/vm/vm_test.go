@@ -12,6 +12,10 @@ import (
 	"time"
 )
 
+func trimext(s string) string {
+	return strings.TrimSuffix(s, Ext)
+}
+
 func litecode(t *testing.T, f string, c Compiler) (string, time.Duration) {
 	p, err := c.Compile(f)
 	if err != nil {
@@ -80,7 +84,7 @@ func litecodeE(t *testing.T, f string, c Compiler) (string, error) {
 }
 
 func luau(f string) (string, error) {
-	cmd := exec.Command("luau", f)
+	cmd := exec.Command("luau", f+Ext)
 	o, err := cmd.Output()
 	if err != nil {
 		return "", err
@@ -98,7 +102,7 @@ func TestConformance(t *testing.T) {
 		return
 	}
 
-	// onlyTest := "calls.luau"
+	// onlyTest := "calls"
 	var wg sync.WaitGroup
 
 	c0, c1, c2 := NewCompiler(0), NewCompiler(1), NewCompiler(2)
@@ -108,7 +112,7 @@ func TestConformance(t *testing.T) {
 			continue
 		}
 
-		name := f.Name()
+		name := trimext(f.Name())
 		// if name != onlyTest {
 		// 	continue
 		// }
@@ -180,8 +184,8 @@ func TestErrors(t *testing.T) {
 	for _, f := range files {
 		name := f.Name()
 
-		if strings.HasSuffix(name, ".luau") {
-			has = append(has, strings.TrimSuffix(name, ".luau"))
+		if strings.HasSuffix(name, Ext) {
+			has = append(has, trimext(name))
 		}
 	}
 
@@ -195,7 +199,7 @@ func TestErrors(t *testing.T) {
 		// }
 
 		fmt.Println(" -- Testing", name, "--")
-		filename := fmt.Sprintf("error/%s.luau", name)
+		filename := fmt.Sprintf("error/%s", name)
 
 		_, lerr := litecodeE(t, filename, c1)
 
@@ -237,12 +241,12 @@ func TestBenchmark(t *testing.T) {
 	// pprof.StartCPUProfile(f)
 	// defer pprof.StopCPUProfile()
 
-	// onlyBench := "largealloc.luau"
+	// onlyBench := "largealloc"
 
 	compilers := []Compiler{NewCompiler(0), NewCompiler(1), NewCompiler(2)}
 
 	for _, f := range files {
-		name := f.Name()
+		name := trimext(f.Name())
 		// if name != onlyBench {
 		// 	continue
 		// }

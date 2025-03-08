@@ -10,7 +10,7 @@ import (
 )
 
 func Run(c vm.Compiler, hash string) (res vm.Rets, err error) {
-	p, err := c.Compile(filepath.Join(exec.ProgramsDir, hash, exec.EntrypointFilename))
+	p, err := c.Compile(filepath.Join(exec.ProgramsDir, hash, exec.Entrypoint))
 	if err != nil {
 		return
 	}
@@ -34,7 +34,6 @@ func Run(c vm.Compiler, hash string) (res vm.Rets, err error) {
 
 	go func() {
 		time.Sleep(5 * time.Second)
-		fmt.Println("cancelling if not done")
 		cancel()
 	}()
 

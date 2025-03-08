@@ -1141,7 +1141,7 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 	pc, top, openUpvals, generalisedIterators := 1, -1, []*upval{}, map[inst]*iterator{}
 
 	moveStack := func(src []any, b, t int) {
-		for t+b >= len(*stack) {
+		for t+b >= len(*stack) { // graah stack expansion
 			*stack = append(*stack, nil)
 		}
 
@@ -1489,6 +1489,8 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 			if retCount == 1 { // requires should return only 1 value anyway
 				if lc, ok := retList[0].(compiled); ok {
 					// it's a require
+					// fmt.Println("REQUIRE", lc.filepath)
+					
 					if c, ok := towrap.requireCache[lc.filepath]; ok {
 						retList = c[len(c)-1:]
 					} else {
@@ -2052,13 +2054,15 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 		uv.store = nil
 		uv.selfRef = true
 	}
-	openUpvals = nil
 
 	for _, v := range generalisedIterators {
 		v.running = false
 	}
-	generalisedIterators = nil
 
+	if !*towrap.alive {
+		// program was killed
+		return nil, errors.New("program execution cancelled: timeout")
+	}
 	return
 }
 
@@ -2082,7 +2086,9 @@ func wrapclosure(towrap toWrap) Function {
 		co.dbg = dbg
 
 		result, err := execute(towrap, &stack, co, list, max(la-np, 0))
-		if err != nil {
+		if !*towrap.alive {
+			return
+		} else if err != nil {
 			return nil, errorfmt(err, dbg)
 		}
 

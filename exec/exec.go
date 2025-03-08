@@ -12,7 +12,8 @@ const (
 	// one entrypoint to find them
 	// one entrypoint to bring them all
 	// and in the darkness require() them
-	EntrypointFilename = "init.luau"
+	Entrypoint = "init"
+	EntrypointFilename = Entrypoint + ".luau"
 	ProgramsDir        = "./data/programs"
 )
 

@@ -29,7 +29,10 @@ func checkHash(w http.ResponseWriter, hash string) (b bool) {
 
 func main() {
 	c := vm.NewCompiler(1)
-	
+
+	retsCache := make(map[string]string)
+	errCache := make(map[string]error)
+
 	// store program (bundled version)
 	http.HandleFunc("PUT /store", func(w http.ResponseWriter, r *http.Request) {
 		data := make([]byte, r.ContentLength)
@@ -60,16 +63,25 @@ func main() {
 		run := r.URL.Query().Has("run")
 		if !run {
 			return
+		} else if res, ok := retsCache[hash]; ok {
+			fmt.Fprintln(w, vm.ToString(res))
+			return
+		} else if err, ok := errCache[hash]; ok {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
 
 		// run program
 		res, err := Run(c, hash)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			errCache[hash] = err
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		fmt.Fprintln(w, res)
+		final := vm.ToString(res)
+		retsCache[hash] = final
+		fmt.Fprintln(w, final)
 	})
 
 	fmt.Println("Listening on :2505")

@@ -7,6 +7,8 @@ import (
 	"os/exec"
 )
 
+const Ext = ".luau"
+
 func luauCompile(path string, o uint8) (bytecode []byte, err error) {
 	cmd := exec.Command("luau-compile", "--binary", fmt.Sprintf("-O%d", o), path)
 	return cmd.Output()
@@ -51,13 +53,11 @@ func (c Compiler) Compile(path string) (p compiled, err error) {
 	}
 
 	// find if file at path exists
-	if _, err := os.Stat(path); err != nil {
-		path += ".luau"
-	} else if _, err := os.Stat(path); err != nil {
+	if _, err := os.Stat(path + Ext); err != nil {
 		return compiled{}, fmt.Errorf("error finding file: %w", err)
 	}
 
-	b, err := luauCompile(path, c.o)
+	b, err := luauCompile(path+Ext, c.o)
 	if err != nil {
 		return compiled{}, fmt.Errorf("error compiling file: %w", err)
 	}
