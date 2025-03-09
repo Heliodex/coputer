@@ -5,10 +5,10 @@ import (
 	"testing"
 )
 
-const path = "../testb"
+const testpath = "../testb"
 
 func TestBundle(t *testing.T) {
-	b, err := Bundle(path)
+	b, err := Bundle(testpath)
 	if err != nil {
 		panic(err)
 	}
@@ -25,7 +25,7 @@ func TestBundle(t *testing.T) {
 	}
 
 	// rebundle
-	b2, err := Bundle(path)
+	b2, err := Bundle(testpath)
 	if err != nil {
 		panic(err)
 	}

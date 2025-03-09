@@ -52,12 +52,17 @@ func (c Compiler) Compile(path string) (p compiled, err error) {
 		return compiled{p, path, &c}, nil
 	}
 
+	pathext := path + Ext
 	// find if file at path exists
-	if _, err := os.Stat(path + Ext); err != nil {
-		return compiled{}, fmt.Errorf("error finding file: %w", err)
+	if _, err := os.Stat(pathext); err != nil {
+		if _, err := os.Stat(path); err != nil {
+			return compiled{}, fmt.Errorf("error finding file: %w", err)
+		}
+		// init.luau directory
+		pathext = path
 	}
 
-	b, err := luauCompile(path+Ext, c.o)
+	b, err := luauCompile(pathext, c.o)
 	if err != nil {
 		return compiled{}, fmt.Errorf("error compiling file: %w", err)
 	}
