@@ -1,0 +1,2 @@
+opcode: CALL
+(main):1: module must return a table or function

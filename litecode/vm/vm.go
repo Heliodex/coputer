@@ -351,16 +351,16 @@ func (e *Env) AddFn(f Function) {
 
 // Coroutine represents a Luau coroutine, including the main coroutine. Luau type `thread`
 type Coroutine struct {
-	body     Function
-	env      Env
-	filepath string // actually does well here
+	body           Function
+	env            Env
+	filepath       string   // actually does well here
 	requireHistory []string // prevents cyclic module dependencies
-	yield    chan yield
-	resume   chan Rets
-	dbg      *debugging
-	compiler *Compiler
-	status   Status
-	started  bool
+	yield          chan yield
+	resume         chan Rets
+	dbg            *debugging
+	compiler       *Compiler
+	status         Status
+	started        bool
 }
 
 func createCoroutine(body Function) *Coroutine {
@@ -1491,7 +1491,7 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 				if lc, ok := retList[0].(compiled); ok {
 					// it's a require
 					// fmt.Println("REQUIRE", lc.filepath)
-					
+
 					if c, ok := towrap.requireCache[lc.filepath]; ok {
 						retList = c[len(c)-1:]
 					} else {
@@ -1500,9 +1500,19 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 						reqrets, err := c2.Resume()
 						if err != nil {
 							return nil, err
+						} else if len(reqrets) == 0 {
+							return nil, errors.New("module must return a value")
 						}
 
-						retList = reqrets[len(reqrets)-1:]
+						// only the last return value (weird luau behaviour...)
+						ret := reqrets[len(reqrets)-1]
+						switch ret.(type) {
+						case *Table, Function:
+						default:
+							return nil, errors.New("module must return a table or function")
+						}
+
+						retList = Rets{ret}
 						towrap.requireCache[lc.filepath] = retList
 					}
 				}
@@ -2110,13 +2120,13 @@ func loadmodule(m compiled, env Env, requireCache map[string]Rets, requireHistor
 	}
 
 	return Coroutine{
-		body:     wrapclosure(towrap),
-		env:      env,
-		filepath: m.filepath,
+		body:           wrapclosure(towrap),
+		env:            env,
+		filepath:       m.filepath,
 		requireHistory: requireHistory,
-		yield:    make(chan yield, 1),
-		resume:   make(chan Rets, 1),
-		dbg:      &debugging{opcode: 255},
-		compiler: m.compiler,
+		yield:          make(chan yield, 1),
+		resume:         make(chan Rets, 1),
+		dbg:            &debugging{opcode: 255},
+		compiler:       m.compiler,
 	}, func() { alive = false }
 }
