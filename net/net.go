@@ -2,6 +2,7 @@ package net
 
 import (
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -44,28 +45,13 @@ func PeerFromFindString(find string) (p *keys.Peer, err error) {
 	return &keys.Peer{Pk: pk, Addresses: addresses}, nil
 }
 
-type (
-	EncryptedMessage []byte
-	MessageType      uint8
-)
-
-const (
-	Msg1 = iota
-)
-
-type Message struct {
-	From *keys.Peer
-	Type MessageType
-	Body []byte
-}
-
-func (m EncryptedMessage) Decode(kp keys.Keypair) (msg Message, err error) {
-	from, body, err := kp.Decrypt(m)
+func (e EncryptedMsg) Decode(kp keys.Keypair) (m AnyMsg, err error) {
+	from, body, err := kp.Decrypt(e)
 	if err != nil {
 		return
 	}
 
-	return Message{
+	return AnyMsg{
 		From: &from,
 		Type: MessageType(body[0]),
 		Body: body[1:],
@@ -77,18 +63,16 @@ type Node struct {
 
 	Peers      map[keys.PK]*keys.Peer // known peers
 	SendRaw    func(peer *keys.Peer, msg []byte) (err error)
-	ReceiveRaw <-chan EncryptedMessage
+	ReceiveRaw <-chan EncryptedMsg
 }
 
-func (n *Node) send(pk keys.PK, t MessageType, msg []byte) (err error) {
+func (n *Node) send(pk keys.PK, sm SentMsg) (err error) {
 	peer, ok := n.Peers[pk]
 	if !ok {
 		return errors.New("unknown peer")
 	}
 
-	msg = append([]byte{byte(t)}, msg...)
-
-	ct, err := n.Encrypt(msg, pk)
+	ct, err := n.Encrypt(sm.Serialise(), pk)
 	if err != nil {
 		return
 	}
@@ -119,10 +103,31 @@ func (n Node) log(msg ...any) {
 	fmt.Printf("[%s]\n     %s\n", logId, m)
 }
 
-func (n *Node) handleMessage(msg Message) {
-	switch msg.Type {
-	case Msg1:
-		n.send(msg.From.Pk, Msg1, []byte("sup")) // infinite loop can't be avoided if you take a route straight through what is known as
+func (n *Node) handleMessage(am AnyMsg) {
+	switch m := am.Deserialise().(type) {
+	case mMsg1:
+		n.log("Received message: ", m.Body)
+
+		res := mMsg1{"Hello, " + m.Body}
+		n.send(am.From.Pk, res) // infinite loop can't be avoided if you take a route straight through what is known as
+
+	case mStore:
+		hash, err := StoreProgram(m.Bundled)
+		if err != nil {
+			n.log("Failed to store program\n", err)
+			break
+		}
+
+		// show result was successful
+		res := mStoreResult{hash}
+		n.send(am.From.Pk, res)
+
+	case mStoreResult:
+		n.log("Program storage successful\n", "Hash: ", hex.EncodeToString(m.Hash[:]))
+
+	default:
+		// any unknown is dropped
+		n.log("Unknown message type\n", am.Type)
 	}
 }
 
@@ -131,6 +136,20 @@ func (n *Node) seenPeer(p *keys.Peer) {
 		n.Peers[p.Pk] = p
 	}
 	n.Peers[p.Pk].LastSeen = time.Now()
+}
+
+func (n *Node) StoreProgram(b []byte) (err error) {
+	if _, err = StoreProgram(b); err != nil {
+		return
+	}
+
+	for _, peer := range n.Peers {
+		m := mStore{b}
+
+		n.send(peer.Pk, m)
+	}
+
+	return
 }
 
 func (n *Node) Start() {
@@ -143,32 +162,21 @@ func (n *Node) Start() {
 		"I know ", len(n.Peers), " peers")
 
 	// Receiver
-	go func() {
-		for {
-			rec := <-n.ReceiveRaw
-			msg, err := rec.Decode(n.Kp)
-			if err != nil {
-				n.log("Failed to decode message\n", err)
-				continue
-			}
-
-			n.seenPeer(msg.From)
-
-			n.log(
-				"Received ", len(msg.Body), "\n",
-				"From ", msg.From.Pk.Encode(), "\n",
-				"@ ", msg.From.Addresses[0], "\n")
-
-			n.handleMessage(msg)
+	for {
+		rec := <-n.ReceiveRaw
+		msg, err := rec.Decode(n.Kp)
+		if err != nil {
+			n.log("Failed to decode message\n", err)
+			continue
 		}
-	}()
 
-	// Sender
-	for _, peer := range n.Peers {
+		n.seenPeer(msg.From)
+
 		n.log(
-			"To   ", peer.Pk.Encode(), "\n",
-			"@ ", peer.Addresses[0])
+			"Received ", len(msg.Body), "\n",
+			"From ", msg.From.Pk.Encode(), "\n",
+			"@ ", msg.From.Addresses[0], "\n")
 
-		n.send(peer.Pk, Msg1, []byte("Hello, peer!"))
+		n.handleMessage(msg)
 	}
 }

@@ -4,10 +4,25 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/Heliodex/coputer/exec"
 )
+
+const path = "../testb"
+
+func getBundled() (b []byte) {
+	b, err := exec.Bundle(path)
+	if err != nil {
+		panic(err)
+	}
+
+	return
+}
 
 // signet lel
 func TestNet(t *testing.T) {
+	b := getBundled()
+	
 	lnet := LocalNet{}
 
 	n1 := lnet.NewNode()
@@ -24,7 +39,9 @@ func TestNet(t *testing.T) {
 		panic(err)
 	}
 
-	lnet.NewNode(p1) // tell it about n1
+	n2 := lnet.NewNode(p1) // tell it about n1
+
+	n2.StoreProgram(b)
 
 	select {}
 }

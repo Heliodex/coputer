@@ -16,11 +16,10 @@ const (
 	storeAddr = addr + "/store"
 )
 
-func StoreProgram(data []byte) (hexhash string, err error) {
-	hash := sha3.Sum256(data)
-	hexhash = hex.EncodeToString(hash[:])
+func StoreProgram(data []byte) (hash [32]byte, err error) {
+	hash = sha3.Sum256(data)
 
-	res, err := http.Get(addr + "/" + hexhash)
+	res, err := http.Get(addr + "/" + hex.EncodeToString(hash[:]))
 	if err != nil || res.StatusCode == http.StatusOK {
 		return
 	}
@@ -37,17 +36,17 @@ func StoreProgram(data []byte) (hexhash string, err error) {
 		// read body into byte arr
 		b, err := io.ReadAll(res.Body)
 		if err != nil {
-			return "", err
+			return [32]byte{}, err
 		}
 
-		return "", fmt.Errorf("bad status: %s, %s", res.Status, string(b))
+		return [32]byte{}, fmt.Errorf("bad status: %s, %s", res.Status, string(b))
 	}
 
 	return
 }
 
-func RunProgram(hexhash string) (sres string, err error) {
-	res, err := http.Post(addr+"/"+hexhash, "", nil)
+func RunProgram(hash [32]byte) (sres string, err error) {
+	res, err := http.Post(addr+"/"+hex.EncodeToString(hash[:]), "", nil)
 	if err != nil {
 		return
 	}

@@ -29,21 +29,21 @@ func getSampleKeypair() (kp keys.Keypair) {
 
 type LocalPeer struct {
 	keys.Peer
-	Receive chan<- EncryptedMessage
+	Receive chan<- EncryptedMsg
 }
 
 type LocalNet struct {
 	ExistingPeers []LocalPeer
 }
 
-func (n *LocalNet) AddPeer(p keys.Peer, recv chan<- EncryptedMessage) {
+func (n *LocalNet) AddPeer(p keys.Peer, recv chan<- EncryptedMsg) {
 	n.ExistingPeers = append(n.ExistingPeers, LocalPeer{p, recv})
 }
 
 func (n *LocalNet) SendRaw(p *keys.Peer, m []byte) (err error) {
 	for _, ep := range n.ExistingPeers {
 		if p.Equals(ep.Peer) {
-			ep.Receive <- m // assume we're sending from 1st addr for now.. ugh
+			ep.Receive <- m
 			// if we know we can reach the peer some other way then we should do that
 			return
 		}
@@ -64,7 +64,7 @@ func (n *LocalNet) NewNode(ps ...*keys.Peer) (node Node) {
 		peers[p.Pk] = p
 	}
 
-	recv := make(chan EncryptedMessage)
+	recv := make(chan EncryptedMsg)
 	n.AddPeer(peer, recv)
 	node = Node{keys.ThisPeer{
 		Peer: peer,
