@@ -1,0 +1,2 @@
+opcode: CALL
+(main):1: require path must start with a valid prefix: ./ or ../

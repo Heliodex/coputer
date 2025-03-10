@@ -1,0 +1,1 @@
+require "./dir1/circular.luau"

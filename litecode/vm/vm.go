@@ -354,6 +354,7 @@ type Coroutine struct {
 	body     Function
 	env      Env
 	filepath string // actually does well here
+	requireHistory []string // prevents cyclic module dependencies
 	yield    chan yield
 	resume   chan Rets
 	dbg      *debugging
@@ -1495,7 +1496,7 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 						retList = c[len(c)-1:]
 					} else {
 						// since environments only store global libraries etc, using the same env here should be fine??
-						c2, _ := loadmodule(lc, co.env, towrap.requireCache)
+						c2, _ := loadmodule(lc, co.env, towrap.requireCache, lc.requireHistory)
 						reqrets, err := c2.Resume()
 						if err != nil {
 							return nil, err
@@ -2096,7 +2097,7 @@ func wrapclosure(towrap toWrap) Function {
 	})
 }
 
-func loadmodule(m compiled, env Env, requireCache map[string]Rets) (co Coroutine, cancel func()) {
+func loadmodule(m compiled, env Env, requireCache map[string]Rets, requireHistory []string) (co Coroutine, cancel func()) {
 	alive := true
 
 	towrap := toWrap{
@@ -2112,6 +2113,7 @@ func loadmodule(m compiled, env Env, requireCache map[string]Rets) (co Coroutine
 		body:     wrapclosure(towrap),
 		env:      env,
 		filepath: m.filepath,
+		requireHistory: requireHistory,
 		yield:    make(chan yield, 1),
 		resume:   make(chan Rets, 1),
 		dbg:      &debugging{opcode: 255},

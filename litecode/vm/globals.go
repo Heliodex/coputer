@@ -1,10 +1,12 @@
 package vm
 
 import (
+	"errors"
 	"fmt"
 	"iter"
 	"math"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -576,21 +578,32 @@ func global_require(args Args) (r Rets, err error) {
 
 	name = strings.ReplaceAll(name, "\\", "/")
 	if !hasValidPrefix(name) {
-		return nil, invalidArg(1, "require", "require path must start with a valid prefix: ./ or ../")
+		return nil, errors.New("require path must start with a valid prefix: ./ or ../")
 	}
 
 	// combine filepath and name to get the new path
-	path := filepath.Join(filepath.Dir(args.Co.filepath), name)
+	fp := args.Co.filepath
+	path := filepath.Join(filepath.Dir(fp), name)
 	path = strings.ReplaceAll(path, "\\", "/")
 	// fmt.Println("REQUIRING", path)
+
+	if path == fp {
+		return nil, errors.New("cyclic module dependency: file requires itself")
+	}
 
 	c := args.Co.compiler
 
 	// compile bytecodeee
 	p, err := c.Compile(path)
 	if err != nil {
-		return
+		return nil, fmt.Errorf("error requiring module: %w", err)
 	}
+
+	rh := args.Co.requireHistory
+	if slices.Contains(rh, path) {
+		return nil, errors.New("cyclic module dependency: file requires itself indirectly")
+	}
+	p.requireHistory = append(rh, fp)
 
 	// this is where we take it to the top babbyyyyy (with the same as parent global env)
 	return Rets{p}, nil

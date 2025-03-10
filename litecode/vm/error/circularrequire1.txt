@@ -1,0 +1,2 @@
+opcode: CALL
+(main):1: cyclic module dependency: file requires itself
