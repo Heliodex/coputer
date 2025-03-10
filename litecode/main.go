@@ -27,6 +27,17 @@ func checkHash(w http.ResponseWriter, hash string) (b bool) {
 	return true
 }
 
+func findExists(w http.ResponseWriter, hash string) (b bool) {
+	if !checkHash(w, hash) {
+		return
+	} else if !exec.BundleStored(hash) {
+		http.Error(w, "Program not found", http.StatusNotFound)
+		return
+	}
+
+	return true
+}
+
 func main() {
 	c := vm.NewCompiler(1)
 
@@ -50,18 +61,17 @@ func main() {
 	})
 
 	// find if program exists
+	http.HandleFunc("GET /{hash}", func(w http.ResponseWriter, r *http.Request) {
+		hash := r.PathValue("hash")
+
+		findExists(w, hash)
+	})
+
+	// run program
 	http.HandleFunc("POST /{hash}", func(w http.ResponseWriter, r *http.Request) {
 		hash := r.PathValue("hash")
 
-		if !checkHash(w, hash) {
-			return
-		} else if !exec.BundleStored(hash) {
-			http.Error(w, "Program not found", http.StatusNotFound)
-			return
-		}
-
-		run := r.URL.Query().Has("run")
-		if !run {
+		if !findExists(w, hash) {
 			return
 		} else if res, ok := retsCache[hash]; ok {
 			fmt.Fprintln(w, vm.ToString(res))

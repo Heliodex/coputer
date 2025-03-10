@@ -43,12 +43,11 @@ func StoreProgram(data []byte) (hexhash string, err error) {
 		return "", fmt.Errorf("bad status: %s, %s", res.Status, string(b))
 	}
 
-	fmt.Println("Stored program with hash:", hexhash)
 	return
 }
 
 func RunProgram(hexhash string) (sres string, err error) {
-	res, err := http.Post(addr+"/"+hexhash+"?run", "", nil)
+	res, err := http.Post(addr+"/"+hexhash, "", nil)
 	if err != nil {
 		return
 	}
@@ -64,6 +63,5 @@ func RunProgram(hexhash string) (sres string, err error) {
 		return "", fmt.Errorf("bad status: %s, %s", res.Status, sres)
 	}
 
-	fmt.Println("Ran program with hash:", hexhash)
 	return sres, nil
 }

@@ -20,6 +20,8 @@ func TestExecComm(t *testing.T) {
 		panic(err)
 	}
 
+	fmt.Println("stored", hash)
+
 	res, err := RunProgram(hash)
 	if err != nil {
 		panic(err)

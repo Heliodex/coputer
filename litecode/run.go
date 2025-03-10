@@ -16,12 +16,9 @@ func Run(c vm.Compiler, hash string) (res vm.Rets, err error) {
 	}
 
 	luau_print := vm.MakeFn("print", func(args vm.Args) (r vm.Rets, err error) {
-		for i, arg := range args.List {
+		for _, arg := range args.List {
+			fmt.Print("\t")
 			fmt.Print(vm.ToString(arg))
-
-			if i < len(args.List)-1 {
-				fmt.Print("\t")
-			}
 		}
 		fmt.Println() // yeah
 		return

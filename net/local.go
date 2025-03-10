@@ -15,15 +15,15 @@ var sampleKeys = [...]string{
 var sampleKeysUsed uint8 = 0
 
 func getSampleKeypair() (kp keys.Keypair) {
-	sampleKeysUsed++
-	if sampleKeysUsed > uint8(len(sampleKeys)) {
+	if sampleKeysUsed >= uint8(len(sampleKeys)) {
 		panic("no more sample keys")
-	} else if skBytes, err := keys.DecodeSK(sampleKeys[sampleKeysUsed-1]); err != nil {
+	} else if skBytes, err := keys.DecodeSK(sampleKeys[sampleKeysUsed]); err != nil {
 		panic("invalid sample key")
 	} else if kp, err = keys.KeypairSK(skBytes); err != nil {
 		panic("invalid keypair")
 	}
 
+	sampleKeysUsed++
 	return
 }
 
