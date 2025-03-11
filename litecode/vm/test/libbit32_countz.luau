@@ -1,0 +1,12 @@
+print(bit32.countlz(0))
+print(bit32.countlz(42))
+print(bit32.countlz(0xffffffff))
+print(bit32.countlz(0x80000000))
+print(bit32.countlz(0x7fffffff))
+
+print(bit32.countrz(0))
+print(bit32.countrz(1))
+print(bit32.countrz(42))
+print(bit32.countrz(0x80000000))
+print(bit32.countrz(0x40000000))
+print(bit32.countrz(0x7fffffff))

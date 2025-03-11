@@ -1,0 +1,6 @@
+print(math.log(5))
+print(math.log(5, 2))
+-- print(math.log10(50_000))
+-- print(math.log10(100_000))
+print(math.log(50_000, 10))
+print(math.log(100_000, 10))

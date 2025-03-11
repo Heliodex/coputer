@@ -1,0 +1,7 @@
+print(table.unpack(string.split("hello world", " ")))
+print(table.unpack(string.split("hello world", "")))
+print(table.unpack(string.split "hello,world"))
+print(table.unpack(string.split ",,,"))
+print(table.unpack(string.split("", "")))
+print(table.unpack(string.split("", "test")))
+print(table.unpack(string.split ""))

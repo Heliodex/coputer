@@ -1,0 +1,5 @@
+print(math.ldexp(5, 2))
+print(math.ldexp(-5, 2))
+print(math.ldexp(-5, 2.1))
+print(math.ldexp(-5, 2.9))
+print(math.ldexp(-5, 3))

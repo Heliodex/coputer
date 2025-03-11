@@ -599,17 +599,65 @@ end)())
 --[[
 	-- make sure that when limit is nan, we iterate zero times (this is consistent with Lua 5.1; future Lua versions break this)
 	-- we repeat tests twice, with and without constant folding
-	local nan = tonumber("nan")
-	printr((function() local c = 0 for i=1,0/0 do c += 1 end return c end)() == 0)
-	printr((function() local c = 0 for i=1,0/0,-1 do c += 1 end return c end)() == 0)
-	printr((function() local c = 0 for i=1,nan do c += 1 end return c end)() == 0)
-	printr((function() local c = 0 for i=1,nan,-1 do c += 1 end return c end)() == 0)
-
+	local nan = tonumber "nan"
+	printr((function()
+		local c = 0
+		for i = 1, 0 / 0 do
+			c += 1
+		end
+		return c
+	end)() == 0)
+	printr((function()
+		local c = 0
+		for i = 1, 0 / 0, -1 do
+			c += 1
+		end
+		return c
+	end)() == 0)
+	printr((function()
+		local c = 0
+		for i = 1, nan do
+			c += 1
+		end
+		return c
+	end)() == 0)
+	printr((function()
+		local c = 0
+		for i = 1, nan, -1 do
+			c += 1
+		end
+		return c
+	end)() == 0)
+	
 	-- make sure that when step is nan, we treat it as backward iteration and as such iterate once iff start<=limit
-	printr((function() local c = 0 for i=1,10,0/0 do c += 1 end return c end)() == 0)
-	printr((function() local c = 0 for i=10,1,0/0 do c += 1 end return c end)() == 1)
-	printr((function() local c = 0 for i=1,10,nan do c += 1 end return c end)() == 0)
-	printr((function() local c = 0 for i=10,1,nan do c += 1 end return c end)() == 1)
+	printr((function()
+		local c = 0
+		for i = 1, 10, 0 / 0 do
+			c += 1
+		end
+		return c
+	end)() == 0)
+	printr((function()
+		local c = 0
+		for i = 10, 1, 0 / 0 do
+			c += 1
+		end
+		return c
+	end)() == 1)
+	printr((function()
+		local c = 0
+		for i = 1, 10, nan do
+			c += 1
+		end
+		return c
+	end)() == 0)
+	printr((function()
+		local c = 0
+		for i = 10, 1, nan do
+			c += 1
+		end
+		return c
+	end)() == 1)
 ]]
 
 -- make sure that when index becomes nan mid-iteration, we correctly exit the loop (this is broken in Lua 5.1; future Lua versions fix this)
