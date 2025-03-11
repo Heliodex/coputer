@@ -1,2 +1,2 @@
-opcode: GETTABLEKS
-(main):2: attempt to index number with 'y'
+error/index2.luau:2: function (main)
+attempt to index number with 'y'

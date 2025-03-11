@@ -1,2 +1,2 @@
-opcode: GETIMPORT
-(main):1: attempt to index nil with 'test'
+error/importnil3.luau:1: function (main)
+attempt to index nil with 'test'

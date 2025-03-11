@@ -191,7 +191,7 @@ func TestErrors(t *testing.T) {
 
 	c1 := NewCompiler(1) // just test O1 for the time being
 
-	// onlyTest := "iter1"
+	// onlyTest := "requireinit"
 
 	for _, name := range has {
 		// if name != onlyTest {

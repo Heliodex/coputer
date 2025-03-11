@@ -1,2 +1,2 @@
-opcode: GETTABLEKS
-(main):2: attempt to index nil with 'y'
+error/index1.luau:2: function (main)
+attempt to index nil with 'y'

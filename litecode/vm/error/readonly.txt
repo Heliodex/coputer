@@ -1,2 +1,2 @@
-opcode: CALL
-(main):1: attempt to modify a readonly table
+error/readonly.luau:1: function (main)
+attempt to modify a readonly table

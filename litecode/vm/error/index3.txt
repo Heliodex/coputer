@@ -1,2 +1,2 @@
-opcode: GETTABLEKS
-(main):2: attempt to index string with 'format'
+error/index3.luau:2: function (main)
+attempt to index string with 'format'

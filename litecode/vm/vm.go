@@ -209,95 +209,94 @@ func extract(n, field, width int) uint32 {
 // HasAux boolean specifies whether the instruction is followed up with an AUX word, which may be used to execute the instruction.
 
 type opInfo struct {
-	name        string
 	mode, kMode uint8
 	hasAux      bool
 }
 
 var opList = [83]opInfo{
-	{"NOP", 0, 0, false},
-	{"BREAK", 0, 0, false},
-	{"LOADNIL", 1, 0, false},
-	{"LOADB", 3, 0, false},
-	{"LOADN", 4, 0, false},
-	{"LOADK", 4, 3, false},
-	{"MOVE", 2, 0, false},
-	{"GETGLOBAL", 1, 1, true},
-	{"SETGLOBAL", 1, 1, true},
-	{"GETUPVAL", 2, 0, false},
-	{"SETUPVAL", 2, 0, false},
-	{"CLOSEUPVALS", 1, 0, false},
-	{"GETIMPORT", 4, 4, true},
-	{"GETTABLE", 3, 0, false},
-	{"SETTABLE", 3, 0, false},
-	{"GETTABLEKS", 3, 1, true},
-	{"SETTABLEKS", 3, 1, true},
-	{"GETTABLEN", 3, 0, false},
-	{"SETTABLEN", 3, 0, false},
-	{"NEWCLOSURE", 4, 0, false},
-	{"NAMECALL", 3, 1, true},
-	{"CALL", 3, 0, false},
-	{"RETURN", 2, 0, false},
-	{"JUMP", 4, 0, false},
-	{"JUMPBACK", 4, 0, false},
-	{"JUMPIF", 4, 0, false},
-	{"JUMPIFNOT", 4, 0, false},
-	{"JUMPIFEQ", 4, 0, true},
-	{"JUMPIFLE", 4, 0, true},
-	{"JUMPIFLT", 4, 0, true},
-	{"JUMPIFNOTEQ", 4, 0, true},
-	{"JUMPIFNOTLE", 4, 0, true},
-	{"JUMPIFNOTLT", 4, 0, true},
-	{"ADD", 3, 0, false},
-	{"SUB", 3, 0, false},
-	{"MUL", 3, 0, false},
-	{"DIV", 3, 0, false},
-	{"MOD", 3, 0, false},
-	{"POW", 3, 0, false},
-	{"ADDK", 3, 2, false},
-	{"SUBK", 3, 2, false},
-	{"MULK", 3, 2, false},
-	{"DIVK", 3, 2, false},
-	{"MODK", 3, 2, false},
-	{"POWK", 3, 2, false},
-	{"AND", 3, 0, false},
-	{"OR", 3, 0, false},
-	{"ANDK", 3, 2, false},
-	{"ORK", 3, 2, false},
-	{"CONCAT", 3, 0, false},
-	{"NOT", 2, 0, false},
-	{"MINUS", 2, 0, false},
-	{"LENGTH", 2, 0, false},
-	{"NEWTABLE", 2, 0, true},
-	{"DUPTABLE", 4, 3, false},
-	{"SETLIST", 3, 0, true},
-	{"FORNPREP", 4, 0, false},
-	{"FORNLOOP", 4, 0, false},
-	{"FORGLOOP", 4, 8, true},
-	{"FORGPREP_INEXT", 4, 0, false},
-	{"FASTCALL3", 3, 1, true},
-	{"FORGPREP_NEXT", 4, 0, false},
-	{"DEP_FORGLOOP_NEXT", 0, 0, false},
-	{"GETVARARGS", 2, 0, false},
-	{"DUPCLOSURE", 4, 3, false},
-	{"PREPVARARGS", 1, 0, false},
-	{"LOADKX", 1, 1, true},
-	{"JUMPX", 5, 0, false},
-	{"FASTCALL", 3, 0, false},
-	{"COVERAGE", 5, 0, false},
-	{"CAPTURE", 2, 0, false},
-	{"SUBRK", 3, 7, false},
-	{"DIVRK", 3, 7, false},
-	{"FASTCALL1", 3, 0, false},
-	{"FASTCALL2", 3, 0, true},
-	{"FASTCALL2K", 3, 1, true},
-	{"FORGPREP", 4, 0, false},
-	{"JUMPXEQKNIL", 4, 5, true},
-	{"JUMPXEQKB", 4, 5, true},
-	{"JUMPXEQKN", 4, 6, true},
-	{"JUMPXEQKS", 4, 6, true},
-	{"IDIV", 3, 0, false},
-	{"IDIVK", 3, 2, false},
+	{0, 0, false}, // NOP
+	{0, 0, false}, // BREAK
+	{1, 0, false}, // LOADNIL
+	{3, 0, false}, // LOADB
+	{4, 0, false}, // LOADN
+	{4, 3, false}, // LOADK
+	{2, 0, false}, // MOVE
+	{1, 1, true},  // GETGLOBAL
+	{1, 1, true},  // SETGLOBAL
+	{2, 0, false}, // GETUPVAL
+	{2, 0, false}, // SETUPVAL
+	{1, 0, false}, // CLOSEUPVALS
+	{4, 4, true},  // GETIMPORT
+	{3, 0, false}, // GETTABLE
+	{3, 0, false}, // SETTABLE
+	{3, 1, true},  // GETTABLEKS
+	{3, 1, true},  // SETTABLEKS
+	{3, 0, false}, // GETTABLEN
+	{3, 0, false}, // SETTABLEN
+	{4, 0, false}, // NEWCLOSURE
+	{3, 1, true},  // NAMECALL
+	{3, 0, false}, // CALL
+	{2, 0, false}, // RETURN
+	{4, 0, false}, // JUMP
+	{4, 0, false}, // JUMPBACK
+	{4, 0, false}, // JUMPIF
+	{4, 0, false}, // JUMPIFNOT
+	{4, 0, true},  // JUMPIFEQ
+	{4, 0, true},  // JUMPIFLE
+	{4, 0, true},  // JUMPIFLT
+	{4, 0, true},  // JUMPIFNOTEQ
+	{4, 0, true},  // JUMPIFNOTLE
+	{4, 0, true},  // JUMPIFNOTLT
+	{3, 0, false}, // ADD
+	{3, 0, false}, // SUB
+	{3, 0, false}, // MUL
+	{3, 0, false}, // DIV
+	{3, 0, false}, // MOD
+	{3, 0, false}, // POW
+	{3, 2, false}, // ADDK
+	{3, 2, false}, // SUBK
+	{3, 2, false}, // MULK
+	{3, 2, false}, // DIVK
+	{3, 2, false}, // MODK
+	{3, 2, false}, // POWK
+	{3, 0, false}, // AND
+	{3, 0, false}, // OR
+	{3, 2, false}, // ANDK
+	{3, 2, false}, // ORK
+	{3, 0, false}, // CONCAT
+	{2, 0, false}, // NOT
+	{2, 0, false}, // MINUS
+	{2, 0, false}, // LENGTH
+	{2, 0, true},  // NEWTABLE
+	{4, 3, false}, // DUPTABLE
+	{3, 0, true},  // SETLIST
+	{4, 0, false}, // FORNPREP
+	{4, 0, false}, // FORNLOOP
+	{4, 8, true},  // FORGLOOP
+	{4, 0, false}, // FORGPREP_INEXT
+	{3, 1, true},  // FASTCALL3
+	{4, 0, false}, // FORGPREP_NEXT
+	{0, 0, false}, // FORGLOOP_NEXT (deprecated)
+	{2, 0, false}, // GETVARARGS
+	{4, 3, false}, // DUPCLOSURE
+	{1, 0, false}, // PREPVARARGS
+	{1, 1, true},  // LOADKX
+	{5, 0, false}, // JUMPX
+	{3, 0, false}, // FASTCALL
+	{5, 0, false}, // COVERAGE
+	{2, 0, false}, // CAPTURE
+	{3, 7, false}, // SUBRK
+	{3, 7, false}, // DIVRK
+	{3, 0, false}, // FASTCALL1
+	{3, 0, true},  // FASTCALL2
+	{3, 1, true},  // FASTCALL2K
+	{4, 0, false}, // FORGPREP
+	{4, 5, true},  // JUMPXEQKNIL
+	{4, 5, true},  // JUMPXEQKB
+	{4, 6, true},  // JUMPXEQKN
+	{4, 6, true},  // JUMPXEQKS
+	{3, 0, false}, // IDIV
+	{3, 2, false}, // IDIVK
 }
 
 // Functions and Tables are used as pointers normally, as they need to be hashed
@@ -351,44 +350,56 @@ func (e *Env) AddFn(f Function) {
 
 // Coroutine represents a Luau coroutine, including the main coroutine. Luau type `thread`
 type Coroutine struct {
-	body           Function
-	env            Env
-	filepath       string   // actually does well here
-	requireHistory []string // prevents cyclic module dependencies
-	yield          chan yield
-	resume         chan Rets
-	dbg            *debugging
-	compiler       *Compiler
-	status         Status
-	started        bool
+	body              Function
+	env               Env
+	filepath, dbgpath string   // actually does well here
+	requireHistory    []string // prevents cyclic module dependencies
+	yield             chan yield
+	resume            chan Rets
+	dbg               *debugging
+	compiler          *Compiler
+	status            Status
+	started           bool
 }
 
-func createCoroutine(body Function) *Coroutine {
+type Error struct {
+	dbg  *debugging
+	path string
+	sub  error
+}
+
+func (e *Error) Error() string {
+	var eb strings.Builder
+
+	for e != nil {
+		err, ok := e.sub.(*Error)
+		if !ok {
+			eb.WriteString(
+				fmt.Sprintf("%s:%d: function %s\n%s", e.path, e.dbg.line, e.dbg.dbgname, e.sub))
+			break
+		}
+		eb.WriteString(
+			fmt.Sprintf("%s:%d: function %s\n", e.path, e.dbg.line, e.dbg.dbgname))
+		e = err
+	}
+
+	return eb.String()
+}
+
+func createCoroutine(body Function, currentCo *Coroutine) *Coroutine {
 	// first time i actually ran into the channel axiom issues
 	return &Coroutine{
-		body:   body,
-		yield:  make(chan yield, 1),
-		resume: make(chan Rets, 1),
+		body:     body,
+		filepath: currentCo.filepath,
+		dbgpath:  currentCo.dbgpath,
+		yield:    make(chan yield, 1),
+		resume:   make(chan Rets, 1),
 	}
-}
-
-func errorfmt(err error, d *debugging) error {
-	op := "NONE"
-	if d.opcode != 255 {
-		op = opList[d.opcode].name
-	}
-
-	if d.enabled {
-		// PC removed for determinism between O levels
-		return fmt.Errorf("opcode: %s\n%s:%d: %w", op, d.dbgname, d.line, err)
-	}
-
-	return fmt.Errorf("opcode: %s\n%s: %w", op, d.dbgname, err)
 }
 
 // Error yields an error to the coroutine, killing it shortly after.
 func (co *Coroutine) Error(err error) {
-	co.yield <- yield{nil, errorfmt(err, co.dbg)}
+	co.yield <- yield{nil, &Error{co.dbg, co.dbgpath, err}}
 
 	// ostensibly blocks forever, but the coroutine is dead/to be killed very soon so it doesn't matter
 	select {}
@@ -608,8 +619,6 @@ func (s *stream) CheckEnd() error {
 	return nil
 }
 
-var auxOp = opInfo{name: "auxvalue"}
-
 // reads either 1 or 2 words
 func readInst(codeList *[]*inst, s *stream) bool {
 	value := s.rWord()
@@ -650,7 +659,7 @@ func readInst(codeList *[]*inst, s *stream) bool {
 	if opinfo.hasAux {
 		i.aux = int(s.rWord())
 
-		*codeList = append(*codeList, &inst{opInfo: auxOp})
+		*codeList = append(*codeList, &inst{})
 	}
 
 	return opinfo.hasAux
@@ -2053,7 +2062,7 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 				pc += 2
 			}
 		default:
-			return nil, fmt.Errorf("unsupported opcode: %s op: %d", i.name, op)
+			return nil, fmt.Errorf("unsupported opcode: %d", op)
 		}
 	}
 
@@ -2100,7 +2109,7 @@ func wrapclosure(towrap toWrap) Function {
 		if !*towrap.alive {
 			return
 		} else if err != nil {
-			return nil, errorfmt(err, dbg)
+			return nil, &Error{dbg, co.dbgpath, err}
 		}
 
 		return result, nil
@@ -2123,6 +2132,7 @@ func loadmodule(m compiled, env Env, requireCache map[string]Rets, requireHistor
 		body:           wrapclosure(towrap),
 		env:            env,
 		filepath:       m.filepath,
+		dbgpath:        m.dbgpath,
 		requireHistory: requireHistory,
 		yield:          make(chan yield, 1),
 		resume:         make(chan Rets, 1),

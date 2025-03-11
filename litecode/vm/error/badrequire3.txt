@@ -1,2 +1,2 @@
-opcode: CALL
-(main):1: module must return a value
+error/badrequire3.luau:1: function (main)
+module must return a value

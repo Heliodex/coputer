@@ -1,7 +1,7 @@
-opcode: CALL
-(main):14: opcode: CALL
-(??):11: opcode: CALL
-f4:9: opcode: CALL
-f3:8: opcode: CALL
-f2:7: opcode: CALL
-f1:4: attempt to call a string value
+error/costack2.luau:14: function (main)
+error/costack2.luau:11: function (??)
+error/costack2.luau:9: function f4
+error/costack2.luau:8: function f3
+error/costack2.luau:7: function f2
+error/costack2.luau:4: function f1
+attempt to call a string value

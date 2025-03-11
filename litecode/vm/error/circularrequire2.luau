@@ -1,1 +1,1 @@
-require "./dir1/circular.luau"
+require "./dir1/circular"

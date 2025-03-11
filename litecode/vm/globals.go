@@ -579,11 +579,13 @@ func global_require(args Args) (r Rets, err error) {
 	name = strings.ReplaceAll(name, "\\", "/")
 	if !hasValidPrefix(name) {
 		return nil, errors.New("require path must start with a valid prefix: ./ or ../")
+	} else if strings.HasSuffix(name, ".luau") { // not the exact same check order but whatever
+		return nil, errors.New("error requiring module: consider removing the file extension")
 	}
 
 	// combine filepath and name to get the new path
 	fp := args.Co.filepath
-	path := filepath.Join(filepath.Dir(fp), name)
+	path := filepath.Join(filepath.Dir(args.Co.dbgpath), name)
 	path = strings.ReplaceAll(path, "\\", "/")
 	// fmt.Println("REQUIRING", path)
 

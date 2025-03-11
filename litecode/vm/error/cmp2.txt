@@ -1,2 +1,2 @@
-opcode: JUMPIFLE
-(main):4: attempt to compare vector <= vector
+error/cmp2.luau:4: function (main)
+attempt to compare vector <= vector

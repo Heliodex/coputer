@@ -1,2 +1,2 @@
-opcode: CALL
-(main):1: invalid capture index %2
+error/pmi1.luau:1: function (main)
+invalid capture index %2

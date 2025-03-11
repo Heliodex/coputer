@@ -1,2 +1,2 @@
-opcode: GETTABLEKS
-(main):4: attempt to index vector with 'hello'
+error/vector.luau:4: function (main)
+attempt to index vector with 'hello'

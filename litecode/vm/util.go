@@ -19,25 +19,31 @@ func luauCompile(path string, o uint8) (bytecode []byte, err error) {
 type compiled struct {
 	deserialised
 	filepath       string
+	dbgpath        string
 	compiler       *Compiler
 	requireHistory []string
 }
 
+type deserpath struct {
+	deserialised
+	dbgpath string
+}
+
 // Compiler allows programs to be compiled and deserialised with a cache and given optimisation level.
 type Compiler struct {
-	cache map[[32]byte]deserialised
+	cache map[[32]byte]deserpath
 	o     uint8
 }
 
 // NewCompiler creates a new compiler with the given optimisation level.
 func NewCompiler(o uint8) Compiler {
 	return Compiler{
-		cache: make(map[[32]byte]deserialised),
+		cache: make(map[[32]byte]deserpath),
 		o:     o,
 	}
 }
 
-func (c Compiler) deserialise(b []byte, path string) (compiled, error) {
+func (c Compiler) deserialise(b []byte, path, dbgpath string) (compiled, error) {
 	d, err := deserialise(b)
 	if err != nil {
 		return compiled{}, fmt.Errorf("error deserialising bytecode: %w", err)
@@ -46,6 +52,7 @@ func (c Compiler) deserialise(b []byte, path string) (compiled, error) {
 	return compiled{
 		deserialised: d,
 		filepath:     path,
+		dbgpath:      dbgpath,
 		compiler:     &c,
 	}, nil
 }
@@ -56,8 +63,9 @@ func (c Compiler) Compile(path string) (p compiled, err error) {
 	hash := sha3.Sum256([]byte(path))
 	if d, ok := c.cache[hash]; ok {
 		return compiled{
-			deserialised: d,
+			deserialised: d.deserialised,
 			filepath:     path,
+			dbgpath:      d.dbgpath,
 			compiler:     &c,
 		}, nil
 	}
@@ -69,7 +77,7 @@ func (c Compiler) Compile(path string) (p compiled, err error) {
 			return compiled{}, errors.New("error finding file")
 		}
 		// init.luau directory
-		pathext = path
+		pathext = path + "/init" + Ext
 	}
 
 	b, err := luauCompile(pathext, c.o)
@@ -77,12 +85,16 @@ func (c Compiler) Compile(path string) (p compiled, err error) {
 		return compiled{}, fmt.Errorf("error compiling file: %w", err)
 	}
 
-	p, err = c.deserialise(b, path)
+	// dbgpath has the extension and all
+	p, err = c.deserialise(b, path, pathext)
 	if err != nil {
 		return
 	}
 
-	c.cache[hash] = p.deserialised
+	c.cache[hash] = deserpath{
+		deserialised: p.deserialised,
+		dbgpath:     pathext,
+	}
 	return
 }
 

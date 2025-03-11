@@ -1,2 +1,2 @@
-opcode: CALL
-(main):1: require path must start with a valid prefix: ./ or ../
+error/badrequire1.luau:1: function (main)
+require path must start with a valid prefix: ./ or ../

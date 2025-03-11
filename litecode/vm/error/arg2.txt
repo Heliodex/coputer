@@ -1,2 +1,2 @@
-opcode: CALL
-(main):3: invalid argument #3 to 'create' (number expected, got vector)
+error/arg2.luau:3: function (main)
+invalid argument #3 to 'create' (number expected, got vector)

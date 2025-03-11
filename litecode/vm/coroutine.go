@@ -14,7 +14,7 @@ func coroutine_close(args Args) (r Rets, err error) {
 func coroutine_create(args Args) (r Rets, err error) {
 	f := args.GetFunction()
 
-	return Rets{createCoroutine(f)}, nil
+	return Rets{createCoroutine(f, args.Co)}, nil
 }
 
 func coroutine_isyieldable(args Args) (r Rets, err error) {
@@ -62,7 +62,8 @@ func coroutine_status(args Args) (r Rets, err error) {
 func coroutine_wrap(args Args) (r Rets, err error) {
 	f := args.GetFunction()
 
-	co := createCoroutine(f)
+	co := createCoroutine(f, args.Co)
+
 	return Rets{fn("wrap", func(_ *Coroutine, args ...any) (r Rets, err error) {
 		if co.status == CoDead {
 			return nil, errors.New("cannot resume dead coroutine") // ought to be better (return false, error message) if we can figure out how

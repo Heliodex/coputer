@@ -1,2 +1,2 @@
-opcode: CALL
-(main):2: attempt to call a string value
+error/call3.luau:2: function (main)
+attempt to call a string value

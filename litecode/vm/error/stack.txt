@@ -1,6 +1,6 @@
-opcode: CALL
-(main):10: opcode: CALL
-f4:8: opcode: CALL
-f3:7: opcode: CALL
-f2:6: opcode: CALL
-f1:3: attempt to call a string value
+error/stack.luau:10: function (main)
+error/stack.luau:8: function f4
+error/stack.luau:7: function f3
+error/stack.luau:6: function f2
+error/stack.luau:3: function f1
+attempt to call a string value
