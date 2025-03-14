@@ -1,6 +1,7 @@
 package net
 
 import (
+	"crypto/sha3"
 	"fmt"
 	"testing"
 	"time"
@@ -22,6 +23,7 @@ func getBundled() (b []byte) {
 // signet lel
 func TestNet(t *testing.T) {
 	b := getBundled()
+	hash := sha3.Sum256(b)
 	
 	lnet := LocalNet{}
 
@@ -41,7 +43,22 @@ func TestNet(t *testing.T) {
 
 	n2 := lnet.NewNode(p1) // tell it about n1
 
-	n2.StoreProgram(b)
+	err = n2.StoreProgram(b)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("stored")
+	time.Sleep(time.Second)
+	fmt.Println()
+
+	res, err := n1.RunProgram(hash)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("ran")
+	fmt.Println(res)
 
 	select {}
 }

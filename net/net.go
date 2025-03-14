@@ -61,9 +61,10 @@ func (e EncryptedMsg) Decode(kp keys.Keypair) (m AnyMsg, err error) {
 type Node struct {
 	keys.ThisPeer
 
-	Peers      map[keys.PK]*keys.Peer // known peers
-	SendRaw    func(peer *keys.Peer, msg []byte) (err error)
-	ReceiveRaw <-chan EncryptedMsg
+	Peers          map[keys.PK]*keys.Peer // known peers
+	SendRaw        func(peer *keys.Peer, msg []byte) (err error)
+	ReceiveRaw     <-chan EncryptedMsg
+	resultsWaiting map[[32]byte]chan string
 }
 
 func (n *Node) send(pk keys.PK, sm SentMsg) (err error) {
@@ -125,6 +126,26 @@ func (n *Node) handleMessage(am AnyMsg) {
 	case mStoreResult:
 		n.log("Program storage successful\n", "Hash: ", hex.EncodeToString(m.Hash[:]))
 
+	case mRun:
+		n.log("Running program\n", "Hash: ", hex.EncodeToString(m.Hash[:]))
+
+		ret, err := RunProgram(m.Hash)
+		if err != nil {
+			n.log("Failed to run program\n", err)
+			break
+		}
+
+		// return result
+		res := mRunResult{m.Hash, ret}
+		n.send(am.From.Pk, res)
+
+	case mRunResult:
+		if ch, ok := n.resultsWaiting[m.Hash]; ok {
+			ch <- m.Result
+		} else {
+			n.log("Received unexpected result\n", m.Result)
+		}
+
 	default:
 		// any unknown is dropped
 		n.log("Unknown message type\n", am.Type)
@@ -146,8 +167,33 @@ func (n *Node) StoreProgram(b []byte) (err error) {
 	for _, peer := range n.Peers {
 		m := mStore{b}
 
-		n.send(peer.Pk, m)
+		if err = n.send(peer.Pk, m); err != nil {
+			return
+		}
 	}
+
+	return
+}
+
+func (n *Node) RunProgram(hash [32]byte) (res string, err error) {
+	if res, err = RunProgram(hash); err == nil {
+		return
+	}
+
+	ch := make(chan string)
+	n.resultsWaiting[hash] = ch
+
+	for _, peer := range n.Peers {
+		m := mRun{hash}
+
+		if err = n.send(peer.Pk, m); err != nil {
+			return
+		}
+	}
+
+	res = <-ch
+	delete(n.resultsWaiting, hash)
+	close(ch)
 
 	return
 }

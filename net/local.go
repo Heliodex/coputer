@@ -69,7 +69,7 @@ func (n *LocalNet) NewNode(ps ...*keys.Peer) (node Node) {
 	node = Node{keys.ThisPeer{
 		Peer: peer,
 		Kp:   kp,
-	}, peers, n.SendRaw, recv}
+	}, peers, n.SendRaw, recv, make(map[[32]byte]chan string)}
 
 	go node.Start()
 	return
