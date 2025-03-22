@@ -11,7 +11,7 @@ type (
 const (
 	tMsg1        MessageType = iota
 	tStore                   // A program to store
-	tStoreResult             // The result of program storage (stored successfully, already had, etc)
+	tStoreResult             // Program was stored successfully
 	tRun                     // Hash of a program to execute
 	tRunResult               // A result of a program execution
 )
@@ -39,12 +39,14 @@ func (m AnyMsg) Deserialise() (msg SentMsg) {
 		return mStoreResult{hash}
 	case tRun:
 		var hash [32]byte
-		copy(hash[:], m.Body)
-		return mRun{hash}
-	case tRunResult:
-		var hash [32]byte
 		copy(hash[:], m.Body[:32])
-		return mRunResult{hash, string(m.Body[32:])}
+		return mRun{hash, string(m.Body[32:])}
+	case tRunResult:
+		var hash, inputhash [32]byte
+		copy(hash[:], m.Body[:32])
+		copy(inputhash[:], m.Body[32:64])
+
+		return mRunResult{hash, inputhash, string(m.Body[64:])}
 	}
 
 	return
@@ -79,18 +81,25 @@ func (m mStoreResult) Serialise() []byte {
 }
 
 type mRun struct {
-	Hash [32]byte
+	Hash  [32]byte
+	Input string
 }
 
 func (m mRun) Serialise() []byte {
-	return addType(tRun, m.Hash[:])
+	return addType(tRun, append(m.Hash[:], []byte(m.Input)...))
 }
 
 type mRunResult struct {
-	Hash   [32]byte
-	Result string
+	Hash      [32]byte
+	InputHash [32]byte
+	Result    string
 }
 
 func (m mRunResult) Serialise() []byte {
-	return addType(tRunResult, append(m.Hash[:], []byte(m.Result)...))
+	s := make([]byte, 0, 64+len(m.Result))
+	copy(s, m.Hash[:])
+	copy(s[32:], m.InputHash[:])
+	copy(s[64:], []byte(m.Result))
+
+	return addType(tRunResult, s)
 }

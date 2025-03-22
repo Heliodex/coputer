@@ -4,6 +4,7 @@ import (
 	"crypto/sha3"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -12,25 +13,26 @@ import (
 )
 
 // ensure hash is valid decodable hex
-func checkHash(w http.ResponseWriter, hash string) (b bool) {
+func checkHash(w http.ResponseWriter, hash string) (decoded [32]byte, b bool) {
 	if len(hash) != 64 {
 		http.Error(w, "Invalid hash length", http.StatusBadRequest)
 		return
 	} else if strings.ToLower(hash) != hash {
 		http.Error(w, "Invalid hash case", http.StatusBadRequest)
 		return
-	} else if _, err := hex.DecodeString(hash); err != nil {
+	}
+
+	dechex, err := hex.DecodeString(hash)
+	if err != nil {
 		http.Error(w, "Invalid hash", http.StatusBadRequest)
 		return
 	}
 
-	return true
+	return [32]byte(dechex), true
 }
 
 func findExists(w http.ResponseWriter, hash string) (b bool) {
-	if !checkHash(w, hash) {
-		return
-	} else if !exec.BundleStored(hash) {
+	if !exec.BundleStored(hash) {
 		http.Error(w, "Program not found", http.StatusNotFound)
 		return
 	}
@@ -41,8 +43,9 @@ func findExists(w http.ResponseWriter, hash string) (b bool) {
 func main() {
 	c := vm.NewCompiler(1)
 
-	retsCache := make(map[string]string)
-	errCache := make(map[string]error)
+	startErrCache := make(map[[32]byte]error)
+	inputErrCache := make(map[[32]byte]map[[32]byte]error)
+	runCache := make(map[[32]byte]map[[32]byte]string)
 
 	// store program (bundled version)
 	http.HandleFunc("PUT /store", func(w http.ResponseWriter, r *http.Request) {
@@ -63,35 +66,62 @@ func main() {
 	// find if program exists
 	http.HandleFunc("GET /{hash}", func(w http.ResponseWriter, r *http.Request) {
 		hash := r.PathValue("hash")
+		if _, ok := checkHash(w, hash); !ok {
+			return
+		}
 
 		findExists(w, hash)
 	})
 
 	// run program
 	http.HandleFunc("POST /{hash}", func(w http.ResponseWriter, r *http.Request) {
-		hash := r.PathValue("hash")
+		hexhash := r.PathValue("hash")
+		hash, ok := checkHash(w, hexhash)
+		if !ok {
+			return
+		}
 
-		if !findExists(w, hash) {
+		input, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
-		} else if res, ok := retsCache[hash]; ok {
-			fmt.Fprintln(w, vm.ToString(res))
+		}
+		inputhash := sha3.Sum256(input)
+
+		if !findExists(w, hexhash) {
 			return
-		} else if err, ok := errCache[hash]; ok {
+		} else if err, ok := startErrCache[hash]; ok {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		} else if err, ok := inputErrCache[hash][inputhash]; ok {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		} else if res, ok := runCache[hash][inputhash]; ok {
+			fmt.Fprintln(w, vm.ToString(res))
 			return
 		}
 
 		// run program
-		res, err := Run(c, hash)
+		run, err := Start(c, hexhash)
 		if err != nil {
-			errCache[hash] = err
+			startErrCache[hash] = err
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		final := vm.ToString(res)
-		retsCache[hash] = final
-		fmt.Fprintln(w, final)
+		output, err := run(string(input))
+		if err != nil {
+			if _, ok := inputErrCache[hash]; !ok {
+				inputErrCache[hash] = make(map[[32]byte]error)
+			}
+			inputErrCache[hash][inputhash] = err
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		} else if _, ok := runCache[hash]; !ok {
+			runCache[hash] = make(map[[32]byte]string)
+		}
+		runCache[hash][inputhash] = output
+		fmt.Fprintln(w, output)
 	})
 
 	fmt.Println("Listening on :2505")

@@ -4,7 +4,6 @@ import (
 	"crypto/sha3"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/Heliodex/coputer/exec"
 )
@@ -24,7 +23,7 @@ func getBundled() (b []byte) {
 func TestNet(t *testing.T) {
 	b := getBundled()
 	hash := sha3.Sum256(b)
-	
+
 	lnet := LocalNet{}
 
 	n1 := lnet.NewNode()
@@ -33,8 +32,6 @@ func TestNet(t *testing.T) {
 	fmt.Println()
 	fmt.Println(fs1)
 	fmt.Println()
-
-	time.Sleep(time.Second)
 
 	p1, err := PeerFromFindString(fs1)
 	if err != nil {
@@ -49,10 +46,8 @@ func TestNet(t *testing.T) {
 	}
 
 	fmt.Println("stored")
-	time.Sleep(time.Second)
-	fmt.Println()
 
-	res, err := n1.RunProgram(hash)
+	res, err := n1.RunProgram(hash, "cruel")
 	if err != nil {
 		panic(err)
 	}

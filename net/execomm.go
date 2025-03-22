@@ -45,8 +45,8 @@ func StoreProgram(data []byte) (hash [32]byte, err error) {
 	return
 }
 
-func RunProgram(hash [32]byte) (sres string, err error) {
-	res, err := http.Post(addr+"/"+hex.EncodeToString(hash[:]), "", nil)
+func RunProgram(hash [32]byte, input string) (output string, err error) {
+	res, err := http.Post(addr+"/"+hex.EncodeToString(hash[:]), "", bytes.NewBufferString(input))
 	if err != nil {
 		return
 	}
@@ -56,11 +56,11 @@ func RunProgram(hash [32]byte) (sres string, err error) {
 	if err != nil {
 		return "", err
 	}
-	sres = string(b)
+	output = string(b)
 
 	if res.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("bad status: %s, %s", res.Status, sres)
+		return "", fmt.Errorf("bad status: %s, %s", res.Status, output)
 	}
 
-	return sres, nil
+	return output, nil
 }

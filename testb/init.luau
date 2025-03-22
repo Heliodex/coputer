@@ -16,4 +16,6 @@ local dir = require "./dir2"
 
 print(dir())
 
-return "done"
+return function(input: string): string
+	return `hello {input} world!`
+end

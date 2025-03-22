@@ -1,6 +1,7 @@
 package net
 
 import (
+	"crypto/sha3"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -64,7 +65,7 @@ type Node struct {
 	Peers          map[keys.PK]*keys.Peer // known peers
 	SendRaw        func(peer *keys.Peer, msg []byte) (err error)
 	ReceiveRaw     <-chan EncryptedMsg
-	resultsWaiting map[[32]byte]chan string
+	resultsWaiting map[[32]byte]map[[32]byte]chan string // [program hash][input hash]
 }
 
 func (n *Node) send(pk keys.PK, sm SentMsg) (err error) {
@@ -129,21 +130,26 @@ func (n *Node) handleMessage(am AnyMsg) {
 	case mRun:
 		n.log("Running program\n", "Hash: ", hex.EncodeToString(m.Hash[:]))
 
-		ret, err := RunProgram(m.Hash)
+		ret, err := RunProgram(m.Hash, m.Input)
 		if err != nil {
 			n.log("Failed to run program\n", err)
 			break
 		}
 
 		// return result
-		res := mRunResult{m.Hash, ret}
+		res := mRunResult{m.Hash, sha3.Sum256([]byte(m.Input)), ret}
 		n.send(am.From.Pk, res)
 
 	case mRunResult:
-		if ch, ok := n.resultsWaiting[m.Hash]; ok {
-			ch <- m.Result
+		if p, ok := n.resultsWaiting[m.Hash]; ok {
+			if ch, ok := p[m.Hash]; ok {
+				ch <- m.Result
+				delete(p, m.Hash)
+			} else {
+				n.log("Received result for unknown input\n", m.Result)
+			}
 		} else {
-			n.log("Received unexpected result\n", m.Result)
+			n.log("Received result for unexpected program\n", m.Result)
 		}
 
 	default:
@@ -175,16 +181,21 @@ func (n *Node) StoreProgram(b []byte) (err error) {
 	return
 }
 
-func (n *Node) RunProgram(hash [32]byte) (res string, err error) {
-	if res, err = RunProgram(hash); err == nil {
+func (n *Node) RunProgram(hash [32]byte, input string) (res string, err error) {
+	if res, err = RunProgram(hash, input); err == nil {
 		return
 	}
 
+	inputhash := sha3.Sum256([]byte(input))
+
 	ch := make(chan string)
-	n.resultsWaiting[hash] = ch
+	if _, ok := n.resultsWaiting[hash]; !ok {
+		n.resultsWaiting[hash] = make(map[[32]byte]chan string)
+	}
+	n.resultsWaiting[hash][inputhash] = ch
 
 	for _, peer := range n.Peers {
-		m := mRun{hash}
+		m := mRun{hash, input}
 
 		if err = n.send(peer.Pk, m); err != nil {
 			return
@@ -192,7 +203,7 @@ func (n *Node) RunProgram(hash [32]byte) (res string, err error) {
 	}
 
 	res = <-ch
-	delete(n.resultsWaiting, hash)
+	delete(n.resultsWaiting[hash], inputhash)
 	close(ch)
 
 	return
