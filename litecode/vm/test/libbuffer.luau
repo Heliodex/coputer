@@ -94,7 +94,7 @@ end
 p(buffer.readstring(b, 4, 8))
 buffer.writestring(b, 4, "hellooooooo", 5)
 buffer.writestring(b, 8, "epic")
-p(buffer.tostring(b))
+p(buffer.tostring(b)) -- pai\n
 
 local b2 = buffer.create(12)
 buffer.fill(b2, 4, 97, 5)

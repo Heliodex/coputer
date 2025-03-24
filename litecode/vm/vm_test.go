@@ -33,7 +33,7 @@ func litecode(t *testing.T, f string, c Compiler) (string, time.Duration) {
 				b.WriteString("\t")
 			}
 		}
-		b.WriteString("\r\n") // yeah
+		b.WriteString("\n") // yeah2
 		return
 	})
 
@@ -49,7 +49,7 @@ func litecode(t *testing.T, f string, c Compiler) (string, time.Duration) {
 	}
 	endTime := time.Now()
 
-	return b.String(), endTime.Sub(startTime)
+	return strings.ReplaceAll(b.String(), "\r\n", "\n"), endTime.Sub(startTime)
 }
 
 func litecodeE(t *testing.T, f string, c Compiler) (string, error) {
@@ -69,7 +69,7 @@ func litecodeE(t *testing.T, f string, c Compiler) (string, error) {
 				b.WriteString("\t")
 			}
 		}
-		b.WriteString("\r\n") // yeah
+		b.WriteString("\n")
 		return
 	})
 
@@ -80,7 +80,7 @@ func litecodeE(t *testing.T, f string, c Compiler) (string, error) {
 
 	_, err = co.Resume()
 
-	return b.String(), err
+	return strings.ReplaceAll(b.String(), "\r\n", "\n"), err
 }
 
 func luau(f string) (string, error) {
@@ -131,6 +131,9 @@ func TestConformance(t *testing.T) {
 				os.Exit(1)
 			}
 
+			// fix all newlines to be \n
+			og = strings.ReplaceAll(og, "\r\n", "\n")
+
 			o0, _ := litecode(t, filename, c0)
 			o1, _ := litecode(t, filename, c1)
 			o2, _ := litecode(t, filename, c2)
@@ -146,7 +149,7 @@ func TestConformance(t *testing.T) {
 					ogLines := strings.Split(og, "\n")
 					for i, line := range ogLines {
 						if line != oLines[i] {
-							fmt.Printf("mismatched line: \n%s\n%s\n", line, oLines[i])
+							fmt.Printf("mismatched line: \n%s\n%v\n%s\n%v\n", line, []byte(line), oLines[i], []byte(oLines[i]))
 						}
 					}
 

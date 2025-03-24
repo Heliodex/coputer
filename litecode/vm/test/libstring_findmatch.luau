@@ -17,10 +17,10 @@ do
 	print(string.find(s, "lll")) --> nil
 end
 
-local function stringfind(s, p, i): ...any
+local function stringfind(s, p, i: number?): ...any
 	return if i then string.find(s, p, i) else string.find(s, p)
 end
-local function stringmatch(s, p, i): ...any
+local function stringmatch(s, p, i: number?): ...any
 	return if i then string.match(s, p, i) else string.match(s, p)
 end
 
