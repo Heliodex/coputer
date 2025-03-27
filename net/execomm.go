@@ -6,9 +6,12 @@ import (
 	"bytes"
 	"crypto/sha3"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/Heliodex/coputer/litecode/vm"
 )
 
 const (
@@ -45,8 +48,14 @@ func StoreProgram(data []byte) (hash [32]byte, err error) {
 	return
 }
 
-func RunProgram(hash [32]byte, input string) (output string, err error) {
-	res, err := http.Post(addr+"/"+hex.EncodeToString(hash[:]), "", bytes.NewBufferString(input))
+func RunWebProgram(hash [32]byte, args vm.WebArgs) (output vm.WebRets, err error) {
+	// encode to json
+	jsonargs, err := json.Marshal(args)
+	if err != nil {
+		return
+	}
+
+	res, err := http.Post(addr+"/web/"+hex.EncodeToString(hash[:]), "", bytes.NewReader(jsonargs))
 	if err != nil {
 		return
 	}
@@ -54,13 +63,12 @@ func RunProgram(hash [32]byte, input string) (output string, err error) {
 	// we need the body either way
 	b, err := io.ReadAll(res.Body)
 	if err != nil {
-		return "", err
-	}
-	output = string(b)
-
-	if res.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("bad status: %s, %s", res.Status, output)
+		return vm.WebRets{}, err
+	} else if res.StatusCode != http.StatusOK {
+		return vm.WebRets{}, fmt.Errorf("bad status: %s, %s", res.Status, b)
 	}
 
-	return output, nil
+	// deserialise it
+	err = json.Unmarshal(b, &output)
+	return
 }

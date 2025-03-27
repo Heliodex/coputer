@@ -348,6 +348,81 @@ func (e *Env) AddFn(f Function) {
 	}
 }
 
+// ProgramType represents the type of a program.
+type ProgramType string
+
+const (
+	// TestProgramType represents the type of a test program.
+	// Test programs are to be used for debugging and testing purposes only.
+	TestProgramType ProgramType = "test"
+	// WebProgramType represents the type of a web program.
+	WebProgramType ProgramType = "web"
+)
+
+// ProgramArgs represents the arguments passed to a program.
+type ProgramArgs interface {
+	Type() ProgramType
+}
+
+// ProgramRets represents the response returned from a program.
+type ProgramRets interface {
+	Type() ProgramType
+}
+
+// Test programs
+
+// Type returns WebProgramType.
+func (WebRets) Type() ProgramType {
+	return WebProgramType
+}
+
+// TestArgs stores the arguments passed to a test program.
+type TestArgs struct{}
+
+// Type returns TestProgramType.
+func (TestArgs) Type() ProgramType {
+	return TestProgramType
+}
+
+// TestRets stores the response returned from a test program.
+type TestRets struct{}
+
+// Type returns TestProgramType.
+func (TestRets) Type() ProgramType {
+	return TestProgramType
+}
+
+// Web programs
+
+// WebUrl represents a parsed URL and its properties.
+type WebUrl struct {
+	Rawpath  string            `json:"rawpath"`
+	Path     string            `json:"path"`
+	Rawquery string            `json:"rawquery"`
+	Query    map[string]string `json:"query"`
+}
+
+// WebArgs stores the arguments passed to a web program.
+type WebArgs struct {
+	Url     WebUrl            `json:"url"`
+	Method  string            `json:"method"`
+	Headers map[string]string `json:"headers"`
+	Body    []byte            `json:"body"`
+}
+
+// Type returns WebProgramType.
+func (WebArgs) Type() ProgramType {
+	return WebProgramType
+}
+
+// WebRets stores the response returned from a web program.
+type WebRets struct {
+	StatusCode    int               `json:"statuscode"`
+	StatusMessage string            `json:"statusmessage"`
+	Headers       map[string]string `json:"headers"`
+	Body          []byte            `json:"body"`
+}
+
 // Coroutine represents a Luau coroutine, including the main coroutine. Luau type `thread`
 type Coroutine struct {
 	body              Function
@@ -360,8 +435,10 @@ type Coroutine struct {
 	compiler          *Compiler
 	status            Status
 	started           bool
+	programArgs       ProgramArgs // idk how
 }
 
+// Error is a custom error type that includes debugging information.
 type Error struct {
 	dbg  *debugging
 	path string
@@ -486,6 +563,7 @@ var exts = Env{
 	"_VERSION": "Luau", // todo: custom
 
 	"require": MakeFn("require", global_require),
+	"args":    libargs,
 }
 
 // var VectorSize = 4
@@ -886,7 +964,7 @@ func invalidConcat(t1, t2 string) error {
 }
 
 func invalidIndex(ta string, val any) error {
-	tb := luautype[typeOf(val)]
+	tb := luautype[TypeOf(val)]
 	if tb == "string" {
 		tb = fmt.Sprintf("'%v'", val)
 	}
@@ -894,7 +972,9 @@ func invalidIndex(ta string, val any) error {
 	return fmt.Errorf("attempt to index %v with %v", luautype[ta], tb)
 }
 
-func typeOf(v any) string {
+// TypeOf returns the underlying VM datatype of a value as a string.
+// This does not return the Luau type, as type() does.
+func TypeOf(v any) string {
 	if v == nil { // prevent nil pointer dereference
 		return "nil"
 	}
@@ -914,7 +994,7 @@ func aAdd(a, b any) (any, error) {
 		return Vector{va[0] + vb[0], va[1] + vb[1], va[2] + vb[2], va[3] + vb[3]}, nil
 	}
 
-	return nil, invalidArithmetic("add", typeOf(a), typeOf(b))
+	return nil, invalidArithmetic("add", TypeOf(a), TypeOf(b))
 }
 
 func aSub(a, b any) (any, error) {
@@ -930,7 +1010,7 @@ func aSub(a, b any) (any, error) {
 		return Vector{va[0] - vb[0], va[1] - vb[1], va[2] - vb[2], va[3] - vb[3]}, nil
 	}
 
-	return nil, invalidArithmetic("sub", typeOf(a), typeOf(b))
+	return nil, invalidArithmetic("sub", TypeOf(a), TypeOf(b))
 }
 
 func aMul(a, b any) (any, error) {
@@ -952,7 +1032,7 @@ func aMul(a, b any) (any, error) {
 		return Vector{va[0] * f, va[1] * f, va[2] * f, va[3] * f}, nil
 	}
 
-	return nil, invalidArithmetic("mul", typeOf(a), typeOf(b))
+	return nil, invalidArithmetic("mul", TypeOf(a), TypeOf(b))
 }
 
 func aDiv(a, b any) (any, error) {
@@ -974,7 +1054,7 @@ func aDiv(a, b any) (any, error) {
 		return Vector{va[0] / f, va[1] / f, va[2] / f, va[3] / f}, nil
 	}
 
-	return nil, invalidArithmetic("div", typeOf(a), typeOf(b))
+	return nil, invalidArithmetic("div", TypeOf(a), TypeOf(b))
 }
 
 func aMod(a, b any) (float64, error) {
@@ -984,7 +1064,7 @@ func aMod(a, b any) (float64, error) {
 		return fa - fb*math.Floor(fa/fb), nil
 	}
 
-	return 0, invalidArithmetic("mod", typeOf(a), typeOf(b))
+	return 0, invalidArithmetic("mod", TypeOf(a), TypeOf(b))
 }
 
 func aPow(a, b any) (float64, error) {
@@ -994,7 +1074,7 @@ func aPow(a, b any) (float64, error) {
 		return math.Pow(fa, fb), nil
 	}
 
-	return 0, invalidArithmetic("pow", typeOf(a), typeOf(b))
+	return 0, invalidArithmetic("pow", TypeOf(a), TypeOf(b))
 }
 
 func aIdiv(a, b any) (any, error) {
@@ -1031,7 +1111,7 @@ func aIdiv(a, b any) (any, error) {
 		}, nil
 	}
 
-	return nil, invalidArithmetic("idiv", typeOf(a), typeOf(b))
+	return nil, invalidArithmetic("idiv", TypeOf(a), TypeOf(b))
 }
 
 // vectors dont have these comparisons
@@ -1048,7 +1128,7 @@ func jumpLe(a, b any) (bool, error) {
 		return sa <= sb, nil
 	}
 
-	return false, invalidCompare("<=", typeOf(a), typeOf(b))
+	return false, invalidCompare("<=", TypeOf(a), TypeOf(b))
 }
 
 func jumpLt(a, b any) (bool, error) {
@@ -1064,7 +1144,7 @@ func jumpLt(a, b any) (bool, error) {
 		return sa < sb, nil
 	}
 
-	return false, invalidCompare("<", typeOf(a), typeOf(b))
+	return false, invalidCompare("<", TypeOf(a), TypeOf(b))
 }
 
 func jumpGt(a, b any) (bool, error) {
@@ -1080,7 +1160,7 @@ func jumpGt(a, b any) (bool, error) {
 		return sa > sb, nil
 	}
 
-	return false, invalidCompare(">", typeOf(a), typeOf(b))
+	return false, invalidCompare(">", TypeOf(a), TypeOf(b))
 }
 
 func jumpGe(a, b any) (bool, error) {
@@ -1096,7 +1176,7 @@ func jumpGe(a, b any) (bool, error) {
 		return sa >= sb, nil
 	}
 
-	return false, invalidCompare(">=", typeOf(a), typeOf(b))
+	return false, invalidCompare(">=", TypeOf(a), TypeOf(b))
 }
 
 func gettable(index, v any) (any, error) {
@@ -1116,7 +1196,7 @@ func gettable(index, v any) (any, error) {
 		}
 		return nil, invalidIndex(typeprefix+"Vector", index)
 	}
-	return nil, invalidIndex(typeOf(v), index)
+	return nil, invalidIndex(TypeOf(v), index)
 }
 
 type toWrap struct {
@@ -1285,7 +1365,7 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 				if count == 3 {
 					t1, ok := imp.(*Table)
 					if !ok {
-						return nil, invalidIndex(typeOf(imp), i.K2)
+						return nil, invalidIndex(TypeOf(imp), i.K2)
 					}
 
 					imp = t1.Get(i.K2)
@@ -1309,7 +1389,7 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 			index := (*stack)[i.C]
 			t, ok := (*stack)[i.B].(*Table) // SETTABLE or SETTABLEKS on a Vector actually does return "attempt to index vector with 'whatever'"
 			if !ok {
-				return nil, invalidIndex(typeOf((*stack)[i.B]), index)
+				return nil, invalidIndex(TypeOf((*stack)[i.B]), index)
 			}
 
 			// fmt.Println("SETTABLE", index, (*stack)[i.A])
@@ -1329,7 +1409,7 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 			t, ok := (*stack)[i.B].(*Table)
 			if !ok {
 				// fmt.Println("indexing", typeOf((*stack)[i.B]), "with", index)
-				return nil, invalidIndex(typeOf((*stack)[i.B]), index)
+				return nil, invalidIndex(TypeOf((*stack)[i.B]), index)
 			}
 
 			if err := t.Set(index, (*stack)[i.A]); err != nil {
@@ -1483,7 +1563,7 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 			fn, ok := f.(Function)
 			// fmt.Println("calling with", (*stack)[A+1:][:params])
 			if !ok {
-				return nil, uncallableType(typeOf(f))
+				return nil, uncallableType(TypeOf(f))
 			}
 
 			// fmt.Println("upvals1", len(upvals))
@@ -1505,7 +1585,7 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 						retList = c[len(c)-1:]
 					} else {
 						// since environments only store global libraries etc, using the same env here should be fine??
-						c2, _ := loadmodule(lc, co.env, towrap.requireCache, lc.requireHistory)
+						c2, _ := loadmodule(lc, co.env, towrap.requireCache, lc.requireHistory, co.programArgs)
 						reqrets, err := c2.Resume()
 						if err != nil {
 							return nil, err
@@ -1767,7 +1847,7 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 				toWrite, ok := (*stack)[n].(string)
 				if !ok {
 					// ensure correct order of operands in error message
-					return nil, invalidConcat(typeOf((*stack)[n+first]), typeOf((*stack)[n+1+first]))
+					return nil, invalidConcat(TypeOf((*stack)[n+first]), TypeOf((*stack)[n+1+first]))
 				}
 				s.WriteString(toWrite)
 				first = -1
@@ -1780,7 +1860,7 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 			pc++
 			a, ok := (*stack)[i.B].(float64)
 			if !ok {
-				return nil, invalidUnm(typeOf((*stack)[i.B]))
+				return nil, invalidUnm(TypeOf((*stack)[i.B]))
 			}
 
 			(*stack)[i.A] = -a
@@ -1792,7 +1872,7 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 			case string:
 				(*stack)[i.A] = float64(len(t))
 			default:
-				return nil, invalidLength(typeOf(t))
+				return nil, invalidLength(TypeOf(t))
 			}
 		case 53: // NEWTABLE
 			(*stack)[i.A] = &Table{}
@@ -1833,17 +1913,17 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 
 			index, ok := (*stack)[A+2].(float64)
 			if !ok {
-				return nil, invalidFor("initial value", typeOf((*stack)[A+2]))
+				return nil, invalidFor("initial value", TypeOf((*stack)[A+2]))
 			}
 
 			limit, ok := (*stack)[A].(float64)
 			if !ok {
-				return nil, invalidFor("limit", typeOf((*stack)[A]))
+				return nil, invalidFor("limit", TypeOf((*stack)[A]))
 			}
 
 			step, ok := (*stack)[A+1].(float64)
 			if !ok {
-				return nil, invalidFor("step", typeOf((*stack)[A+1]))
+				return nil, invalidFor("step", TypeOf((*stack)[A+1]))
 			}
 
 			if step > 0 {
@@ -1919,11 +1999,11 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 				(*stack)[A+2] = (*stack)[A+3]
 				pc += i.D + 1
 			default:
-				return nil, fmt.Errorf("attempt to iterate over a %s value", typeOf(it))
+				return nil, fmt.Errorf("attempt to iterate over a %s value", TypeOf(it))
 			}
 		case 59, 61: // FORGPREP_INEXT, FORGPREP_NEXT
 			if _, ok := (*stack)[i.A].(Function); !ok {
-				return nil, fmt.Errorf("attempt to iterate over a %s value", typeOf((*stack)[i.A])) // -- encountered non-function value
+				return nil, fmt.Errorf("attempt to iterate over a %s value", TypeOf((*stack)[i.A])) // -- encountered non-function value
 			}
 			pc += i.D + 1
 		case 60: // FASTCALL3
@@ -2116,7 +2196,7 @@ func wrapclosure(towrap toWrap) Function {
 	})
 }
 
-func loadmodule(m compiled, env Env, requireCache map[string]Rets, requireHistory []string) (co Coroutine, cancel func()) {
+func loadmodule(m compiled, env Env, requireCache map[string]Rets, requireHistory []string, args ProgramArgs) (co Coroutine, cancel func()) {
 	alive := true
 
 	towrap := toWrap{
@@ -2138,5 +2218,6 @@ func loadmodule(m compiled, env Env, requireCache map[string]Rets, requireHistor
 		resume:         make(chan Rets, 1),
 		dbg:            &debugging{opcode: 255},
 		compiler:       m.compiler,
+		programArgs:    args,
 	}, func() { alive = false }
 }

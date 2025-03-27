@@ -1,6 +1,9 @@
 package net
 
-import "github.com/Heliodex/coputer/keys"
+import (
+	"github.com/Heliodex/coputer/keys"
+	"github.com/Heliodex/coputer/litecode/vm"
+)
 
 // real secret keys for the purposes of testing
 var sampleKeys = [...]string{
@@ -69,7 +72,7 @@ func (n *LocalNet) NewNode(ps ...*keys.Peer) (node Node) {
 	node = Node{keys.ThisPeer{
 		Peer: peer,
 		Kp:   kp,
-	}, peers, n.SendRaw, recv, make(map[[32]byte]map[[32]byte]chan string)}
+	}, peers, n.SendRaw, recv, make(map[[32]byte]map[[32]byte]chan vm.ProgramRets)}
 
 	go node.Start()
 	return

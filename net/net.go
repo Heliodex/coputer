@@ -4,12 +4,14 @@ import (
 	"crypto/sha3"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/Heliodex/coputer/keys"
+	"github.com/Heliodex/coputer/litecode/vm"
 )
 
 const FindStart = "cofind:"
@@ -65,7 +67,7 @@ type Node struct {
 	Peers          map[keys.PK]*keys.Peer // known peers
 	SendRaw        func(peer *keys.Peer, msg []byte) (err error)
 	ReceiveRaw     <-chan EncryptedMsg
-	resultsWaiting map[[32]byte]map[[32]byte]chan string // [program hash][input hash]
+	resultsWaiting map[[32]byte]map[[32]byte]chan vm.ProgramRets // [program hash][input hash]
 }
 
 func (n *Node) send(pk keys.PK, sm SentMsg) (err error) {
@@ -130,15 +132,30 @@ func (n *Node) handleMessage(am AnyMsg) {
 	case mRun:
 		n.log("Running program\n", "Hash: ", hex.EncodeToString(m.Hash[:]))
 
-		ret, err := RunProgram(m.Hash, m.Input)
-		if err != nil {
-			n.log("Failed to run program\n", err)
-			break
-		}
+		switch tin := m.Input.(type) {
+		case vm.TestArgs:
+			n.log("Test program type not supported in this context")
+		case vm.WebArgs:
+			ret, err := RunWebProgram(m.Hash, tin)
+			if err != nil {
+				n.log("Failed to run program\n", err)
+				break
+			}
 
-		// return result
-		res := mRunResult{m.Hash, sha3.Sum256([]byte(m.Input)), ret}
-		n.send(am.From.Pk, res)
+			// serialise as json
+			// TODO: i think we're serialising this twice??? figure out how to get it from somewhere else
+			inputBytes, err := json.Marshal(tin)
+			if err != nil {
+				n.log("Failed to serialise input for hashing\n", err)
+				break
+			}
+
+			// return result
+			res := mRunResult{m.Hash, sha3.Sum256(inputBytes), ret}
+			n.send(am.From.Pk, res)
+		default:
+			n.log("Unknown program type\n", m.Input.Type())
+		}
 
 	case mRunResult:
 		if p, ok := n.resultsWaiting[m.Hash]; ok {
@@ -181,16 +198,31 @@ func (n *Node) StoreProgram(b []byte) (err error) {
 	return
 }
 
-func (n *Node) RunProgram(hash [32]byte, input string) (res string, err error) {
-	if res, err = RunProgram(hash, input); err == nil {
-		return
+func (n *Node) RunProgram(hash [32]byte, input vm.ProgramArgs) (res vm.ProgramRets, err error) {
+	var inputhash [32]byte
+
+	switch tin := input.(type) {
+	case vm.TestArgs:
+		n.log("Test program type not supported in this context")
+	case vm.WebArgs:
+		if res, err = RunWebProgram(hash, tin); err == nil {
+			return
+		}
+
+		// serialise as json
+		inputBytes, err := json.Marshal(tin)
+		if err != nil {
+			return nil, err
+		}
+
+		inputhash = sha3.Sum256(inputBytes)
+	default:
+		return nil, errors.New("unknown program type")
 	}
 
-	inputhash := sha3.Sum256([]byte(input))
-
-	ch := make(chan string)
+	ch := make(chan vm.ProgramRets)
 	if _, ok := n.resultsWaiting[hash]; !ok {
-		n.resultsWaiting[hash] = make(map[[32]byte]chan string)
+		n.resultsWaiting[hash] = make(map[[32]byte]chan vm.ProgramRets)
 	}
 	n.resultsWaiting[hash][inputhash] = ch
 

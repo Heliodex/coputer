@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Heliodex/coputer/exec"
+	"github.com/Heliodex/coputer/litecode/vm"
 )
 
 const path = "../testb"
@@ -47,7 +48,7 @@ func TestNet(t *testing.T) {
 
 	fmt.Println("stored")
 
-	res, err := n1.RunProgram(hash, "cruel")
+	res, err := n1.RunProgram(hash, vm.TestArgs{})
 	if err != nil {
 		panic(err)
 	}

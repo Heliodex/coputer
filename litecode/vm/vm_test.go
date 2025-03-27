@@ -40,7 +40,7 @@ func litecode(t *testing.T, f string, c Compiler) (string, time.Duration) {
 	var env Env
 	env.AddFn(luau_print)
 
-	co, _ := p.Load(env)
+	co, _ := p.Load(env, TestArgs{})
 
 	startTime := time.Now()
 	_, err = co.Resume()
@@ -76,7 +76,7 @@ func litecodeE(t *testing.T, f string, c Compiler) (string, error) {
 	var env Env
 	env.AddFn(luau_print)
 
-	co, _ := p.Load(env)
+	co, _ := p.Load(env, TestArgs{})
 
 	_, err = co.Resume()
 

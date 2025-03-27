@@ -324,7 +324,7 @@ func add_value(caps *captures, b *strings.Builder, co *Coroutine, s string, si, 
 		b.WriteString(s[si:ei]) // keep original text
 		return
 	} else if _, ok := value.(string); !ok {
-		return fmt.Errorf("invalid replacement value (a %s)", luautype[typeOf(value)])
+		return fmt.Errorf("invalid replacement value (a %s)", luautype[TypeOf(value)])
 	}
 
 	// add result to accumulator?
@@ -340,7 +340,7 @@ func string_gsub(args Args) (r Rets, err error) {
 	switch next.(type) {
 	case string, Function, *Table:
 	default:
-		return nil, fmt.Errorf("invalid argument #3 to 'gsub' (string/function/table expected, got %s)", luautype[typeOf(next)])
+		return nil, fmt.Errorf("invalid argument #3 to 'gsub' (string/function/table expected, got %s)", luautype[TypeOf(next)])
 	}
 
 	srcl := len(src)

@@ -1,6 +1,11 @@
 package net
 
-import "github.com/Heliodex/coputer/keys"
+import (
+	"encoding/json"
+
+	"github.com/Heliodex/coputer/keys"
+	"github.com/Heliodex/coputer/litecode/vm"
+)
 
 type (
 	EncryptedMsg []byte
@@ -40,13 +45,26 @@ func (m AnyMsg) Deserialise() (msg SentMsg) {
 	case tRun:
 		var hash [32]byte
 		copy(hash[:], m.Body[:32])
-		return mRun{hash, string(m.Body[32:])}
+		rest := m.Body[32:]
+
+		var input vm.ProgramArgs
+		// decode json
+		if err := json.Unmarshal(rest, &input); err != nil {
+			return
+		}
+
+		return mRun{hash, input}
 	case tRunResult:
 		var hash, inputhash [32]byte
 		copy(hash[:], m.Body[:32])
 		copy(inputhash[:], m.Body[32:64])
 
-		return mRunResult{hash, inputhash, string(m.Body[64:])}
+		var res vm.ProgramRets
+		if err := json.Unmarshal(m.Body[64:], &res); err != nil {
+			return
+		}
+
+		return mRunResult{hash, inputhash, res}
 	}
 
 	return
@@ -82,24 +100,35 @@ func (m mStoreResult) Serialise() []byte {
 
 type mRun struct {
 	Hash  [32]byte
-	Input string
+	Input vm.ProgramArgs
 }
 
 func (m mRun) Serialise() []byte {
-	return addType(tRun, append(m.Hash[:], []byte(m.Input)...))
+	input, err := json.Marshal(m.Input)
+	// TODO
+	if err != nil {
+		panic(err)
+	}
+
+	return addType(tRun, append(m.Hash[:], input...))
 }
 
 type mRunResult struct {
 	Hash      [32]byte
 	InputHash [32]byte
-	Result    string
+	Result    vm.ProgramRets
 }
 
 func (m mRunResult) Serialise() []byte {
-	s := make([]byte, 0, 64+len(m.Result))
+	s := make([]byte, 0, 64)
 	copy(s, m.Hash[:])
 	copy(s[32:], m.InputHash[:])
-	copy(s[64:], []byte(m.Result))
 
-	return addType(tRunResult, s)
+	res, err := json.Marshal(m.Result)
+	// TODO
+	if err != nil {
+		panic(err)
+	}
+
+	return addType(tRunResult, append(s, res...))
 }

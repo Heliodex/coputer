@@ -554,7 +554,7 @@ func global_tostring(args Args) (r Rets, err error) {
 func global_type(args Args) (r Rets, err error) {
 	obj := args.GetAny()
 
-	t, ok := luautype[typeOf(obj)]
+	t, ok := luautype[TypeOf(obj)]
 	if !ok {
 		return Rets{"userdata"}, nil
 	}

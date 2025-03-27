@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/sha3"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -45,7 +46,7 @@ func main() {
 
 	startErrCache := make(map[[32]byte]error)
 	inputErrCache := make(map[[32]byte]map[[32]byte]error)
-	runCache := make(map[[32]byte]map[[32]byte]string)
+	runCache := make(map[[32]byte]map[[32]byte]vm.ProgramRets)
 
 	// store program (bundled version)
 	http.HandleFunc("PUT /store", func(w http.ResponseWriter, r *http.Request) {
@@ -74,7 +75,7 @@ func main() {
 	})
 
 	// run program
-	http.HandleFunc("POST /{hash}", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("POST /web/{hash}", func(w http.ResponseWriter, r *http.Request) {
 		hexhash := r.PathValue("hash")
 		hash, ok := checkHash(w, hexhash)
 		if !ok {
@@ -86,7 +87,14 @@ func main() {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		inputhash := sha3.Sum256(input)
+		inputhash := sha3.Sum256(input) // let's hope it's canonical
+
+		// decode input as json
+		var args vm.WebArgs
+		if err := json.Unmarshal(input, &args); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 
 		if !findExists(w, hexhash) {
 			return
@@ -101,24 +109,16 @@ func main() {
 			return
 		}
 
-		// run program
-		run, err := Start(c, hexhash)
+		// rets program
+		output, err := Start(c, hexhash, args)
 		if err != nil {
 			startErrCache[hash] = err
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		output, err := run(string(input))
-		if err != nil {
-			if _, ok := inputErrCache[hash]; !ok {
-				inputErrCache[hash] = make(map[[32]byte]error)
-			}
-			inputErrCache[hash][inputhash] = err
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		} else if _, ok := runCache[hash]; !ok {
-			runCache[hash] = make(map[[32]byte]string)
+		if runCache[hash] == nil {
+			runCache[hash] = make(map[[32]byte]vm.ProgramRets)
 		}
 		runCache[hash][inputhash] = output
 		fmt.Fprintln(w, output)

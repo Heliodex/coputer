@@ -5,11 +5,12 @@ import (
 	"testing"
 
 	"github.com/Heliodex/coputer/exec"
+	"github.com/Heliodex/coputer/litecode/vm"
 )
 
-const testpath = "../testb"
+func TestWeb(t *testing.T) {
+	const testpath = "../testweb"
 
-func TestExecComm(t *testing.T) {
 	b, err := exec.Bundle(testpath)
 	if err != nil {
 		panic(err)
@@ -22,14 +23,26 @@ func TestExecComm(t *testing.T) {
 
 	fmt.Println("stored", hash)
 
-	res, err := RunProgram(hash, "cruel")
+	args := vm.WebArgs{
+		Url: vm.WebUrl{
+			Rawpath:  "/?test=true",
+			Path:     "/",
+			Rawquery: "test=true",
+			Query:    map[string]string{"test": "true"},
+		},
+		Method: "GET",
+		Headers: map[string]string{
+			"User-Agent": "Roblox/WinInet",
+		},
+	}
+
+	res, err := RunWebProgram(hash, args)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(res, res[len(res)-1] == '\n')
 	fmt.Println("ran1")
-	
-	res, err = RunProgram(hash, "cool")
+
+	res, err = RunWebProgram(hash, args)
 	if err != nil {
 		panic(err)
 	}
