@@ -46,6 +46,6 @@ func TestWeb(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(res)
+	fmt.Println(string(res.Body))
 	fmt.Println("ran2")
 }

@@ -105,7 +105,13 @@ func main() {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		} else if res, ok := runCache[hash][inputhash]; ok {
-			fmt.Fprintln(w, vm.ToString(res))
+			b, err := json.Marshal(res)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			w.Write(b)
 			return
 		}
 
@@ -121,7 +127,14 @@ func main() {
 			runCache[hash] = make(map[[32]byte]vm.ProgramRets)
 		}
 		runCache[hash][inputhash] = output
-		fmt.Fprintln(w, output)
+
+		b, err := json.Marshal(output)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Write(b)
 	})
 
 	fmt.Println("Listening on :2505")

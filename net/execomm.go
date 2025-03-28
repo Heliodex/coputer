@@ -69,6 +69,5 @@ func RunWebProgram(hash [32]byte, args vm.WebArgs) (output vm.WebRets, err error
 	}
 
 	// deserialise it
-	err = json.Unmarshal(b, &output)
-	return
+	return output, json.Unmarshal(b, &output)
 }
