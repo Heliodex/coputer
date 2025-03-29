@@ -7,7 +7,6 @@ import (
 
 	// "runtime/pprof"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 )
@@ -93,8 +92,6 @@ func luau(f string) (string, error) {
 	return string(o), nil
 }
 
-const parallel = false
-
 func TestConformance(t *testing.T) {
 	files, err := os.ReadDir("test")
 	if err != nil {
@@ -102,8 +99,7 @@ func TestConformance(t *testing.T) {
 		return
 	}
 
-	// onlyTest := "calls"
-	var wg sync.WaitGroup
+	// const onlyTest = "calls"
 
 	c0, c1, c2 := NewCompiler(0), NewCompiler(1), NewCompiler(2)
 
@@ -118,17 +114,12 @@ func TestConformance(t *testing.T) {
 		// }
 
 		run := func() {
-			if parallel {
-				defer wg.Done()
-			}
-
-			fmt.Println(" -- Testing", name, "--")
+			t.Log(" -- Testing", name, "--")
 			filename := fmt.Sprintf("./test/%s", name) // ./ required for requires
 
 			og, err := luau(filename)
 			if err != nil {
-				fmt.Println("error running luau:", err)
-				os.Exit(1)
+				t.Fatal("error running luau:", err)
 			}
 
 			// fix all newlines to be \n
@@ -141,7 +132,7 @@ func TestConformance(t *testing.T) {
 
 			for i, o := range []string{o0, o1, o2} {
 				if o != og {
-					fmt.Printf("%d output mismatch:\n-- Expected\n%s\n-- Got\n%s\n", i, og, o)
+					t.Errorf("%d output mismatch:\n-- Expected\n%s\n-- Got\n%s\n", i, og, o)
 					fmt.Println()
 
 					// print mismatch
@@ -149,7 +140,7 @@ func TestConformance(t *testing.T) {
 					ogLines := strings.Split(og, "\n")
 					for i, line := range ogLines {
 						if line != oLines[i] {
-							fmt.Printf("mismatched line: \n%s\n%v\n%s\n%v\n", line, []byte(line), oLines[i], []byte(oLines[i]))
+							t.Errorf("mismatched line: \n%s\n%v\n%s\n%v\n", line, []byte(line), oLines[i], []byte(oLines[i]))
 						}
 					}
 
@@ -160,19 +151,8 @@ func TestConformance(t *testing.T) {
 			fmt.Println(og)
 		}
 
-		if parallel {
-			wg.Add(1)
-
-			go run()
-		} else {
-			run()
-		}
+		run()
 	}
-
-	wg.Wait()
-
-	fmt.Println("-- Done! --")
-	fmt.Println()
 }
 
 func TestErrors(t *testing.T) {
@@ -201,32 +181,29 @@ func TestErrors(t *testing.T) {
 		// 	continue
 		// }
 
-		fmt.Println(" -- Testing", name, "--")
+		t.Log(" -- Testing", name, "--\n")
 		filename := fmt.Sprintf("error/%s", name)
 
 		_, lerr := litecodeE(t, filename, c1)
 
 		if lerr == nil {
 			t.Error("expected error, got nil")
-			return
+			continue
 		}
 
 		errorname := fmt.Sprintf("error/%s.txt", name)
 		og, err := os.ReadFile(errorname)
 		if err != nil {
 			t.Error("error reading error file (meta lol):", err)
-			return
+			continue
 		}
 
 		fmt.Println(lerr)
+		fmt.Println()
 		if lerr.Error() != strings.ReplaceAll(string(og), "\r\n", "\n") {
 			t.Errorf("error mismatch:\n-- Expected\n%s\n-- Got\n%s", og, lerr)
-			return
 		}
 	}
-
-	fmt.Println("-- Done! --")
-	fmt.Println()
 }
 
 // not using benchmark because i can do what i want
@@ -239,7 +216,7 @@ func TestBenchmark(t *testing.T) {
 
 	// f, err := os.Create("cpu.prof")
 	// if err != nil {
-	// 	panic(err)
+	// 	t.Fatal(err)
 	// }
 	// pprof.StartCPUProfile(f)
 	// defer pprof.StopCPUProfile()
@@ -254,17 +231,15 @@ func TestBenchmark(t *testing.T) {
 		// 	continue
 		// }
 
-		fmt.Println("\n-- Benchmarking", name, "--")
+		fmt.Println()
+		t.Log("-- Benchmarking", name, "--")
 		filename := fmt.Sprintf("bench/%s", name)
 
 		for o := range uint8(3) {
 			output, time := litecode(t, filename, compilers[o])
 
-			fmt.Println(" --", o, "Time:", time, "--")
-			fmt.Print(output)
+			t.Log("  --", o, "Time:", time, "--\n")
+			fmt.Println(output)
 		}
 	}
-
-	fmt.Println("-- Done! --")
-	fmt.Println()
 }

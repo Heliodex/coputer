@@ -1,36 +1,34 @@
 package exec
 
-import (
-	"fmt"
-	"testing"
-)
+import "testing"
 
 const testpath = "../testb"
 
 func TestBundle(t *testing.T) {
 	b, err := Bundle(testpath)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 
-	fmt.Println("Bundle:", len(b))
+	t.Log("Bundle:", len(b))
 	ub, err := Unbundle(b)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
+		t.FailNow()
 	}
 
-	fmt.Println("Unbundle:")
+	// t.Log("Unbundle:")
 	for _, f := range ub {
-		fmt.Println(f.path, len(f.data))
+		t.Log("  ", f.path, len(f.data))
 	}
 
 	// rebundle
 	b2, err := Bundle(testpath)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 
 	if len(b) != len(b2) {
-		panic("rebundled bundle is different")
+		t.Fatal("rebundled bundle is different")
 	}
 }

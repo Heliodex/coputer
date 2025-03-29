@@ -11,6 +11,60 @@ import (
 	"github.com/Heliodex/coputer/litecode/vm"
 )
 
+func startWeb(v any) (rets vm.WebRets, err error) {
+	t, ok := v.(*vm.Table)
+	if !ok {
+		fmt.Println("no table", v, vm.TypeOf(v))
+		return vm.WebRets{}, errors.New("web program did not return a table")
+	}
+
+	// ahh, error checking beauty
+
+	var tstatuscode float64
+	if statuscode := t.GetHash("statuscode"); statuscode == nil {
+		tstatuscode = 200
+	} else if tstatuscode, ok = statuscode.(float64); !ok {
+		return vm.WebRets{}, errors.New("return statuscode, if provided, must be a number")
+	}
+	rets.StatusCode = int(tstatuscode)
+
+	statusmesage := t.GetHash("statusmessage")
+	if statusmesage == nil {
+		// default status message for the given status code
+		rets.StatusMessage = http.StatusText(rets.StatusCode)
+	} else if rets.StatusMessage, ok = statusmesage.(string); !ok {
+		return vm.WebRets{}, errors.New("return statusmessage, if provided, must be a string")
+	}
+
+	if headers := t.GetHash("headers"); headers != nil {
+		theaders, ok := headers.(*vm.Table)
+		if !ok {
+			return vm.WebRets{}, errors.New("return headers, if provided, must be a table")
+		}
+		rets.Headers = make(map[string]string, len(theaders.Hash))
+
+		// we don't have to care about the array content, but we will here
+		for k, v := range theaders.Iter() {
+			if tk, ok := k.(string); !ok {
+				return vm.WebRets{}, errors.New("header keys must be strings")
+			} else if tv, ok := v.(string); !ok {
+				return vm.WebRets{}, errors.New("header values must be strings")
+			} else {
+				rets.Headers[tk] = tv
+			}
+		}
+	}
+
+	if body := t.GetHash("body"); body != nil {
+		tbody, ok := body.(*vm.Buffer)
+		if !ok {
+			return vm.WebRets{}, errors.New("return body, if provided, must be a buffer")
+		}
+		rets.Body = *tbody
+	}
+	return rets, nil
+}
+
 func Start(c vm.Compiler, hash string, args vm.ProgramArgs) (output vm.ProgramRets, err error) {
 	p, err := c.Compile(filepath.Join(exec.ProgramsDir, hash, exec.Entrypoint))
 	if err != nil {
@@ -49,59 +103,7 @@ func Start(c vm.Compiler, hash string, args vm.ProgramArgs) (output vm.ProgramRe
 	case vm.TestProgramType:
 		return nil, errors.New("test program type not supported in this context")
 	case vm.WebProgramType:
-		t, ok := ret.(*vm.Table)
-		if !ok {
-			fmt.Println("no table", ret, vm.TypeOf(ret))
-			return nil, errors.New("web program did not return a table")
-		}
-
-		var rets vm.WebRets
-		// ahh, error checking beauty
-
-		var tstatuscode float64
-		if statuscode := t.GetHash("statuscode"); statuscode == nil {
-			tstatuscode = 200
-		} else if tstatuscode, ok = statuscode.(float64); !ok {
-			return nil, errors.New("return statuscode, if provided, must be a number")
-		}
-		rets.StatusCode = int(tstatuscode)
-
-		statusmesage := t.GetHash("statusmessage")
-		if statusmesage == nil {
-			// default status message for the given status code
-			rets.StatusMessage = http.StatusText(rets.StatusCode)
-		} else if rets.StatusMessage, ok = statusmesage.(string); !ok {
-			return nil, errors.New("return statusmessage, if provided, must be a string")
-		}
-
-		if headers := t.GetHash("headers"); headers != nil {
-			theaders, ok := headers.(*vm.Table)
-			if !ok {
-				return nil, errors.New("return headers, if provided, must be a table")
-			}
-			rets.Headers = make(map[string]string, len(theaders.Hash))
-
-			// we don't have to care about the array content, but we will here
-			for k, v := range theaders.Iter() {
-				if tk, ok := k.(string); !ok {
-					return nil, errors.New("header keys must be strings")
-				} else if tv, ok := v.(string); !ok {
-					return nil, errors.New("header values must be strings")
-				} else {
-					rets.Headers[tk] = tv
-				}
-			}
-		}
-
-		if body := t.GetHash("body"); body != nil {
-			tbody, ok := body.(*vm.Buffer)
-			if !ok {
-				return nil, errors.New("return body, if provided, must be a buffer")
-			}
-			rets.Body = *tbody
-		}
-
-		return rets, nil
+		return startWeb(ret)
 	default:
 		return nil, errors.New("unknown program type")
 	}

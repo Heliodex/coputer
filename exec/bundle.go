@@ -11,7 +11,8 @@ import (
 	"strings"
 )
 
-var gzheader = []byte{0x1f, 0x8b, 0x08, 0x08, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff}
+const gzheaderLen = 10
+var gzheader = [gzheaderLen]byte{0x1f, 0x8b, 0x08, 0x08, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff}
 
 type File struct {
 	path string
@@ -29,15 +30,12 @@ func Compress(n string, f []byte) (cf File, err error) {
 		return
 	}
 
-	return File{n, b.Bytes()[len(gzheader):]}, nil // remove the header
+	return File{n, b.Bytes()[gzheaderLen:]}, nil // remove the header
 }
 
 func Decompress(c []byte) (f File, err error) {
-	// add the header
-	c = append(gzheader, c...)
-
 	var b bytes.Buffer
-	r, err := gzip.NewReader(bytes.NewReader(c))
+	r, err := gzip.NewReader(bytes.NewReader(append(gzheader[:], c...))) // add the header
 	if err != nil {
 		return
 	} else if _, err = b.ReadFrom(r); err != nil {
