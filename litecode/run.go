@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/Heliodex/coputer/exec"
+	"github.com/Heliodex/coputer/bundle"
 	"github.com/Heliodex/coputer/litecode/vm"
 )
 
@@ -66,7 +66,7 @@ func startWeb(v any) (rets vm.WebRets, err error) {
 }
 
 func Start(c vm.Compiler, hash string, args vm.ProgramArgs) (output vm.ProgramRets, err error) {
-	p, err := c.Compile(filepath.Join(exec.ProgramsDir, hash, exec.Entrypoint))
+	p, err := c.Compile(filepath.Join(bundle.ProgramsDir, hash, bundle.Entrypoint))
 	if err != nil {
 		return
 	}

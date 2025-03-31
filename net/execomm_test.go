@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/Heliodex/coputer/exec"
+	"github.com/Heliodex/coputer/bundle"
 	"github.com/Heliodex/coputer/litecode/vm"
 )
 
 func TestWeb(t *testing.T) {
 	const testpath = "../testweb"
 
-	b, err := exec.Bundle(testpath)
+	b, err := bundle.Bundle(testpath)
 	if err != nil {
 		panic(err)
 	}

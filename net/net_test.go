@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/Heliodex/coputer/exec"
+	"github.com/Heliodex/coputer/bundle"
 	"github.com/Heliodex/coputer/litecode/vm"
 )
 
 const path = "../test/web1"
 
 func getBundled() (b []byte) {
-	b, err := exec.Bundle(path)
+	b, err := bundle.Bundle(path)
 	if err != nil {
 		panic(err)
 	}

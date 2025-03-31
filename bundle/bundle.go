@@ -1,69 +1,24 @@
-package exec
+package bundle
 
 import (
-	"bytes"
-	"compress/gzip"
+	"crypto/sha3"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
-const gzheaderLen = 10
-
-var gzheader = [gzheaderLen]byte{0x1f, 0x8b, 0x08, 0x08, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff}
-
-type File struct {
-	path string
-	data []byte
-}
-
-func compress(n string, f []byte) (cf File, err error) {
-	var b bytes.Buffer
-	w := gzip.NewWriter(&b)
-
-	w.Name = n
-	if _, err = w.Write(f); err != nil {
-		return
-	} else if err = w.Close(); err != nil {
-		return
-	}
-
-	return File{n, b.Bytes()[gzheaderLen:]}, nil // remove the header
-}
-
-func decompress(c []byte) (f File, err error) {
-	var b bytes.Buffer
-	r, err := gzip.NewReader(bytes.NewReader(append(gzheader[:], c...))) // add the header
-	if err != nil {
-		return
-	} else if _, err = b.ReadFrom(r); err != nil {
-		return
-	} else if err = r.Close(); err != nil {
-		return
-	}
-
-	return File{r.Name, b.Bytes()}, nil
-}
-
-func bundleFile(p string) (bf File, err error) {
-	// read
-	f, err := os.ReadFile(p)
-	if err != nil {
-		return
-	}
-
-	// trim ../ or ..\ from p
-	fps := string(filepath.Separator)
-	p = strings.TrimPrefix(p, ".."+fps)
-	// remove walked directory from p (everything before first /)
-	s := strings.Split(p, fps)
-	np := strings.Join(s[1:], "/")
-
-	return compress(np, f)
-}
+const (
+	// one entrypoint to rule them all
+	// one entrypoint to find them
+	// one entrypoint to bring them all
+	// and in the darkness require() them
+	Entrypoint         = "init"
+	EntrypointFilename = Entrypoint + ".luau"
+	ProgramsDir        = "./data/programs"
+)
 
 func Bundle(path string) (b []byte, err error) {
 	var cFiles []File
@@ -126,4 +81,40 @@ func Unbundle(b []byte) (fs []File, err error) {
 	}
 
 	return
+}
+
+func UnbundleToDir(b []byte) (entrypath string, err error) {
+	hash := sha3.Sum256(b)
+	hexhash := hex.EncodeToString(hash[:])
+
+	path := filepath.Join(ProgramsDir, hexhash)
+	entrypath = filepath.Join(path, EntrypointFilename)
+
+	// if dir exists, return
+	if _, err = os.Stat(entrypath); err == nil {
+		return
+	}
+
+	ub, err := Unbundle(b)
+	if err != nil {
+		return
+	}
+
+	for _, f := range ub {
+		p := filepath.Join(path, f.path)
+		if err = os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			return
+		} else if err = os.WriteFile(p, f.data, 0o644); err != nil {
+			return
+		}
+	}
+
+	return
+}
+
+func BundleStored(hexhash string) (b bool) {
+	path := filepath.Join(ProgramsDir, hexhash)
+	_, err := os.Stat(path)
+
+	return err == nil
 }

@@ -1,6 +1,6 @@
 package net
 
-// communication with exec
+// communication with execution server
 
 import (
 	"bytes"

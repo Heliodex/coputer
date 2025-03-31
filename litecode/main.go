@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Heliodex/coputer/exec"
+	"github.com/Heliodex/coputer/bundle"
 	"github.com/Heliodex/coputer/litecode/vm"
 )
 
@@ -33,7 +33,7 @@ func checkHash(w http.ResponseWriter, hash string) (decoded [32]byte, b bool) {
 }
 
 func findExists(w http.ResponseWriter, hash string) (b bool) {
-	if !exec.BundleStored(hash) {
+	if !bundle.BundleStored(hash) {
 		http.Error(w, "Program not found", http.StatusNotFound)
 		return
 	}
@@ -54,9 +54,9 @@ func main() {
 		r.Body.Read(data)
 
 		hash := sha3.Sum256(data)
-		if hexhash := hex.EncodeToString(hash[:]); exec.BundleStored(hexhash) {
+		if hexhash := hex.EncodeToString(hash[:]); bundle.BundleStored(hexhash) {
 			return
-		} else if _, err := exec.UnbundleToDir(data); err != nil {
+		} else if _, err := bundle.UnbundleToDir(data); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
