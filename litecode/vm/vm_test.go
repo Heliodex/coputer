@@ -113,45 +113,41 @@ func TestConformance(t *testing.T) {
 		// 	continue
 		// }
 
-		run := func() {
-			t.Log(" -- Testing", name, "--")
-			filename := fmt.Sprintf("./test/%s", name) // ./ required for requires
+		t.Log(" -- Testing", name, "--")
+		filename := fmt.Sprintf("./test/%s", name) // ./ required for requires
 
-			og, err := luau(filename)
-			if err != nil {
-				t.Fatal("error running luau:", err)
-			}
-
-			// fix all newlines to be \n
-			og = strings.ReplaceAll(og, "\r\n", "\n")
-
-			o0, _ := litecode(t, filename, c0)
-			o1, _ := litecode(t, filename, c1)
-			o2, _ := litecode(t, filename, c2)
-			fmt.Println()
-
-			for i, o := range []string{o0, o1, o2} {
-				if o != og {
-					t.Errorf("%d output mismatch:\n-- Expected\n%s\n-- Got\n%s\n", i, og, o)
-					fmt.Println()
-
-					// print mismatch
-					oLines := strings.Split(o, "\n")
-					ogLines := strings.Split(og, "\n")
-					for i, line := range ogLines {
-						if line != oLines[i] {
-							t.Errorf("mismatched line: \n%s\n%v\n%s\n%v\n", line, []byte(line), oLines[i], []byte(oLines[i]))
-						}
-					}
-
-					os.Exit(1)
-				}
-			}
-
-			fmt.Println(og)
+		og, err := luau(filename)
+		if err != nil {
+			t.Fatal("error running luau:", err)
 		}
 
-		run()
+		// fix all newlines to be \n
+		og = strings.ReplaceAll(og, "\r\n", "\n")
+
+		o0, _ := litecode(t, filename, c0)
+		o1, _ := litecode(t, filename, c1)
+		o2, _ := litecode(t, filename, c2)
+		fmt.Println()
+
+		for i, o := range []string{o0, o1, o2} {
+			if o != og {
+				t.Errorf("%d output mismatch:\n-- Expected\n%s\n-- Got\n%s\n", i, og, o)
+				fmt.Println()
+
+				// print mismatch
+				oLines := strings.Split(o, "\n")
+				ogLines := strings.Split(og, "\n")
+				for i, line := range ogLines {
+					if line != oLines[i] {
+						t.Errorf("mismatched line: \n%s\n%v\n%s\n%v\n", line, []byte(line), oLines[i], []byte(oLines[i]))
+					}
+				}
+
+				os.Exit(1)
+			}
+		}
+
+		fmt.Println(og)
 	}
 }
 

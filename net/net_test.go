@@ -9,7 +9,7 @@ import (
 	"github.com/Heliodex/coputer/litecode/vm"
 )
 
-const path = "../testb"
+const path = "../test/web1"
 
 func getBundled() (b []byte) {
 	b, err := exec.Bundle(path)

@@ -12,6 +12,7 @@ import (
 )
 
 const gzheaderLen = 10
+
 var gzheader = [gzheaderLen]byte{0x1f, 0x8b, 0x08, 0x08, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff}
 
 type File struct {
@@ -19,7 +20,7 @@ type File struct {
 	data []byte
 }
 
-func Compress(n string, f []byte) (cf File, err error) {
+func compress(n string, f []byte) (cf File, err error) {
 	var b bytes.Buffer
 	w := gzip.NewWriter(&b)
 
@@ -33,7 +34,7 @@ func Compress(n string, f []byte) (cf File, err error) {
 	return File{n, b.Bytes()[gzheaderLen:]}, nil // remove the header
 }
 
-func Decompress(c []byte) (f File, err error) {
+func decompress(c []byte) (f File, err error) {
 	var b bytes.Buffer
 	r, err := gzip.NewReader(bytes.NewReader(append(gzheader[:], c...))) // add the header
 	if err != nil {
@@ -61,7 +62,7 @@ func bundleFile(p string) (bf File, err error) {
 	s := strings.Split(p, fps)
 	np := strings.Join(s[1:], "/")
 
-	return Compress(np, f)
+	return compress(np, f)
 }
 
 func Bundle(path string) (b []byte, err error) {
@@ -116,7 +117,7 @@ func Unbundle(b []byte) (fs []File, err error) {
 		c := b[i:][:l]
 		i += l
 
-		f, err := Decompress(c)
+		f, err := decompress(c)
 		if err != nil {
 			return nil, fmt.Errorf("bad bundle: %w", err)
 		}
