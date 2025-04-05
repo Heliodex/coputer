@@ -8,8 +8,21 @@ import (
 	"github.com/Heliodex/coputer/litecode/vm"
 )
 
+var webArgs = vm.WebArgs{
+	Url: vm.WebUrl{
+		Rawpath:  "/?test=true",
+		Path:     "/",
+		Rawquery: "test=true",
+		Query:    map[string]string{"test": "true"},
+	},
+	Method: "GET",
+	Headers: map[string]string{
+		"User-Agent": "Roblox/WinInet",
+	},
+}
+
 func TestWeb(t *testing.T) {
-	const testpath = "../testweb"
+	const testpath = "../test/web1"
 
 	b, err := bundle.Bundle(testpath)
 	if err != nil {
@@ -23,26 +36,13 @@ func TestWeb(t *testing.T) {
 
 	fmt.Println("stored", hash)
 
-	args := vm.WebArgs{
-		Url: vm.WebUrl{
-			Rawpath:  "/?test=true",
-			Path:     "/",
-			Rawquery: "test=true",
-			Query:    map[string]string{"test": "true"},
-		},
-		Method: "GET",
-		Headers: map[string]string{
-			"User-Agent": "Roblox/WinInet",
-		},
-	}
-
-	res, err := RunWebProgram(hash, args)
+	res, err := StartWebProgram(hash, webArgs)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println("ran1")
 
-	res, err = RunWebProgram(hash, args)
+	res, err = StartWebProgram(hash, webArgs)
 	if err != nil {
 		panic(err)
 	}

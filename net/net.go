@@ -70,6 +70,12 @@ type Node struct {
 	resultsWaiting map[[32]byte]map[[32]byte]chan vm.ProgramRets // [program hash][input hash]
 }
 
+func (n *Node) AddPeer(p *keys.Peer) {
+	if _, ok := n.Peers[p.Pk]; !ok {
+		n.Peers[p.Pk] = p
+	}
+}
+
 func (n *Node) send(pk keys.PK, sm SentMsg) (err error) {
 	peer, ok := n.Peers[pk]
 	if !ok {
@@ -108,13 +114,13 @@ func (n Node) log(msg ...any) {
 }
 
 func (n *Node) handleMessage(am AnyMsg) {
-	switch m := am.Deserialise().(type) {
-	case mMsg1:
-		n.log("Received message: ", m.Body)
+	dm, err := am.Deserialise()
+	if err != nil {
+		n.log("Failed to deserialise message\n", err)
+		return
+	}
 
-		res := mMsg1{"Hello, " + m.Body}
-		n.send(am.From.Pk, res) // infinite loop can't be avoided if you take a route straight through what is known as
-
+	switch m := dm.(type) {
 	case mStore:
 		hash, err := StoreProgram(m.Bundled)
 		if err != nil {
@@ -133,10 +139,8 @@ func (n *Node) handleMessage(am AnyMsg) {
 		n.log("Running program\n", "Hash: ", hex.EncodeToString(m.Hash[:]))
 
 		switch tin := m.Input.(type) {
-		case vm.TestArgs:
-			n.log("Test program type not supported in this context")
 		case vm.WebArgs:
-			ret, err := RunWebProgram(m.Hash, tin)
+			ret, err := StartWebProgram(m.Hash, tin)
 			if err != nil {
 				n.log("Failed to run program\n", err)
 				break
@@ -151,7 +155,7 @@ func (n *Node) handleMessage(am AnyMsg) {
 			}
 
 			// return result
-			res := mRunResult{m.Hash, sha3.Sum256(inputBytes), ret}
+			res := mRunResult{vm.WebProgramType, m.Hash, sha3.Sum256(inputBytes), ret}
 			n.send(am.From.Pk, res)
 		default:
 			n.log("Unknown program type\n", m.Input.Type())
@@ -159,9 +163,9 @@ func (n *Node) handleMessage(am AnyMsg) {
 
 	case mRunResult:
 		if p, ok := n.resultsWaiting[m.Hash]; ok {
-			if ch, ok := p[m.Hash]; ok {
+			if ch, ok := p[m.InputHash]; ok {
 				ch <- m.Result
-				delete(p, m.Hash)
+				delete(p, m.InputHash)
 			} else {
 				n.log("Received result for unknown input\n", m.Result)
 			}
@@ -171,7 +175,7 @@ func (n *Node) handleMessage(am AnyMsg) {
 
 	default:
 		// any unknown is dropped
-		n.log("Unknown message type\n", am.Type)
+		n.log("Unknown message type\n", am.Type, m)
 	}
 }
 
@@ -198,28 +202,12 @@ func (n *Node) StoreProgram(b []byte) (err error) {
 	return
 }
 
-func (n *Node) RunProgram(hash [32]byte, input vm.ProgramArgs) (res vm.ProgramRets, err error) {
-	var inputhash [32]byte
-
-	switch tin := input.(type) {
-	case vm.TestArgs:
-		n.log("Test program type not supported in this context")
-	case vm.WebArgs:
-		if res, err = RunWebProgram(hash, tin); err == nil {
-			return
-		}
-
-		// serialise as json
-		inputBytes, err := json.Marshal(tin)
-		if err != nil {
-			return nil, err
-		}
-
-		inputhash = sha3.Sum256(inputBytes)
-	default:
-		return nil, errors.New("unknown program type")
+// we don't have the program; ask peers for it
+func (n *Node) peerRun(hash, inputhash [32]byte, ptype vm.ProgramType, input vm.ProgramArgs) (res vm.ProgramArgs, err error) {
+	if len(n.Peers) == 0 {
+		return nil, errors.New("no peers to run program")
 	}
-
+	
 	ch := make(chan vm.ProgramRets)
 	if _, ok := n.resultsWaiting[hash]; !ok {
 		n.resultsWaiting[hash] = make(map[[32]byte]chan vm.ProgramRets)
@@ -227,7 +215,7 @@ func (n *Node) RunProgram(hash [32]byte, input vm.ProgramArgs) (res vm.ProgramRe
 	n.resultsWaiting[hash][inputhash] = ch
 
 	for _, peer := range n.Peers {
-		m := mRun{hash, input}
+		m := mRun{ptype, hash, input}
 
 		if err = n.send(peer.Pk, m); err != nil {
 			return
@@ -239,6 +227,29 @@ func (n *Node) RunProgram(hash [32]byte, input vm.ProgramArgs) (res vm.ProgramRe
 	close(ch)
 
 	return
+}
+
+func (n *Node) RunWebProgram(hash [32]byte, input vm.WebArgs, useLocal bool) (res vm.WebRets, err error) {
+	if useLocal { // testing; to prevent 2 communication servers using the same execution server
+		if res, err = StartWebProgram(hash, input); err == nil {
+			return // we have the program!
+		}
+	}
+
+	// serialise as json
+	inputBytes, err := json.Marshal(input)
+	if err != nil {
+		return vm.WebRets{}, err
+	}
+
+	r, err := n.peerRun(hash, sha3.Sum256(inputBytes), vm.WebProgramType, input)
+	if err != nil {
+		return
+	} else if r.Type() != vm.WebProgramType {
+		return vm.WebRets{}, errors.New("invalid program type")
+	}
+
+	return r.(vm.WebRets), nil
 }
 
 func (n *Node) Start() {

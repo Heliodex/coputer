@@ -48,7 +48,7 @@ func StoreProgram(data []byte) (hash [32]byte, err error) {
 	return
 }
 
-func RunWebProgram(hash [32]byte, args vm.WebArgs) (output vm.WebRets, err error) {
+func StartWebProgram(hash [32]byte, args vm.WebArgs) (output vm.WebRets, err error) {
 	// encode to json
 	jsonargs, err := json.Marshal(args)
 	if err != nil {

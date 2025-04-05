@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const (
@@ -23,11 +24,15 @@ const (
 func Bundle(path string) (b []byte, err error) {
 	var cFiles []File
 
+	// count the number of file separators in path
+	fps := string(filepath.Separator)
+	depth := strings.Count(path, fps)
+
 	// walk through the directory
 	if err = filepath.WalkDir(path, func(p string, info os.DirEntry, err error) error {
 		if err != nil || info.IsDir() {
 			return err
-		} else if bf, err := bundleFile(p); err != nil {
+		} else if bf, err := bundleFile(p, depth); err != nil {
 			return err
 		} else if bf.path == EntrypointFilename {
 			cFiles = append([]File{bf}, cFiles...) // entrypoint goes first

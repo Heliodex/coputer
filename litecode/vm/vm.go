@@ -349,14 +349,14 @@ func (e *Env) AddFn(f Function) {
 }
 
 // ProgramType represents the type of a program.
-type ProgramType string
+type ProgramType uint8
 
 const (
 	// TestProgramType represents the type of a test program.
 	// Test programs are to be used for debugging and testing purposes only.
-	TestProgramType ProgramType = "test"
+	TestProgramType ProgramType = iota
 	// WebProgramType represents the type of a web program.
-	WebProgramType ProgramType = "web"
+	WebProgramType
 )
 
 // ProgramArgs represents the arguments passed to a program.

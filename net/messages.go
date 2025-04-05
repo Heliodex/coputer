@@ -2,6 +2,8 @@ package net
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 
 	"github.com/Heliodex/coputer/keys"
 	"github.com/Heliodex/coputer/litecode/vm"
@@ -14,7 +16,7 @@ type (
 
 // more than 1 type per message someday?
 const (
-	tMsg1        MessageType = iota
+	_            MessageType = iota
 	tStore                   // A program to store
 	tStoreResult             // Program was stored successfully
 	tRun                     // Hash of a program to execute
@@ -32,54 +34,63 @@ type AnyMsg struct {
 	Body []byte
 }
 
-func (m AnyMsg) Deserialise() (msg SentMsg) {
+func (m AnyMsg) Deserialise() (SentMsg, error) {
 	switch m.Type {
-	case tMsg1:
-		return mMsg1{string(m.Body)}
 	case tStore:
-		return mStore{m.Body}
+		return mStore{m.Body}, nil
 	case tStoreResult:
 		var hash [32]byte
 		copy(hash[:], m.Body)
-		return mStoreResult{hash}
+		return mStoreResult{hash}, nil
 	case tRun:
-		var hash [32]byte
-		copy(hash[:], m.Body[:32])
-		rest := m.Body[32:]
+		ptype := vm.ProgramType(m.Body[0])
 
-		var input vm.ProgramArgs
-		// decode json
-		if err := json.Unmarshal(rest, &input); err != nil {
-			return
+		var hash [32]byte
+		copy(hash[:], m.Body[1:][:32])
+		rest := m.Body[33:]
+
+		var in vm.ProgramArgs
+		switch ptype {
+		case vm.WebProgramType:
+			var tin vm.WebArgs
+			if err := json.Unmarshal(rest, &tin); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal web args: %w", err)
+			}
+			in = tin
+		default:
+			return nil, errors.New("unknown program args type")
 		}
 
-		return mRun{hash, input}
+		return mRun{ptype, hash, in}, nil
 	case tRunResult:
+		ptype := vm.ProgramType(m.Body[0])
+
 		var hash, inputhash [32]byte
-		copy(hash[:], m.Body[:32])
-		copy(inputhash[:], m.Body[32:64])
+		copy(hash[:], m.Body[1:][:32])
+		copy(inputhash[:], m.Body[33:][:32])
+		rest := m.Body[65:]
 
 		var res vm.ProgramRets
-		if err := json.Unmarshal(m.Body[64:], &res); err != nil {
-			return
+
+		switch ptype {
+		case vm.WebProgramType:
+			var tres vm.WebRets
+			if err := json.Unmarshal(rest, &tres); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal web result: %w", err)
+			}
+			res = tres
+		default:
+			return nil, errors.New("unknown message type")
 		}
 
-		return mRunResult{hash, inputhash, res}
+		return mRunResult{ptype, hash, inputhash, res}, nil
 	}
 
-	return
+	return nil, errors.New("unknown message type")
 }
 
 func addType(t MessageType, m []byte) []byte {
 	return append([]byte{byte(t)}, m...)
-}
-
-type mMsg1 struct {
-	Body string
-}
-
-func (m mMsg1) Serialise() []byte {
-	return addType(tMsg1, []byte(m.Body))
 }
 
 type mStore struct {
@@ -99,36 +110,45 @@ func (m mStoreResult) Serialise() []byte {
 }
 
 type mRun struct {
+	Type  vm.ProgramType // 1
 	Hash  [32]byte
 	Input vm.ProgramArgs
 }
 
 func (m mRun) Serialise() []byte {
-	input, err := json.Marshal(m.Input)
+	in, err := json.Marshal(m.Input)
 	// TODO
 	if err != nil {
 		panic(err)
 	}
 
-	return addType(tRun, append(m.Hash[:], input...))
+	b := make([]byte, 1, 1+32+len(in))
+	b[0] = byte(m.Type)
+	b = append(b, m.Hash[:]...)
+	b = append(b, in...)
+
+	return addType(tRun, b)
 }
 
 type mRunResult struct {
+	Type      vm.ProgramType // 1
 	Hash      [32]byte
 	InputHash [32]byte
 	Result    vm.ProgramRets
 }
 
 func (m mRunResult) Serialise() []byte {
-	s := make([]byte, 0, 64)
-	copy(s, m.Hash[:])
-	copy(s[32:], m.InputHash[:])
-
 	res, err := json.Marshal(m.Result)
 	// TODO
 	if err != nil {
 		panic(err)
 	}
 
-	return addType(tRunResult, append(s, res...))
+	b := make([]byte, 1, 1+64+len(res))
+	b[0] = byte(m.Type)
+	b = append(b, m.Hash[:]...)
+	b = append(b, m.InputHash[:]...)
+	b = append(b, res...)
+
+	return addType(tRunResult, b)
 }

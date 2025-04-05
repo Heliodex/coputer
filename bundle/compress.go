@@ -45,7 +45,7 @@ func decompress(c []byte) (f File, err error) {
 	return File{r.Name, b.Bytes()}, nil
 }
 
-func bundleFile(p string) (bf File, err error) {
+func bundleFile(p string, depth int) (bf File, err error) {
 	// read
 	f, err := os.ReadFile(p)
 	if err != nil {
@@ -57,7 +57,7 @@ func bundleFile(p string) (bf File, err error) {
 	p = strings.TrimPrefix(p, ".."+fps)
 	// remove walked directory from p (everything before first /)
 	s := strings.Split(p, fps)
-	np := strings.Join(s[1:], "/")
+	np := strings.Join(s[depth:], "/")
 
 	return compress(np, f)
 }

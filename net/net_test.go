@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/Heliodex/coputer/bundle"
-	"github.com/Heliodex/coputer/litecode/vm"
 )
 
 const path = "../test/web1"
@@ -30,7 +29,6 @@ func TestNet(t *testing.T) {
 	n1 := lnet.NewNode()
 	fs1 := n1.FindString()
 
-	fmt.Println()
 	fmt.Println(fs1)
 	fmt.Println()
 
@@ -39,16 +37,15 @@ func TestNet(t *testing.T) {
 		panic(err)
 	}
 
-	n2 := lnet.NewNode(p1) // tell it about n1
-
-	err = n2.StoreProgram(b)
+	err = n1.StoreProgram(b)
 	if err != nil {
 		panic(err)
 	}
+	
+	n2 := lnet.NewNode()
+	n2.AddPeer(p1) // tell it about n1
 
-	fmt.Println("stored")
-
-	res, err := n1.RunProgram(hash, vm.TestArgs{})
+	res, err := n2.RunWebProgram(hash, webArgs, false)
 	if err != nil {
 		panic(err)
 	}
