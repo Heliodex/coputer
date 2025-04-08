@@ -1,6 +1,6 @@
 local webargs = args.web()
 
-local body = `hello {webargs.url.path} world!`
+local body = `hello {webargs.method} {webargs.url.path} world! {webargs.url.rawpath}`
 
 return {
 	headers = {

@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"maps"
 	"math"
+	"net/url"
 	"reflect"
 	"slices"
 	"strings"
@@ -387,6 +389,10 @@ func (TestArgs) Type() ProgramType {
 // TestRets stores the response returned from a test program.
 type TestRets struct{}
 
+func (r1 TestRets) Equal(r2 TestRets) error {
+	return nil
+}
+
 // Type returns TestProgramType.
 func (TestRets) Type() ProgramType {
 	return TestProgramType
@@ -400,6 +406,28 @@ type WebUrl struct {
 	Path     string            `json:"path"`
 	Rawquery string            `json:"rawquery"`
 	Query    map[string]string `json:"query"`
+}
+
+func queryToMap(q url.Values) (m map[string]string) {
+	m = make(map[string]string, len(q))
+	for k, v := range q {
+		m[k] = strings.Join(v, "")
+	}
+
+	return
+}
+
+func WebUrlFromString(s string) (wurl WebUrl, err error) {
+	url, err := url.Parse(s)
+	if err != nil {
+		return
+	}
+
+	wurl.Rawpath = s 
+	wurl.Path = url.Path
+	wurl.Rawquery = url.RawQuery
+	wurl.Query = queryToMap(url.Query())
+	return
 }
 
 // WebArgs stores the arguments passed to a web program.
@@ -421,6 +449,20 @@ type WebRets struct {
 	StatusMessage string            `json:"statusmessage"`
 	Headers       map[string]string `json:"headers"`
 	Body          []byte            `json:"body"`
+}
+
+func (r1 WebRets) Equal(r2 WebRets) error {
+	if r1.StatusCode != r2.StatusCode {
+		return fmt.Errorf("Expected StatusCode %b, got %b", r1.StatusCode, r2.StatusCode)
+	} else if r1.StatusMessage != r2.StatusMessage {
+		return fmt.Errorf("Expected StatusMessage %s, got %s", r1.StatusMessage, r2.StatusMessage)
+	} else if !maps.Equal(r1.Headers, r2.Headers) {
+		return fmt.Errorf("Expected Headers %v, got %v", r1.Headers, r2.Headers)
+	} else if !slices.Equal(r1.Body, r2.Body) {
+		return fmt.Errorf("Expected Body %q, got %q", string(r1.Body), string(r2.Body))
+	}
+
+	return nil
 }
 
 // Coroutine represents a Luau coroutine, including the main coroutine. Luau type `thread`
