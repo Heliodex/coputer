@@ -1,5 +1,5 @@
-# ⚠️ Notice
+# Coputer
 
-This project is about to be rebranded
+Collaborative, distributed execution environment for [Luau](https://luau.org) programs.
 
-> "coputer: the collaborative execution environment"
+> "coputer: get someone else to run your code for you"
