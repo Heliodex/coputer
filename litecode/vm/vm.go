@@ -620,9 +620,9 @@ type inst struct {
 	KN                     bool
 }
 
-type proto struct {
+type proto[T Val] struct {
 	dbgname              string
-	k                    []Val
+	k                    []T
 	code                 []*inst
 	instlineinfo, protos []uint32
 	dbgcode              []uint8
@@ -633,8 +633,8 @@ type proto struct {
 }
 
 type deserialised struct {
-	mainProto proto
-	protoList []proto
+	mainProto proto[Val]
+	protoList []proto[Val]
 }
 
 func checkkmode(i *inst, k []Val) {
@@ -785,7 +785,7 @@ func readInst(codeList *[]*inst, s *stream) bool {
 	return opinfo.hasAux
 }
 
-func readProto(stringList []string, s *stream) (p proto, err error) {
+func readProto(stringList []string, s *stream) (p proto[Val], err error) {
 	p.maxstacksize, p.numparams, p.nups = s.rByte(), s.rByte(), s.rByte()
 
 	s.rBool()            // isvararg
@@ -834,7 +834,7 @@ func readProto(stringList []string, s *stream) (p proto, err error) {
 		case 7: // Vector
 			p.k[i] = vectorCtor(s.rFloat32(), s.rFloat32(), s.rFloat32(), s.rFloat32())
 		default:
-			return proto{}, fmt.Errorf("unknown ktype %d", kt)
+			return proto[Val]{}, fmt.Errorf("unknown ktype %d", kt)
 		}
 	}
 
@@ -925,7 +925,7 @@ func deserialise(data []byte) (deserialised, error) {
 	}
 
 	protoCount := s.rVarInt()
-	protoList := make([]proto, protoCount)
+	protoList := make([]proto[Val], protoCount)
 	for i := range protoCount {
 		p, err := readProto(stringList, s)
 		if err != nil {
@@ -1240,10 +1240,10 @@ func gettable(index, v Val) (Val, error) {
 }
 
 type toWrap struct {
-	proto        proto
+	proto        proto[Val]
 	upvals       []*upval
 	alive        *bool
-	protolist    []proto
+	protolist    []proto[Val]
 	env          Env
 	requireCache map[string][]Val
 }
