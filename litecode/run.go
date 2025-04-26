@@ -71,7 +71,7 @@ func Start(c vm.Compiler, hash string, args vm.ProgramArgs) (output vm.ProgramRe
 		return
 	}
 
-	luau_print := vm.MakeFn("print", func(args vm.Args) (r vm.Rets, err error) {
+	luau_print := vm.MakeFn("print", func(args vm.Args) (r vm.Vals, err error) {
 		for _, arg := range args.List {
 			fmt.Print("\t")
 			fmt.Print(vm.ToString(arg))

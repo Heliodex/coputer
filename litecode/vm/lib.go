@@ -17,6 +17,16 @@ func invalidArg(i int, fn, msg string) error {
 	return fmt.Errorf("invalid argument #%d to '%s' (%s)", i, fn, msg)
 }
 
+
+
+//	type Val interface{
+//		 float64 | string | bool | *Table | Function | *Coroutine | *Buffer | Vector
+//	}
+type Val any
+
+// Vals represents the return values of a user-defined native function.
+type Vals []Val
+
 // Args represents the arguments passed to a user-defined native function.
 //
 // A number of helper functions are provided to extract arguments from the list. If these functions fail to extract the argument, the coroutine yields an invalid/missing argument error.
@@ -24,15 +34,12 @@ type Args struct {
 	// Co is the coroutine that the function is running.
 	Co *Coroutine
 	// List is the list of all arguments passed to the function.
-	List []any
+	List Vals
 	name string
 	pos  int
 }
 
-// Rets represents the return values of a user-defined native function.
-type Rets []any
-
-func getArg[T any](a *Args, optV []T, tx string) (g T) {
+func getArg[T Val](a *Args, optV []T, tx string) (g T) {
 	a.pos++
 	if a.pos > len(a.List) {
 		if len(optV) == 0 {
@@ -100,7 +107,7 @@ func (a *Args) GetVector(optV ...Vector) Vector {
 }
 
 // GetAny returns the next argument.
-func (a *Args) GetAny(optV ...any) (arg any) {
+func (a *Args) GetAny(optV ...Val) (arg Val) {
 	a.pos++
 	if a.pos > len(a.List) {
 		if len(optV) == 0 {
@@ -114,9 +121,9 @@ func (a *Args) GetAny(optV ...any) (arg any) {
 }
 
 // NewLib creates a new library with a given table of functions and other values, such as constants. Functions can be created using MakeFn.
-func NewLib(functions []Function, other ...map[string]any) *Table {
+func NewLib(functions []Function, other ...map[string]Val) *Table {
 	// remember, no duplicates
-	hash := make(map[any]any, len(functions)+len(other))
+	hash := make(map[Val]Val, len(functions)+len(other))
 	for _, f := range functions {
 		hash[f.name] = f
 	}
@@ -133,8 +140,8 @@ func NewLib(functions []Function, other ...map[string]any) *Table {
 }
 
 // MakeFn creates a new function with a given name and body. Functions created by MakeFn can be added to a library using NewLib.
-func MakeFn(name string, f func(args Args) (r Rets, err error)) Function {
-	return fn(name, func(co *Coroutine, vargs ...any) (r Rets, err error) {
+func MakeFn(name string, f func(args Args) (r Vals, err error)) Function {
+	return fn(name, func(co *Coroutine, vargs ...Val) (r Vals, err error) {
 		return f(Args{
 			Co:   co,
 			List: vargs,

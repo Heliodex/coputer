@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-func arrayKey(k any) (int, bool) {
+func arrayKey(k Val) (int, bool) {
 	fk, ok := k.(float64)
 	if !ok {
 		return 0, false
@@ -23,24 +23,24 @@ func arrayKey(k any) (int, bool) {
 	return ik, float64(ik) == fk && 1 <= ik
 }
 
-func mapKeySort(a, b any) int {
+func mapKeySort(a, b Val) int {
 	// It doesn't have to be pretty for map keys
 	// (in fact, the reference implementation of Luau has a rather insane sort order)
 	// It just has to be DETERMINISTIC
 	return strings.Compare(fmt.Sprint(a), fmt.Sprint(b))
 }
 
-func iterArray(array []any, yield func(any, any) bool) {
+func iterArray(array Vals, y func(Val, Val) bool) {
 	for i, v := range array {
-		if v != nil && !yield(float64(i+1), v) {
+		if v != nil && !y(float64(i+1), v) {
 			return
 		}
 	}
 }
 
-func iterHash(hash map[any]any, y func(any, any) bool) {
+func iterHash(hash map[Val]Val, y func(Val, Val) bool) {
 	// order keys in map
-	keys := make([]any, 0, len(hash))
+	keys := make(Vals, 0, len(hash))
 	for k := range hash {
 		keys = append(keys, k)
 	}
@@ -64,8 +64,8 @@ func iterHash(hash map[any]any, y func(any, any) bool) {
 
 // Table represents a Luau table, with resizeable array and hash parts. Luau type `table`
 type Table struct {
-	Array    []any
-	Hash     map[any]any
+	Array    Vals
+	Hash     map[Val]Val
 	readonly bool
 }
 
@@ -78,12 +78,12 @@ func (t *Table) Len() int {
 }
 
 // SetHash updates or deletes a key-value pair in the hash part of the table.
-func (t *Table) SetHash(k, v any) {
+func (t *Table) SetHash(k, v Val) {
 	if t.Hash == nil {
 		if v == nil {
 			return
 		}
-		t.Hash = map[any]any{k: v}
+		t.Hash = map[Val]Val{k: v}
 	} else if v == nil {
 		delete(t.Hash, k)
 	} else {
@@ -92,10 +92,10 @@ func (t *Table) SetHash(k, v any) {
 }
 
 // SetArray sets a value at an integer index, plcing it into the Array part or the Hash part and resizing each as appropriate.
-func (t *Table) SetArray(i int, v any) {
+func (t *Table) SetArray(i int, v Val) {
 	if t.Array == nil {
 		if i == 1 {
-			t.Array = []any{v}
+			t.Array = Vals{v}
 			return
 		}
 	} else if l := len(t.Array); i < l+1 {
@@ -138,7 +138,7 @@ func (t *Table) SetArray(i int, v any) {
 }
 
 // ForceSet sets a table value at a key, regardless of whether the table is readonly.
-func (t *Table) ForceSet(k, v any) {
+func (t *Table) ForceSet(k, v Val) {
 	if ak, ok := arrayKey(k); ok {
 		t.SetArray(ak, v)
 		return
@@ -147,7 +147,7 @@ func (t *Table) ForceSet(k, v any) {
 }
 
 // Set sets a table value at a key, returning an error if the table is readonly.
-func (t *Table) Set(k, v any) error {
+func (t *Table) Set(k, v Val) error {
 	if t.readonly {
 		return errors.New("attempt to modify a readonly table")
 	}
@@ -156,7 +156,7 @@ func (t *Table) Set(k, v any) error {
 }
 
 // GetHash returns a value at a key, only searching the hash part of the table.
-func (t *Table) GetHash(k any) any {
+func (t *Table) GetHash(k Val) Val {
 	if t.Hash == nil {
 		return nil
 	}
@@ -164,7 +164,7 @@ func (t *Table) GetHash(k any) any {
 }
 
 // Get returns a value at a key in the table.
-func (t *Table) Get(k any) any {
+func (t *Table) Get(k Val) Val {
 	if ak, ok := arrayKey(k); ok && ak <= t.Len() {
 		return t.Array[ak-1]
 	}
@@ -172,8 +172,8 @@ func (t *Table) Get(k any) any {
 }
 
 // Iter returns an iterator over the table, yielding key-value pairs in a deterministic order.
-func (t *Table) Iter() iter.Seq2[any, any] {
-	return func(y func(any, any) bool) {
+func (t *Table) Iter() iter.Seq2[Val, Val] {
+	return func(y func(Val, Val) bool) {
 		if t.Array != nil {
 			iterArray(t.Array, y)
 		}
@@ -306,11 +306,11 @@ var opList = [83]opInfo{
 // Function represents a native or wrapped Luau function. Luau type `function`
 type Function struct {
 	// Run is the native body of the function. Its coroutine argument is used to run the function in a coroutine.
-	Run  *func(co *Coroutine, args ...any) (r Rets, err error)
+	Run  *func(co *Coroutine, args ...Val) (r Vals, err error)
 	name string
 }
 
-func fn(name string, f func(co *Coroutine, args ...any) (r Rets, err error)) Function {
+func fn(name string, f func(co *Coroutine, args ...Val) (r Vals, err error)) Function {
 	return Function{&f, name}
 }
 
@@ -326,7 +326,7 @@ const (
 )
 
 type yield struct {
-	rets Rets
+	rets Vals
 	err  error
 }
 
@@ -339,7 +339,7 @@ type debugging struct {
 }
 
 // Env represents a global Luau environment.
-type Env map[any]any
+type Env map[Val]Val
 
 // AddFn adds a function to the environment.
 func (e *Env) AddFn(f Function) {
@@ -423,7 +423,7 @@ func WebUrlFromString(s string) (wurl WebUrl, err error) {
 		return
 	}
 
-	wurl.Rawpath = s 
+	wurl.Rawpath = s
 	wurl.Path = url.Path
 	wurl.Rawquery = url.RawQuery
 	wurl.Query = queryToMap(url.Query())
@@ -472,7 +472,7 @@ type Coroutine struct {
 	filepath, dbgpath string   // actually does well here
 	requireHistory    []string // prevents cyclic module dependencies
 	yield             chan yield
-	resume            chan Rets
+	resume            chan Vals
 	dbg               *debugging
 	compiler          *Compiler
 	status            Status
@@ -512,7 +512,7 @@ func createCoroutine(body Function, currentCo *Coroutine) *Coroutine {
 		filepath: currentCo.filepath,
 		dbgpath:  currentCo.dbgpath,
 		yield:    make(chan yield, 1),
-		resume:   make(chan Rets, 1),
+		resume:   make(chan Vals, 1),
 	}
 }
 
@@ -524,7 +524,7 @@ func (co *Coroutine) Error(err error) {
 	select {}
 }
 
-func startCoroutine(co *Coroutine, args []any) {
+func startCoroutine(co *Coroutine, args Vals) {
 	// fmt.Println(" RG calling coroutine body with", args)
 	r, err := (*co.body.Run)(co, args...)
 
@@ -542,7 +542,7 @@ func startCoroutine(co *Coroutine, args []any) {
 }
 
 // Resume executes the coroutine with the provided arguments, starting it with the given arguments if it is not already started, otherwise resuming it and passing the argument values back to the yielded function.
-func (co *Coroutine) Resume(args ...any) (r Rets, err error) {
+func (co *Coroutine) Resume(args ...Val) (r Vals, err error) {
 	if !co.started {
 		// fmt.Println("RM  starting", args)
 		co.started = true
@@ -567,7 +567,7 @@ func vectorCtor(x, y, z, w float32) Vector {
 	return Vector{x, y, z, w}
 }
 
-func namecallHandler(co *Coroutine, kv string, stack *[]any, c1, c2 int) (ok bool, retList []any, err error) {
+func namecallHandler(co *Coroutine, kv string, stack *Vals, c1, c2 int) (ok bool, retList Vals, err error) {
 	switch kv {
 	case "format":
 		str := (*stack)[c1].(string)
@@ -577,7 +577,7 @@ func namecallHandler(co *Coroutine, kv string, stack *[]any, c1, c2 int) (ok boo
 		if err != nil {
 			return false, nil, err
 		}
-		return true, []any{f}, nil
+		return true, Vals{f}, nil
 	}
 	return
 }
@@ -622,7 +622,7 @@ type inst struct {
 
 type proto struct {
 	dbgname              string
-	k                    []any
+	k                    Vals
 	code                 []*inst
 	instlineinfo, protos []uint32
 	dbgcode              []uint8
@@ -637,7 +637,7 @@ type deserialised struct {
 	protoList []proto
 }
 
-func checkkmode(i *inst, k []any) {
+func checkkmode(i *inst, k Vals) {
 	switch i.kMode {
 	case 1: // AUX
 		if i.aux < len(k) { // sometimes huge for some reason
@@ -806,7 +806,7 @@ func readProto(stringList []string, s *stream) (p proto, err error) {
 	}
 
 	sizek := s.rVarInt()
-	p.k = make([]any, sizek)
+	p.k = make(Vals, sizek) // crazy
 
 	for i := range sizek {
 		switch kt := s.rByte(); kt {
@@ -818,14 +818,14 @@ func readProto(stringList []string, s *stream) (p proto, err error) {
 			p.k[i] = s.rFloat64()
 		case 3: // String
 			p.k[i] = stringList[s.rVarInt()-1]
-		case 4: // Function
-			p.k[i] = s.rWord()
+		case 4: // Import
+			p.k[i] = float64(s.rWord()) // strange
 		case 5: // Table
 			dataLength := s.rVarInt()
 			t := make([]uint32, dataLength)
 
 			for j := range dataLength {
-				t[j] = s.rVarInt()
+				t[j] = s.rVarInt() // whatever
 			}
 
 			p.k[i] = t
@@ -940,26 +940,20 @@ func deserialise(data []byte) (deserialised, error) {
 	return deserialised{mainProto, protoList}, s.CheckEnd()
 }
 
-//	type iterArgs struct {
-//		table *Table
-//		rest  []any
-//	}
-type iterArgs []any
-
 type iterator struct {
-	args    chan *iterArgs
-	resume  chan *[]any
+	args    chan *Table
+	resume  chan *Vals
 	running bool
 }
 
 type upval struct {
-	value   any
-	store   []any
+	value   Val
+	store   Vals
 	index   int
 	selfRef bool
 }
 
-func truthy(v any) bool {
+func truthy(v Val) bool {
 	return v != nil && v != false
 }
 
@@ -1016,14 +1010,14 @@ func invalidIndex(ta string, val any) error {
 
 // TypeOf returns the underlying VM datatype of a value as a string.
 // This does not return the Luau type, as type() does.
-func TypeOf(v any) string {
+func TypeOf(v Val) string {
 	if v == nil { // prevent nil pointer dereference
 		return "nil"
 	}
 	return reflect.TypeOf(v).String()
 }
 
-func aAdd(a, b any) (any, error) {
+func aAdd(a, b Val) (Val, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
@@ -1039,7 +1033,7 @@ func aAdd(a, b any) (any, error) {
 	return nil, invalidArithmetic("add", TypeOf(a), TypeOf(b))
 }
 
-func aSub(a, b any) (any, error) {
+func aSub(a, b Val) (Val, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
@@ -1055,7 +1049,7 @@ func aSub(a, b any) (any, error) {
 	return nil, invalidArithmetic("sub", TypeOf(a), TypeOf(b))
 }
 
-func aMul(a, b any) (any, error) {
+func aMul(a, b Val) (Val, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
@@ -1077,7 +1071,7 @@ func aMul(a, b any) (any, error) {
 	return nil, invalidArithmetic("mul", TypeOf(a), TypeOf(b))
 }
 
-func aDiv(a, b any) (any, error) {
+func aDiv(a, b Val) (Val, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
@@ -1099,7 +1093,7 @@ func aDiv(a, b any) (any, error) {
 	return nil, invalidArithmetic("div", TypeOf(a), TypeOf(b))
 }
 
-func aMod(a, b any) (float64, error) {
+func aMod(a, b Val) (float64, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
@@ -1109,7 +1103,7 @@ func aMod(a, b any) (float64, error) {
 	return 0, invalidArithmetic("mod", TypeOf(a), TypeOf(b))
 }
 
-func aPow(a, b any) (float64, error) {
+func aPow(a, b Val) (float64, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
@@ -1119,7 +1113,7 @@ func aPow(a, b any) (float64, error) {
 	return 0, invalidArithmetic("pow", TypeOf(a), TypeOf(b))
 }
 
-func aIdiv(a, b any) (any, error) {
+func aIdiv(a, b Val) (Val, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
@@ -1157,7 +1151,7 @@ func aIdiv(a, b any) (any, error) {
 }
 
 // vectors dont have these comparisons
-func jumpLe(a, b any) (bool, error) {
+func jumpLe(a, b Val) (bool, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
@@ -1173,7 +1167,7 @@ func jumpLe(a, b any) (bool, error) {
 	return false, invalidCompare("<=", TypeOf(a), TypeOf(b))
 }
 
-func jumpLt(a, b any) (bool, error) {
+func jumpLt(a, b Val) (bool, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
@@ -1189,7 +1183,7 @@ func jumpLt(a, b any) (bool, error) {
 	return false, invalidCompare("<", TypeOf(a), TypeOf(b))
 }
 
-func jumpGt(a, b any) (bool, error) {
+func jumpGt(a, b Val) (bool, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
@@ -1205,7 +1199,7 @@ func jumpGt(a, b any) (bool, error) {
 	return false, invalidCompare(">", TypeOf(a), TypeOf(b))
 }
 
-func jumpGe(a, b any) (bool, error) {
+func jumpGe(a, b Val) (bool, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
@@ -1221,7 +1215,7 @@ func jumpGe(a, b any) (bool, error) {
 	return false, invalidCompare(">=", TypeOf(a), TypeOf(b))
 }
 
-func gettable(index, v any) (any, error) {
+func gettable(index, v Val) (Val, error) {
 	switch t := v.(type) {
 	case *Table:
 		return t.Get(index), nil
@@ -1247,7 +1241,7 @@ type toWrap struct {
 	alive        *bool
 	protolist    []proto
 	env          Env
-	requireCache map[string]Rets
+	requireCache map[string]Vals
 }
 
 func iterate(c *iterator) {
@@ -1256,23 +1250,23 @@ func iterate(c *iterator) {
 	c.running = true
 	// fmt.Println("-2- generating iterator", args)
 
-	for i, v := range args[0].(*Table).Iter() {
+	for i, v := range args.Iter() {
 		if !c.running {
 			return
 		}
 		// fmt.Println("-2- yielding", i, v)
-		c.resume <- &[]any{i, v}
+		c.resume <- &Vals{i, v}
 		// fmt.Println("-2- yielded!")
 	}
 
 	c.resume <- nil
 }
 
-func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsLen uint8) (r Rets, err error) {
+func execute(towrap toWrap, stack *Vals, co *Coroutine, vargsList Vals, vargsLen uint8) (r Vals, err error) {
 	p, upvals := towrap.proto, towrap.upvals
 	pc, top, openUpvals, generalisedIterators := 1, -1, []*upval{}, map[inst]*iterator{}
 
-	moveStack := func(src []any, b, t int) {
+	moveStack := func(src Vals, b, t int) {
 		for t+b >= len(*stack) { // graah stack expansion
 			*stack = append(*stack, nil)
 		}
@@ -1349,8 +1343,7 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 			pc += 2 // -- adjust for aux
 		case 8: // SETGLOBAL
 			// LOL
-			kv := i.K
-			if _, ok := kv.(string); ok {
+			if kv, ok := i.K.(string); ok {
 				if _, ok := exts[kv]; ok {
 					return nil, fmt.Errorf("attempt to redefine global '%s'", kv)
 				}
@@ -1643,7 +1636,7 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 							return nil, errors.New("module must return a table or function")
 						}
 
-						retList = Rets{ret}
+						retList = Vals{ret}
 						towrap.requireCache[lc.filepath] = retList
 					}
 				}
@@ -1923,6 +1916,7 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 		case 54: // DUPTABLE
 			pc++
 			serialised := &Table{}
+			fmt.Println("TEMPLATING")
 			for _, id := range i.K.([]uint32) { // template
 				if err := serialised.Set(p.k[id], nil); err != nil { // constants
 					return nil, err
@@ -1996,12 +1990,11 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 			res := i.K.(int)
 
 			top = A + 6
-			it := (*stack)[A]
 
-			switch itt := it.(type) {
+			switch it := (*stack)[A].(type) {
 			case Function:
 				// fmt.Println("IT func", fn, (*stack)[A+1], (*stack)[A+2])
-				vals, err := (*itt.Run)(co, (*stack)[A+1], (*stack)[A+2])
+				vals, err := (*it.Run)(co, (*stack)[A+1], (*stack)[A+2])
 				if err != nil {
 					return nil, err
 				}
@@ -2023,7 +2016,8 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 
 				if !iter.running {
 					// fmt.Println("-1- sending thru the wire")
-					iter.args <- &iterArgs{it, []any{(*stack)[A+1], (*stack)[A+2]}}
+					// fmt.Println((*stack)[A+1], (*stack)[A+2]) // <nil> <nil>
+					iter.args <- it
 					// fmt.Println("-1- sent")
 				}
 
@@ -2096,7 +2090,7 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 			pc++
 			// Handled by wrapper
 		case 66: // LOADKX
-			(*stack)[i.A] = i.K.(uint32) // kv
+			(*stack)[i.A] = float64(i.K.(uint32)) // kv (graah)
 
 			pc += 2 // -- adjust for aux
 		case 67: // JUMPX
@@ -2142,8 +2136,8 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 			}
 
 			c := &iterator{
-				args:   make(chan *iterArgs),
-				resume: make(chan *[]any),
+				args:   make(chan *Table),
+				resume: make(chan *Vals),
 			}
 			go iterate(c)
 			// fmt.Println("SETTING GENITER", loopInst)
@@ -2211,15 +2205,15 @@ func execute(towrap toWrap, stack *[]any, co *Coroutine, vargsList []any, vargsL
 func wrapclosure(towrap toWrap) Function {
 	proto := towrap.proto
 
-	return fn("", func(co *Coroutine, args ...any) (r Rets, err error) {
+	return fn("", func(co *Coroutine, args ...Val) (r Vals, err error) {
 		maxs, np := proto.maxstacksize, proto.numparams // maxs 2 lel
 
 		la := uint8(len(args)) // we can't have more than 255 args anyway right?
 		// fmt.Println("MAX STACK SIZE", maxs)
-		stack := make([]any, maxs)
+		stack := make(Vals, maxs)
 		copy(stack, args[:min(np, la)])
 
-		var list []any
+		var list Vals
 		if np < la {
 			list = args[np:]
 		}
@@ -2238,7 +2232,7 @@ func wrapclosure(towrap toWrap) Function {
 	})
 }
 
-func loadmodule(m compiled, env Env, requireCache map[string]Rets, requireHistory []string, args ProgramArgs) (co Coroutine, cancel func()) {
+func loadmodule(m compiled, env Env, requireCache map[string]Vals, requireHistory []string, args ProgramArgs) (co Coroutine, cancel func()) {
 	alive := true
 
 	towrap := toWrap{
@@ -2257,7 +2251,7 @@ func loadmodule(m compiled, env Env, requireCache map[string]Rets, requireHistor
 		dbgpath:        m.dbgpath,
 		requireHistory: requireHistory,
 		yield:          make(chan yield, 1),
-		resume:         make(chan Rets, 1),
+		resume:         make(chan Vals, 1),
 		dbg:            &debugging{opcode: 255},
 		compiler:       m.compiler,
 		programArgs:    args,

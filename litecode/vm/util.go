@@ -93,11 +93,11 @@ func (c Compiler) Compile(path string) (p compiled, err error) {
 
 	c.cache[hash] = deserpath{
 		deserialised: p.deserialised,
-		dbgpath:     pathext,
+		dbgpath:      pathext,
 	}
 	return
 }
 
 func (p compiled) Load(env Env, args ProgramArgs) (co Coroutine, cancel func()) {
-	return loadmodule(p, env, map[string]Rets{}, nil, args)
+	return loadmodule(p, env, map[string]Vals{}, nil, args)
 }

@@ -25,28 +25,28 @@ select: this function's kinda stupid
 typeof: not much use without metatables
 */
 
-func ipairs_iter(args Args) (r Rets, err error) {
+func ipairs_iter(args Args) (r Vals, err error) {
 	a := args.GetTable()
 	i := args.GetNumber() + 1
 
 	if a.Array == nil || int(i) > len(a.Array) {
 		return
 	} else if v := a.Array[int(i)-1]; v != nil {
-		return Rets{i, v}, nil
+		return Vals{i, v}, nil
 	}
 	return // would prefer nil, nil but whateverrrrr
 }
 
 var ipairs = MakeFn("ipairs", ipairs_iter)
 
-func global_ipairs(args Args) (r Rets, err error) {
+func global_ipairs(args Args) (r Vals, err error) {
 	a := args.GetTable()
 
-	return Rets{ipairs, a, float64(0)}, nil
+	return Vals{ipairs, a, float64(0)}, nil
 }
 
 // The call next(t, k), where k is a key of the table t, returns a next key in the table, in an arbitrary order. (It returns also the value associated with that key, as a second return value.) The call next(t, nil) returns a first pair. When there are no more pairs, next returns nil.
-func global_next(args Args) (r Rets, err error) {
+func global_next(args Args) (r Vals, err error) {
 	t := args.GetTable()
 	fk := args.GetAny(nil)
 
@@ -56,7 +56,7 @@ func global_next(args Args) (r Rets, err error) {
 
 		k, v, ok := next()
 		if ok {
-			return Rets{k, v}, nil
+			return Vals{k, v}, nil
 		}
 	}
 
@@ -75,33 +75,33 @@ func global_next(args Args) (r Rets, err error) {
 		if !ok {
 			break
 		}
-		return Rets{k, v}, nil
+		return Vals{k, v}, nil
 	}
 
-	return Rets{nil}, nil // one nil?
+	return Vals{nil}, nil // one nil?
 }
 
-func global_pairs(args Args) (r Rets, err error) {
+func global_pairs(args Args) (r Vals, err error) {
 	t := args.GetTable()
 
-	return Rets{MakeFn("next", global_next), t}, nil
+	return Vals{MakeFn("next", global_next), t}, nil
 }
 
 const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-func global_tonumber(args Args) (r Rets, err error) {
+func global_tonumber(args Args) (r Vals, err error) {
 	value := args.GetAny()
 	radix := uint64(args.GetNumber(10))
 
 	str, ok := value.(string)
 	if !ok || radix < 2 || radix > 36 {
-		return Rets{nil}, nil
+		return Vals{nil}, nil
 		// panic("base out of range") // invalid argument #2
 	}
 
 	if radix == 10 {
 		if f, err := strconv.ParseFloat(str, 64); err == nil {
-			return Rets{f}, nil
+			return Vals{f}, nil
 		}
 	}
 
@@ -131,15 +131,15 @@ func global_tonumber(args Args) (r Rets, err error) {
 		n *= radix
 		index := strings.IndexRune(radixChars, c)
 		if index == -1 {
-			return Rets{nil}, nil
+			return Vals{nil}, nil
 		}
 		n += uint64(index)
 	}
 
 	if negative {
-		return Rets{float64(-n)}, nil
+		return Vals{float64(-n)}, nil
 	}
-	return Rets{float64(n)}, nil
+	return Vals{float64(n)}, nil
 }
 
 const (
@@ -525,7 +525,7 @@ func num2str(n float64) string {
 }
 
 // ToString returns a string representation of any value.
-func ToString(a any) string {
+func ToString(a Val) string {
 	switch v := a.(type) {
 	case nil:
 		return "nil"
@@ -545,20 +545,20 @@ func ToString(a any) string {
 	return fmt.Sprint(a)
 }
 
-func global_tostring(args Args) (r Rets, err error) {
+func global_tostring(args Args) (r Vals, err error) {
 	value := args.GetAny()
 
-	return Rets{ToString(value)}, nil
+	return Vals{ToString(value)}, nil
 }
 
-func global_type(args Args) (r Rets, err error) {
+func global_type(args Args) (r Vals, err error) {
 	obj := args.GetAny()
 
 	t, ok := luautype[TypeOf(obj)]
 	if !ok {
-		return Rets{"userdata"}, nil
+		return Vals{"userdata"}, nil
 	}
-	return Rets{t}, nil
+	return Vals{t}, nil
 }
 
 func isAbsolutePath(p string) bool {
@@ -570,7 +570,7 @@ func hasValidPrefix(path string) bool {
 	return path[:2] == "./" || path[:3] == "../"
 }
 
-func global_require(args Args) (r Rets, err error) {
+func global_require(args Args) (r Vals, err error) {
 	name := args.GetString()
 	if isAbsolutePath(name) {
 		return nil, invalidArg(1, "require", "cannot require an absolute path")
@@ -608,5 +608,5 @@ func global_require(args Args) (r Rets, err error) {
 	p.requireHistory = append(rh, fp)
 
 	// this is where we take it to the top babbyyyyy (with the same as parent global env)
-	return Rets{p}, nil
+	return Vals{p}, nil
 }

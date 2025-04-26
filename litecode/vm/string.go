@@ -14,7 +14,7 @@ func string_posrelat(pos, l int) int {
 	return max(0, pos)
 }
 
-func string_byte(args Args) (bytes Rets, err error) {
+func string_byte(args Args) (bytes Vals, err error) {
 	s := args.GetString()
 	l := len(s)
 
@@ -32,14 +32,14 @@ func string_byte(args Args) (bytes Rets, err error) {
 		return nil, errors.New("string slice too long")
 	}
 
-	bytes = make(Rets, n)
+	bytes = make(Vals, n)
 	for b := range bytes {
 		bytes[b] = float64(s[posi+b-1])
 	}
 	return
 }
 
-func string_char(args Args) (r Rets, err error) {
+func string_char(args Args) (r Vals, err error) {
 	l := len(args.List)
 
 	bytes := make([]byte, l)
@@ -53,7 +53,7 @@ func string_char(args Args) (r Rets, err error) {
 		bytes[i] = ba
 	}
 
-	return Rets{string(bytes)}, nil
+	return Vals{string(bytes)}, nil
 }
 
 // matching yeyyy
@@ -86,7 +86,7 @@ func isupper(c byte) bool  { return c-'A' < 26 }
 func isalnum(c byte) bool  { return isalpha(c) || isdigit(c) }
 func isxdigit(c byte) bool { return isdigit(c) || c|32-'a' < 6 }
 
-func string_find(args Args) (r Rets, err error) {
+func string_find(args Args) (r Vals, err error) {
 	s, p := args.GetString(), args.GetString()
 	i := int(args.GetNumber(1))
 	plain := args.GetBool(false)
@@ -230,22 +230,22 @@ func fmtstring(strfrmt string, args Args) (string, error) {
 	return b.String(), nil
 }
 
-func string_format(args Args) (r Rets, err error) {
+func string_format(args Args) (r Vals, err error) {
 	strfrmt := args.GetString()
 
 	res, err := fmtstring(strfrmt, args)
 	if err != nil {
 		return
 	}
-	return Rets{res}, nil
+	return Vals{res}, nil
 }
 
-func string_gmatch(args Args) (r Rets, err error) {
+func string_gmatch(args Args) (r Vals, err error) {
 	s, p := args.GetString(), args.GetString()
 	ls := len(s)
 
 	var start int
-	gmatch := func(args Args) (r Rets, err error) {
+	gmatch := func(args Args) (r Vals, err error) {
 		for caps := (&captures{}); start <= ls; start++ {
 			caps.level = 0
 
@@ -265,7 +265,7 @@ func string_gmatch(args Args) (r Rets, err error) {
 		return
 	}
 
-	return Rets{MakeFn("gmatch", gmatch)}, nil
+	return Vals{MakeFn("gmatch", gmatch)}, nil
 }
 
 func add_s(caps *captures, b *strings.Builder, s string, si, ei int, news string) (err error) {
@@ -298,8 +298,8 @@ func add_s(caps *captures, b *strings.Builder, s string, si, ei int, news string
 	return
 }
 
-func add_value(caps *captures, b *strings.Builder, co *Coroutine, s string, si, ei int, next any) (err error) {
-	var value any
+func add_value(caps *captures, b *strings.Builder, co *Coroutine, s string, si, ei int, next Val) (err error) {
+	var val Val
 
 	switch n := next.(type) {
 	case string:
@@ -309,7 +309,7 @@ func add_value(caps *captures, b *strings.Builder, co *Coroutine, s string, si, 
 		if err != nil {
 			return err
 		} else if len(rets) != 0 {
-			value = rets[0]
+			val = rets[0]
 		}
 	case *Table:
 		r, err := pushCapture(caps, s, si, ei, 0)
@@ -317,22 +317,22 @@ func add_value(caps *captures, b *strings.Builder, co *Coroutine, s string, si, 
 			return err
 		}
 
-		value = n.GetHash(r) // at least pretty sure this'll always be in the #
+		val = n.GetHash(r) // at least pretty sure this'll always be in the #
 	}
 
-	if !truthy(value) { // nil or false?
+	if !truthy(val) { // nil or false?
 		b.WriteString(s[si:ei]) // keep original text
 		return
-	} else if _, ok := value.(string); !ok {
-		return fmt.Errorf("invalid replacement value (a %s)", luautype[TypeOf(value)])
+	} else if _, ok := val.(string); !ok {
+		return fmt.Errorf("invalid replacement value (a %s)", luautype[TypeOf(val)])
 	}
 
 	// add result to accumulator?
-	b.WriteString(ToString(value))
+	b.WriteString(ToString(val))
 	return
 }
 
-func string_gsub(args Args) (r Rets, err error) {
+func string_gsub(args Args) (r Vals, err error) {
 	src := args.GetString()
 	p := args.GetString()
 	next := args.GetAny()
@@ -385,61 +385,61 @@ func string_gsub(args Args) (r Rets, err error) {
 		b.WriteString(src[sis:])
 	}
 
-	return Rets{b.String(), float64(n)}, nil
+	return Vals{b.String(), float64(n)}, nil
 }
 
-func string_len(args Args) (r Rets, err error) {
+func string_len(args Args) (r Vals, err error) {
 	s := args.GetString()
 
-	return Rets{float64(len(s))}, nil
+	return Vals{float64(len(s))}, nil
 }
 
-func string_lower(args Args) (r Rets, err error) {
+func string_lower(args Args) (r Vals, err error) {
 	s := args.GetString()
 
-	return Rets{strings.ToLower(s)}, nil
+	return Vals{strings.ToLower(s)}, nil
 }
 
-func string_match(args Args) (r Rets, err error) {
+func string_match(args Args) (r Vals, err error) {
 	s, p := args.GetString(), args.GetString()
 	i := int(args.GetNumber(1))
 
 	return stringFindAux(s, p, i, false, false)
 }
 
-func string_rep(args Args) (r Rets, err error) {
+func string_rep(args Args) (r Vals, err error) {
 	s := args.GetString()
 	n := args.GetNumber()
 
-	return Rets{strings.Repeat(s, max(int(n), 0))}, nil
+	return Vals{strings.Repeat(s, max(int(n), 0))}, nil
 }
 
-func string_reverse(args Args) (r Rets, err error) {
+func string_reverse(args Args) (r Vals, err error) {
 	s := args.GetString()
 
 	rs := []byte(s) // []rune(s)
 	for i, j := 0, len(rs)-1; i < j; i, j = i+1, j-1 {
 		rs[i], rs[j] = rs[j], rs[i]
 	}
-	return Rets{string(rs)}, nil
+	return Vals{string(rs)}, nil
 }
 
-func string_split(args Args) (r Rets, err error) {
+func string_split(args Args) (r Vals, err error) {
 	s := args.GetString()
 	separator := args.GetString(",")
 
 	split := strings.Split(s, separator)
 
-	// can't copy (or copy()) []string to []any
-	a := make([]any, len(split))
+	// can't copy (or copy()) []string to Vals
+	a := make(Vals, len(split))
 	for i, v := range split {
 		a[i] = v
 	}
 
-	return Rets{&Table{Array: a}}, nil
+	return Vals{&Table{Array: a}}, nil
 }
 
-func string_sub(args Args) (r Rets, err error) {
+func string_sub(args Args) (r Vals, err error) {
 	s := args.GetString()
 	i, j := args.GetNumber(1), args.GetNumber(-1)
 
@@ -448,15 +448,15 @@ func string_sub(args Args) (r Rets, err error) {
 	start, end = max(start, 1), min(end, l)
 
 	if end < start {
-		return Rets{""}, nil
+		return Vals{""}, nil
 	}
-	return Rets{s[start-1 : end]}, nil
+	return Vals{s[start-1 : end]}, nil
 }
 
-func string_upper(args Args) (r Rets, err error) {
+func string_upper(args Args) (r Vals, err error) {
 	s := args.GetString()
 
-	return Rets{strings.ToUpper(s)}, nil
+	return Vals{strings.ToUpper(s)}, nil
 }
 
 var libstring = NewLib([]Function{
