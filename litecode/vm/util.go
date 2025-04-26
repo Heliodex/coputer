@@ -17,7 +17,7 @@ func luauCompile(path string, o uint8) (bytecode []byte, err error) {
 
 // simpler compilation, deserialisation, and loading API
 type compiled struct {
-	deserialised
+	deserialised[Val]
 	filepath       string
 	dbgpath        string
 	compiler       *Compiler
@@ -25,7 +25,7 @@ type compiled struct {
 }
 
 type deserpath struct {
-	deserialised
+	deserialised[Val]
 	dbgpath string
 }
 

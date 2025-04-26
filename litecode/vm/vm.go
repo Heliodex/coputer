@@ -632,9 +632,9 @@ type proto[T Val] struct {
 	lineinfoenabled               bool
 }
 
-type deserialised struct {
-	mainProto proto[Val]
-	protoList []proto[Val]
+type deserialised[T Val] struct {
+	mainProto proto[T]
+	protoList []proto[T]
 }
 
 func checkkmode(i *inst, k []Val) {
@@ -902,15 +902,15 @@ func readProto(stringList []string, s *stream) (p proto[Val], err error) {
 	return
 }
 
-func deserialise(data []byte) (deserialised, error) {
+func deserialise(data []byte) (deserialised[Val], error) {
 	s := &stream{data: data}
 
 	if luauVersion := s.rByte(); luauVersion == 0 {
-		return deserialised{}, errors.New("the provided bytecode is an error message")
+		return deserialised[Val]{}, errors.New("the provided bytecode is an error message")
 	} else if luauVersion != 6 {
-		return deserialised{}, errors.New("the version of the provided bytecode is unsupported")
+		return deserialised[Val]{}, errors.New("the version of the provided bytecode is unsupported")
 	} else if s.rByte() != 3 { // types version
-		return deserialised{}, errors.New("the types version of the provided bytecode is unsupported")
+		return deserialised[Val]{}, errors.New("the types version of the provided bytecode is unsupported")
 	}
 
 	stringCount := s.rVarInt()
@@ -929,7 +929,7 @@ func deserialise(data []byte) (deserialised, error) {
 	for i := range protoCount {
 		p, err := readProto(stringList, s)
 		if err != nil {
-			return deserialised{}, err
+			return deserialised[Val]{}, err
 		}
 		protoList[i] = p
 	}
@@ -937,18 +937,18 @@ func deserialise(data []byte) (deserialised, error) {
 	mainProto := protoList[s.rVarInt()]
 	mainProto.dbgname = "(main)"
 
-	return deserialised{mainProto, protoList}, s.CheckEnd()
+	return deserialised[Val]{mainProto, protoList}, s.CheckEnd()
 }
 
-type iterator struct {
+type iterator[T Val] struct {
 	args    chan *Table
-	resume  chan *[]Val
+	resume  chan *[]T
 	running bool
 }
 
-type upval struct {
-	value   Val
-	store   []Val
+type upval[T Val] struct {
+	value   T
+	store   []T
 	index   int
 	selfRef bool
 }
@@ -1239,16 +1239,16 @@ func gettable(index, v Val) (Val, error) {
 	return nil, invalidIndex(TypeOf(v), index)
 }
 
-type toWrap struct {
-	proto        proto[Val]
-	upvals       []*upval
+type toWrap[T Val] struct {
+	proto        proto[T]
+	upvals       []*upval[T]
 	alive        *bool
-	protolist    []proto[Val]
+	protolist    []proto[T]
 	env          Env
-	requireCache map[string][]Val
+	requireCache map[string][]T
 }
 
-func iterate(c *iterator) {
+func iterate(c *iterator[Val]) {
 	args := *<-c.args
 	c.args = nil // we're done here
 	c.running = true
@@ -1266,9 +1266,9 @@ func iterate(c *iterator) {
 	c.resume <- nil
 }
 
-func execute(towrap toWrap, stack *[]Val, co *Coroutine[Val], vargsList []Val, vargsLen uint8) (r []Val, err error) {
+func execute(towrap toWrap[Val], stack *[]Val, co *Coroutine[Val], vargsList []Val, vargsLen uint8) (r []Val, err error) {
 	p, upvals := towrap.proto, towrap.upvals
-	pc, top, openUpvals, generalisedIterators := 1, -1, []*upval{}, map[inst]*iterator{}
+	pc, top, openUpvals, generalisedIterators := 1, -1, []*upval[Val]{}, map[inst]*iterator[Val]{}
 
 	moveStack := func(src []Val, b, t int) {
 		for t+b >= len(*stack) { // graah stack expansion
@@ -1478,7 +1478,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine[Val], vargsList []Val, v
 			newProto := towrap.protolist[p.protos[i.D]-1]
 
 			nups := newProto.nups
-			towrap.upvals = make([]*upval, nups)
+			towrap.upvals = make([]*upval[Val], nups)
 
 			// wrap is reused for closures
 			towrap.proto = newProto
@@ -1490,7 +1490,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine[Val], vargsList []Val, v
 			for n := range nups {
 				switch pseudo := p.code[pc]; pseudo.A {
 				case 0: // -- value
-					uv := &upval{
+					uv := &upval[Val]{
 						value:   (*stack)[pseudo.B],
 						selfRef: true,
 					}
@@ -1504,13 +1504,13 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine[Val], vargsList []Val, v
 					// 	fmt.Printf("  [%d] = %v\n", si, sv)
 					// }
 
-					var prev *upval
+					var prev *upval[Val]
 					if index < len(openUpvals) {
 						prev = openUpvals[index]
 					}
 
 					if prev == nil {
-						prev = &upval{
+						prev = &upval[Val]{
 							store: *stack,
 							index: index,
 						}
@@ -2067,7 +2067,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine[Val], vargsList []Val, v
 			newProto := towrap.protolist[i.K.(uint32)]
 
 			nups := newProto.nups
-			towrap.upvals = make([]*upval, nups)
+			towrap.upvals = make([]*upval[Val], nups)
 
 			// reusing wrapping again bcause we're eco friendly
 			towrap.proto = newProto
@@ -2077,7 +2077,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine[Val], vargsList []Val, v
 			for i := range nups {
 				switch pseudo := p.code[pc]; pseudo.A {
 				case 0: // value
-					towrap.upvals[i] = &upval{
+					towrap.upvals[i] = &upval[Val]{
 						value:   (*stack)[pseudo.B],
 						selfRef: true,
 					}
@@ -2139,7 +2139,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine[Val], vargsList []Val, v
 				break
 			}
 
-			c := &iterator{
+			c := &iterator[Val]{
 				args:   make(chan *Table),
 				resume: make(chan *[]Val),
 			}
@@ -2206,7 +2206,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine[Val], vargsList []Val, v
 	return
 }
 
-func wrapclosure(towrap toWrap) Function[Val] {
+func wrapclosure(towrap toWrap[Val]) Function[Val] {
 	proto := towrap.proto
 
 	return fn("", func(co *Coroutine[Val], args ...Val) (r []Val, err error) {
@@ -2239,9 +2239,9 @@ func wrapclosure(towrap toWrap) Function[Val] {
 func loadmodule(m compiled, env Env, requireCache map[string][]Val, requireHistory []string, args ProgramArgs) (co Coroutine[Val], cancel func()) {
 	alive := true
 
-	towrap := toWrap{
+	towrap := toWrap[Val]{
 		m.mainProto,
-		[]*upval{},
+		[]*upval[Val]{},
 		&alive,
 		m.protoList,
 		env,
