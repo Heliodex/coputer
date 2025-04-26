@@ -44,7 +44,7 @@ func litecode(t *testing.T, f string, c Compiler) (string, time.Duration) {
 	startTime := time.Now()
 	_, err = co.Resume()
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 	endTime := time.Now()
 

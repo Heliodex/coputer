@@ -64,7 +64,7 @@ func coroutine_wrap(args Args) (r []Val, err error) {
 
 	co := createCoroutine(f, args.Co)
 
-	return []Val{fn("wrap", func(_ *Coroutine, args ...Val) (r []Val, err error) {
+	return []Val{fn("wrap", func(_ *Coroutine[Val], args ...Val) (r []Val, err error) {
 		if co.status == CoDead {
 			return nil, errors.New("cannot resume dead coroutine") // ought to be better (return false, error message) if we can figure out how
 		} else if co.status == CoRunning {
@@ -83,13 +83,13 @@ func coroutine_yield(args Args) (r []Val, err error) {
 	}
 
 	// fmt.Println("C.Y yielding")
-	co.yield <- yield{rets: args.List}
+	co.yield <- yield[Val]{rets: args.List}
 	// fmt.Println("C.Y yielded", "waiting for resume")
 	return <-co.resume, nil
 	// fmt.Println("C.Y resumed")
 }
 
-var libcoroutine = NewLib([]Function{
+var libcoroutine = NewLib([]Function[Val]{
 	MakeFn("close", coroutine_close),
 	MakeFn("create", coroutine_create),
 	MakeFn("isyieldable", coroutine_isyieldable),

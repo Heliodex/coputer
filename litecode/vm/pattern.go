@@ -167,7 +167,7 @@ func matchbalance(s, p string, si, pi int) (int, error) {
 	return -1, nil // string ends out of balance
 }
 
-func pushCapture(caps *captures, s string, start, end, i int) (any, error) {
+func pushCapture(caps *captures, s string, start, end, i int) (Val, error) {
 	// fmt.Println("    push", start, end, i, caps)
 
 	if i >= caps.level {

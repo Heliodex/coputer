@@ -279,7 +279,7 @@ func vector_min(args Args) (r []Val, err error) {
 	return []Val{result}, nil
 }
 
-var libvector = NewLib([]Function{
+var libvector = NewLib([]Function[Val]{
 	MakeFn("create", vector_create),
 	MakeFn("magnitude", vector_magnitude),
 	MakeFn("normalize", vector_normalize),

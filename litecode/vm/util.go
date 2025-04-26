@@ -98,6 +98,6 @@ func (c Compiler) Compile(path string) (p compiled, err error) {
 	return
 }
 
-func (p compiled) Load(env Env, args ProgramArgs) (co Coroutine, cancel func()) {
+func (p compiled) Load(env Env, args ProgramArgs) (co Coroutine[Val], cancel func()) {
 	return loadmodule(p, env, map[string][]Val{}, nil, args)
 }

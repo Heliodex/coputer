@@ -556,6 +556,7 @@ func global_type(args Args) (r []Val, err error) {
 
 	t, ok := luautype[TypeOf(obj)]
 	if !ok {
+		fmt.Println("userdata generated", TypeOf(obj))
 		return []Val{"userdata"}, nil
 	}
 	return []Val{t}, nil

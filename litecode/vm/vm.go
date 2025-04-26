@@ -23,7 +23,7 @@ func arrayKey(k Val) (int, bool) {
 	return ik, float64(ik) == fk && 1 <= ik
 }
 
-func mapKeySort(a, b Val) int {
+func mapKeySort[T Val](a, b T) int {
 	// It doesn't have to be pretty for map keys
 	// (in fact, the reference implementation of Luau has a rather insane sort order)
 	// It just has to be DETERMINISTIC
@@ -38,9 +38,9 @@ func iterArray(array []Val, y func(Val, Val) bool) {
 	}
 }
 
-func iterHash(hash map[Val]Val, y func(Val, Val) bool) {
+func iterHash[T comparableVal](hash valMap[T], y func(T, T) bool) {
 	// order keys in map
-	keys := make([]Val, 0, len(hash))
+	keys := make([]T, 0, len(hash))
 	for k := range hash {
 		keys = append(keys, k)
 	}
@@ -65,7 +65,7 @@ func iterHash(hash map[Val]Val, y func(Val, Val) bool) {
 // Table represents a Luau table, with resizeable array and hash parts. Luau type `table`
 type Table struct {
 	Array    []Val
-	Hash     map[Val]Val
+	Hash     valMap[Val]
 	readonly bool
 }
 
@@ -83,7 +83,7 @@ func (t *Table) SetHash(k, v Val) {
 		if v == nil {
 			return
 		}
-		t.Hash = map[Val]Val{k: v}
+		t.Hash = valMap[Val]{k: v}
 	} else if v == nil {
 		delete(t.Hash, k)
 	} else {
@@ -304,14 +304,14 @@ var opList = [83]opInfo{
 // Functions and Tables are used as pointers normally, as they need to be hashed
 
 // Function represents a native or wrapped Luau function. Luau type `function`
-type Function struct {
+type Function[T Val] struct {
 	// Run is the native body of the function. Its coroutine argument is used to run the function in a coroutine.
-	Run  *func(co *Coroutine, args ...Val) (r []Val, err error)
+	Run  *func(co *Coroutine[T], args ...T) (r []T, err error)
 	name string
 }
 
-func fn(name string, f func(co *Coroutine, args ...Val) (r []Val, err error)) Function {
-	return Function{&f, name}
+func fn[T Val](name string, f func(co *Coroutine[T], args ...T) (r []T, err error)) Function[T] {
+	return Function[T]{&f, name}
 }
 
 // Status represents the status of a coroutine.
@@ -325,8 +325,8 @@ const (
 	CoDead
 )
 
-type yield struct {
-	rets []Val
+type yield[T Val] struct {
+	rets []T
 	err  error
 }
 
@@ -339,10 +339,10 @@ type debugging struct {
 }
 
 // Env represents a global Luau environment.
-type Env map[Val]Val
+type Env valMap[Val]
 
 // AddFn adds a function to the environment.
-func (e *Env) AddFn(f Function) {
+func (e *Env) AddFn(f Function[Val]) {
 	if *e == nil {
 		*e = Env{f.name: f}
 	} else {
@@ -466,13 +466,13 @@ func (r1 WebRets) Equal(r2 WebRets) error {
 }
 
 // Coroutine represents a Luau coroutine, including the main coroutine. Luau type `thread`
-type Coroutine struct {
-	body              Function
+type Coroutine[T Val] struct {
+	body              Function[T]
 	env               Env
 	filepath, dbgpath string   // actually does well here
 	requireHistory    []string // prevents cyclic module dependencies
-	yield             chan yield
-	resume            chan []Val
+	yield             chan yield[T]
+	resume            chan []T
 	dbg               *debugging
 	compiler          *Compiler
 	status            Status
@@ -505,44 +505,44 @@ func (e *Error) Error() string {
 	return eb.String()
 }
 
-func createCoroutine(body Function, currentCo *Coroutine) *Coroutine {
+func createCoroutine(body Function[Val], currentCo *Coroutine[Val]) *Coroutine[Val] {
 	// first time i actually ran into the channel axiom issues
-	return &Coroutine{
+	return &Coroutine[Val]{
 		body:     body,
 		filepath: currentCo.filepath,
 		dbgpath:  currentCo.dbgpath,
-		yield:    make(chan yield, 1),
+		yield:    make(chan yield[Val], 1),
 		resume:   make(chan []Val, 1),
 	}
 }
 
 // Error yields an error to the coroutine, killing it shortly after.
-func (co *Coroutine) Error(err error) {
-	co.yield <- yield{nil, &Error{co.dbg, co.dbgpath, err}}
+func (co *Coroutine[Val]) Error(err error) {
+	co.yield <- yield[Val]{nil, &Error{co.dbg, co.dbgpath, err}}
 
 	// ostensibly blocks forever, but the coroutine is dead/to be killed very soon so it doesn't matter
 	select {}
 }
 
-func startCoroutine(co *Coroutine, args []Val) {
+func startCoroutine[T Val](co *Coroutine[T], args []T) {
 	// fmt.Println(" RG calling coroutine body with", args)
 	r, err := (*co.body.Run)(co, args...)
 
 	// fmt.Println("RG  yielding", r)
-	co.yield <- yield{r, err}
+	co.yield <- yield[T]{r, err}
 	// fmt.Println("RG  yielded", r)
 
 	co.status = CoDead
 	if len(co.yield) == 0 {
 		// finish up
 		// fmt.Println("RG  yielding, finishing up")
-		co.yield <- yield{}
+		co.yield <- yield[T]{}
 		// fmt.Println("RG  yielding, finished up")
 	}
 }
 
 // Resume executes the coroutine with the provided arguments, starting it with the given arguments if it is not already started, otherwise resuming it and passing the argument values back to the yielded function.
-func (co *Coroutine) Resume(args ...Val) (r []Val, err error) {
+func (co *Coroutine[T]) Resume(args ...T) (r []T, err error) {
 	if !co.started {
 		// fmt.Println("RM  starting", args)
 		co.started = true
@@ -567,7 +567,7 @@ func vectorCtor(x, y, z, w float32) Vector {
 	return Vector{x, y, z, w}
 }
 
-func namecallHandler(co *Coroutine, kv string, stack *[]Val, c1, c2 int) (ok bool, retList []Val, err error) {
+func namecallHandler(co *Coroutine[Val], kv string, stack *[]Val, c1, c2 int) (ok bool, retList []Val, err error) {
 	switch kv {
 	case "format":
 		str := (*stack)[c1].(string)
@@ -957,7 +957,11 @@ func truthy(v Val) bool {
 	return v != nil && v != false
 }
 
-const typeprefix = "vm."
+const (
+	typeprefix = "vm."
+	// VILE
+	urlprefix = "github.com/Heliodex/coputer/litecode/"
+)
 
 var luautype = map[string]string{
 	"nil":                          "nil",
@@ -965,8 +969,8 @@ var luautype = map[string]string{
 	"string":                       "string",
 	"bool":                         "boolean",
 	"*" + typeprefix + "Table":     "table",
-	typeprefix + "Function":        "function",
-	"*" + typeprefix + "Coroutine": "thread",
+	typeprefix + "Function[" + urlprefix + typeprefix + "Val]":        "function",
+	"*" + typeprefix + "Coroutine[" + urlprefix + typeprefix + "Val]": "thread",
 	"*" + typeprefix + "Buffer":    "buffer",
 	typeprefix + "Vector":          "vector",
 }
@@ -999,10 +1003,10 @@ func invalidConcat(t1, t2 string) error {
 	return fmt.Errorf("attempt to concatenate %s with %s", luautype[t1], luautype[t2])
 }
 
-func invalidIndex(ta string, val any) error {
-	tb := luautype[TypeOf(val)]
+func invalidIndex(ta string, v Val) error {
+	tb := luautype[TypeOf(v)]
 	if tb == "string" {
-		tb = fmt.Sprintf("'%v'", val)
+		tb = fmt.Sprintf("'%v'", v)
 	}
 
 	return fmt.Errorf("attempt to index %v with %v", luautype[ta], tb)
@@ -1262,7 +1266,7 @@ func iterate(c *iterator) {
 	c.resume <- nil
 }
 
-func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsLen uint8) (r []Val, err error) {
+func execute(towrap toWrap, stack *[]Val, co *Coroutine[Val], vargsList []Val, vargsLen uint8) (r []Val, err error) {
 	p, upvals := towrap.proto, towrap.upvals
 	pc, top, openUpvals, generalisedIterators := 1, -1, []*upval{}, map[inst]*iterator{}
 
@@ -1595,7 +1599,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			// fmt.Println(A, B, C, (*stack)[A], params)
 
 			f := (*stack)[A]
-			fn, ok := f.(Function)
+			fn, ok := f.(Function[Val])
 			// fmt.Println("calling with", (*stack)[A+1:][:params])
 			if !ok {
 				return nil, uncallableType(TypeOf(f))
@@ -1631,7 +1635,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 						// only the last return value (weird luau behaviour...)
 						ret := reqrets[len(reqrets)-1]
 						switch ret.(type) {
-						case *Table, Function:
+						case *Table, Function[Val]:
 						default:
 							return nil, errors.New("module must return a table or function")
 						}
@@ -1916,7 +1920,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 		case 54: // DUPTABLE
 			pc++
 			serialised := &Table{}
-			fmt.Println("TEMPLATING")
+			// fmt.Println("TEMPLATING")
 			for _, id := range i.K.([]uint32) { // template
 				if err := serialised.Set(p.k[id], nil); err != nil { // constants
 					return nil, err
@@ -1992,7 +1996,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			top = A + 6
 
 			switch it := (*stack)[A].(type) {
-			case Function:
+			case Function[Val]:
 				// fmt.Println("IT func", fn, (*stack)[A+1], (*stack)[A+2])
 				vals, err := (*it.Run)(co, (*stack)[A+1], (*stack)[A+2])
 				if err != nil {
@@ -2038,7 +2042,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 				return nil, fmt.Errorf("attempt to iterate over a %s value", TypeOf(it))
 			}
 		case 59, 61: // FORGPREP_INEXT, FORGPREP_NEXT
-			if _, ok := (*stack)[i.A].(Function); !ok {
+			if _, ok := (*stack)[i.A].(Function[Val]); !ok {
 				return nil, fmt.Errorf("attempt to iterate over a %s value", TypeOf((*stack)[i.A])) // -- encountered non-function value
 			}
 			pc += i.D + 1
@@ -2126,7 +2130,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			pc += 2 // adjust for aux
 		case 76: // FORGPREP
 			pc += i.D + 1
-			if _, ok := (*stack)[i.A].(Function); ok {
+			if _, ok := (*stack)[i.A].(Function[Val]); ok {
 				break
 			}
 
@@ -2202,10 +2206,10 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 	return
 }
 
-func wrapclosure(towrap toWrap) Function {
+func wrapclosure(towrap toWrap) Function[Val] {
 	proto := towrap.proto
 
-	return fn("", func(co *Coroutine, args ...Val) (r []Val, err error) {
+	return fn("", func(co *Coroutine[Val], args ...Val) (r []Val, err error) {
 		maxs, np := proto.maxstacksize, proto.numparams // maxs 2 lel
 
 		la := uint8(len(args)) // we can't have more than 255 args anyway right?
@@ -2232,7 +2236,7 @@ func wrapclosure(towrap toWrap) Function {
 	})
 }
 
-func loadmodule(m compiled, env Env, requireCache map[string][]Val, requireHistory []string, args ProgramArgs) (co Coroutine, cancel func()) {
+func loadmodule(m compiled, env Env, requireCache map[string][]Val, requireHistory []string, args ProgramArgs) (co Coroutine[Val], cancel func()) {
 	alive := true
 
 	towrap := toWrap{
@@ -2244,13 +2248,13 @@ func loadmodule(m compiled, env Env, requireCache map[string][]Val, requireHisto
 		requireCache,
 	}
 
-	return Coroutine{
+	return Coroutine[Val]{
 		body:           wrapclosure(towrap),
 		env:            env,
 		filepath:       m.filepath,
 		dbgpath:        m.dbgpath,
 		requireHistory: requireHistory,
-		yield:          make(chan yield, 1),
+		yield:          make(chan yield[Val], 1),
 		resume:         make(chan []Val, 1),
 		dbg:            &debugging{opcode: 255},
 		compiler:       m.compiler,

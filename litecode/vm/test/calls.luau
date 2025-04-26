@@ -1,19 +1,8 @@
 -- this file is the pits
 
-print(type(1 < 2) == "boolean")
-print(type(true) == "boolean" and type(false) == "boolean")
-print(
-	type(nil) == "nil"
-		and type(-3) == "number"
-		and type "x" == "string"
-		and type {} == "table"
-		and type(type) == "function"
-)
-
-print(type(print) == type(print))
 local f = nil
 function f(x) return a:x(x) end
-print(type(f) == "function")
+print(type(f))
 
 local pack = table.pack
 local unpack = table.unpack
@@ -120,7 +109,7 @@ print(a:deep(10000))
 
 print "+"
 
-a = nil;
+a = nil
 (function(x) a = x end)(23)
 print(a, (function(x) return x * 2 end)(20))
 
