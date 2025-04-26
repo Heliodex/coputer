@@ -25,28 +25,28 @@ select: this function's kinda stupid
 typeof: not much use without metatables
 */
 
-func ipairs_iter(args Args) (r Vals, err error) {
+func ipairs_iter(args Args) (r []Val, err error) {
 	a := args.GetTable()
 	i := args.GetNumber() + 1
 
 	if a.Array == nil || int(i) > len(a.Array) {
 		return
 	} else if v := a.Array[int(i)-1]; v != nil {
-		return Vals{i, v}, nil
+		return []Val{i, v}, nil
 	}
 	return // would prefer nil, nil but whateverrrrr
 }
 
 var ipairs = MakeFn("ipairs", ipairs_iter)
 
-func global_ipairs(args Args) (r Vals, err error) {
+func global_ipairs(args Args) (r []Val, err error) {
 	a := args.GetTable()
 
-	return Vals{ipairs, a, float64(0)}, nil
+	return []Val{ipairs, a, float64(0)}, nil
 }
 
 // The call next(t, k), where k is a key of the table t, returns a next key in the table, in an arbitrary order. (It returns also the value associated with that key, as a second return value.) The call next(t, nil) returns a first pair. When there are no more pairs, next returns nil.
-func global_next(args Args) (r Vals, err error) {
+func global_next(args Args) (r []Val, err error) {
 	t := args.GetTable()
 	fk := args.GetAny(nil)
 
@@ -56,7 +56,7 @@ func global_next(args Args) (r Vals, err error) {
 
 		k, v, ok := next()
 		if ok {
-			return Vals{k, v}, nil
+			return []Val{k, v}, nil
 		}
 	}
 
@@ -75,33 +75,33 @@ func global_next(args Args) (r Vals, err error) {
 		if !ok {
 			break
 		}
-		return Vals{k, v}, nil
+		return []Val{k, v}, nil
 	}
 
-	return Vals{nil}, nil // one nil?
+	return []Val{nil}, nil // one nil?
 }
 
-func global_pairs(args Args) (r Vals, err error) {
+func global_pairs(args Args) (r []Val, err error) {
 	t := args.GetTable()
 
-	return Vals{MakeFn("next", global_next), t}, nil
+	return []Val{MakeFn("next", global_next), t}, nil
 }
 
 const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-func global_tonumber(args Args) (r Vals, err error) {
+func global_tonumber(args Args) (r []Val, err error) {
 	value := args.GetAny()
 	radix := uint64(args.GetNumber(10))
 
 	str, ok := value.(string)
 	if !ok || radix < 2 || radix > 36 {
-		return Vals{nil}, nil
+		return []Val{nil}, nil
 		// panic("base out of range") // invalid argument #2
 	}
 
 	if radix == 10 {
 		if f, err := strconv.ParseFloat(str, 64); err == nil {
-			return Vals{f}, nil
+			return []Val{f}, nil
 		}
 	}
 
@@ -131,15 +131,15 @@ func global_tonumber(args Args) (r Vals, err error) {
 		n *= radix
 		index := strings.IndexRune(radixChars, c)
 		if index == -1 {
-			return Vals{nil}, nil
+			return []Val{nil}, nil
 		}
 		n += uint64(index)
 	}
 
 	if negative {
-		return Vals{float64(-n)}, nil
+		return []Val{float64(-n)}, nil
 	}
-	return Vals{float64(n)}, nil
+	return []Val{float64(n)}, nil
 }
 
 const (
@@ -545,20 +545,20 @@ func ToString(a Val) string {
 	return fmt.Sprint(a)
 }
 
-func global_tostring(args Args) (r Vals, err error) {
+func global_tostring(args Args) (r []Val, err error) {
 	value := args.GetAny()
 
-	return Vals{ToString(value)}, nil
+	return []Val{ToString(value)}, nil
 }
 
-func global_type(args Args) (r Vals, err error) {
+func global_type(args Args) (r []Val, err error) {
 	obj := args.GetAny()
 
 	t, ok := luautype[TypeOf(obj)]
 	if !ok {
-		return Vals{"userdata"}, nil
+		return []Val{"userdata"}, nil
 	}
-	return Vals{t}, nil
+	return []Val{t}, nil
 }
 
 func isAbsolutePath(p string) bool {
@@ -570,7 +570,7 @@ func hasValidPrefix(path string) bool {
 	return path[:2] == "./" || path[:3] == "../"
 }
 
-func global_require(args Args) (r Vals, err error) {
+func global_require(args Args) (r []Val, err error) {
 	name := args.GetString()
 	if isAbsolutePath(name) {
 		return nil, invalidArg(1, "require", "cannot require an absolute path")
@@ -608,5 +608,5 @@ func global_require(args Args) (r Vals, err error) {
 	p.requireHistory = append(rh, fp)
 
 	// this is where we take it to the top babbyyyyy (with the same as parent global env)
-	return Vals{p}, nil
+	return []Val{p}, nil
 }

@@ -30,7 +30,7 @@ func mapKeySort(a, b Val) int {
 	return strings.Compare(fmt.Sprint(a), fmt.Sprint(b))
 }
 
-func iterArray(array Vals, y func(Val, Val) bool) {
+func iterArray(array []Val, y func(Val, Val) bool) {
 	for i, v := range array {
 		if v != nil && !y(float64(i+1), v) {
 			return
@@ -40,7 +40,7 @@ func iterArray(array Vals, y func(Val, Val) bool) {
 
 func iterHash(hash map[Val]Val, y func(Val, Val) bool) {
 	// order keys in map
-	keys := make(Vals, 0, len(hash))
+	keys := make([]Val, 0, len(hash))
 	for k := range hash {
 		keys = append(keys, k)
 	}
@@ -64,7 +64,7 @@ func iterHash(hash map[Val]Val, y func(Val, Val) bool) {
 
 // Table represents a Luau table, with resizeable array and hash parts. Luau type `table`
 type Table struct {
-	Array    Vals
+	Array    []Val
 	Hash     map[Val]Val
 	readonly bool
 }
@@ -95,7 +95,7 @@ func (t *Table) SetHash(k, v Val) {
 func (t *Table) SetArray(i int, v Val) {
 	if t.Array == nil {
 		if i == 1 {
-			t.Array = Vals{v}
+			t.Array = []Val{v}
 			return
 		}
 	} else if l := len(t.Array); i < l+1 {
@@ -306,11 +306,11 @@ var opList = [83]opInfo{
 // Function represents a native or wrapped Luau function. Luau type `function`
 type Function struct {
 	// Run is the native body of the function. Its coroutine argument is used to run the function in a coroutine.
-	Run  *func(co *Coroutine, args ...Val) (r Vals, err error)
+	Run  *func(co *Coroutine, args ...Val) (r []Val, err error)
 	name string
 }
 
-func fn(name string, f func(co *Coroutine, args ...Val) (r Vals, err error)) Function {
+func fn(name string, f func(co *Coroutine, args ...Val) (r []Val, err error)) Function {
 	return Function{&f, name}
 }
 
@@ -326,7 +326,7 @@ const (
 )
 
 type yield struct {
-	rets Vals
+	rets []Val
 	err  error
 }
 
@@ -472,7 +472,7 @@ type Coroutine struct {
 	filepath, dbgpath string   // actually does well here
 	requireHistory    []string // prevents cyclic module dependencies
 	yield             chan yield
-	resume            chan Vals
+	resume            chan []Val
 	dbg               *debugging
 	compiler          *Compiler
 	status            Status
@@ -512,7 +512,7 @@ func createCoroutine(body Function, currentCo *Coroutine) *Coroutine {
 		filepath: currentCo.filepath,
 		dbgpath:  currentCo.dbgpath,
 		yield:    make(chan yield, 1),
-		resume:   make(chan Vals, 1),
+		resume:   make(chan []Val, 1),
 	}
 }
 
@@ -524,7 +524,7 @@ func (co *Coroutine) Error(err error) {
 	select {}
 }
 
-func startCoroutine(co *Coroutine, args Vals) {
+func startCoroutine(co *Coroutine, args []Val) {
 	// fmt.Println(" RG calling coroutine body with", args)
 	r, err := (*co.body.Run)(co, args...)
 
@@ -542,7 +542,7 @@ func startCoroutine(co *Coroutine, args Vals) {
 }
 
 // Resume executes the coroutine with the provided arguments, starting it with the given arguments if it is not already started, otherwise resuming it and passing the argument values back to the yielded function.
-func (co *Coroutine) Resume(args ...Val) (r Vals, err error) {
+func (co *Coroutine) Resume(args ...Val) (r []Val, err error) {
 	if !co.started {
 		// fmt.Println("RM  starting", args)
 		co.started = true
@@ -567,7 +567,7 @@ func vectorCtor(x, y, z, w float32) Vector {
 	return Vector{x, y, z, w}
 }
 
-func namecallHandler(co *Coroutine, kv string, stack *Vals, c1, c2 int) (ok bool, retList Vals, err error) {
+func namecallHandler(co *Coroutine, kv string, stack *[]Val, c1, c2 int) (ok bool, retList []Val, err error) {
 	switch kv {
 	case "format":
 		str := (*stack)[c1].(string)
@@ -577,7 +577,7 @@ func namecallHandler(co *Coroutine, kv string, stack *Vals, c1, c2 int) (ok bool
 		if err != nil {
 			return false, nil, err
 		}
-		return true, Vals{f}, nil
+		return true, []Val{f}, nil
 	}
 	return
 }
@@ -622,7 +622,7 @@ type inst struct {
 
 type proto struct {
 	dbgname              string
-	k                    Vals
+	k                    []Val
 	code                 []*inst
 	instlineinfo, protos []uint32
 	dbgcode              []uint8
@@ -637,7 +637,7 @@ type deserialised struct {
 	protoList []proto
 }
 
-func checkkmode(i *inst, k Vals) {
+func checkkmode(i *inst, k []Val) {
 	switch i.kMode {
 	case 1: // AUX
 		if i.aux < len(k) { // sometimes huge for some reason
@@ -806,7 +806,7 @@ func readProto(stringList []string, s *stream) (p proto, err error) {
 	}
 
 	sizek := s.rVarInt()
-	p.k = make(Vals, sizek) // crazy
+	p.k = make([]Val, sizek) // crazy
 
 	for i := range sizek {
 		switch kt := s.rByte(); kt {
@@ -942,13 +942,13 @@ func deserialise(data []byte) (deserialised, error) {
 
 type iterator struct {
 	args    chan *Table
-	resume  chan *Vals
+	resume  chan *[]Val
 	running bool
 }
 
 type upval struct {
 	value   Val
-	store   Vals
+	store   []Val
 	index   int
 	selfRef bool
 }
@@ -1241,7 +1241,7 @@ type toWrap struct {
 	alive        *bool
 	protolist    []proto
 	env          Env
-	requireCache map[string]Vals
+	requireCache map[string][]Val
 }
 
 func iterate(c *iterator) {
@@ -1255,18 +1255,18 @@ func iterate(c *iterator) {
 			return
 		}
 		// fmt.Println("-2- yielding", i, v)
-		c.resume <- &Vals{i, v}
+		c.resume <- &[]Val{i, v}
 		// fmt.Println("-2- yielded!")
 	}
 
 	c.resume <- nil
 }
 
-func execute(towrap toWrap, stack *Vals, co *Coroutine, vargsList Vals, vargsLen uint8) (r Vals, err error) {
+func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsLen uint8) (r []Val, err error) {
 	p, upvals := towrap.proto, towrap.upvals
 	pc, top, openUpvals, generalisedIterators := 1, -1, []*upval{}, map[inst]*iterator{}
 
-	moveStack := func(src Vals, b, t int) {
+	moveStack := func(src []Val, b, t int) {
 		for t+b >= len(*stack) { // graah stack expansion
 			*stack = append(*stack, nil)
 		}
@@ -1636,7 +1636,7 @@ func execute(towrap toWrap, stack *Vals, co *Coroutine, vargsList Vals, vargsLen
 							return nil, errors.New("module must return a table or function")
 						}
 
-						retList = Vals{ret}
+						retList = []Val{ret}
 						towrap.requireCache[lc.filepath] = retList
 					}
 				}
@@ -2137,7 +2137,7 @@ func execute(towrap toWrap, stack *Vals, co *Coroutine, vargsList Vals, vargsLen
 
 			c := &iterator{
 				args:   make(chan *Table),
-				resume: make(chan *Vals),
+				resume: make(chan *[]Val),
 			}
 			go iterate(c)
 			// fmt.Println("SETTING GENITER", loopInst)
@@ -2205,15 +2205,15 @@ func execute(towrap toWrap, stack *Vals, co *Coroutine, vargsList Vals, vargsLen
 func wrapclosure(towrap toWrap) Function {
 	proto := towrap.proto
 
-	return fn("", func(co *Coroutine, args ...Val) (r Vals, err error) {
+	return fn("", func(co *Coroutine, args ...Val) (r []Val, err error) {
 		maxs, np := proto.maxstacksize, proto.numparams // maxs 2 lel
 
 		la := uint8(len(args)) // we can't have more than 255 args anyway right?
 		// fmt.Println("MAX STACK SIZE", maxs)
-		stack := make(Vals, maxs)
+		stack := make([]Val, maxs)
 		copy(stack, args[:min(np, la)])
 
-		var list Vals
+		var list []Val
 		if np < la {
 			list = args[np:]
 		}
@@ -2232,7 +2232,7 @@ func wrapclosure(towrap toWrap) Function {
 	})
 }
 
-func loadmodule(m compiled, env Env, requireCache map[string]Vals, requireHistory []string, args ProgramArgs) (co Coroutine, cancel func()) {
+func loadmodule(m compiled, env Env, requireCache map[string][]Val, requireHistory []string, args ProgramArgs) (co Coroutine, cancel func()) {
 	alive := true
 
 	towrap := toWrap{
@@ -2251,7 +2251,7 @@ func loadmodule(m compiled, env Env, requireCache map[string]Vals, requireHistor
 		dbgpath:        m.dbgpath,
 		requireHistory: requireHistory,
 		yield:          make(chan yield, 1),
-		resume:         make(chan Vals, 1),
+		resume:         make(chan []Val, 1),
 		dbg:            &debugging{opcode: 255},
 		compiler:       m.compiler,
 		programArgs:    args,

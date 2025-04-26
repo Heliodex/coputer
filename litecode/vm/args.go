@@ -2,7 +2,7 @@ package vm
 
 import "errors"
 
-func args_web(args Args) (r Vals, err error) {
+func args_web(args Args) (r []Val, err error) {
 	pargs, ok := args.Co.programArgs.(WebArgs)
 	if !ok {
 		return nil, errors.New("web args only available in web mode")
@@ -34,7 +34,7 @@ func args_web(args Args) (r Vals, err error) {
 		readonly: true,
 	}
 
-	return Vals{webargs}, nil
+	return []Val{webargs}, nil
 }
 
 var libargs = NewLib([]Function{

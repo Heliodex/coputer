@@ -17,15 +17,10 @@ func invalidArg(i int, fn, msg string) error {
 	return fmt.Errorf("invalid argument #%d to '%s' (%s)", i, fn, msg)
 }
 
-
-
 //	type Val interface{
 //		 float64 | string | bool | *Table | Function | *Coroutine | *Buffer | Vector
 //	}
 type Val any
-
-// Vals represents the return values of a user-defined native function.
-type Vals []Val
 
 // Args represents the arguments passed to a user-defined native function.
 //
@@ -34,7 +29,7 @@ type Args struct {
 	// Co is the coroutine that the function is running.
 	Co *Coroutine
 	// List is the list of all arguments passed to the function.
-	List Vals
+	List []Val
 	name string
 	pos  int
 }
@@ -140,8 +135,8 @@ func NewLib(functions []Function, other ...map[string]Val) *Table {
 }
 
 // MakeFn creates a new function with a given name and body. Functions created by MakeFn can be added to a library using NewLib.
-func MakeFn(name string, f func(args Args) (r Vals, err error)) Function {
-	return fn(name, func(co *Coroutine, vargs ...Val) (r Vals, err error) {
+func MakeFn(name string, f func(args Args) (r []Val, err error)) Function {
+	return fn(name, func(co *Coroutine, vargs ...Val) (r []Val, err error) {
 		return f(Args{
 			Co:   co,
 			List: vargs,

@@ -22,17 +22,17 @@ func utf8_posrelat(pos, len int) int {
 	return len + pos + 1
 }
 
-func utf8_char(args Args) (r Vals, err error) {
+func utf8_char(args Args) (r []Val, err error) {
 	b := strings.Builder{}
 
 	for range args.List {
 		a := args.GetNumber()
 		b.WriteRune(rune(a))
 	}
-	return Vals{b.String()}, nil
+	return []Val{b.String()}, nil
 }
 
-func iter_aux(args Args) (cps Vals, err error) {
+func iter_aux(args Args) (cps []Val, err error) {
 	s := args.GetString()
 	n := args.GetNumber() - 1
 
@@ -53,18 +53,18 @@ func iter_aux(args Args) (cps Vals, err error) {
 	if r == utf8.RuneError {
 		return nil, errors.New("invalid UTF-8 code")
 	}
-	return Vals{float64(n + 1), float64(r)}, nil
+	return []Val{float64(n + 1), float64(r)}, nil
 }
 
-func utf8_codes(args Args) (r Vals, err error) {
+func utf8_codes(args Args) (r []Val, err error) {
 	str := args.GetString()
 
-	return Vals{MakeFn("codes", iter_aux), str, float64(0)}, nil
+	return []Val{MakeFn("codes", iter_aux), str, float64(0)}, nil
 }
 
 const int_max = int(^uint(0) >> 1)
 
-func utf8_codepoint(args Args) (cps Vals, err error) {
+func utf8_codepoint(args Args) (cps []Val, err error) {
 	s := args.GetString()
 	i := args.GetNumber(1)
 	j := args.GetNumber(i)
@@ -97,7 +97,7 @@ func utf8_codepoint(args Args) (cps Vals, err error) {
 }
 
 // roblox docs says this returns 1 number (incorrect)
-func utf8_len(args Args) (r Vals, err error) {
+func utf8_len(args Args) (r []Val, err error) {
 	s := args.GetString()
 	i := args.GetNumber(1)
 	j := args.GetNumber(-1)
@@ -107,10 +107,10 @@ func utf8_len(args Args) (r Vals, err error) {
 	sl := s[max(posi-1, 0):min(pose, len(s))]
 	n := utf8.RuneCountInString(sl)
 
-	return Vals{float64(n)}, nil
+	return []Val{float64(n)}, nil
 }
 
-func utf8_offset(args Args) (r Vals, err error) {
+func utf8_offset(args Args) (r []Val, err error) {
 	s := args.GetString()
 	n := args.GetNumber()
 
@@ -128,7 +128,7 @@ func utf8_offset(args Args) (r Vals, err error) {
 		for posi > 0 && iscont(s[posi]) {
 			posi--
 		}
-		return Vals{float64(posi + 1)}, nil
+		return []Val{float64(posi + 1)}, nil
 	} else if iscont(s[posi]) {
 		return nil, errors.New("initial position is a continuation byte")
 	} else if n < 0 {
@@ -154,23 +154,23 @@ func utf8_offset(args Args) (r Vals, err error) {
 		// no such character
 		return
 	}
-	return Vals{float64(posi + 1)}, nil
+	return []Val{float64(posi + 1)}, nil
 }
 
 // func utf8_graphemes(args Args) (r Rets, err error) {
 // 	panic("not implemented")
 // }
 
-func utf8_nfcnormalize(args Args) (r Vals, err error) {
+func utf8_nfcnormalize(args Args) (r []Val, err error) {
 	s := args.GetString()
 
-	return Vals{norm.NFC.String(s)}, nil
+	return []Val{norm.NFC.String(s)}, nil
 }
 
-func utf8_nfdnormalize(args Args) (r Vals, err error) {
+func utf8_nfdnormalize(args Args) (r []Val, err error) {
 	s := args.GetString()
 
-	return Vals{norm.NFD.String(s)}, nil
+	return []Val{norm.NFD.String(s)}, nil
 }
 
 var libutf8 = NewLib([]Function{

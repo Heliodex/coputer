@@ -99,5 +99,5 @@ func (c Compiler) Compile(path string) (p compiled, err error) {
 }
 
 func (p compiled) Load(env Env, args ProgramArgs) (co Coroutine, cancel func()) {
-	return loadmodule(p, env, map[string]Vals{}, nil, args)
+	return loadmodule(p, env, map[string][]Val{}, nil, args)
 }

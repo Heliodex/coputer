@@ -193,7 +193,7 @@ func pushCapture(caps *captures, s string, start, end, i int) (any, error) {
 	return s[i:][:l], nil
 }
 
-func pushCaptures(caps *captures, s string, start, end int, find bool) (r Vals, err error) {
+func pushCaptures(caps *captures, s string, start, end int, find bool) (r []Val, err error) {
 	// fmt.Println("  PUSHING CAPS", start, end, caps)
 
 	nlevels := caps.level
@@ -207,7 +207,7 @@ func pushCaptures(caps *captures, s string, start, end int, find bool) (r Vals, 
 
 	// fmt.Println("  nlevels", nlevels)
 
-	r = make(Vals, nlevels)
+	r = make([]Val, nlevels)
 	for i := range nlevels {
 		if r[i], err = pushCapture(caps, s, start, end, i); err != nil {
 			return
@@ -547,12 +547,12 @@ func match(s, p string, caps *captures) (start, end int, err error) {
 	return -1, -1, nil
 }
 
-func stringFindAux(s, p string, i int, plain, find bool) (r Vals, err error) {
+func stringFindAux(s, p string, i int, plain, find bool) (r []Val, err error) {
 	ls := len(s)
 
 	init := max(1, string_posrelat(i, ls))
 	if init > ls+1 { // start after string's end?
-		return Vals{nil}, nil // cannot find anything
+		return []Val{nil}, nil // cannot find anything
 	}
 
 	// explicit request or no special characters?
@@ -561,9 +561,9 @@ func stringFindAux(s, p string, i int, plain, find bool) (r Vals, err error) {
 		// do a plain search, good-style
 		pos := strings.Index(is, p)
 		if pos == -1 {
-			return Vals{nil}, nil // one nil
+			return []Val{nil}, nil // one nil
 		}
-		return Vals{
+		return []Val{
 			float64(pos + init),
 			float64(pos + init + len(p) - 1),
 		}, nil
@@ -576,7 +576,7 @@ func stringFindAux(s, p string, i int, plain, find bool) (r Vals, err error) {
 	if err != nil {
 		return
 	} else if start == -1 {
-		return Vals{nil}, nil // not found
+		return []Val{nil}, nil // not found
 	}
 
 	// fmt.Println("DONE!", caps)
@@ -586,7 +586,7 @@ func stringFindAux(s, p string, i int, plain, find bool) (r Vals, err error) {
 
 	// fmt.Println("pushed", rs)
 
-	return append(Vals{
+	return append([]Val{
 		float64(start + init),
 		float64(end + init - 1),
 	}, r...), nil

@@ -23,7 +23,7 @@ func litecode(t *testing.T, f string, c Compiler) (string, time.Duration) {
 	}
 
 	b := strings.Builder{}
-	luau_print := MakeFn("print", func(args Args) (r Vals, err error) {
+	luau_print := MakeFn("print", func(args Args) (r []Val, err error) {
 		// b.WriteString(fmt.Sprint(args...))
 		for i, arg := range args.List {
 			b.WriteString(ToString(arg))
@@ -59,7 +59,7 @@ func litecodeE(t *testing.T, f string, c Compiler) (string, error) {
 	}
 
 	b := strings.Builder{}
-	luau_print := MakeFn("print", func(args Args) (r Vals, err error) {
+	luau_print := MakeFn("print", func(args Args) (r []Val, err error) {
 		// b.WriteString(fmt.Sprint(args...))
 		for i, arg := range args.List {
 			b.WriteString(ToString(arg))
