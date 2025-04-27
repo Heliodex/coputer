@@ -154,6 +154,55 @@ func format(form string, formatIndicator byte, sub any) string {
 	return fmt.Sprintf(f, sub)
 }
 
+func formatItem(args *Args, formatIndicator byte, form string, b *strings.Builder) error {
+	switch formatIndicator {
+	case 'c':
+		n := args.GetNumber()
+
+		b.WriteByte(byte(n))
+	case 'd', 'i':
+		n := args.GetNumber()
+
+		b.WriteString(format(form, 'd', int(n)))
+	case 'o', 'u', 'x', 'X':
+		n := args.GetNumber()
+
+		var v uint64
+		if n < 0 {
+			v = uint64(int64(n))
+		} else {
+			v = uint64(n)
+		}
+
+		if formatIndicator == 'u' {
+			formatIndicator = 'd'
+		}
+		b.WriteString(format(form, formatIndicator, v))
+	case 'e', 'E', 'f', 'g', 'G':
+		n := args.GetNumber()
+
+		format := fmt.Sprintf("%%%s%c", form, formatIndicator)
+		b.WriteString(fmt.Sprintf(format, n))
+	case 'q':
+		addquoted(*args, b)
+	case 's':
+		s := args.GetString()
+		// no precision and string is too long to be formatted, or no format necessary to begin with
+		if len(form) <= 1 || !strings.ContainsRune(form, '.') && len(s) > 100 {
+			b.WriteString(s)
+			break
+		}
+
+		b.WriteString(format(form, 's', s))
+	case '*':
+		//  %* is parsed above, so if we got here we must have a %...*
+		return errors.New("%* does not take a form")
+	default: // also treat cases `pnLlh'
+		return fmt.Errorf("invalid option '%%%c' to 'format'", formatIndicator)
+	}
+	return nil
+}
+
 func fmtstring(strfrmt string, args Args) (string, error) {
 	b := strings.Builder{}
 
@@ -185,51 +234,8 @@ func fmtstring(strfrmt string, args Args) (string, error) {
 		}
 		i += p + 1
 
-		switch formatIndicator {
-		case 'c':
-			n := args.GetNumber()
-
-			b.WriteByte(byte(n))
-		case 'd', 'i':
-			n := args.GetNumber()
-
-			b.WriteString(format(form, 'd', int(n)))
-		case 'o', 'u', 'x', 'X':
-			n := args.GetNumber()
-
-			var v uint64
-			if n < 0 {
-				v = uint64(int64(n))
-			} else {
-				v = uint64(n)
-			}
-
-			if formatIndicator == 'u' {
-				formatIndicator = 'd'
-			}
-			b.WriteString(format(form, formatIndicator, v))
-		case 'e', 'E', 'f', 'g', 'G':
-			n := args.GetNumber()
-
-			format := fmt.Sprintf("%%%s%c", form, formatIndicator)
-			b.WriteString(fmt.Sprintf(format, n))
-		case 'q':
-			addquoted(args, &b)
-			continue // skip adding the string at the end
-		case 's':
-			s := args.GetString()
-			// no precision and string is too long to be formatted, or no format necessary to begin with
-			if len(form) <= 1 || !strings.ContainsRune(form, '.') && len(s) > 100 {
-				b.WriteString(s)
-				break
-			}
-
-			b.WriteString(format(form, 's', s))
-		case '*':
-			//  %* is parsed above, so if we got here we must have a %...*
-			return "", errors.New("%* does not take a form")
-		default: // also treat cases `pnLlh'
-			return "", fmt.Errorf("invalid option '%%%c' to 'format'", formatIndicator)
+		if err := formatItem(&args, formatIndicator, form, &b); err != nil {
+			return "", err
 		}
 	}
 

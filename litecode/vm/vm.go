@@ -1291,6 +1291,255 @@ func iterate(c *iterator[Val]) {
 	c.resume <- nil
 }
 
+func newClosure(towrap toWrap, p proto, i inst, stack *[]Val, pc *int, openUpvals *[]*upval[Val], upvals []*upval[Val]) {
+	newProto := towrap.protolist[p.protos[i.D]-1]
+
+	nups := newProto.nups
+	towrap.upvals = make([]*upval[Val], nups)
+
+	// wrap is reused for closures
+	towrap.proto = newProto
+
+	(*stack)[i.A] = wrapclosure(towrap)
+	// fmt.Println("WRAPPING WITH", uvs)
+
+	// fmt.Println("nups", nups)
+	for n := range nups {
+		switch pseudo := p.code[*pc]; pseudo.A {
+		case 0: // -- value
+			uv := &upval[Val]{
+				value:   (*stack)[pseudo.B],
+				selfRef: true,
+			}
+			uv.store = nil
+
+			towrap.upvals[n] = uv
+		case 1: // -- reference
+			index := pseudo.B
+			// fmt.Println("index", index, len(openUpvals))
+			// for si, sv := range *stack {
+			// 	fmt.Printf("  [%d] = %v\n", si, sv)
+			// }
+
+			var prev *upval[Val]
+			if index < len(*openUpvals) {
+				prev = (*openUpvals)[index]
+			}
+
+			if prev == nil {
+				prev = &upval[Val]{
+					store: *stack,
+					index: index,
+				}
+
+				for len(*openUpvals) <= index {
+					*openUpvals = append(*openUpvals, nil)
+				}
+				(*openUpvals)[index] = prev
+			}
+
+			towrap.upvals[n] = prev
+			// fmt.Println("set upvalue", i, "to", prev)
+		case 2: // -- upvalue
+			// fmt.Println("moving", i, pseudo.B)
+			towrap.upvals[n] = upvals[pseudo.B]
+		}
+		*pc++
+	}
+}
+
+func namecall(pc *int, i *inst, stack *[]Val, p proto, top *int, co *Coroutine, op *uint8, moveStack func(src []Val, b int, t int)) (err error) {
+	A, B := i.A, i.B
+	kv := i.K.(string)
+	// fmt.Println("kv", kv)
+
+	(*stack)[A+1] = (*stack)[B]
+
+	// -- Special handling for native namecall behaviour
+	callInst := p.code[*pc]
+	callOp := callInst.opcode
+
+	// -- Copied from the CALL handler
+	callA, callB, callC := callInst.A, callInst.B, callInst.C
+
+	var params int
+	if callB == 0 {
+		params = *top - callA
+	} else {
+		params = callB - 1
+	}
+
+	ok, retList, err := namecallHandler(co, kv, stack, callA+1, callA+params)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		t := (*stack)[B].(*Table[Val, Val])
+
+		if t.Hash == nil {
+			(*stack)[A] = nil
+		} else {
+			(*stack)[A] = t.GetHash(kv)
+		}
+		return
+	}
+
+	*pc += 2 // -- adjust for aux, Skip next CALL instruction
+
+	*i = *callInst
+	*op = callOp
+
+	co.dbg.line = p.instlineinfo[*pc-1]
+	co.dbg.opcode = i.opcode
+
+	retCount := len(retList)
+
+	if callC == 0 {
+		*top = callA + retCount - 1
+	} else {
+		retCount = callC - 1
+	}
+
+	moveStack(retList, retCount, callA)
+	return
+}
+
+func call(i inst, top *int, stack *[]Val, co *Coroutine, towrap toWrap, moveStack func(src []Val, b int, t int)) error {
+	A, B, C := i.A, i.B, i.C
+
+	var params int
+	if B == 0 {
+		params = *top - A
+	} else {
+		params = B - 1
+	}
+
+	// fmt.Println(A, B, C, (*stack)[A], params)
+
+	f := (*stack)[A]
+	fn, ok := f.(Function)
+	// fmt.Println("calling with", (*stack)[A+1:][:params])
+	if !ok {
+		return uncallableType(TypeOf(f))
+	}
+
+	// fmt.Println("upvals1", len(upvals))
+	retList, err := (*fn.Run)(co, (*stack)[A+1:][:params]...) // not inclusive
+	// fmt.Println("upvals2", len(upvals))
+	if err != nil {
+		return err
+	}
+	// fmt.Println("resultt", retList)
+	retCount := len(retList)
+
+	// fmt.Println("COUNT", retCount)
+	if retCount == 1 { // requires should return only 1 value anyway
+		if lc, ok := retList[0].(compiled); ok {
+			// it's a require
+			// fmt.Println("REQUIRE", lc.filepath)
+
+			if c, ok := towrap.requireCache[lc.filepath]; ok {
+				retList = c[len(c)-1:]
+			} else {
+				// since environments only store global libraries etc, using the same env here should be fine??
+				c2, _ := loadmodule(lc, co.env, towrap.requireCache, lc.requireHistory, co.programArgs)
+				reqrets, err := c2.Resume()
+				if err != nil {
+					return err
+				}
+				if len(reqrets) == 0 {
+					return errors.New("module must return a value")
+				}
+
+				// only the last return value (weird luau behaviour...)
+				ret := reqrets[len(reqrets)-1]
+				switch ret.(type) {
+				case *Table[Val, Val], Function:
+				default:
+					return errors.New("module must return a table or function")
+				}
+
+				retList = []Val{ret}
+				towrap.requireCache[lc.filepath] = retList
+			}
+		}
+	}
+
+	// development checking lelell
+	for _, v := range retList {
+		switch v.(type) {
+		case int, uint, int8, uint8, int16, uint16, int32, uint32, int64, uint64:
+			panic(fmt.Sprintf("Hey idiot YOU RETURNED AN INTEGER INSTEAD OFA  FLOAT FROM YUR FUNCTION O MY GOD %v", v))
+		case float32:
+			panic(fmt.Sprintf("u  dun fukt up %v", v))
+		}
+	}
+
+	if C == 0 {
+		*top = A + retCount - 1
+	} else {
+		retCount = C - 1
+	}
+
+	moveStack(retList, retCount, A)
+	return nil
+}
+
+// for gloop lel
+func forgloop(i inst, top *int, stack *[]Val, co *Coroutine, moveStack func(src []Val, b int, t int), pc *int, generalisedIterators *map[inst]*iterator[Val]) (err error) {
+	A := i.A
+	res := i.K.(int)
+
+	*top = A + 6
+
+	switch it := (*stack)[A].(type) {
+	case Function:
+		// fmt.Println("IT func", fn, (*stack)[A+1], (*stack)[A+2])
+		vals, err := (*it.Run)(co, (*stack)[A+1], (*stack)[A+2])
+		if err != nil {
+			return err
+		}
+
+		moveStack(vals, res, A+3)
+		// fmt.Println(A+3, (*stack)[A+3])
+
+		if (*stack)[A+3] == nil {
+			*pc += 2
+			return nil
+		}
+
+		(*stack)[A+2] = (*stack)[A+3]
+		*pc += i.D + 1
+	case *Table[Val, Val]:
+		// fmt.Println("GETTING GENITER", typeOf(it))
+		iter := *(*generalisedIterators)[i]
+
+		if !iter.running {
+			// fmt.Println("-1- sending thru the wire")
+			// fmt.Println((*stack)[A+1], (*stack)[A+2]) // <nil> <nil>
+			iter.args <- it
+			// fmt.Println("-1- sent")
+		}
+
+		vals := <-iter.resume
+		// fmt.Println("-1- received!", vals)
+
+		if vals == nil {
+			delete((*generalisedIterators), i)
+			*pc += 2
+			return
+		}
+
+		moveStack(*vals, res, A+3)
+
+		(*stack)[A+2] = (*stack)[A+3]
+		*pc += i.D + 1
+	default:
+		return fmt.Errorf("attempt to iterate over a %s value", TypeOf(it))
+	}
+	return
+}
+
 func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsLen uint8) (r []Val, err error) {
 	p, upvals := towrap.proto, towrap.upvals
 	pc, top, openUpvals, generalisedIterators := 1, -1, []*upval[Val]{}, map[inst]*iterator[Val]{}
@@ -1334,7 +1583,6 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 		// }
 		// fmt.Printf("OP %-2d PC %-3d UV %d\n", op, pc+1, len(upvals))
 
-	mainswitch: // dw not using this 4 gotos
 		switch op {
 		case 0: // NOP
 			pc++
@@ -1415,9 +1663,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 				imp = towrap.env[k0]
 			}
 
-			count := i.KC
-
-			if count >= 2 {
+			if count := i.KC; count >= 2 {
 				t, ok := imp.(*Table[Val, Val])
 				if !ok {
 					return nil, invalidIndex("nil", i.K1)
@@ -1501,196 +1747,18 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 
 			pc++
 		case 19: // NEWCLOSURE
-			newProto := towrap.protolist[p.protos[i.D]-1]
-
-			nups := newProto.nups
-			towrap.upvals = make([]*upval[Val], nups)
-
-			// wrap is reused for closures
-			towrap.proto = newProto
-
-			(*stack)[i.A] = wrapclosure(towrap)
-			// fmt.Println("WRAPPING WITH", uvs)
-
-			// fmt.Println("nups", nups)
-			for n := range nups {
-				switch pseudo := p.code[pc]; pseudo.A {
-				case 0: // -- value
-					uv := &upval[Val]{
-						value:   (*stack)[pseudo.B],
-						selfRef: true,
-					}
-					uv.store = nil
-
-					towrap.upvals[n] = uv
-				case 1: // -- reference
-					index := pseudo.B
-					// fmt.Println("index", index, len(openUpvals))
-					// for si, sv := range *stack {
-					// 	fmt.Printf("  [%d] = %v\n", si, sv)
-					// }
-
-					var prev *upval[Val]
-					if index < len(openUpvals) {
-						prev = openUpvals[index]
-					}
-
-					if prev == nil {
-						prev = &upval[Val]{
-							store: *stack,
-							index: index,
-						}
-
-						for len(openUpvals) <= index {
-							openUpvals = append(openUpvals, nil)
-						}
-						openUpvals[index] = prev
-					}
-
-					towrap.upvals[n] = prev
-					// fmt.Println("set upvalue", i, "to", prev)
-				case 2: // -- upvalue
-					// fmt.Println("moving", i, pseudo.B)
-					towrap.upvals[n] = upvals[pseudo.B]
-				}
-				pc++
-			}
+			newClosure(towrap, p, i, stack, &pc, &openUpvals, upvals)
 			pc++
 		case 20: // NAMECALL
 			pc++
-			// fmt.Println("NAMECALL")
-
-			A, B := i.A, i.B
-			kv := i.K.(string)
-			// fmt.Println("kv", kv)
-
-			(*stack)[A+1] = (*stack)[B]
-
-			// -- Special handling for native namecall behaviour
-			callInst := p.code[pc]
-			callOp := callInst.opcode
-
-			// -- Copied from the CALL handler
-			callA, callB, callC := callInst.A, callInst.B, callInst.C
-
-			var params int
-			if callB == 0 {
-				params = top - callA
-			} else {
-				params = callB - 1
-			}
-
-			ok, retList, err := namecallHandler(co, kv, stack, callA+1, callA+params)
-			if err != nil {
+			if err := namecall(&pc, &i, stack, p, &top, co, &op, moveStack); err != nil {
 				return nil, err
 			}
-			if !ok {
-				t := (*stack)[B].(*Table[Val, Val])
-
-				if t.Hash == nil {
-					(*stack)[A] = nil
-				} else {
-					(*stack)[A] = t.GetHash(kv)
-				}
-				break
-			}
-
-			pc += 2 // -- adjust for aux, Skip next CALL instruction
-
-			i = *callInst
-			op = callOp
-
-			co.dbg.line = p.instlineinfo[pc-1]
-			co.dbg.opcode = i.opcode
-
-			retCount := len(retList)
-
-			if callC == 0 {
-				top = callA + retCount - 1
-			} else {
-				retCount = callC - 1
-			}
-
-			moveStack(retList, retCount, callA)
 		case 21: // CALL
 			pc++
-			A, B, C := i.A, i.B, i.C
-
-			var params int
-			if B == 0 {
-				params = top - A
-			} else {
-				params = B - 1
-			}
-
-			// fmt.Println(A, B, C, (*stack)[A], params)
-
-			f := (*stack)[A]
-			fn, ok := f.(Function)
-			// fmt.Println("calling with", (*stack)[A+1:][:params])
-			if !ok {
-				return nil, uncallableType(TypeOf(f))
-			}
-
-			// fmt.Println("upvals1", len(upvals))
-			retList, err := (*fn.Run)(co, (*stack)[A+1:][:params]...) // not inclusive
-			// fmt.Println("upvals2", len(upvals))
-			if err != nil {
+			if err := call(i, &top, stack, co, towrap, moveStack); err != nil {
 				return nil, err
 			}
-			// fmt.Println("resultt", retList)
-			retCount := len(retList)
-
-			// fmt.Println("COUNT", retCount)
-			if retCount == 1 { // requires should return only 1 value anyway
-				if lc, ok := retList[0].(compiled); ok {
-					// it's a require
-					// fmt.Println("REQUIRE", lc.filepath)
-
-					if c, ok := towrap.requireCache[lc.filepath]; ok {
-						retList = c[len(c)-1:]
-					} else {
-						// since environments only store global libraries etc, using the same env here should be fine??
-						c2, _ := loadmodule(lc, co.env, towrap.requireCache, lc.requireHistory, co.programArgs)
-						reqrets, err := c2.Resume()
-						if err != nil {
-							return nil, err
-						}
-						if len(reqrets) == 0 {
-							return nil, errors.New("module must return a value")
-						}
-
-						// only the last return value (weird luau behaviour...)
-						ret := reqrets[len(reqrets)-1]
-						switch ret.(type) {
-						case *Table[Val, Val], Function:
-						default:
-							return nil, errors.New("module must return a table or function")
-						}
-
-						retList = []Val{ret}
-						towrap.requireCache[lc.filepath] = retList
-					}
-				}
-			}
-
-			// development checking lelell
-			for _, v := range retList {
-				switch v.(type) {
-				case int, uint, int8, uint8, int16, uint16, int32, uint32, int64, uint64:
-					panic(fmt.Sprintf("Hey idiot YOU RETURNED AN INTEGER INSTEAD OFA  FLOAT FROM YUR FUNCTION O MY GOD %v", v))
-				case float32:
-					panic(fmt.Sprintf("u  dun fukt up %v", v))
-				}
-			}
-
-			if C == 0 {
-				top = A + retCount - 1
-			} else {
-				retCount = C - 1
-			}
-
-			moveStack(retList, retCount, A)
 		case 22: // RETURN
 			pc++
 			A, B := i.A, i.B
@@ -1998,7 +2066,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 				if index > limit {
 					pc += i.D
 				}
-			} else if limit > index {
+			} else if index < limit {
 				pc += i.D
 			}
 		case 57: // FORNLOOP
@@ -2011,63 +2079,15 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			(*stack)[A+2] = init
 
 			if step > 0 {
-				if init <= limit {
+				if limit >= init {
 					pc += i.D
 				}
 			} else if limit <= init {
 				pc += i.D
 			}
 		case 58: // FORGLOOP
-			A := i.A
-			res := i.K.(int)
-
-			top = A + 6
-
-			switch it := (*stack)[A].(type) {
-			case Function:
-				// fmt.Println("IT func", fn, (*stack)[A+1], (*stack)[A+2])
-				vals, err := (*it.Run)(co, (*stack)[A+1], (*stack)[A+2])
-				if err != nil {
-					return nil, err
-				}
-
-				moveStack(vals, res, A+3)
-				// fmt.Println(A+3, (*stack)[A+3])
-
-				if (*stack)[A+3] == nil {
-					pc += 2
-					break mainswitch
-				}
-
-				(*stack)[A+2] = (*stack)[A+3]
-				pc += i.D + 1
-				break mainswitch
-			case *Table[Val, Val]:
-				// fmt.Println("GETTING GENITER", typeOf(it))
-				iter := *generalisedIterators[i]
-
-				if !iter.running {
-					// fmt.Println("-1- sending thru the wire")
-					// fmt.Println((*stack)[A+1], (*stack)[A+2]) // <nil> <nil>
-					iter.args <- it
-					// fmt.Println("-1- sent")
-				}
-
-				vals := <-iter.resume
-				// fmt.Println("-1- received!", vals)
-
-				if vals == nil {
-					delete(generalisedIterators, i)
-					pc += 2
-					break mainswitch
-				}
-
-				moveStack(*vals, res, A+3)
-
-				(*stack)[A+2] = (*stack)[A+3]
-				pc += i.D + 1
-			default:
-				return nil, fmt.Errorf("attempt to iterate over a %s value", TypeOf(it))
+			if err := forgloop(i, &top, stack, co, moveStack, &pc, &generalisedIterators); err != nil {
+				return nil, err
 			}
 		case 59, 61: // FORGPREP_INEXT, FORGPREP_NEXT
 			if _, ok := (*stack)[i.A].(Function); !ok {
