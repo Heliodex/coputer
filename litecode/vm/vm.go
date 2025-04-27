@@ -454,11 +454,14 @@ type WebRets struct {
 func (r1 WebRets) Equal(r2 WebRets) error {
 	if r1.StatusCode != r2.StatusCode {
 		return fmt.Errorf("Expected StatusCode %b, got %b", r1.StatusCode, r2.StatusCode)
-	} else if r1.StatusMessage != r2.StatusMessage {
+	}
+	if r1.StatusMessage != r2.StatusMessage {
 		return fmt.Errorf("Expected StatusMessage %s, got %s", r1.StatusMessage, r2.StatusMessage)
-	} else if !maps.Equal(r1.Headers, r2.Headers) {
+	}
+	if !maps.Equal(r1.Headers, r2.Headers) {
 		return fmt.Errorf("Expected Headers %v, got %v", r1.Headers, r2.Headers)
-	} else if !slices.Equal(r1.Body, r2.Body) {
+	}
+	if !slices.Equal(r1.Body, r2.Body) {
 		return fmt.Errorf("Expected Body %q, got %q", string(r1.Body), string(r2.Body))
 	}
 
@@ -910,7 +913,8 @@ func deserialise(data []byte) (deserialised, error) {
 		return deserialised{}, errors.New("the provided bytecode is an error message")
 	} else if luauVersion != 6 {
 		return deserialised{}, errors.New("the version of the provided bytecode is unsupported")
-	} else if s.rByte() != 3 { // types version
+	}
+	if s.rByte() != 3 { // types version
 		return deserialised{}, errors.New("the types version of the provided bytecode is unsupported")
 	}
 
@@ -1072,11 +1076,13 @@ func aMul[T Val](a, b T) (nt T, err error) {
 	if ok3 && ok4 {
 		res := Vector{va[0] * vb[0], va[1] * vb[1], va[2] * vb[2], va[3] * vb[3]}
 		return any(res).(T), nil
-	} else if ok1 && ok4 {
+	}
+	if ok1 && ok4 {
 		f := float32(fa)
 		res := Vector{f * vb[0], f * vb[1], f * vb[2], f * vb[3]}
 		return any(res).(T), nil
-	} else if ok3 && ok2 {
+	}
+	if ok3 && ok2 {
 		f := float32(fb)
 		res := Vector{va[0] * f, va[1] * f, va[2] * f, va[3] * f}
 		return any(res).(T), nil
@@ -1098,11 +1104,13 @@ func aDiv[T Val](a, b T) (nt T, err error) {
 	if ok3 && ok4 {
 		res := Vector{va[0] / vb[0], va[1] / vb[1], va[2] / vb[2], va[3] / vb[3]}
 		return any(res).(T), nil
-	} else if ok1 && ok4 {
+	}
+	if ok1 && ok4 {
 		f := float32(fa)
 		res := Vector{f / vb[0], f / vb[1], f / vb[2], f / vb[3]}
 		return any(res).(T), nil
-	} else if ok3 && ok2 {
+	}
+	if ok3 && ok2 {
 		f := float32(fb)
 		res := Vector{va[0] / f, va[1] / f, va[2] / f, va[3] / f}
 		return any(res).(T), nil
@@ -1484,7 +1492,8 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			t := (*stack)[i.B].(*Table[Val, Val])
 			if t.readonly {
 				return nil, errors.New("attempt to modify a readonly table")
-			} else if i, v := int(i.C+1), (*stack)[i.A]; 1 <= i || i > len(t.Array) {
+			}
+			if i, v := int(i.C+1), (*stack)[i.A]; 1 <= i || i > len(t.Array) {
 				t.SetArray(i, v)
 			} else {
 				t.SetHash(float64(i), v)
@@ -1574,7 +1583,8 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			ok, retList, err := namecallHandler(co, kv, stack, callA+1, callA+params)
 			if err != nil {
 				return nil, err
-			} else if !ok {
+			}
+			if !ok {
 				t := (*stack)[B].(*Table[Val, Val])
 
 				if t.Hash == nil {
@@ -1645,7 +1655,8 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 						reqrets, err := c2.Resume()
 						if err != nil {
 							return nil, err
-						} else if len(reqrets) == 0 {
+						}
+						if len(reqrets) == 0 {
 							return nil, errors.New("module must return a value")
 						}
 
@@ -2245,7 +2256,8 @@ func wrapclosure(towrap toWrap) Function {
 		result, err := execute(towrap, &stack, co, list, max(la-np, 0))
 		if !*towrap.alive {
 			return
-		} else if err != nil {
+		}
+		if err != nil {
 			return nil, &Error{dbg, co.dbgpath, err}
 		}
 

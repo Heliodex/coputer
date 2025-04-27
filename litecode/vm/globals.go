@@ -31,7 +31,8 @@ func ipairs_iter(args Args) (r []Val, err error) {
 
 	if a.Array == nil || int(i) > len(a.Array) {
 		return
-	} else if v := a.Array[int(i)-1]; v != nil {
+	}
+	if v := a.Array[int(i)-1]; v != nil {
 		return []Val{i, v}, nil
 	}
 	return // would prefer nil, nil but whateverrrrr
@@ -67,7 +68,8 @@ func global_next(args Args) (r []Val, err error) {
 		k, _, ok := next()
 		if !ok {
 			break
-		} else if k != fk {
+		}
+		if k != fk {
 			continue
 		}
 
@@ -454,7 +456,8 @@ func num2str2(exponent int, fraction uint64, buf *bufPos) string {
 
 		buf.pos += 2 + -dot + declen
 		return trimzero(buf).String()
-	} else if dot == declen {
+	}
+	if dot == declen {
 		// no dot
 		for i := range dot {
 			buf.Set(i, dec.Get(i))
@@ -464,7 +467,8 @@ func num2str2(exponent int, fraction uint64, buf *bufPos) string {
 
 		buf.pos += dot
 		return buf.String()
-	} else if dot < declen {
+	}
+	if dot < declen {
 		// dot in the middle
 		for i := range dot {
 			buf.Set(i, dec.Get(i))
@@ -503,11 +507,13 @@ func num2str(n float64) string {
 		// specials
 		if fraction != 0 {
 			return "nan"
-		} else if sign {
+		}
+		if sign {
 			return "inf"
 		}
 		return "-inf"
-	} else if exponent == 0 && fraction == 0 {
+	}
+	if exponent == 0 && fraction == 0 {
 		// zero
 		if sign {
 			return "0"
@@ -580,7 +586,8 @@ func global_require(args Args) (r []Val, err error) {
 	name = strings.ReplaceAll(name, "\\", "/")
 	if !hasValidPrefix(name) {
 		return nil, errors.New("require path must start with a valid prefix: ./ or ../")
-	} else if strings.HasSuffix(name, ".luau") { // not the exact same check order but whatever
+	}
+	if strings.HasSuffix(name, ".luau") { // not the exact same check order but whatever
 		return nil, errors.New("error requiring module: consider removing the file extension")
 	}
 

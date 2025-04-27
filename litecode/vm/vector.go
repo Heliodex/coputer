@@ -29,7 +29,8 @@ func f32Modf(f float32) (i, frac float32) {
 		if f < 0 {
 			i, frac = f32Modf(-f)
 			return -i, -frac
-		} else if f == 0 {
+		}
+		if f == 0 {
 			return f, f // Return -0, -0 when f == -0
 		}
 		return 0, f
@@ -49,7 +50,8 @@ func f32Modf(f float32) (i, frac float32) {
 func f32Floor(x float32) float32 {
 	if x == 0 || f32IsNaN(x) || f32IsInf(x, 0) {
 		return x
-	} else if x < 0 {
+	}
+	if x < 0 {
 		d, fract := f32Modf(-x)
 		if fract != 0 {
 			d += 1
@@ -65,7 +67,8 @@ func f32Sqrt(x float32) float32 {
 	// special cases
 	if x == 0 || f32IsNaN(x) || f32IsInf(x, 1) {
 		return x
-	} else if x < 0 {
+	}
+	if x < 0 {
 		return f32NaN()
 	}
 	ix := math.Float32bits(x)
@@ -203,7 +206,8 @@ func vector_abs(args Args) (r []Val, err error) {
 func sign(v float32) float32 {
 	if v > 0 {
 		return 1
-	} else if v < 0 {
+	}
+	if v < 0 {
 		return -1
 	}
 	return 0
@@ -218,7 +222,8 @@ func vector_sign(args Args) (r []Val, err error) {
 func clamp(v, min, max float32) float32 {
 	if v < min {
 		return min
-	} else if v > max {
+	}
+	if v > max {
 		return max
 	}
 	return v

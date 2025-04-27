@@ -28,7 +28,8 @@ func string_byte(args Args) (bytes []Val, err error) {
 	n := pose - posi + 1
 	if n < 0 {
 		return // empty interval; return no values
-	} else if posi+n <= pose { // overflow?
+	}
+	if posi+n <= pose { // overflow?
 		return nil, errors.New("string slice too long")
 	}
 
@@ -124,7 +125,8 @@ func scanformat(strfrmt string) (byte, string, int, error) {
 	}
 	if p > len(flags) {
 		return 0, "", 0, errors.New("invalid format (repeated flags)")
-	} else if isdigit(strfrmt[p]) {
+	}
+	if isdigit(strfrmt[p]) {
 		p++ // skip width
 		if isdigit(strfrmt[p]) {
 			p++ // (2 digits at most)
@@ -160,11 +162,15 @@ func fmtstring(strfrmt string, args Args) (string, error) {
 			b.WriteByte(strfrmt[i])
 			i++
 			continue
-		} else if i++; strfrmt[i] == l_esc {
+		}
+
+		i++
+		if strfrmt[i] == l_esc {
 			b.WriteByte(l_esc) // %%
 			i++
 			continue
-		} else if strfrmt[i] == '*' {
+		}
+		if strfrmt[i] == '*' {
 			a := args.GetAny()
 			b.WriteString(ToString(a))
 			i++
@@ -252,7 +258,8 @@ func string_gmatch(args Args) (r []Val, err error) {
 			end, err := matchPos(s, p, start, 0, caps)
 			if err != nil {
 				return nil, err
-			} else if end == -1 {
+			}
+			if end == -1 {
 				continue
 			}
 
@@ -308,7 +315,8 @@ func add_value(caps *captures, b *strings.Builder, co *Coroutine, s string, si, 
 		rets, err := (*n.Run)(co, s[si:ei])
 		if err != nil {
 			return err
-		} else if len(rets) != 0 {
+		}
+		if len(rets) != 0 {
 			val = rets[0]
 		}
 	case *Table[Val, Val]:
@@ -323,7 +331,8 @@ func add_value(caps *captures, b *strings.Builder, co *Coroutine, s string, si, 
 	if !truthy(val) { // nil or false?
 		b.WriteString(s[si:ei]) // keep original text
 		return
-	} else if _, ok := val.(string); !ok {
+	}
+	if _, ok := val.(string); !ok {
 		return fmt.Errorf("invalid replacement value (a %s)", luautype[TypeOf(val)])
 	}
 
@@ -362,7 +371,8 @@ func string_gsub(args Args) (r []Val, err error) {
 		e, err := matchPos(src, p, sis, pis, caps)
 		if err != nil {
 			return nil, err
-		} else if e != -1 {
+		}
+		if e != -1 {
 			n++
 			add_value(caps, &b, args.Co, src, sis, e, next)
 		}

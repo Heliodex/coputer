@@ -198,9 +198,11 @@ func buffer_readbits(args Args) (r []Val, err error) {
 
 	if bitoffset < 0 {
 		return oob, nil
-	} else if uint32(bitcount) > 32 {
+	}
+	if uint32(bitcount) > 32 {
 		return []Val{"bit count is out of range of [0; 32]", false}, nil
-	} else if uint64(bitoffset+bitcount) > uint64(len(b)*8) {
+	}
+	if uint64(bitoffset+bitcount) > uint64(len(b)*8) {
 		return oob, nil
 	}
 
@@ -226,9 +228,11 @@ func buffer_writebits(args Args) (r []Val, err error) {
 
 	if bitoffset < 0 {
 		return oob, nil
-	} else if uint32(bitcount) > 32 {
+	}
+	if uint32(bitcount) > 32 {
 		return []Val{"bit count is out of range of [0; 32]", false}, nil
-	} else if uint64(bitoffset+bitcount) > uint64(len(b)*8) {
+	}
+	if uint64(bitoffset+bitcount) > uint64(len(b)*8) {
 		return oob, nil
 	}
 

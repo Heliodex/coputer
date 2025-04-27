@@ -43,7 +43,8 @@ func math_clamp(args Args) (r []Val, err error) {
 
 	if x < min {
 		return []Val{min}, nil
-	} else if x > max {
+	}
+	if x > max {
 		return []Val{max}, nil
 	}
 	return []Val{x}, nil
@@ -256,7 +257,8 @@ func math_sign(args Args) (r []Val, err error) {
 
 	if x > 0 {
 		return []Val{float64(1)}, nil
-	} else if x < 0 {
+	}
+	if x < 0 {
 		return []Val{float64(-1)}, nil
 	}
 	return []Val{float64(0)}, nil

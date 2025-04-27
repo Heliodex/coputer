@@ -47,7 +47,8 @@ func bit32_arshift(args Args) (r []Val, err error) {
 
 	if i < 0 || x&(1<<(nbits-1)) == 0 {
 		return []Val{float64(b_shift(x, -i))}, nil
-	} else if i >= nbits {
+	}
+	if i >= nbits {
 		// arithmetic shift for 'negative' number
 		return []Val{float64(allones)}, nil
 	}
@@ -112,9 +113,11 @@ func fieldargs(args Args) (f, w int, msg string, ok bool) {
 
 	if f < 0 {
 		return 0, 0, "field cannot be negative", false
-	} else if w < 1 {
+	}
+	if w < 1 {
 		return 0, 0, "width must be positive", false
-	} else if f+w > nbits {
+	}
+	if f+w > nbits {
 		return 0, 0, "trying to access non-existent bits", false
 	}
 	return f, w, "", true

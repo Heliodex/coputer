@@ -41,7 +41,8 @@ func classend(p string, pi int) (int, error) {
 			// look for a ']'
 			if pi == len(p) {
 				return 0, errors.New("malformed pattern (missing ']')")
-			} else if p[pi] == l_esc && pi+1 < len(p) {
+			}
+			if p[pi] == l_esc && pi+1 < len(p) {
 				pi++ // skip escapes (eg. '%]')
 			}
 			pi++
@@ -173,7 +174,8 @@ func pushCapture(caps *captures, s string, start, end, i int) (Val, error) {
 	if i >= caps.level {
 		if i != 0 {
 			return nil, errors.New("invalid capture index")
-		} else if start == -1 {
+		}
+		if start == -1 {
 			// caps.level == 0, too
 			// fmt.Println("    adding whole match")
 			return s, nil // add whole string
@@ -185,7 +187,8 @@ func pushCapture(caps *captures, s string, start, end, i int) (Val, error) {
 	l, i := c.len, c.init
 	if l == cap_unfinished {
 		return nil, errors.New("unfinished capture")
-	} else if l == cap_position {
+	}
+	if l == cap_position {
 		// fmt.Println("    adding cap position")
 		return float64(i + 1), nil
 	}
@@ -242,7 +245,8 @@ func maxExpand(s, p string, si, pi, epi int, caps *captures) (res int, err error
 		// dlog("reduced", si, i)
 		if res, err = matchPos(s, p, si+i, epi+1, caps); err != nil {
 			return
-		} else if res != -1 {
+		}
+		if res != -1 {
 			// dlog("xpandmatched", si, caps.captures)
 			return res, nil
 		}
@@ -257,7 +261,8 @@ func minExpand(s, p string, si, pi, epi int, caps *captures) (res int, err error
 	for ; ; si++ {
 		if res, err = matchPos(s, p, si, epi+1, caps); err != nil || res != -1 {
 			return
-		} else if !singlematch(s, p, si, pi, epi) {
+		}
+		if !singlematch(s, p, si, pi, epi) {
 			return -1, nil
 		}
 		// try with one more repetition
@@ -308,7 +313,8 @@ func startCapture(s, p string, si, pi, what int, caps *captures) (si2 int, err e
 
 	if si, err = matchPos(s, p, si, pi, caps); err != nil {
 		return 0, err
-	} else if si == -1 { // match failed?
+	}
+	if si == -1 { // match failed?
 		caps.level-- // undo capture
 	}
 
@@ -326,7 +332,8 @@ func endCapture(s, p string, si, pi int, caps *captures) (si2 int, err error) {
 	caps.captures[l].len = si - caps.captures[l].init // close capture
 	if si, err = matchPos(s, p, si, pi, caps); err != nil {
 		return 0, err
-	} else if si == -1 { // match failed?
+	}
+	if si == -1 { // match failed?
 		// fmt.Println("undo capture")
 		caps.captures[l].len = cap_unfinished // undo capture
 	}
@@ -357,7 +364,8 @@ func optSuffix(s, p string, si, pi, epi int, caps *captures) (cont bool, si2, pi
 		// dlog("optional", s[si+1:], p[epi+1:])
 		if si2, err = matchPos(s, p, si+1, epi+1, caps); err != nil {
 			return
-		} else if si2 != -1 {
+		}
+		if si2 != -1 {
 			// dlog("optional done", si, si2)
 			si = si2
 		} else {
@@ -390,7 +398,8 @@ func defaultCase(s, p string, si, pi int, caps *captures) (cont bool, si2, pi2 i
 	epi, err := classend(p, pi) // points to optional suffix
 	if err != nil {
 		return false, 0, 0, err
-	} else if !singlematch(s, p, si, pi, epi) {
+	}
+	if !singlematch(s, p, si, pi, epi) {
 		// does not match at least once?
 		// dlog("  nomatch", epi)
 
@@ -404,7 +413,8 @@ func defaultCase(s, p string, si, pi int, caps *captures) (cont bool, si2, pi2 i
 		// '+' or no suffix
 		// dlog("  '+' or no suffix")
 		return false, -1, pi, nil // fail
-	} else if epi >= len(p) {
+	}
+	if epi >= len(p) {
 		// matched once
 		// dlog("matched once")
 		// dlog("after end")
@@ -453,7 +463,8 @@ func matchPos(s, p string, si, pi int, caps *captures) (si2 int, err error) {
 			case 'b': // balanced string?
 				if si, err = matchbalance(s, p, si, pi+2); err != nil {
 					return 0, err
-				} else if si != -1 {
+				}
+				if si != -1 {
 					pi += 3 // 1 less beacuse increment
 					// dlog("matched balanced", pi < len(p))
 					continue
@@ -501,7 +512,8 @@ func matchPos(s, p string, si, pi int, caps *captures) (si2 int, err error) {
 			case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9': // capture results (%0-%9)?
 				if si, err = matchCapture(s, si, int(p[pi+1]), caps); err != nil {
 					return 0, err
-				} else if si != -1 {
+				}
+				if si != -1 {
 					// dlog("matched catched")
 					pi += 1
 					continue
@@ -575,7 +587,8 @@ func stringFindAux(s, p string, i int, plain, find bool) (r []Val, err error) {
 	start, end, err := match(is, p, caps)
 	if err != nil {
 		return
-	} else if start == -1 {
+	}
+	if start == -1 {
 		return []Val{nil}, nil // not found
 	}
 

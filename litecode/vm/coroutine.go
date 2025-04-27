@@ -27,7 +27,8 @@ func coroutine_resume(args Args) (r []Val, err error) {
 
 	if co.status == CoDead {
 		return []Val{false, "cannot resume dead coroutine"}, nil
-	} else if co.status == CoRunning {
+	}
+	if co.status == CoRunning {
 		return []Val{false, "cannot resume running coroutine"}, nil
 	}
 
@@ -67,7 +68,8 @@ func coroutine_wrap(args Args) (r []Val, err error) {
 	return []Val{fn("wrap", func(_ *Coroutine, args ...Val) (r []Val, err error) {
 		if co.status == CoDead {
 			return nil, errors.New("cannot resume dead coroutine") // ought to be better (return false, error message) if we can figure out how
-		} else if co.status == CoRunning {
+		}
+		if co.status == CoRunning {
 			return nil, errors.New("cannot resume running coroutine")
 		}
 		return co.Resume(args...)

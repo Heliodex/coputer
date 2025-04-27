@@ -16,7 +16,8 @@ func iscont(c byte) bool {
 func utf8_posrelat(pos, len int) int {
 	if pos >= 0 {
 		return pos
-	} else if 0-pos > len {
+	}
+	if 0-pos > len {
 		return 0
 	}
 	return len + pos + 1
@@ -75,7 +76,8 @@ func utf8_codepoint(args Args) (cps []Val, err error) {
 	// luaL_argcheck(L, pose <= (int)len, 3, "out of range");
 	if posi > pose {
 		return // empty interval; return no values
-	} else if pose-posi >= int_max { // (int -> int) overflow?
+	}
+	if pose-posi >= int_max { // (int -> int) overflow?
 		return nil, errors.New("string slice too long")
 	}
 	// n := pose - posi + 1
@@ -129,9 +131,11 @@ func utf8_offset(args Args) (r []Val, err error) {
 			posi--
 		}
 		return []Val{float64(posi + 1)}, nil
-	} else if iscont(s[posi]) {
+	}
+	if iscont(s[posi]) {
 		return nil, errors.New("initial position is a continuation byte")
-	} else if n < 0 {
+	}
+	if n < 0 {
 		for ; n < 0 && posi > 0; posi-- { // move back
 			// find beginning of previous character
 			for posi > 0 && iscont(s[posi]) {

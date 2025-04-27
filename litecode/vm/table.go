@@ -191,7 +191,8 @@ func table_maxn(args Args) (r []Val, err error) {
 		for i, v := range t.Array {
 			if v == nil {
 				continue
-			} else if fi := float64(i + 1); fi > maxn {
+			}
+			if fi := float64(i + 1); fi > maxn {
 				maxn = fi
 			}
 		}
@@ -202,7 +203,8 @@ func table_maxn(args Args) (r []Val, err error) {
 		for k, v := range t.Hash {
 			if v == nil {
 				continue
-			} else if fk, ok := k.(float64); ok && fk > maxn {
+			}
+			if fk, ok := k.(float64); ok && fk > maxn {
 				maxn = fk
 			}
 		}
@@ -346,7 +348,8 @@ func sort_rec(t *Table[Val, Val], l, u, limit int, c comp) (err error) {
 		if limit == 0 {
 			sort_heap(t, l, u, c)
 			return
-		} else if r, err := sort_less(t, u, l, c); err != nil {
+		}
+		if r, err := sort_less(t, u, l, c); err != nil {
 			return err
 		} else if r { // a[u] < a[l]?
 			// sort elements a[l], a[(l+u)/2] and a[u]
