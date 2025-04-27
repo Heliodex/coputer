@@ -17,19 +17,10 @@ func invalidArg(i int, fn, msg string) error {
 	return fmt.Errorf("invalid argument #%d to '%s' (%s)", i, fn, msg)
 }
 
-//	type Val interface {
-//		float64 | string | bool | *Table | Function | *Coroutine | *Buffer | Vector
-//	}
-
 type (
-	Val           any
-	comparableVal interface {
-		Val
-		comparable
-	}
+	Val    any
+	ValMap map[Val]Val
 )
-
-type valMap[T comparableVal] map[T]T
 
 // Args represents the arguments passed to a user-defined native function.
 //
@@ -86,7 +77,7 @@ func (a *Args) GetBool(optV ...bool) bool {
 }
 
 // GetTable returns the next argument as a table value. An optional value can be passed if the argument is not required.
-func (a *Args) GetTable(optV ...*Table[Val, Val]) *Table[Val, Val] {
+func (a *Args) GetTable(optV ...*Table) *Table {
 	return getArg(a, optV, "table")
 }
 
@@ -125,9 +116,9 @@ func (a *Args) GetAny(optV ...Val) (arg Val) {
 }
 
 // NewLib creates a new library with a given table of functions and other values, such as constants. Functions can be created using MakeFn.
-func NewLib(functions []Function, other ...map[string]Val) *Table[Val, Val] {
+func NewLib(functions []Function, other ...map[string]Val) *Table {
 	// remember, no duplicates
-	hash := make(map[Val]Val, len(functions)+len(other))
+	hash := make(ValMap, len(functions)+len(other))
 	for _, f := range functions {
 		hash[f.name] = f
 	}
@@ -137,7 +128,7 @@ func NewLib(functions []Function, other ...map[string]Val) *Table[Val, Val] {
 		}
 	}
 
-	return &Table[Val, Val]{
+	return &Table{
 		readonly: true,
 		Hash:     hash,
 	}

@@ -13,8 +13,8 @@ import (
 	"strings"
 )
 
-func arrayKey[T Val](k T) (int, bool) {
-	fk, ok := any(k).(float64)
+func arrayKey(k Val) (int, bool) {
+	fk, ok := k.(float64)
 	if !ok {
 		return 0, false
 	}
@@ -23,24 +23,24 @@ func arrayKey[T Val](k T) (int, bool) {
 	return ik, 1 <= ik && float64(ik) == fk
 }
 
-func mapKeySort[T Val](a, b T) int {
+func mapKeySort(a, b Val) int {
 	// It doesn't have to be pretty for map keys
 	// (in fact, the reference implementation of Luau has a rather insane sort order)
 	// It just has to be DETERMINISTIC
 	return strings.Compare(fmt.Sprint(a), fmt.Sprint(b))
 }
 
-func iterArray[K comparableVal, V Val](array []V, y func(K, V) bool) {
+func iterArray(array []Val, y func(Val, Val) bool) {
 	for i, v := range array {
-		if any(v) != nil && !y(any(float64(i+1)).(K), v) {
+		if v != nil && !y(float64(i+1), v) {
 			return
 		}
 	}
 }
 
-func iterHash[K comparableVal, V Val](hash map[K]V, y func(K, V) bool) {
+func iterHash(hash ValMap, y func(Val, Val) bool) {
 	// order keys in map
-	keys := make([]K, 0, len(hash))
+	keys := make([]Val, 0, len(hash))
 	for k := range hash {
 		keys = append(keys, k)
 	}
@@ -63,14 +63,14 @@ func iterHash[K comparableVal, V Val](hash map[K]V, y func(K, V) bool) {
 // 7: if anyone tells you tables are simple THEY ARE LYING, CALL THEM OUT ON THEIR SHIT
 
 // Table represents a Luau table, with resizeable array and hash parts. Luau type `table`
-type Table[K comparableVal, V Val] struct {
-	Array    []V
-	Hash     map[K]V
+type Table struct {
+	Array    []Val
+	Hash     ValMap
 	readonly bool
 }
 
 // Len returns the length of the array part of the table (the length of the array up until the first nil).
-func (t *Table[K, V]) Len() int {
+func (t *Table) Len() int {
 	if t.Array == nil {
 		return 0
 	}
@@ -78,13 +78,13 @@ func (t *Table[K, V]) Len() int {
 }
 
 // SetHash updates or deletes a key-value pair in the hash part of the table.
-func (t *Table[K, V]) SetHash(k K, v V) {
+func (t *Table) SetHash(k Val, v Val) {
 	if t.Hash == nil {
-		if any(v) == nil {
+		if v == nil {
 			return
 		}
-		t.Hash = map[K]V{k: v}
-	} else if any(v) == nil {
+		t.Hash = ValMap{k: v}
+	} else if v == nil {
 		delete(t.Hash, k)
 	} else {
 		t.Hash[k] = v
@@ -92,14 +92,14 @@ func (t *Table[K, V]) SetHash(k K, v V) {
 }
 
 // SetArray sets a value at an integer index, placing it into the Array part or the Hash part and resizing each as appropriate.
-func (t *Table[K, V]) SetArray(i int, v V) {
+func (t *Table) SetArray(i int, v Val) {
 	if t.Array == nil {
 		if i == 1 {
-			t.Array = []V{v}
+			t.Array = []Val{v}
 			return
 		}
 	} else if l := len(t.Array); i < l+1 {
-		if any(v) != nil {
+		if v != nil {
 			// set in the array portion
 			t.Array[i-1] = v
 			return
@@ -111,7 +111,7 @@ func (t *Table[K, V]) SetArray(i int, v V) {
 
 		// move the rest to the hash part
 		for i2, v2 := range after {
-			t.SetHash(any(float64(i+i2)).(K), v2)
+			t.SetHash(float64(i+i2), v2)
 		}
 		return
 	} else if i == l+1 {
@@ -124,21 +124,21 @@ func (t *Table[K, V]) SetArray(i int, v V) {
 		}
 
 		for f2 := float64(l + 2); ; f2++ {
-			v2, ok := t.Hash[any(f2).(K)]
+			v2, ok := t.Hash[f2]
 			if !ok {
 				break
 			}
 			t.Array = append(t.Array, v2)
-			delete(t.Hash, any(f2).(K))
+			delete(t.Hash, f2)
 		}
 		return
 	}
 	// add to the hash part instead
-	t.SetHash(any(float64(i)).(K), v)
+	t.SetHash(float64(i), v)
 }
 
 // ForceSet sets a table value at a key, regardless of whether the table is readonly.
-func (t *Table[K, V]) ForceSet(k K, v V) {
+func (t *Table) ForceSet(k Val, v Val) {
 	if ak, ok := arrayKey(k); ok {
 		t.SetArray(ak, v)
 		return
@@ -147,7 +147,7 @@ func (t *Table[K, V]) ForceSet(k K, v V) {
 }
 
 // Set sets a table value at a key, returning an error if the table is readonly.
-func (t *Table[K, V]) Set(k K, v V) error {
+func (t *Table) Set(k Val, v Val) error {
 	if t.readonly {
 		return errors.New("attempt to modify a readonly table")
 	}
@@ -156,7 +156,7 @@ func (t *Table[K, V]) Set(k K, v V) error {
 }
 
 // GetHash returns a value at a key, only searching the hash part of the table.
-func (t *Table[K, V]) GetHash(k K) (v V) {
+func (t *Table) GetHash(k Val) (v Val) {
 	if t.Hash == nil {
 		return
 	}
@@ -164,7 +164,7 @@ func (t *Table[K, V]) GetHash(k K) (v V) {
 }
 
 // Get returns a value at a key in the table.
-func (t *Table[K, V]) Get(k K) V {
+func (t *Table) Get(k Val) Val {
 	if ak, ok := arrayKey(k); ok && ak <= t.Len() {
 		return t.Array[ak-1]
 	}
@@ -172,8 +172,8 @@ func (t *Table[K, V]) Get(k K) V {
 }
 
 // Iter returns an iterator over the table, yielding key-value pairs in a deterministic order.
-func (t *Table[K, V]) Iter() iter.Seq2[K, V] {
-	return func(y func(K, V) bool) {
+func (t *Table) Iter() iter.Seq2[Val, Val] {
+	return func(y func(Val, Val) bool) {
 		if t.Array != nil {
 			iterArray(t.Array, y)
 		}
@@ -339,7 +339,7 @@ type debugging struct {
 }
 
 // Env represents a global Luau environment.
-type Env map[Val]Val
+type Env ValMap
 
 // AddFn adds a function to the environment.
 func (e *Env) AddFn(f Function) {
@@ -945,14 +945,14 @@ func deserialise(data []byte) (deserialised, error) {
 	return deserialised{mainProto, protoList}, s.CheckEnd()
 }
 
-type iterator[T Val] struct {
-	args    chan *Table[Val, Val]
-	resume  chan *[]T
+type iterator struct {
+	args    chan *Table
+	resume  chan *[]Val
 	running bool
 }
 
-type upval[T Val] struct {
-	value   T
+type upval struct {
+	value   Val
 	store   []Val
 	index   int
 	selfRef bool
@@ -962,18 +962,14 @@ func truthy(v Val) bool {
 	return v != nil && v != false
 }
 
-const (
-	typeprefix = "vm."
-	// VILE
-	urlprefix = "github.com/Heliodex/coputer/litecode/" + typeprefix
-)
+const typeprefix = "vm."
 
 var luautype = map[string]string{
-	"nil":     "nil",
-	"float64": "number",
-	"string":  "string",
-	"bool":    "boolean",
-	"*" + typeprefix + "Table[" + urlprefix + "Val," + urlprefix + "Val]": "table",
+	"nil":                          "nil",
+	"float64":                      "number",
+	"string":                       "string",
+	"bool":                         "boolean",
+	"*" + typeprefix + "Table":     "table",
 	typeprefix + "Function":        "function",
 	"*" + typeprefix + "Coroutine": "thread",
 	"*" + typeprefix + "Buffer":    "buffer",
@@ -1026,130 +1022,113 @@ func TypeOf(v Val) string {
 	return reflect.TypeOf(v).String()
 }
 
-func aAdd[T Val](a, b T) (nt T, err error) {
-	fa, ok1 := any(a).(float64)
-	fb, ok2 := any(b).(float64)
+func aAdd(a, b Val) (nt Val, err error) {
+	fa, ok1 := a.(float64)
+	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
-		res := fa + fb
-		return any(res).(T), nil
+		return fa + fb, nil
 	}
 
-	va, ok3 := any(a).(Vector)
-	vb, ok4 := any(b).(Vector)
+	va, ok3 := a.(Vector)
+	vb, ok4 := b.(Vector)
 	if ok3 && ok4 {
-		res := Vector{va[0] + vb[0], va[1] + vb[1], va[2] + vb[2], va[3] + vb[3]}
-		return any(res).(T), nil
+		return Vector{va[0] + vb[0], va[1] + vb[1], va[2] + vb[2], va[3] + vb[3]}, nil
 	}
 
 	return nt, invalidArithmetic("add", TypeOf(a), TypeOf(b))
 }
 
-func aSub[T Val](a, b T) (nt T, err error) {
-	fa, ok1 := any(a).(float64)
-	fb, ok2 := any(b).(float64)
+func aSub(a, b Val) (nt Val, err error) {
+	fa, ok1 := a.(float64)
+	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
-		res := fa - fb
-		return any(res).(T), nil
+		return fa - fb, nil
 	}
 
-	va, ok3 := any(a).(Vector)
-	vb, ok4 := any(b).(Vector)
+	va, ok3 := a.(Vector)
+	vb, ok4 := b.(Vector)
 	if ok3 && ok4 {
-
-		res := Vector{va[0] - vb[0], va[1] - vb[1], va[2] - vb[2], va[3] - vb[3]}
-		return any(res).(T), nil
+		return Vector{va[0] - vb[0], va[1] - vb[1], va[2] - vb[2], va[3] - vb[3]}, nil
 	}
 
 	return nt, invalidArithmetic("sub", TypeOf(a), TypeOf(b))
 }
 
-func aMul[T Val](a, b T) (nt T, err error) {
-	fa, ok1 := any(a).(float64)
-	fb, ok2 := any(b).(float64)
+func aMul(a, b Val) (nt Val, err error) {
+	fa, ok1 := a.(float64)
+	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
-		res := fa * fb
-		return any(res).(T), nil
+		return fa * fb, nil
 	}
 
-	va, ok3 := any(a).(Vector)
-	vb, ok4 := any(b).(Vector)
-	if ok3 && ok4 {
-		res := Vector{va[0] * vb[0], va[1] * vb[1], va[2] * vb[2], va[3] * vb[3]}
-		return any(res).(T), nil
-	}
-	if ok1 && ok4 {
+	va, ok3 := a.(Vector)
+	vb, ok4 := b.(Vector)
+	switch {
+	case ok3 && ok4:
+		return Vector{va[0] * vb[0], va[1] * vb[1], va[2] * vb[2], va[3] * vb[3]}, nil
+	case ok1 && ok4:
 		f := float32(fa)
-		res := Vector{f * vb[0], f * vb[1], f * vb[2], f * vb[3]}
-		return any(res).(T), nil
-	}
-	if ok3 && ok2 {
+		return Vector{f * vb[0], f * vb[1], f * vb[2], f * vb[3]}, nil
+	case ok3 && ok2:
 		f := float32(fb)
-		res := Vector{va[0] * f, va[1] * f, va[2] * f, va[3] * f}
-		return any(res).(T), nil
+		return Vector{va[0] * f, va[1] * f, va[2] * f, va[3] * f}, nil
 	}
 
 	return nt, invalidArithmetic("mul", TypeOf(a), TypeOf(b))
 }
 
-func aDiv[T Val](a, b T) (nt T, err error) {
-	fa, ok1 := any(a).(float64)
-	fb, ok2 := any(b).(float64)
+func aDiv(a, b Val) (nt Val, err error) {
+	fa, ok1 := a.(float64)
+	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
-		res := fa / fb
-		return any(res).(T), nil
+		return fa / fb, nil
 	}
 
-	va, ok3 := any(a).(Vector)
-	vb, ok4 := any(b).(Vector)
-	if ok3 && ok4 {
-		res := Vector{va[0] / vb[0], va[1] / vb[1], va[2] / vb[2], va[3] / vb[3]}
-		return any(res).(T), nil
-	}
-	if ok1 && ok4 {
+	va, ok3 := a.(Vector)
+	vb, ok4 := b.(Vector)
+	switch {
+	case ok3 && ok4:
+		return Vector{va[0] / vb[0], va[1] / vb[1], va[2] / vb[2], va[3] / vb[3]}, nil
+	case ok1 && ok4:
 		f := float32(fa)
-		res := Vector{f / vb[0], f / vb[1], f / vb[2], f / vb[3]}
-		return any(res).(T), nil
-	}
-	if ok3 && ok2 {
+		return Vector{f / vb[0], f / vb[1], f / vb[2], f / vb[3]}, nil
+	case ok3 && ok2:
 		f := float32(fb)
-		res := Vector{va[0] / f, va[1] / f, va[2] / f, va[3] / f}
-		return any(res).(T), nil
+		return Vector{va[0] / f, va[1] / f, va[2] / f, va[3] / f}, nil
 	}
 
 	return nt, invalidArithmetic("div", TypeOf(a), TypeOf(b))
 }
 
-func aMod[T Val](a, b T) (nt T, err error) {
-	fa, ok1 := any(a).(float64)
-	fb, ok2 := any(b).(float64)
+func aMod(a, b Val) (nt Val, err error) {
+	fa, ok1 := a.(float64)
+	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
-		res := fa - fb*math.Floor(fa/fb)
-		return any(res).(T), nil
+		return fa - fb*math.Floor(fa/fb), nil
 	}
 
 	return nt, invalidArithmetic("mod", TypeOf(a), TypeOf(b))
 }
 
-func aPow[T Val](a, b T) (nt T, err error) {
-	fa, ok1 := any(a).(float64)
-	fb, ok2 := any(b).(float64)
+func aPow(a, b Val) (nt Val, err error) {
+	fa, ok1 := a.(float64)
+	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
-		res := math.Pow(fa, fb)
-		return any(res).(T), nil
+		return math.Pow(fa, fb), nil
 	}
 
 	return nt, invalidArithmetic("pow", TypeOf(a), TypeOf(b))
 }
 
-func aIdiv[T Val](a, b T) (Val, error) {
-	fa, ok1 := any(a).(float64)
-	fb, ok2 := any(b).(float64)
+func aIdiv(a, b Val) (Val, error) {
+	fa, ok1 := a.(float64)
+	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
 		return math.Floor(fa / fb), nil
 	}
 
-	va, ok3 := any(a).(Vector)
-	vb, ok4 := any(b).(Vector)
+	va, ok3 := a.(Vector)
+	vb, ok4 := b.(Vector)
 	switch {
 	case ok3 && ok4:
 		return Vector{
@@ -1180,15 +1159,15 @@ func aIdiv[T Val](a, b T) (Val, error) {
 }
 
 // vectors dont have these comparisons
-func jumpLe[T Val](a, b T) (bool, error) {
-	fa, ok1 := any(a).(float64)
-	fb, ok2 := any(b).(float64)
+func jumpLe(a, b Val) (bool, error) {
+	fa, ok1 := a.(float64)
+	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
 		return fa <= fb, nil
 	}
 
-	sa, ok1 := any(a).(string)
-	sb, ok2 := any(b).(string)
+	sa, ok1 := a.(string)
+	sb, ok2 := b.(string)
 	if ok1 && ok2 {
 		return sa <= sb, nil
 	}
@@ -1196,15 +1175,15 @@ func jumpLe[T Val](a, b T) (bool, error) {
 	return false, invalidCompare("<=", TypeOf(a), TypeOf(b))
 }
 
-func jumpLt[T Val](a, b T) (bool, error) {
-	fa, ok1 := any(a).(float64)
-	fb, ok2 := any(b).(float64)
+func jumpLt(a, b Val) (bool, error) {
+	fa, ok1 := a.(float64)
+	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
 		return fa < fb, nil
 	}
 
-	sa, ok1 := any(a).(string)
-	sb, ok2 := any(b).(string)
+	sa, ok1 := a.(string)
+	sb, ok2 := b.(string)
 	if ok1 && ok2 {
 		return sa < sb, nil
 	}
@@ -1212,15 +1191,15 @@ func jumpLt[T Val](a, b T) (bool, error) {
 	return false, invalidCompare("<", TypeOf(a), TypeOf(b))
 }
 
-func jumpGt[T Val](a, b T) (bool, error) {
-	fa, ok1 := any(a).(float64)
-	fb, ok2 := any(b).(float64)
+func jumpGt(a, b Val) (bool, error) {
+	fa, ok1 := a.(float64)
+	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
 		return fa > fb, nil
 	}
 
-	sa, ok1 := any(a).(string)
-	sb, ok2 := any(b).(string)
+	sa, ok1 := a.(string)
+	sb, ok2 := b.(string)
 	if ok1 && ok2 {
 		return sa > sb, nil
 	}
@@ -1228,15 +1207,15 @@ func jumpGt[T Val](a, b T) (bool, error) {
 	return false, invalidCompare(">", TypeOf(a), TypeOf(b))
 }
 
-func jumpGe[T Val](a, b T) (bool, error) {
-	fa, ok1 := any(a).(float64)
-	fb, ok2 := any(b).(float64)
+func jumpGe(a, b Val) (bool, error) {
+	fa, ok1 := a.(float64)
+	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
 		return fa >= fb, nil
 	}
 
-	sa, ok1 := any(a).(string)
-	sb, ok2 := any(b).(string)
+	sa, ok1 := a.(string)
+	sb, ok2 := b.(string)
 	if ok1 && ok2 {
 		return sa >= sb, nil
 	}
@@ -1246,7 +1225,7 @@ func jumpGe[T Val](a, b T) (bool, error) {
 
 func gettable(index, v Val) (Val, error) {
 	switch t := v.(type) {
-	case *Table[Val, Val]:
+	case *Table:
 		return t.Get(index), nil
 	case Vector: // direction,,, and mmmagnitude!! oh yeah!!11!!
 		switch index {
@@ -1266,14 +1245,14 @@ func gettable(index, v Val) (Val, error) {
 
 type toWrap struct {
 	proto        proto
-	upvals       []*upval[Val]
+	upvals       []*upval
 	alive        *bool
 	protolist    []proto
 	env          Env
 	requireCache map[string][]Val
 }
 
-func iterate(c *iterator[Val]) {
+func iterate(c *iterator) {
 	args := *<-c.args
 	c.args = nil // we're done here
 	c.running = true
@@ -1305,11 +1284,11 @@ func moveStack(stack *[]Val, src []Val, b, t int) {
 	}
 }
 
-func newClosure(towrap toWrap, p proto, i inst, stack *[]Val, pc *int, openUpvals *[]*upval[Val], upvals []*upval[Val]) {
+func newClosure(towrap toWrap, p proto, i inst, stack *[]Val, pc *int, openUpvals *[]*upval, upvals []*upval) {
 	newProto := towrap.protolist[p.protos[i.D]-1]
 
 	nups := newProto.nups
-	towrap.upvals = make([]*upval[Val], nups)
+	towrap.upvals = make([]*upval, nups)
 
 	// wrap is reused for closures
 	towrap.proto = newProto
@@ -1321,7 +1300,7 @@ func newClosure(towrap toWrap, p proto, i inst, stack *[]Val, pc *int, openUpval
 	for n := range nups {
 		switch pseudo := p.code[*pc]; pseudo.A {
 		case 0: // -- value
-			uv := &upval[Val]{
+			uv := &upval{
 				value:   (*stack)[pseudo.B],
 				selfRef: true,
 			}
@@ -1335,13 +1314,13 @@ func newClosure(towrap toWrap, p proto, i inst, stack *[]Val, pc *int, openUpval
 			// 	fmt.Printf("  [%d] = %v\n", si, sv)
 			// }
 
-			var prev *upval[Val]
+			var prev *upval
 			if index < len(*openUpvals) {
 				prev = (*openUpvals)[index]
 			}
 
 			if prev == nil {
-				prev = &upval[Val]{
+				prev = &upval{
 					store: *stack,
 					index: index,
 				}
@@ -1388,7 +1367,7 @@ func namecall(pc *int, i *inst, stack *[]Val, p proto, top *int, co *Coroutine, 
 		return err
 	}
 	if !ok {
-		t := (*stack)[B].(*Table[Val, Val])
+		t := (*stack)[B].(*Table)
 
 		if t.Hash == nil {
 			(*stack)[A] = nil
@@ -1468,7 +1447,7 @@ func call(i inst, top *int, stack *[]Val, co *Coroutine, towrap toWrap) (err err
 				// only the last return value (weird luau behaviour...)
 				ret := reqrets[len(reqrets)-1]
 				switch ret.(type) {
-				case *Table[Val, Val], Function:
+				case *Table, Function:
 				default:
 					return errors.New("module must return a table or function")
 				}
@@ -1500,7 +1479,7 @@ func call(i inst, top *int, stack *[]Val, co *Coroutine, towrap toWrap) (err err
 }
 
 // for gloop lel
-func forgloop(i inst, top *int, stack *[]Val, co *Coroutine, pc *int, generalisedIterators *map[inst]*iterator[Val]) (err error) {
+func forgloop(i inst, top *int, stack *[]Val, co *Coroutine, pc *int, generalisedIterators *map[inst]*iterator) (err error) {
 	A := i.A
 	res := i.K.(int)
 
@@ -1524,7 +1503,7 @@ func forgloop(i inst, top *int, stack *[]Val, co *Coroutine, pc *int, generalise
 
 		(*stack)[A+2] = (*stack)[A+3]
 		*pc += i.D + 1
-	case *Table[Val, Val]:
+	case *Table:
 		// fmt.Println("GETTING GENITER", typeOf(it))
 		iter := *(*generalisedIterators)[i]
 
@@ -1556,7 +1535,7 @@ func forgloop(i inst, top *int, stack *[]Val, co *Coroutine, pc *int, generalise
 
 func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsLen uint8) (r []Val, err error) {
 	p, upvals := towrap.proto, towrap.upvals
-	pc, top, openUpvals, generalisedIterators := 1, -1, []*upval[Val]{}, map[inst]*iterator[Val]{}
+	pc, top, openUpvals, generalisedIterators := 1, -1, []*upval{}, map[inst]*iterator{}
 
 	var handlingBreak bool
 	var i inst
@@ -1664,7 +1643,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			}
 
 			if count := i.KC; count >= 2 {
-				t1, ok := imp.(*Table[Val, Val])
+				t1, ok := imp.(*Table)
 				if !ok {
 					return nil, invalidIndex("nil", i.K1)
 				}
@@ -1673,7 +1652,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 				// fmt.Println("GETIMPORT2", i.A, (*stack)[i.A])
 
 				if count == 3 {
-					t2, ok := imp.(*Table[Val, Val])
+					t2, ok := imp.(*Table)
 					if !ok {
 						return nil, invalidIndex(TypeOf(imp), i.K2)
 					}
@@ -1692,7 +1671,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			pc++
 		case 14: // SETTABLE
 			index := (*stack)[i.C]
-			t, ok := (*stack)[i.B].(*Table[Val, Val]) // SETTABLE or SETTABLEKS on a Vector actually does return "attempt to index vector with 'whatever'"
+			t, ok := (*stack)[i.B].(*Table) // SETTABLE or SETTABLEKS on a Vector actually does return "attempt to index vector with 'whatever'"
 			if !ok {
 				return nil, invalidIndex(TypeOf((*stack)[i.B]), index)
 			}
@@ -1709,7 +1688,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			pc += 2 // -- adjust for aux
 		case 16: // SETTABLEKS
 			index := i.K
-			t, ok := (*stack)[i.B].(*Table[Val, Val])
+			t, ok := (*stack)[i.B].(*Table)
 			if !ok {
 				// fmt.Println("indexing", typeOf((*stack)[i.B]), "with", index)
 				return nil, invalidIndex(TypeOf((*stack)[i.B]), index)
@@ -1721,14 +1700,14 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 
 			pc += 2 // -- adjust for aux
 		case 17: // GETTABLEN
-			t := (*stack)[i.B].(*Table[Val, Val])
+			t := (*stack)[i.B].(*Table)
 			idx := int(i.C + 1)
 
 			(*stack)[i.A] = t.Get(float64(idx))
 
 			pc++
 		case 18: // SETTABLEN
-			if t := (*stack)[i.B].(*Table[Val, Val]); t.readonly {
+			if t := (*stack)[i.B].(*Table); t.readonly {
 				return nil, errors.New("attempt to modify a readonly table")
 			} else if i, v := int(i.C+1), (*stack)[i.A]; 1 <= i || i > len(t.Array) {
 				t.SetArray(i, v)
@@ -1965,7 +1944,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 		case 52: // LENGTH
 			pc++
 			switch t := (*stack)[i.B].(type) {
-			case *Table[Val, Val]:
+			case *Table:
 				(*stack)[i.A] = float64(t.Len())
 			case string:
 				(*stack)[i.A] = float64(len(t))
@@ -1973,12 +1952,12 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 				return nil, invalidLength(TypeOf(t))
 			}
 		case 53: // NEWTABLE
-			(*stack)[i.A] = &Table[Val, Val]{}
+			(*stack)[i.A] = &Table{}
 
 			pc += 2 // -- adjust for aux
 		case 54: // DUPTABLE
 			pc++
-			serialised := &Table[Val, Val]{}
+			serialised := &Table{}
 			// fmt.Println("TEMPLATING")
 			for _, id := range i.K.([]uint32) { // template
 				if err := serialised.Set(p.k[id], nil); err != nil { // constants
@@ -1994,7 +1973,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 				c = top - B + 1
 			}
 
-			s := (*stack)[A].(*Table[Val, Val])
+			s := (*stack)[A].(*Table)
 			if s.readonly {
 				return nil, errors.New("attempt to modify a readonly table")
 			}
@@ -2078,7 +2057,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			newProto := towrap.protolist[i.K.(uint32)]
 
 			nups := newProto.nups
-			towrap.upvals = make([]*upval[Val], nups)
+			towrap.upvals = make([]*upval, nups)
 
 			// reusing wrapping again bcause we're eco friendly
 			towrap.proto = newProto
@@ -2088,7 +2067,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			for i := range nups {
 				switch pseudo := p.code[pc]; pseudo.A {
 				case 0: // value
-					towrap.upvals[i] = &upval[Val]{
+					towrap.upvals[i] = &upval{
 						value:   (*stack)[pseudo.B],
 						selfRef: true,
 					}
@@ -2150,8 +2129,8 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 				break
 			}
 
-			c := &iterator[Val]{
-				args:   make(chan *Table[Val, Val]),
+			c := &iterator{
+				args:   make(chan *Table),
 				resume: make(chan *[]Val),
 			}
 			go iterate(c)
@@ -2253,7 +2232,7 @@ func loadmodule(m compiled, env Env, requireCache map[string][]Val, requireHisto
 
 	towrap := toWrap{
 		m.mainProto,
-		[]*upval[Val]{},
+		[]*upval{},
 		&alive,
 		m.protoList,
 		env,

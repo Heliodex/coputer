@@ -325,7 +325,7 @@ func add_value(caps *captures, b *strings.Builder, co *Coroutine, s string, si, 
 		if len(rets) != 0 {
 			val = rets[0]
 		}
-	case *Table[Val, Val]:
+	case *Table:
 		r, err := pushCapture(caps, s, si, ei, 0)
 		if err != nil {
 			return err
@@ -353,7 +353,7 @@ func string_gsub(args Args) (r []Val, err error) {
 	next := args.GetAny()
 
 	switch next.(type) {
-	case string, Function, *Table[Val, Val]:
+	case string, Function, *Table:
 	default:
 		return nil, fmt.Errorf("invalid argument #3 to 'gsub' (string/function/table expected, got %s)", luautype[TypeOf(next)])
 	}
@@ -452,7 +452,7 @@ func string_split(args Args) (r []Val, err error) {
 		a[i] = v
 	}
 
-	return []Val{&Table[Val, Val]{Array: a}}, nil
+	return []Val{&Table{Array: a}}, nil
 }
 
 func string_sub(args Args) (r []Val, err error) {
