@@ -1047,6 +1047,15 @@ func invalidIndex(ta string, v Val) error {
 	return fmt.Errorf("attempt to index %v with %v", luautype[ta], tb)
 }
 
+func missingMethod(ta string, v Val) error {
+	tb := luautype[TypeOf(v)]
+	if tb == "string" {
+		tb = fmt.Sprintf("'%v'", v)
+	}
+
+	return fmt.Errorf("attempt to call missing method %v of %v", tb, luautype[ta])
+}
+
 // TypeOf returns the underlying VM datatype of a value as a string.
 // This does not return the Luau type, as type() does.
 func TypeOf(v Val) string {
@@ -1432,7 +1441,13 @@ func namecall(pc *int, i *inst, stack *[]Val, p proto, top *int, co *Coroutine, 
 		return err
 	}
 	if !ok {
-		t := (*stack)[B].(*Table)
+		t, ok := (*stack)[B].(*Table)
+		if !ok {
+			if _, ok = (*stack)[B].(string); ok {
+				return missingMethod(TypeOf((*stack)[B]), kv)
+			}
+			return invalidIndex(TypeOf((*stack)[B]), kv)
+		}
 
 		if t.Hash == nil {
 			(*stack)[A] = nil

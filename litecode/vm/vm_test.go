@@ -184,7 +184,7 @@ func TestErrors(t *testing.T) {
 		_, lerr := litecodeE(t, filename, c1)
 
 		if lerr == nil {
-			t.Error("expected error, got nil")
+			t.Fatal("expected error, got nil")
 			continue
 		}
 
@@ -198,7 +198,7 @@ func TestErrors(t *testing.T) {
 		fmt.Println(lerr)
 		fmt.Println()
 		if lerr.Error() != strings.ReplaceAll(string(og), "\r\n", "\n") {
-			t.Errorf("error mismatch:\n-- Expected\n%s\n-- Got\n%s", og, lerr)
+			t.Fatalf("error mismatch:\n-- Expected\n%s\n-- Got\n%s", og, lerr)
 		}
 	}
 }
