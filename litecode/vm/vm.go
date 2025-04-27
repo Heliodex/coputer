@@ -1291,6 +1291,20 @@ func iterate(c *iterator[Val]) {
 	c.resume <- nil
 }
 
+func moveStack(stack *[]Val, src []Val, b, t int) {
+	for t+b >= len(*stack) { // graah stack expansion
+		*stack = append(*stack, nil)
+	}
+
+	for i := range b {
+		if i >= len(src) {
+			(*stack)[t+i] = nil
+			continue
+		}
+		(*stack)[t+i] = src[i]
+	}
+}
+
 func newClosure(towrap toWrap, p proto, i inst, stack *[]Val, pc *int, openUpvals *[]*upval[Val], upvals []*upval[Val]) {
 	newProto := towrap.protolist[p.protos[i.D]-1]
 
@@ -1348,7 +1362,7 @@ func newClosure(towrap toWrap, p proto, i inst, stack *[]Val, pc *int, openUpval
 	}
 }
 
-func namecall(pc *int, i *inst, stack *[]Val, p proto, top *int, co *Coroutine, op *uint8, moveStack func(src []Val, b int, t int)) (err error) {
+func namecall(pc *int, i *inst, stack *[]Val, p proto, top *int, co *Coroutine, op *uint8) (err error) {
 	A, B := i.A, i.B
 	kv := i.K.(string)
 	// fmt.Println("kv", kv)
@@ -1400,11 +1414,11 @@ func namecall(pc *int, i *inst, stack *[]Val, p proto, top *int, co *Coroutine, 
 		retCount = callC - 1
 	}
 
-	moveStack(retList, retCount, callA)
+	moveStack(stack, retList, retCount, callA)
 	return
 }
 
-func call(i inst, top *int, stack *[]Val, co *Coroutine, towrap toWrap, moveStack func(src []Val, b int, t int)) error {
+func call(i inst, top *int, stack *[]Val, co *Coroutine, towrap toWrap) (err error) {
 	A, B, C := i.A, i.B, i.C
 
 	var params int
@@ -1427,7 +1441,7 @@ func call(i inst, top *int, stack *[]Val, co *Coroutine, towrap toWrap, moveStac
 	retList, err := (*fn.Run)(co, (*stack)[A+1:][:params]...) // not inclusive
 	// fmt.Println("upvals2", len(upvals))
 	if err != nil {
-		return err
+		return
 	}
 	// fmt.Println("resultt", retList)
 	retCount := len(retList)
@@ -1481,12 +1495,12 @@ func call(i inst, top *int, stack *[]Val, co *Coroutine, towrap toWrap, moveStac
 		retCount = C - 1
 	}
 
-	moveStack(retList, retCount, A)
-	return nil
+	moveStack(stack, retList, retCount, A)
+	return
 }
 
 // for gloop lel
-func forgloop(i inst, top *int, stack *[]Val, co *Coroutine, moveStack func(src []Val, b int, t int), pc *int, generalisedIterators *map[inst]*iterator[Val]) (err error) {
+func forgloop(i inst, top *int, stack *[]Val, co *Coroutine, pc *int, generalisedIterators *map[inst]*iterator[Val]) (err error) {
 	A := i.A
 	res := i.K.(int)
 
@@ -1500,7 +1514,7 @@ func forgloop(i inst, top *int, stack *[]Val, co *Coroutine, moveStack func(src 
 			return err
 		}
 
-		moveStack(vals, res, A+3)
+		moveStack(stack, vals, res, A+3)
 		// fmt.Println(A+3, (*stack)[A+3])
 
 		if (*stack)[A+3] == nil {
@@ -1530,7 +1544,7 @@ func forgloop(i inst, top *int, stack *[]Val, co *Coroutine, moveStack func(src 
 			return
 		}
 
-		moveStack(*vals, res, A+3)
+		moveStack(stack, *vals, res, A+3)
 
 		(*stack)[A+2] = (*stack)[A+3]
 		*pc += i.D + 1
@@ -1543,20 +1557,6 @@ func forgloop(i inst, top *int, stack *[]Val, co *Coroutine, moveStack func(src 
 func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsLen uint8) (r []Val, err error) {
 	p, upvals := towrap.proto, towrap.upvals
 	pc, top, openUpvals, generalisedIterators := 1, -1, []*upval[Val]{}, map[inst]*iterator[Val]{}
-
-	moveStack := func(src []Val, b, t int) {
-		for t+b >= len(*stack) { // graah stack expansion
-			*stack = append(*stack, nil)
-		}
-
-		for i := range b {
-			if i >= len(src) {
-				(*stack)[t+i] = nil
-				continue
-			}
-			(*stack)[t+i] = src[i]
-		}
-	}
 
 	var handlingBreak bool
 	var i inst
@@ -1751,12 +1751,12 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			pc++
 		case 20: // NAMECALL
 			pc++
-			if err := namecall(&pc, &i, stack, p, &top, co, &op, moveStack); err != nil {
+			if err := namecall(&pc, &i, stack, p, &top, co, &op); err != nil {
 				return nil, err
 			}
 		case 21: // CALL
 			pc++
-			if err := call(i, &top, stack, co, towrap, moveStack); err != nil {
+			if err := call(i, &top, stack, co, towrap); err != nil {
 				return nil, err
 			}
 		case 22: // RETURN
@@ -2086,7 +2086,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 				pc += i.D
 			}
 		case 58: // FORGLOOP
-			if err := forgloop(i, &top, stack, co, moveStack, &pc, &generalisedIterators); err != nil {
+			if err := forgloop(i, &top, stack, co, &pc, &generalisedIterators); err != nil {
 				return nil, err
 			}
 		case 59, 61: // FORGPREP_INEXT, FORGPREP_NEXT
@@ -2110,7 +2110,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 
 			// stack may get expanded here
 			// (MAX STACK SIZE IS A LIE!!!!!!!!!!!!!!!!!!!!!!!)
-			moveStack(vargsList, b, A)
+			moveStack(stack, vargsList, b, A)
 		case 64: // DUPCLOSURE
 			newProto := towrap.protolist[i.K.(uint32)]
 
@@ -2273,7 +2273,7 @@ func wrapclosure(towrap toWrap) Function {
 		dbg := &debugging{enabled: proto.lineinfoenabled, opcode: 255}
 		co.dbg = dbg
 
-		result, err := execute(towrap, &stack, co, list, max(la-np, 0))
+		r, err = execute(towrap, &stack, co, list, max(la-np, 0))
 		if !*towrap.alive {
 			return
 		}
@@ -2281,7 +2281,7 @@ func wrapclosure(towrap toWrap) Function {
 			return nil, &Error{dbg, co.dbgpath, err}
 		}
 
-		return result, nil
+		return
 	})
 }
 
