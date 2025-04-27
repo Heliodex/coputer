@@ -12,7 +12,7 @@ import (
 )
 
 func startWeb(v any) (rets vm.WebRets, err error) {
-	t, ok := v.(*vm.Table)
+	t, ok := v.(*vm.Table[vm.Val, vm.Val])
 	if !ok {
 		fmt.Println("no table", v, vm.TypeOf(v))
 		return vm.WebRets{}, errors.New("web program did not return a table")
@@ -37,7 +37,7 @@ func startWeb(v any) (rets vm.WebRets, err error) {
 	}
 
 	if headers := t.GetHash("headers"); headers != nil {
-		theaders, ok := headers.(*vm.Table)
+		theaders, ok := headers.(*vm.Table[vm.Val, vm.Val])
 		if !ok {
 			return vm.WebRets{}, errors.New("return headers, if provided, must be a table")
 		}
@@ -71,7 +71,7 @@ func Start(c vm.Compiler, hash string, args vm.ProgramArgs) (output vm.ProgramRe
 		return
 	}
 
-	luau_print := vm.MakeFn("print", func(args vm.Args) (r vm.Vals, err error) {
+	luau_print := vm.MakeFn("print", func(args vm.Args) (r []vm.Val, err error) {
 		for _, arg := range args.List {
 			fmt.Print("\t")
 			fmt.Print(vm.ToString(arg))

@@ -19,7 +19,7 @@ func table_clear(args Args) (r []Val, err error) {
 func table_clone(args Args) (r []Val, err error) {
 	t := args.GetTable()
 
-	nt := &Table{}
+	nt := &Table[Val, Val]{}
 
 	if t.Array != nil {
 		a := make([]Val, len(t.Array))
@@ -28,7 +28,7 @@ func table_clone(args Args) (r []Val, err error) {
 	}
 
 	if t.Hash != nil {
-		h := make(valMap[Val], len(t.Hash))
+		h := make(map[Val]Val, len(t.Hash))
 		for k, v := range t.Hash {
 			h[k] = v
 		}
@@ -72,7 +72,7 @@ func table_create(args Args) (r []Val, err error) {
 
 	if len(args.List) == 1 {
 		a := make([]Val, 0, s)
-		return []Val{&Table{Array: a}}, nil
+		return []Val{&Table[Val, Val]{Array: a}}, nil
 	}
 
 	value := args.GetAny()
@@ -81,7 +81,7 @@ func table_create(args Args) (r []Val, err error) {
 		a[i] = value
 	}
 
-	return []Val{&Table{Array: a}}, nil
+	return []Val{&Table[Val, Val]{Array: a}}, nil
 }
 
 func table_find(args Args) (r []Val, err error) {
@@ -117,7 +117,7 @@ func table_freeze(args Args) (r []Val, err error) {
 	return []Val{t}, nil
 }
 
-func bumpelements(t *Table, start int) {
+func bumpelements(t *Table[Val, Val], start int) {
 	// fmt.Println("BEFORE", start)
 	// fmt.Println(t)
 	// fmt.Println()
@@ -231,8 +231,8 @@ func table_pack(args Args) (r []Val, err error) {
 	a := make([]Val, l)
 	copy(a, args.List)
 
-	return []Val{&Table{
-		Hash:  valMap[Val]{"n": float64(l)},
+	return []Val{&Table[Val, Val]{
+		Hash:  map[Val]Val{"n": float64(l)},
 		Array: a,
 	}}, nil
 }
@@ -261,7 +261,7 @@ func table_remove(args Args) (r []Val, err error) {
 // ltablib.cpp
 type comp func(a, b Val) (bool, error) // ton, compton, aint no city quite like miiine
 
-func sort_swap(t *Table, i, j int) {
+func sort_swap(t *Table[Val, Val], i, j int) {
 	a := t.Array
 	// LUAU_ASSERT(unsigned(i) < unsigned(n) && unsigned(j) < unsigned(n)) // contract maintained in sort_less after predicate call
 
@@ -269,7 +269,7 @@ func sort_swap(t *Table, i, j int) {
 	a[i], a[j] = a[j], a[i]
 }
 
-func sort_less(t *Table, i, j int, c comp) (res bool, err error) {
+func sort_less(t *Table[Val, Val], i, j int, c comp) (res bool, err error) {
 	a, n := t.Array, len(t.Array)
 	// LUAU_ASSERT(unsigned(i) < unsigned(n) && unsigned(j) < unsigned(n)) // contract maintained in sort_less after predicate call
 
@@ -282,7 +282,7 @@ func sort_less(t *Table, i, j int, c comp) (res bool, err error) {
 	return
 }
 
-func sort_siftheap(t *Table, l, u int, c comp, root int) (err error) {
+func sort_siftheap(t *Table[Val, Val], l, u int, c comp, root int) (err error) {
 	// LUAU_ASSERT(l <= u)
 	count := u - l + 1
 
@@ -325,7 +325,7 @@ func sort_siftheap(t *Table, l, u int, c comp, root int) (err error) {
 	return
 }
 
-func sort_heap(t *Table, l, u int, c comp) {
+func sort_heap(t *Table[Val, Val], l, u int, c comp) {
 	// LUAU_ASSERT(l <= u)
 	count := u - l + 1
 
@@ -339,7 +339,7 @@ func sort_heap(t *Table, l, u int, c comp) {
 	}
 }
 
-func sort_rec(t *Table, l, u, limit int, c comp) (err error) {
+func sort_rec(t *Table[Val, Val], l, u, limit int, c comp) (err error) {
 	// sort range [l..u] (inclusive, 0-based)
 	for l < u {
 		// if the limit has been reached, quick sort is going over the permitted nlogn complexity, so we fall back to heap sort
