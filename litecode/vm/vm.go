@@ -94,11 +94,31 @@ func (t *Table) SetHash(k Val, v Val) {
 	}
 }
 
+// check if we can move some stuff from the hash part to the array part
+func (t *Table) moveToArray(l int) {
+	if t.Hash == nil {
+		return
+	}
+
+	for f2 := float64(l + 2); ; f2++ {
+		v2, ok := t.Hash[f2]
+		if !ok {
+			break
+		}
+		t.Array = append(t.Array, v2)
+		delete(t.Hash, f2)
+	}
+}
+
 // SetArray sets a value at an integer index, placing it into the Array part or the Hash part and resizing each as appropriate.
 func (t *Table) SetArray(i int, v Val) {
+	// fmt.Println("SetArray", i, v)
+
 	if t.Array == nil {
 		if i == 1 {
 			t.Array = []Val{v}
+
+			t.moveToArray(0)
 			return
 		}
 	} else if l := len(t.Array); i < l+1 {
@@ -121,21 +141,10 @@ func (t *Table) SetArray(i int, v Val) {
 		// append to the end
 		t.Array = append(t.Array, v)
 
-		// check if we can move some stuff from the hash part to the array part
-		if t.Hash == nil {
-			return
-		}
-
-		for f2 := float64(l + 2); ; f2++ {
-			v2, ok := t.Hash[f2]
-			if !ok {
-				break
-			}
-			t.Array = append(t.Array, v2)
-			delete(t.Hash, f2)
-		}
+		t.moveToArray(l)
 		return
 	}
+
 	// add to the hash part instead
 	t.SetHash(float64(i), v)
 }
