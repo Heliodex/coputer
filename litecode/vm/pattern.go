@@ -365,13 +365,12 @@ func optSuffix(s, p string, si, pi, epi int, caps *captures) (cont bool, si2, pi
 		if si2, err = matchPos(s, p, si+1, epi+1, caps); err != nil {
 			return
 		}
-		if si2 != -1 {
-			// dlog("optional done", si, si2)
-			si = si2
-		} else {
+		if si2 == -1 {
 			// dlog("pi is", pi, epi+1)
 			return true, si, epi, nil
 		}
+		// dlog("optional done", si, si2)
+		si = si2
 	case '+': // 1 or more repetitions
 		si++        // 1 match already done
 		fallthrough // go through

@@ -218,7 +218,7 @@ func TestBenchmark(t *testing.T) {
 	pprof.StartCPUProfile(f)
 	defer pprof.StopCPUProfile()
 
-	// onlyBench := "3"
+	// onlyBench := "12"
 
 	compilers := []Compiler{NewCompiler(0), NewCompiler(1), NewCompiler(2)}
 
@@ -232,8 +232,8 @@ func TestBenchmark(t *testing.T) {
 		t.Log("-- Benchmarking", name, "--")
 		filename := fmt.Sprintf("bench/%s", name)
 
-		for o := range uint8(3) {
-			output, time := litecode(t, filename, compilers[o])
+		for o, compiler := range compilers {
+			output, time := litecode(t, filename, compiler)
 
 			t.Log("  --", o, "Time:", time, "--\n")
 			fmt.Println(output)
