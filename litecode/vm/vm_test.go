@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime/pprof"
 
 	// "runtime/pprof"
 	"strings"
@@ -210,14 +211,14 @@ func TestBenchmark(t *testing.T) {
 		return
 	}
 
-	// f, err := os.Create("cpu.prof")
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
-	// pprof.StartCPUProfile(f)
-	// defer pprof.StopCPUProfile()
+	f, err := os.Create("cpu.prof")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pprof.StartCPUProfile(f)
+	defer pprof.StopCPUProfile()
 
-	// onlyBench := "largealloc"
+	// onlyBench := "3"
 
 	compilers := []Compiler{NewCompiler(0), NewCompiler(1), NewCompiler(2)}
 

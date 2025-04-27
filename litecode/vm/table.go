@@ -70,7 +70,7 @@ func table_create(args Args) (r []Val, err error) {
 		return nil, errors.New("index out of range")
 	}
 
-	if len(args.List) == 1 {
+	if len(args.List) == 1 { // no value fill
 		a := make([]Val, 0, s)
 		return []Val{&Table[Val, Val]{Array: a}}, nil
 	}

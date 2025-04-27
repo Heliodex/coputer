@@ -20,7 +20,7 @@ func arrayKey[T Val](k T) (int, bool) {
 	}
 
 	ik := int(fk)
-	return ik, float64(ik) == fk && 1 <= ik
+	return ik, 1 <= ik && float64(ik) == fk
 }
 
 func mapKeySort[T Val](a, b T) int {
@@ -1257,7 +1257,7 @@ func gettable(index, v Val) (Val, error) {
 		case "z":
 			return t[2], nil
 			// case "w":
-			// 	(*stack)[i.A] = t[3]
+			// 	return t[3], nil
 		}
 		return nil, invalidIndex(typeprefix+"Vector", index)
 	}
@@ -1664,38 +1664,33 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			}
 
 			if count := i.KC; count >= 2 {
-				t, ok := imp.(*Table[Val, Val])
+				t1, ok := imp.(*Table[Val, Val])
 				if !ok {
 					return nil, invalidIndex("nil", i.K1)
 				}
 
-				imp = t.Get(i.K1)
+				imp = t1.Get(i.K1)
 				// fmt.Println("GETIMPORT2", i.A, (*stack)[i.A])
 
 				if count == 3 {
-					t1, ok := imp.(*Table[Val, Val])
+					t2, ok := imp.(*Table[Val, Val])
 					if !ok {
 						return nil, invalidIndex(TypeOf(imp), i.K2)
 					}
 
-					imp = t1.Get(i.K2)
+					imp = t2.Get(i.K2)
 					// fmt.Println("GETIMPORT3", i.A, (*stack)[i.A])
 				}
 			}
 
 			(*stack)[i.A] = imp
-
 			pc += 2 // -- adjust for aux
 		case 13: // GETTABLE
-			pc++
-
-			v, err := gettable((*stack)[i.C], (*stack)[i.B])
-			if err != nil {
+			if (*stack)[i.A], err = gettable((*stack)[i.C], (*stack)[i.B]); err != nil {
 				return nil, err
 			}
-			(*stack)[i.A] = v
-		case 14: // SETTABLE
 			pc++
+		case 14: // SETTABLE
 			index := (*stack)[i.C]
 			t, ok := (*stack)[i.B].(*Table[Val, Val]) // SETTABLE or SETTABLEKS on a Vector actually does return "attempt to index vector with 'whatever'"
 			if !ok {
@@ -1706,13 +1701,11 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			if err := t.Set(index, (*stack)[i.A]); err != nil {
 				return nil, err
 			}
+			pc++
 		case 15: // GETTABLEKS
-			v, err := gettable(i.K, (*stack)[i.B])
-			if err != nil {
+			if (*stack)[i.A], err = gettable(i.K, (*stack)[i.B]); err != nil {
 				return nil, err
 			}
-			(*stack)[i.A] = v
-
 			pc += 2 // -- adjust for aux
 		case 16: // SETTABLEKS
 			index := i.K
@@ -1735,11 +1728,9 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 
 			pc++
 		case 18: // SETTABLEN
-			t := (*stack)[i.B].(*Table[Val, Val])
-			if t.readonly {
+			if t := (*stack)[i.B].(*Table[Val, Val]); t.readonly {
 				return nil, errors.New("attempt to modify a readonly table")
-			}
-			if i, v := int(i.C+1), (*stack)[i.A]; 1 <= i || i > len(t.Array) {
+			} else if i, v := int(i.C+1), (*stack)[i.A]; 1 <= i || i > len(t.Array) {
 				t.SetArray(i, v)
 			} else {
 				t.SetHash(float64(i), v)
@@ -1829,102 +1820,74 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 				pc += 2
 			}
 		case 33: // arithmetic
-			j, err := aAdd((*stack)[i.B], (*stack)[i.C])
-			if err != nil {
-				return nil, err
+			if (*stack)[i.A], err = aAdd((*stack)[i.B], (*stack)[i.C]); err != nil {
+				return
 			}
-			(*stack)[i.A] = j
 			pc++
 		case 34:
-			j, err := aSub((*stack)[i.B], (*stack)[i.C])
-			if err != nil {
-				return nil, err
+			if (*stack)[i.A], err = aSub((*stack)[i.B], (*stack)[i.C]); err != nil {
+				return
 			}
-			(*stack)[i.A] = j
 			pc++
 		case 35:
-			j, err := aMul((*stack)[i.B], (*stack)[i.C])
-			if err != nil {
-				return nil, err
+			if (*stack)[i.A], err = aMul((*stack)[i.B], (*stack)[i.C]); err != nil {
+				return
 			}
-			(*stack)[i.A] = j
 			pc++
 		case 36:
-			j, err := aDiv((*stack)[i.B], (*stack)[i.C])
-			if err != nil {
-				return nil, err
+			if (*stack)[i.A], err = aDiv((*stack)[i.B], (*stack)[i.C]); err != nil {
+				return
 			}
-			(*stack)[i.A] = j
 			pc++
 		case 37:
-			j, err := aMod((*stack)[i.B], (*stack)[i.C])
-			if err != nil {
-				return nil, err
+			if (*stack)[i.A], err = aMod((*stack)[i.B], (*stack)[i.C]); err != nil {
+				return
 			}
-			(*stack)[i.A] = j
 			pc++
 		case 38:
-			j, err := aPow((*stack)[i.B], (*stack)[i.C])
-			if err != nil {
-				return nil, err
+			if (*stack)[i.A], err = aPow((*stack)[i.B], (*stack)[i.C]); err != nil {
+				return
 			}
-			(*stack)[i.A] = j
 			pc++
 		case 81:
-			j, err := aIdiv((*stack)[i.B], (*stack)[i.C])
-			if err != nil {
-				return nil, err
+			if (*stack)[i.A], err = aIdiv((*stack)[i.B], (*stack)[i.C]); err != nil {
+				return
 			}
-			(*stack)[i.A] = j
 			pc++
 		case 39: // arithmetik
+			if (*stack)[i.A], err = aAdd((*stack)[i.B], i.K); err != nil {
+				return
+			}
 			pc++
-			j, err := aAdd((*stack)[i.B], i.K)
-			if err != nil {
-				return nil, err
-			}
-			(*stack)[i.A] = j
 		case 40:
-			j, err := aSub((*stack)[i.B], i.K)
-			if err != nil {
-				return nil, err
+			if (*stack)[i.A], err = aSub((*stack)[i.B], i.K); err != nil {
+				return
 			}
-			(*stack)[i.A] = j
 			pc++
 		case 41:
-			j, err := aMul((*stack)[i.B], i.K)
-			if err != nil {
-				return nil, err
+			if (*stack)[i.A], err = aMul((*stack)[i.B], i.K); err != nil {
+				return
 			}
-			(*stack)[i.A] = j
 			pc++
 		case 42:
+			if (*stack)[i.A], err = aDiv((*stack)[i.B], i.K); err != nil {
+				return
+			}
 			pc++
-			j, err := aDiv((*stack)[i.B], i.K)
-			if err != nil {
-				return nil, err
-			}
-			(*stack)[i.A] = j
 		case 43:
-			j, err := aMod((*stack)[i.B], i.K)
-			if err != nil {
-				return nil, err
+			if (*stack)[i.A], err = aMod((*stack)[i.B], i.K); err != nil {
+				return
 			}
-			(*stack)[i.A] = j
 			pc++
 		case 44:
-			j, err := aPow((*stack)[i.B], i.K)
-			if err != nil {
-				return nil, err
+			if (*stack)[i.A], err = aPow((*stack)[i.B], i.K); err != nil {
+				return
 			}
-			(*stack)[i.A] = j
 			pc++
 		case 82:
-			j, err := aIdiv((*stack)[i.B], i.K)
-			if err != nil {
-				return nil, err
+			if (*stack)[i.A], err = aIdiv((*stack)[i.B], i.K); err != nil {
+				return
 			}
-			(*stack)[i.A] = j
 			pc++
 
 		case 45: // logic AND
