@@ -1,4 +1,4 @@
-local function iter(a, i: number): (number?, any?)
+local function iter(a: { number }, i: number): (number?, any?)
 	i += 1
 	local v = a[i]
 	if v then return i, v end

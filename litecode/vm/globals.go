@@ -64,23 +64,19 @@ func global_next(args Args) (r []Val, err error) {
 	next, stop := iter.Pull2(t.Iter())
 	defer stop()
 
-	for {
-		k, _, ok := next()
-		if !ok {
-			break
+	var k Val
+	var ok bool
+	for k != fk {
+		if k, _, ok = next(); !ok {
+			return nil, errors.New("invalid key to 'next'") // erroring probably not great here but whatever, given it's rarely used
 		}
-		if k != fk {
-			continue
-		}
-
-		k, v, ok := next()
-		if !ok {
-			break
-		}
-		return []Val{k, v}, nil
 	}
 
-	return []Val{nil}, nil // one nil?
+	k, v, ok := next()
+	if !ok {
+		return []Val{nil}, nil
+	}
+	return []Val{k, v}, nil
 }
 
 func global_pairs(args Args) (r []Val, err error) {
@@ -273,10 +269,12 @@ func schubfach(exponent int, fraction uint64) (uint64, int) {
 	cbr := 4*c + 2
 
 	// 9.1. Computing k and h
-	const Q = 20
-	const C = 315652   // floor(2^Q * log10(2))
-	const A = -131008  // floor(2^Q * log10(3/4))
-	const C2 = 3483294 // floor(2^Q * log2(10))
+	const (
+		Q  = 20
+		C  = 315652  // floor(2^Q * log10(2))
+		A  = -131008 // floor(2^Q * log10(3/4))
+		C2 = 3483294 // floor(2^Q * log2(10))
+	)
 	var k int
 	if irr {
 		k = (q*C + A) >> Q
@@ -468,32 +466,32 @@ func num2str2(exponent int, fraction uint64, buf *bufPos) string {
 		buf.pos += dot
 		return buf.String()
 	}
-	if dot < declen {
-		// dot in the middle
-		for i := range dot {
+	if dot > declen {
+		// fmt.Println("no dot, zero padding", declen, dot)
+		for i := range declen {
 			buf.Set(i, dec.Get(i))
 		}
-
-		buf.Set(dot, '.')
-
-		dec.pos += dot
-		for i := range declen - dot {
-			buf.Set(i+dot+1, dec.Get(i))
+		for i := range dot - declen {
+			buf.Set(i+declen, '0')
 		}
 
-		buf.pos += declen + 1
-		return trimzero(buf).String()
+		return string(buf.buf[:buf.pos+dot])
 	}
 
-	// fmt.Println("no dot, zero padding", declen, dot)
-	for i := range declen {
+	// dot in the middle
+	for i := range dot {
 		buf.Set(i, dec.Get(i))
 	}
-	for i := range dot - declen {
-		buf.Set(i+declen, '0')
+
+	buf.Set(dot, '.')
+
+	dec.pos += dot
+	for i := range declen - dot {
+		buf.Set(i+dot+1, dec.Get(i))
 	}
 
-	return string(buf.buf[:buf.pos+dot])
+	buf.pos += declen + 1
+	return trimzero(buf).String()
 }
 
 func num2str(n float64) string {

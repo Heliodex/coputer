@@ -1441,20 +1441,20 @@ func namecall(pc *int, i *inst, stack *[]Val, p proto, top *int, co *Coroutine, 
 		return err
 	}
 	if !ok {
-		t, ok := (*stack)[B].(*Table)
-		if !ok {
-			if _, ok = (*stack)[B].(string); ok {
-				return missingMethod(TypeOf((*stack)[B]), kv)
+		fmt.Println("namecall", kv, "not found")
+		switch t := (*stack)[B].(type) {
+		case *Table:
+			if t.Hash == nil {
+				(*stack)[A] = nil
+			} else {
+				(*stack)[A] = t.GetHash(kv)
 			}
-			return invalidIndex(TypeOf((*stack)[B]), kv)
+			return missingMethod(TypeOf(t), kv)
+		case string:
+			return missingMethod(TypeOf(t), kv)
+		default:
+			return invalidIndex(TypeOf(t), kv)
 		}
-
-		if t.Hash == nil {
-			(*stack)[A] = nil
-		} else {
-			(*stack)[A] = t.GetHash(kv)
-		}
-		return
 	}
 
 	*pc += 2 // -- adjust for aux, Skip next CALL instruction
