@@ -292,7 +292,7 @@ func math_tanh(args Args) (r []Val, err error) {
 	return []Val{math.Tanh(x)}, nil
 }
 
-var libmath = NewLib([]Function[Val]{
+var libmath = NewLib([]Function{
 	MakeFn("abs", math_abs),
 	MakeFn("acos", math_acos),
 	MakeFn("asin", math_asin),

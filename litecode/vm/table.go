@@ -484,7 +484,7 @@ func table_unpack(args Args) (r []Val, err error) {
 	return
 }
 
-var libtable = NewLib([]Function[Val]{
+var libtable = NewLib([]Function{
 	MakeFn("clear", table_clear),
 	MakeFn("clone", table_clone),
 	MakeFn("concat", table_concat),

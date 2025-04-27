@@ -298,13 +298,13 @@ func add_s(caps *captures, b *strings.Builder, s string, si, ei int, news string
 	return
 }
 
-func add_value(caps *captures, b *strings.Builder, co *Coroutine[Val], s string, si, ei int, next Val) (err error) {
+func add_value(caps *captures, b *strings.Builder, co *Coroutine, s string, si, ei int, next Val) (err error) {
 	var val Val
 
 	switch n := next.(type) {
 	case string:
 		return add_s(caps, b, s, si, ei, n)
-	case Function[Val]:
+	case Function:
 		rets, err := (*n.Run)(co, s[si:ei])
 		if err != nil {
 			return err
@@ -338,7 +338,7 @@ func string_gsub(args Args) (r []Val, err error) {
 	next := args.GetAny()
 
 	switch next.(type) {
-	case string, Function[Val], *Table:
+	case string, Function, *Table:
 	default:
 		return nil, fmt.Errorf("invalid argument #3 to 'gsub' (string/function/table expected, got %s)", luautype[TypeOf(next)])
 	}
@@ -459,7 +459,7 @@ func string_upper(args Args) (r []Val, err error) {
 	return []Val{strings.ToUpper(s)}, nil
 }
 
-var libstring = NewLib([]Function[Val]{
+var libstring = NewLib([]Function{
 	MakeFn("byte", string_byte),
 	MakeFn("char", string_char),
 	MakeFn("find", string_find),

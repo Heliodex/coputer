@@ -37,6 +37,6 @@ func args_web(args Args) (r []Val, err error) {
 	return []Val{webargs}, nil
 }
 
-var libargs = NewLib([]Function[Val]{
+var libargs = NewLib([]Function{
 	MakeFn("web", args_web),
 })

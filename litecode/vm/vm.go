@@ -13,8 +13,8 @@ import (
 	"strings"
 )
 
-func arrayKey(k Val) (int, bool) {
-	fk, ok := k.(float64)
+func arrayKey[T Val](k T) (int, bool) {
+	fk, ok := any(k).(float64)
 	if !ok {
 		return 0, false
 	}
@@ -30,9 +30,9 @@ func mapKeySort[T Val](a, b T) int {
 	return strings.Compare(fmt.Sprint(a), fmt.Sprint(b))
 }
 
-func iterArray(array []Val, y func(Val, Val) bool) {
+func iterArray[T comparableVal](array []T, y func(Val, T) bool) {
 	for i, v := range array {
-		if v != nil && !y(float64(i+1), v) {
+		if any(v) != nil && !y(float64(i+1), v) {
 			return
 		}
 	}
@@ -304,14 +304,14 @@ var opList = [83]opInfo{
 // Functions and Tables are used as pointers normally, as they need to be hashed
 
 // Function represents a native or wrapped Luau function. Luau type `function`
-type Function[T Val] struct {
+type Function struct {
 	// Run is the native body of the function. Its coroutine argument is used to run the function in a coroutine.
-	Run  *func(co *Coroutine[T], args ...T) (r []T, err error)
+	Run  *func(co *Coroutine, args ...Val) (r []Val, err error)
 	name string
 }
 
-func fn[T Val](name string, f func(co *Coroutine[T], args ...T) (r []T, err error)) Function[T] {
-	return Function[T]{&f, name}
+func fn(name string, f func(co *Coroutine, args ...Val) (r []Val, err error)) Function {
+	return Function{&f, name}
 }
 
 // Status represents the status of a coroutine.
@@ -325,8 +325,8 @@ const (
 	CoDead
 )
 
-type yield[T Val] struct {
-	rets []T
+type yield struct {
+	rets []Val
 	err  error
 }
 
@@ -342,7 +342,7 @@ type debugging struct {
 type Env valMap[Val]
 
 // AddFn adds a function to the environment.
-func (e *Env) AddFn(f Function[Val]) {
+func (e *Env) AddFn(f Function) {
 	if *e == nil {
 		*e = Env{f.name: f}
 	} else {
@@ -466,13 +466,13 @@ func (r1 WebRets) Equal(r2 WebRets) error {
 }
 
 // Coroutine represents a Luau coroutine, including the main coroutine. Luau type `thread`
-type Coroutine[T Val] struct {
-	body              Function[T]
+type Coroutine struct {
+	body              Function
 	env               Env
 	filepath, dbgpath string   // actually does well here
 	requireHistory    []string // prevents cyclic module dependencies
-	yield             chan yield[T]
-	resume            chan []T
+	yield             chan yield
+	resume            chan []Val
 	dbg               *debugging
 	compiler          *Compiler
 	status            Status
@@ -505,44 +505,44 @@ func (e *Error) Error() string {
 	return eb.String()
 }
 
-func createCoroutine(body Function[Val], currentCo *Coroutine[Val]) *Coroutine[Val] {
+func createCoroutine(body Function, currentCo *Coroutine) *Coroutine {
 	// first time i actually ran into the channel axiom issues
-	return &Coroutine[Val]{
+	return &Coroutine{
 		body:     body,
 		filepath: currentCo.filepath,
 		dbgpath:  currentCo.dbgpath,
-		yield:    make(chan yield[Val], 1),
+		yield:    make(chan yield, 1),
 		resume:   make(chan []Val, 1),
 	}
 }
 
 // Error yields an error to the coroutine, killing it shortly after.
-func (co *Coroutine[Val]) Error(err error) {
-	co.yield <- yield[Val]{nil, &Error{co.dbg, co.dbgpath, err}}
+func (co *Coroutine) Error(err error) {
+	co.yield <- yield{nil, &Error{co.dbg, co.dbgpath, err}}
 
 	// ostensibly blocks forever, but the coroutine is dead/to be killed very soon so it doesn't matter
 	select {}
 }
 
-func startCoroutine[T Val](co *Coroutine[T], args []T) {
+func startCoroutine(co *Coroutine, args []Val) {
 	// fmt.Println(" RG calling coroutine body with", args)
 	r, err := (*co.body.Run)(co, args...)
 
 	// fmt.Println("RG  yielding", r)
-	co.yield <- yield[T]{r, err}
+	co.yield <- yield{r, err}
 	// fmt.Println("RG  yielded", r)
 
 	co.status = CoDead
 	if len(co.yield) == 0 {
 		// finish up
 		// fmt.Println("RG  yielding, finishing up")
-		co.yield <- yield[T]{}
+		co.yield <- yield{}
 		// fmt.Println("RG  yielding, finished up")
 	}
 }
 
 // Resume executes the coroutine with the provided arguments, starting it with the given arguments if it is not already started, otherwise resuming it and passing the argument values back to the yielded function.
-func (co *Coroutine[T]) Resume(args ...T) (r []T, err error) {
+func (co *Coroutine) Resume(args ...Val) (r []Val, err error) {
 	if !co.started {
 		// fmt.Println("RM  starting", args)
 		co.started = true
@@ -567,7 +567,7 @@ func vectorCtor(x, y, z, w float32) Vector {
 	return Vector{x, y, z, w}
 }
 
-func namecallHandler(co *Coroutine[Val], kv string, stack *[]Val, c1, c2 int) (ok bool, retList []Val, err error) {
+func namecallHandler(co *Coroutine, kv string, stack *[]Val, c1, c2 int) (ok bool, retList []Val, err error) {
 	switch kv {
 	case "format":
 		str := (*stack)[c1].(string)
@@ -614,15 +614,16 @@ var exts = Env{
 type inst struct {
 	opInfo
 
-	K, K0, K1, K2          any
+	// K0, K1, K2 for imports (up to 3 lay.ers.deep)
+	K, K0, K1, K2          Val
 	A, B, C, D, E, KC, aux int
 	opcode                 uint8
 	KN                     bool
 }
 
-type proto[T Val] struct {
+type proto struct {
 	dbgname              string
-	k                    []T
+	k                    []Val
 	code                 []*inst
 	instlineinfo, protos []uint32
 	dbgcode              []uint8
@@ -633,8 +634,8 @@ type proto[T Val] struct {
 }
 
 type deserialised[T Val] struct {
-	mainProto proto[T]
-	protoList []proto[T]
+	mainProto proto
+	protoList []proto
 }
 
 func checkkmode(i *inst, k []Val) {
@@ -785,7 +786,7 @@ func readInst(codeList *[]*inst, s *stream) bool {
 	return opinfo.hasAux
 }
 
-func readProto(stringList []string, s *stream) (p proto[Val], err error) {
+func readProto(stringList []string, s *stream) (p proto, err error) {
 	p.maxstacksize, p.numparams, p.nups = s.rByte(), s.rByte(), s.rByte()
 
 	s.rBool()            // isvararg
@@ -834,7 +835,7 @@ func readProto(stringList []string, s *stream) (p proto[Val], err error) {
 		case 7: // Vector
 			p.k[i] = vectorCtor(s.rFloat32(), s.rFloat32(), s.rFloat32(), s.rFloat32())
 		default:
-			return proto[Val]{}, fmt.Errorf("unknown ktype %d", kt)
+			return proto{}, fmt.Errorf("unknown ktype %d", kt)
 		}
 	}
 
@@ -925,7 +926,7 @@ func deserialise(data []byte) (deserialised[Val], error) {
 	}
 
 	protoCount := s.rVarInt()
-	protoList := make([]proto[Val], protoCount)
+	protoList := make([]proto, protoCount)
 	for i := range protoCount {
 		p, err := readProto(stringList, s)
 		if err != nil {
@@ -948,7 +949,7 @@ type iterator[T Val] struct {
 
 type upval[T Val] struct {
 	value   T
-	store   []T
+	store   []Val
 	index   int
 	selfRef bool
 }
@@ -969,8 +970,8 @@ var luautype = map[string]string{
 	"string":                       "string",
 	"bool":                         "boolean",
 	"*" + typeprefix + "Table":     "table",
-	typeprefix + "Function[" + urlprefix + typeprefix + "Val]":        "function",
-	"*" + typeprefix + "Coroutine[" + urlprefix + typeprefix + "Val]": "thread",
+	typeprefix + "Function":        "function",
+	"*" + typeprefix + "Coroutine": "thread",
 	"*" + typeprefix + "Buffer":    "buffer",
 	typeprefix + "Vector":          "vector",
 }
@@ -1021,119 +1022,135 @@ func TypeOf(v Val) string {
 	return reflect.TypeOf(v).String()
 }
 
-func aAdd(a, b Val) (Val, error) {
-	fa, ok1 := a.(float64)
-	fb, ok2 := b.(float64)
+func aAdd[T Val](a, b T) (nt T, err error) {
+	fa, ok1 := any(a).(float64)
+	fb, ok2 := any(b).(float64)
 	if ok1 && ok2 {
-		return fa + fb, nil
+		res := fa + fb
+		return any(res).(T), nil
 	}
 
-	va, ok3 := a.(Vector)
-	vb, ok4 := b.(Vector)
+	va, ok3 := any(a).(Vector)
+	vb, ok4 := any(b).(Vector)
 	if ok3 && ok4 {
-		return Vector{va[0] + vb[0], va[1] + vb[1], va[2] + vb[2], va[3] + vb[3]}, nil
+		res := Vector{va[0] + vb[0], va[1] + vb[1], va[2] + vb[2], va[3] + vb[3]}
+		return any(res).(T), nil
 	}
 
-	return nil, invalidArithmetic("add", TypeOf(a), TypeOf(b))
+	return nt, invalidArithmetic("add", TypeOf(a), TypeOf(b))
 }
 
-func aSub(a, b Val) (Val, error) {
-	fa, ok1 := a.(float64)
-	fb, ok2 := b.(float64)
+func aSub[T Val](a, b T) (nt T, err error) {
+	fa, ok1 := any(a).(float64)
+	fb, ok2 := any(b).(float64)
 	if ok1 && ok2 {
-		return fa - fb, nil
+		res := fa - fb
+		return any(res).(T), nil
 	}
 
-	va, ok3 := a.(Vector)
-	vb, ok4 := b.(Vector)
+	va, ok3 := any(a).(Vector)
+	vb, ok4 := any(b).(Vector)
 	if ok3 && ok4 {
-		return Vector{va[0] - vb[0], va[1] - vb[1], va[2] - vb[2], va[3] - vb[3]}, nil
+
+		res := Vector{va[0] - vb[0], va[1] - vb[1], va[2] - vb[2], va[3] - vb[3]}
+		return any(res).(T), nil
 	}
 
-	return nil, invalidArithmetic("sub", TypeOf(a), TypeOf(b))
+	return nt, invalidArithmetic("sub", TypeOf(a), TypeOf(b))
 }
 
-func aMul(a, b Val) (Val, error) {
-	fa, ok1 := a.(float64)
-	fb, ok2 := b.(float64)
+func aMul[T Val](a, b T) (nt T, err error) {
+	fa, ok1 := any(a).(float64)
+	fb, ok2 := any(b).(float64)
 	if ok1 && ok2 {
-		return fa * fb, nil
+		res := fa * fb
+		return any(res).(T), nil
 	}
 
-	va, ok3 := a.(Vector)
-	vb, ok4 := b.(Vector)
+	va, ok3 := any(a).(Vector)
+	vb, ok4 := any(b).(Vector)
 	if ok3 && ok4 {
-		return Vector{va[0] * vb[0], va[1] * vb[1], va[2] * vb[2], va[3] * vb[3]}, nil
+		res := Vector{va[0] * vb[0], va[1] * vb[1], va[2] * vb[2], va[3] * vb[3]}
+		return any(res).(T), nil
 	} else if ok1 && ok4 {
 		f := float32(fa)
-		return Vector{f * vb[0], f * vb[1], f * vb[2], f * vb[3]}, nil
+		res := Vector{f * vb[0], f * vb[1], f * vb[2], f * vb[3]}
+		return any(res).(T), nil
 	} else if ok3 && ok2 {
 		f := float32(fb)
-		return Vector{va[0] * f, va[1] * f, va[2] * f, va[3] * f}, nil
+		res := Vector{va[0] * f, va[1] * f, va[2] * f, va[3] * f}
+		return any(res).(T), nil
 	}
 
-	return nil, invalidArithmetic("mul", TypeOf(a), TypeOf(b))
+	return nt, invalidArithmetic("mul", TypeOf(a), TypeOf(b))
 }
 
-func aDiv(a, b Val) (Val, error) {
-	fa, ok1 := a.(float64)
-	fb, ok2 := b.(float64)
+func aDiv[T Val](a, b T) (nt T, err error) {
+	fa, ok1 := any(a).(float64)
+	fb, ok2 := any(b).(float64)
 	if ok1 && ok2 {
-		return fa / fb, nil
+		res := fa / fb
+		return any(res).(T), nil
 	}
 
-	va, ok3 := a.(Vector)
-	vb, ok4 := b.(Vector)
+	va, ok3 := any(a).(Vector)
+	vb, ok4 := any(b).(Vector)
 	if ok3 && ok4 {
-		return Vector{va[0] / vb[0], va[1] / vb[1], va[2] / vb[2], va[3] / vb[3]}, nil
+		res := Vector{va[0] / vb[0], va[1] / vb[1], va[2] / vb[2], va[3] / vb[3]}
+		return any(res).(T), nil
 	} else if ok1 && ok4 {
 		f := float32(fa)
-		return Vector{f / vb[0], f / vb[1], f / vb[2], f / vb[3]}, nil
+		res := Vector{f / vb[0], f / vb[1], f / vb[2], f / vb[3]}
+		return any(res).(T), nil
 	} else if ok3 && ok2 {
 		f := float32(fb)
-		return Vector{va[0] / f, va[1] / f, va[2] / f, va[3] / f}, nil
+		res := Vector{va[0] / f, va[1] / f, va[2] / f, va[3] / f}
+		return any(res).(T), nil
 	}
 
-	return nil, invalidArithmetic("div", TypeOf(a), TypeOf(b))
+	return nt, invalidArithmetic("div", TypeOf(a), TypeOf(b))
 }
 
-func aMod(a, b Val) (float64, error) {
-	fa, ok1 := a.(float64)
-	fb, ok2 := b.(float64)
+func aMod[T Val](a, b T) (nt T, err error) {
+	fa, ok1 := any(a).(float64)
+	fb, ok2 := any(b).(float64)
 	if ok1 && ok2 {
-		return fa - fb*math.Floor(fa/fb), nil
+		res := fa - fb*math.Floor(fa/fb)
+		return any(res).(T), nil
 	}
 
-	return 0, invalidArithmetic("mod", TypeOf(a), TypeOf(b))
+	return nt, invalidArithmetic("mod", TypeOf(a), TypeOf(b))
 }
 
-func aPow(a, b Val) (float64, error) {
-	fa, ok1 := a.(float64)
-	fb, ok2 := b.(float64)
+func aPow[T Val](a, b T) (nt T, err error) {
+	fa, ok1 := any(a).(float64)
+	fb, ok2 := any(b).(float64)
 	if ok1 && ok2 {
-		return math.Pow(fa, fb), nil
+		res := math.Pow(fa, fb)
+		return any(res).(T), nil
 	}
 
-	return 0, invalidArithmetic("pow", TypeOf(a), TypeOf(b))
+	return nt, invalidArithmetic("pow", TypeOf(a), TypeOf(b))
 }
 
-func aIdiv(a, b Val) (Val, error) {
-	fa, ok1 := a.(float64)
-	fb, ok2 := b.(float64)
+func aIdiv[T Val](a, b T) (Val, error) {
+	fa, ok1 := any(a).(float64)
+	fb, ok2 := any(b).(float64)
 	if ok1 && ok2 {
 		return math.Floor(fa / fb), nil
 	}
 
-	va, ok3 := a.(Vector)
-	vb, ok4 := b.(Vector)
-	if ok3 && ok4 {
+	va, ok3 := any(a).(Vector)
+	vb, ok4 := any(b).(Vector)
+	switch {
+	case ok3 && ok4:
 		return Vector{
 			f32Floor(va[0] / vb[0]),
 			f32Floor(va[1] / vb[1]),
 			f32Floor(va[2] / vb[2]),
 			f32Floor(va[3] / vb[3]),
 		}, nil
-	} else if ok1 && ok4 {
+	case ok1 && ok4:
 		f := float32(fa)
 		return Vector{
 			f32Floor(f / vb[0]),
@@ -1141,7 +1158,7 @@ func aIdiv(a, b Val) (Val, error) {
 			f32Floor(f / vb[2]),
 			f32Floor(f / vb[3]),
 		}, nil
-	} else if ok3 && ok2 {
+	case ok3 && ok2:
 		f := float32(fb)
 		return Vector{
 			f32Floor(va[0] / f),
@@ -1155,15 +1172,15 @@ func aIdiv(a, b Val) (Val, error) {
 }
 
 // vectors dont have these comparisons
-func jumpLe(a, b Val) (bool, error) {
-	fa, ok1 := a.(float64)
-	fb, ok2 := b.(float64)
+func jumpLe[T Val](a, b T) (bool, error) {
+	fa, ok1 := any(a).(float64)
+	fb, ok2 := any(b).(float64)
 	if ok1 && ok2 {
 		return fa <= fb, nil
 	}
 
-	sa, ok1 := a.(string)
-	sb, ok2 := b.(string)
+	sa, ok1 := any(a).(string)
+	sb, ok2 := any(b).(string)
 	if ok1 && ok2 {
 		return sa <= sb, nil
 	}
@@ -1171,15 +1188,15 @@ func jumpLe(a, b Val) (bool, error) {
 	return false, invalidCompare("<=", TypeOf(a), TypeOf(b))
 }
 
-func jumpLt(a, b Val) (bool, error) {
-	fa, ok1 := a.(float64)
-	fb, ok2 := b.(float64)
+func jumpLt[T Val](a, b T) (bool, error) {
+	fa, ok1 := any(a).(float64)
+	fb, ok2 := any(b).(float64)
 	if ok1 && ok2 {
 		return fa < fb, nil
 	}
 
-	sa, ok1 := a.(string)
-	sb, ok2 := b.(string)
+	sa, ok1 := any(a).(string)
+	sb, ok2 := any(b).(string)
 	if ok1 && ok2 {
 		return sa < sb, nil
 	}
@@ -1187,15 +1204,15 @@ func jumpLt(a, b Val) (bool, error) {
 	return false, invalidCompare("<", TypeOf(a), TypeOf(b))
 }
 
-func jumpGt(a, b Val) (bool, error) {
-	fa, ok1 := a.(float64)
-	fb, ok2 := b.(float64)
+func jumpGt[T Val](a, b T) (bool, error) {
+	fa, ok1 := any(a).(float64)
+	fb, ok2 := any(b).(float64)
 	if ok1 && ok2 {
 		return fa > fb, nil
 	}
 
-	sa, ok1 := a.(string)
-	sb, ok2 := b.(string)
+	sa, ok1 := any(a).(string)
+	sb, ok2 := any(b).(string)
 	if ok1 && ok2 {
 		return sa > sb, nil
 	}
@@ -1203,15 +1220,15 @@ func jumpGt(a, b Val) (bool, error) {
 	return false, invalidCompare(">", TypeOf(a), TypeOf(b))
 }
 
-func jumpGe(a, b Val) (bool, error) {
-	fa, ok1 := a.(float64)
-	fb, ok2 := b.(float64)
+func jumpGe[T Val](a, b T) (bool, error) {
+	fa, ok1 := any(a).(float64)
+	fb, ok2 := any(b).(float64)
 	if ok1 && ok2 {
 		return fa >= fb, nil
 	}
 
-	sa, ok1 := a.(string)
-	sb, ok2 := b.(string)
+	sa, ok1 := any(a).(string)
+	sb, ok2 := any(b).(string)
 	if ok1 && ok2 {
 		return sa >= sb, nil
 	}
@@ -1239,13 +1256,13 @@ func gettable(index, v Val) (Val, error) {
 	return nil, invalidIndex(TypeOf(v), index)
 }
 
-type toWrap[T Val] struct {
-	proto        proto[T]
-	upvals       []*upval[T]
+type toWrap struct {
+	proto        proto
+	upvals       []*upval[Val]
 	alive        *bool
-	protolist    []proto[T]
+	protolist    []proto
 	env          Env
-	requireCache map[string][]T
+	requireCache map[string][]Val
 }
 
 func iterate(c *iterator[Val]) {
@@ -1266,7 +1283,7 @@ func iterate(c *iterator[Val]) {
 	c.resume <- nil
 }
 
-func execute(towrap toWrap[Val], stack *[]Val, co *Coroutine[Val], vargsList []Val, vargsLen uint8) (r []Val, err error) {
+func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsLen uint8) (r []Val, err error) {
 	p, upvals := towrap.proto, towrap.upvals
 	pc, top, openUpvals, generalisedIterators := 1, -1, []*upval[Val]{}, map[inst]*iterator[Val]{}
 
@@ -1599,7 +1616,7 @@ func execute(towrap toWrap[Val], stack *[]Val, co *Coroutine[Val], vargsList []V
 			// fmt.Println(A, B, C, (*stack)[A], params)
 
 			f := (*stack)[A]
-			fn, ok := f.(Function[Val])
+			fn, ok := f.(Function)
 			// fmt.Println("calling with", (*stack)[A+1:][:params])
 			if !ok {
 				return nil, uncallableType(TypeOf(f))
@@ -1635,7 +1652,7 @@ func execute(towrap toWrap[Val], stack *[]Val, co *Coroutine[Val], vargsList []V
 						// only the last return value (weird luau behaviour...)
 						ret := reqrets[len(reqrets)-1]
 						switch ret.(type) {
-						case *Table, Function[Val]:
+						case *Table, Function:
 						default:
 							return nil, errors.New("module must return a table or function")
 						}
@@ -1996,7 +2013,7 @@ func execute(towrap toWrap[Val], stack *[]Val, co *Coroutine[Val], vargsList []V
 			top = A + 6
 
 			switch it := (*stack)[A].(type) {
-			case Function[Val]:
+			case Function:
 				// fmt.Println("IT func", fn, (*stack)[A+1], (*stack)[A+2])
 				vals, err := (*it.Run)(co, (*stack)[A+1], (*stack)[A+2])
 				if err != nil {
@@ -2042,7 +2059,7 @@ func execute(towrap toWrap[Val], stack *[]Val, co *Coroutine[Val], vargsList []V
 				return nil, fmt.Errorf("attempt to iterate over a %s value", TypeOf(it))
 			}
 		case 59, 61: // FORGPREP_INEXT, FORGPREP_NEXT
-			if _, ok := (*stack)[i.A].(Function[Val]); !ok {
+			if _, ok := (*stack)[i.A].(Function); !ok {
 				return nil, fmt.Errorf("attempt to iterate over a %s value", TypeOf((*stack)[i.A])) // -- encountered non-function value
 			}
 			pc += i.D + 1
@@ -2130,7 +2147,7 @@ func execute(towrap toWrap[Val], stack *[]Val, co *Coroutine[Val], vargsList []V
 			pc += 2 // adjust for aux
 		case 76: // FORGPREP
 			pc += i.D + 1
-			if _, ok := (*stack)[i.A].(Function[Val]); ok {
+			if _, ok := (*stack)[i.A].(Function); ok {
 				break
 			}
 
@@ -2206,10 +2223,10 @@ func execute(towrap toWrap[Val], stack *[]Val, co *Coroutine[Val], vargsList []V
 	return
 }
 
-func wrapclosure(towrap toWrap[Val]) Function[Val] {
+func wrapclosure(towrap toWrap) Function {
 	proto := towrap.proto
 
-	return fn("", func(co *Coroutine[Val], args ...Val) (r []Val, err error) {
+	return fn("", func(co *Coroutine, args ...Val) (r []Val, err error) {
 		maxs, np := proto.maxstacksize, proto.numparams // maxs 2 lel
 
 		la := uint8(len(args)) // we can't have more than 255 args anyway right?
@@ -2236,10 +2253,10 @@ func wrapclosure(towrap toWrap[Val]) Function[Val] {
 	})
 }
 
-func loadmodule(m compiled, env Env, requireCache map[string][]Val, requireHistory []string, args ProgramArgs) (co Coroutine[Val], cancel func()) {
+func loadmodule(m compiled, env Env, requireCache map[string][]Val, requireHistory []string, args ProgramArgs) (co Coroutine, cancel func()) {
 	alive := true
 
-	towrap := toWrap[Val]{
+	towrap := toWrap{
 		m.mainProto,
 		[]*upval[Val]{},
 		&alive,
@@ -2248,13 +2265,13 @@ func loadmodule(m compiled, env Env, requireCache map[string][]Val, requireHisto
 		requireCache,
 	}
 
-	return Coroutine[Val]{
+	return Coroutine{
 		body:           wrapclosure(towrap),
 		env:            env,
 		filepath:       m.filepath,
 		dbgpath:        m.dbgpath,
 		requireHistory: requireHistory,
-		yield:          make(chan yield[Val], 1),
+		yield:          make(chan yield, 1),
 		resume:         make(chan []Val, 1),
 		dbg:            &debugging{opcode: 255},
 		compiler:       m.compiler,
