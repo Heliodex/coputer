@@ -1288,12 +1288,13 @@ func gettable(index, v Val) (Val, error) {
 }
 
 type toWrap struct {
-	proto        proto
-	upvals       []*upval
-	alive        *bool
-	protolist    []proto
-	env          Env
-	requireCache map[string][]Val
+	proto     proto
+	upvals    []*upval
+	alive     *bool
+	protolist []proto
+	env       Env
+	// Store the last return, as it's the only one that's relevant
+	requireCache map[string]Val
 }
 
 func iterate(c *iterator) {
@@ -1485,6 +1486,33 @@ func namecall(pc *int, i *inst, stack *[]Val, p proto, top *int, co *Coroutine, 
 	return
 }
 
+func handleRequire(towrap toWrap, lc compiled, retList []Val, co *Coroutine) ([]Val, error) {
+	if c, ok := towrap.requireCache[lc.filepath]; ok {
+		return []Val{c}, nil
+	}
+
+	// since environments only store global libraries etc, using the same env here should be fine??
+	c2, _ := loadmodule(lc, co.env, towrap.requireCache, lc.requireHistory, co.programArgs)
+	reqrets, err := c2.Resume()
+	if err != nil {
+		return nil, err
+	}
+	if len(reqrets) == 0 { // i have no reqrets
+		return nil, errors.New("module must return a value")
+	}
+
+	// only the last return value (weird luau behaviour...)
+	ret := reqrets[len(reqrets)-1]
+	switch ret.(type) {
+	case *Table, Function:
+	default:
+		return nil, errors.New("module must return a table or function")
+	}
+
+	towrap.requireCache[lc.filepath] = ret
+	return []Val{ret}, nil
+}
+
 func call(i inst, top *int, stack *[]Val, co *Coroutine, towrap toWrap) (err error) {
 	A, B, C := int(i.A), int(i.B), int(i.C)
 
@@ -1519,29 +1547,8 @@ func call(i inst, top *int, stack *[]Val, co *Coroutine, towrap toWrap) (err err
 			// it's a require
 			// fmt.Println("REQUIRE", lc.filepath)
 
-			if c, ok := towrap.requireCache[lc.filepath]; ok {
-				retList = c[len(c)-1:]
-			} else {
-				// since environments only store global libraries etc, using the same env here should be fine??
-				c2, _ := loadmodule(lc, co.env, towrap.requireCache, lc.requireHistory, co.programArgs)
-				reqrets, err := c2.Resume()
-				if err != nil {
-					return err
-				}
-				if len(reqrets) == 0 {
-					return errors.New("module must return a value")
-				}
-
-				// only the last return value (weird luau behaviour...)
-				ret := reqrets[len(reqrets)-1]
-				switch ret.(type) {
-				case *Table, Function:
-				default:
-					return errors.New("module must return a table or function")
-				}
-
-				retList = []Val{ret}
-				towrap.requireCache[lc.filepath] = retList
+			if retList, err = handleRequire(towrap, lc, retList, co); err != nil {
+				return err
 			}
 		}
 	}
@@ -2287,7 +2294,7 @@ func wrapclosure(towrap toWrap) Function {
 		dbg := &debugging{enabled: proto.lineinfoenabled, opcode: 255}
 		// fmt.Println("started on", co.dbg.line, dbg.line)
 		co.dbg = dbg
-		
+
 		r, err = execute(towrap, &stack, co, list, max(la-np, 0))
 		// fmt.Println("ended on", co.dbg.line, dbg.line)
 		if !*towrap.alive {
@@ -2296,14 +2303,14 @@ func wrapclosure(towrap toWrap) Function {
 		if err != nil {
 			return nil, &Error{dbg, co.dbgpath, err}
 		}
-		
+
 		// prevent line mismatches (error/loc.luau)
 		co.dbg = originalDebug
 		return
 	})
 }
 
-func loadmodule(m compiled, env Env, requireCache map[string][]Val, requireHistory []string, args ProgramArgs) (co Coroutine, cancel func()) {
+func loadmodule(m compiled, env Env, requireCache map[string]Val, requireHistory []string, args ProgramArgs) (co Coroutine, cancel func()) {
 	alive := true
 
 	towrap := toWrap{
