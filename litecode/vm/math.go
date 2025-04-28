@@ -162,7 +162,7 @@ func math_modf(args Args) (r []Val, err error) {
 }
 
 // lmathlib.cpp
-var kPerlinHash = [257]int{
+var kPerlinHash = [257]uint8{
 	151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225, 140, 36, 103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23,
 	190, 6, 148, 247, 120, 234, 75, 0, 26, 197, 62, 94, 252, 219, 203, 117, 35, 11, 32, 57, 177, 33, 88, 237, 149, 56, 87, 174, 20,
 	125, 136, 171, 168, 68, 175, 74, 165, 71, 134, 139, 48, 27, 166, 77, 146, 158, 231, 83, 111, 229, 122, 60, 211, 133, 230, 220, 105, 92,
@@ -201,29 +201,27 @@ func lerp(t, a, b float32) float32 {
 	return a + t*(b-a)
 }
 
-func grad(hash int, x, y, z float32) float32 {
+func grad(hash uint8, x, y, z float32) float32 {
 	g := kPerlinGrad[hash&15]
 	return g[0]*x + g[1]*y + g[2]*z
 }
 
 func perlin(x, y, z float32) float64 {
 	xflr, yflr, zflr := f32Floor(x), f32Floor(y), f32Floor(z)
-	xi, yi, zi := int(xflr)&255, int(yflr)&255, int(zflr)&255
+	xi, yi, zi := uint8(xflr), uint8(yflr), uint8(zflr)
 	xf, yf, zf := x-xflr, y-yflr, z-zflr
 	u, v, w := fade(xf), fade(yf), fade(zf)
 
-	p := kPerlinHash
+	a := kPerlinHash[xi] + yi
+	aa, ab := kPerlinHash[a]+zi, kPerlinHash[a+1]+zi
 
-	a := (p[xi] + yi) & 255
-	aa, ab := (p[a]+zi)&255, (p[a+1]+zi)&255
+	b := kPerlinHash[xi+1] + yi
+	ba, bb := kPerlinHash[b]+zi, kPerlinHash[b+1]+zi
 
-	b := (p[xi+1] + yi) & 255
-	ba, bb := (p[b]+zi)&255, (p[b+1]+zi)&255
-
-	la := lerp(u, grad(p[aa], xf, yf, zf), grad(p[ba], xf-1, yf, zf))
-	lb := lerp(u, grad(p[ab], xf, yf-1, zf), grad(p[bb], xf-1, yf-1, zf))
-	la1 := lerp(u, grad(p[aa+1], xf, yf, zf-1), grad(p[ba+1], xf-1, yf, zf-1))
-	lb1 := lerp(u, grad(p[ab+1], xf, yf-1, zf-1), grad(p[bb+1], xf-1, yf-1, zf-1))
+	la := lerp(u, grad(kPerlinHash[aa], xf, yf, zf), grad(kPerlinHash[ba], xf-1, yf, zf))
+	lb := lerp(u, grad(kPerlinHash[ab], xf, yf-1, zf), grad(kPerlinHash[bb], xf-1, yf-1, zf))
+	la1 := lerp(u, grad(kPerlinHash[aa+1], xf, yf, zf-1), grad(kPerlinHash[ba+1], xf-1, yf, zf-1))
+	lb1 := lerp(u, grad(kPerlinHash[ab+1], xf, yf-1, zf-1), grad(kPerlinHash[bb+1], xf-1, yf-1, zf-1))
 
 	return float64(lerp(w, lerp(v, la, lb), lerp(v, la1, lb1)))
 }

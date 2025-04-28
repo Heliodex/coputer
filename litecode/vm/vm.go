@@ -158,10 +158,12 @@ func (t *Table) ForceSet(k Val, v Val) {
 	t.SetHash(k, v)
 }
 
+var errReadonly = errors.New("attempt to modify a readonly table")
+
 // Set sets a table value at a key, returning an error if the table is readonly.
 func (t *Table) Set(k Val, v Val) error {
 	if t.readonly {
-		return errors.New("attempt to modify a readonly table")
+		return errReadonly
 	}
 	t.ForceSet(k, v)
 	return nil
@@ -1597,7 +1599,6 @@ func forgloop(i inst, top *int32, stack *[]Val, co *Coroutine, pc *int, generali
 		}
 
 		(*stack)[A+2] = (*stack)[A+3]
-		*pc += int(i.D) + 1
 	case *Table:
 		// fmt.Println("GETTING GENITER", typeOf(it))
 		iter := *(*generalisedIterators)[i]
@@ -1621,10 +1622,10 @@ func forgloop(i inst, top *int32, stack *[]Val, co *Coroutine, pc *int, generali
 		moveStack(stack, *vals, res, A+3)
 
 		(*stack)[A+2] = (*stack)[A+3]
-		*pc += int(i.D) + 1
 	default:
 		return fmt.Errorf("attempt to iterate over a %s value", TypeOf(it))
 	}
+	*pc += int(i.D) + 1
 	return
 }
 
@@ -1651,6 +1652,10 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 		co.dbg.enabled = p.lineinfoenabled
 		co.dbg.opcode = i.opcode
 		co.dbg.dbgname = p.dbgname
+
+		if pc > 2000 { 
+			panic(pc)
+		}
 
 		// fmt.Println(top)
 
@@ -1783,7 +1788,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			pc++
 		case 18: // SETTABLEN
 			if t := (*stack)[i.B].(*Table); t.readonly {
-				return nil, errors.New("attempt to modify a readonly table")
+				return nil, errReadonly
 			} else if i, v := int(i.C+1), (*stack)[i.A]; 1 <= i || i > len(t.Array) {
 				t.SetArray(i, v)
 			} else {
@@ -2031,15 +2036,13 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 
 			pc += 2 // -- adjust for aux
 		case 54: // DUPTABLE
-			pc++
 			serialised := &Table{}
 			// fmt.Println("TEMPLATING")
 			for _, id := range i.K.([]uint32) { // template
-				if err := serialised.Set(p.k[id], nil); err != nil { // constants
-					return nil, err
-				}
+				serialised.ForceSet(p.k[id], nil) // constants
 			}
 			(*stack)[i.A] = serialised
+			pc++
 		case 55: // SETLIST
 			A, B := i.A, i.B
 			c := i.C - 1
@@ -2050,7 +2053,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 
 			s := (*stack)[A].(*Table)
 			if s.readonly {
-				return nil, errors.New("attempt to modify a readonly table")
+				return nil, errReadonly
 			}
 
 			// one-indexed lol
@@ -2061,7 +2064,6 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 
 			pc += 2 // -- adjust for aux
 		case 56: // FORNPREP
-			pc++
 			A := i.A
 
 			index, ok := (*stack)[A+2].(float64)
@@ -2086,8 +2088,8 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			} else if index < limit {
 				pc += int(i.D)
 			}
-		case 57: // FORNLOOP
 			pc++
+		case 57: // FORNLOOP
 			A := i.A
 			limit := (*stack)[A].(float64)
 			step := (*stack)[A+1].(float64)
@@ -2102,6 +2104,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			} else if limit <= init {
 				pc += int(i.D)
 			}
+			pc++
 		case 58: // FORGLOOP
 			if err := forgloop(i, &top, stack, co, &pc, &generalisedIterators); err != nil {
 				return nil, err
@@ -2168,28 +2171,24 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			pc++
 			// Skipped
 		case 69: // COVERAGE
-			pc++
 			i.E++
+			pc++
 		case 70: // CAPTURE
 			// Handled by CLOSURE
 			panic("encountered unhandled CAPTURE")
 		case 71: // SUBRK
-			pc++
-			j, err := aSub(i.K, (*stack)[i.C])
-			if err != nil {
+			if (*stack)[i.A], err = aSub(i.K, (*stack)[i.C]); err != nil {
 				return nil, err
 			}
-			(*stack)[i.A] = j
+			pc++
 		case 72: // DIVRK
-			pc++
-			j, err := aDiv(i.K, (*stack)[i.C])
-			if err != nil {
+			if (*stack)[i.A], err = aDiv(i.K, (*stack)[i.C]); err != nil {
 				return nil, err
 			}
-			(*stack)[i.A] = j
-		case 73: // FASTCALL1
 			pc++
+		case 73: // FASTCALL1
 			// Skipped
+			pc++
 		case 74, 75: // FASTCALL2, FASTCALL2K
 			// Skipped
 			pc += 2 // adjust for aux
@@ -2212,36 +2211,25 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			// fmt.Println("SETTING GENITER", loopInst)
 			generalisedIterators[loopInst] = c
 		case 77: // JUMPXEQKNIL
-			ra := (*stack)[i.A]
-
-			if ra == nil != i.KN {
+			if ra := (*stack)[i.A]; ra == nil != i.KN {
 				pc += int(i.D) + 1
 			} else {
 				pc += 2
 			}
 		case 78: //  JUMPXEQKB
-			kv := i.K.(bool)
-			ra := (*stack)[i.A].(bool)
-
-			if ra == kv != i.KN {
+			if kv, ra := i.K.(bool), (*stack)[i.A].(bool); ra == kv != i.KN {
 				pc += int(i.D) + 1
 			} else {
 				pc += 2
 			}
 		case 79: // JUMPXEQKN
-			kv := i.K.(float64)
-			ra := (*stack)[i.A].(float64)
-
-			if ra == kv != i.KN {
+			if kv, ra := i.K.(float64), (*stack)[i.A].(float64); ra == kv != i.KN {
 				pc += int(i.D) + 1
 			} else {
 				pc += 2
 			}
 		case 80: // JUMPXEQKS
-			kv := i.K.(string)
-			ra := (*stack)[i.A].(string)
-
-			if ra == kv != i.KN {
+			if kv, ra := i.K.(string), (*stack)[i.A].(string); ra == kv != i.KN {
 				pc += int(i.D) + 1
 			} else {
 				pc += 2
