@@ -1,0 +1,2 @@
+{PATH}/namecall4.luau:3: function (main)
+attempt to call missing method 'world' of table

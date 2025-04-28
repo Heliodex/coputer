@@ -1,0 +1,2 @@
+{PATH}/pmi1.luau:1: function (main)
+invalid capture index %2

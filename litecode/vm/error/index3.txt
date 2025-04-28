@@ -1,2 +1,0 @@
-error/index3.luau:2: function (main)
-attempt to index string with 'format'

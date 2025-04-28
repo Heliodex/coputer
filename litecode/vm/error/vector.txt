@@ -1,2 +1,0 @@
-error/vector.luau:4: function (main)
-attempt to index vector with 'hello'

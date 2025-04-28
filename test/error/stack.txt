@@ -1,0 +1,6 @@
+{PATH}/stack.luau:10: function (main)
+{PATH}/stack.luau:8: function f4
+{PATH}/stack.luau:7: function f3
+{PATH}/stack.luau:6: function f2
+{PATH}/stack.luau:3: function f1
+attempt to call a string value

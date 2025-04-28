@@ -1,0 +1,2 @@
+{PATH}/namecall1.luau:3: function (main)
+attempt to index nil with 'world'

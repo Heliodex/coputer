@@ -1,0 +1,2 @@
+{PATH}/vector2.luau:4: function (main)
+attempt to index vector with 'X'

@@ -12,7 +12,7 @@ import (
 )
 
 func startWeb(v any) (rets vm.WebRets, err error) {
-	t, ok := v.(*vm.Table[vm.Val, vm.Val])
+	t, ok := v.(*vm.Table)
 	if !ok {
 		fmt.Println("no table", v, vm.TypeOf(v))
 		return vm.WebRets{}, errors.New("web program did not return a table")
@@ -37,7 +37,7 @@ func startWeb(v any) (rets vm.WebRets, err error) {
 	}
 
 	if headers := t.GetHash("headers"); headers != nil {
-		theaders, ok := headers.(*vm.Table[vm.Val, vm.Val])
+		theaders, ok := headers.(*vm.Table)
 		if !ok {
 			return vm.WebRets{}, errors.New("return headers, if provided, must be a table")
 		}

@@ -1,3 +1,0 @@
-error/circularrequire2.luau:1: function (main)
-error/dir1/circular.luau:1: function (main)
-cyclic module dependency: file requires itself indirectly

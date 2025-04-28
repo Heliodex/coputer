@@ -1,2 +1,0 @@
-error/badrequire3.luau:1: function (main)
-module must return a value

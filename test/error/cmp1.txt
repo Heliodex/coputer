@@ -1,0 +1,2 @@
+{PATH}/cmp1.luau:4: function (main)
+attempt to compare vector < vector

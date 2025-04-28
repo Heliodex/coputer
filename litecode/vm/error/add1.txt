@@ -1,2 +1,0 @@
-error/add1.luau:4: function (main)
-attempt to perform arithmetic (add) on number and string

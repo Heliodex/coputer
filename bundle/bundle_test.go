@@ -2,7 +2,7 @@ package bundle
 
 import "testing"
 
-const testpath = "../test/web1"
+const testpath = "../test/programs/web1"
 
 func TestBundle(t *testing.T) {
 	b, err := Bundle(testpath)

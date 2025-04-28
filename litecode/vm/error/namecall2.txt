@@ -1,2 +1,0 @@
-error/namecall2.luau:3: function (main)
-attempt to index vector with 'world'

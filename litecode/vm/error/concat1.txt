@@ -1,2 +1,0 @@
-error/concat1.luau:4: function (main)
-attempt to concatenate number with string

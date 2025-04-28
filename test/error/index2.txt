@@ -1,0 +1,2 @@
+{PATH}/index2.luau:2: function (main)
+attempt to index number with 'y'

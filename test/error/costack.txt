@@ -1,0 +1,6 @@
+{PATH}/costack.luau:10: function (main)
+{PATH}/costack.luau:8: function (??)
+{PATH}/costack.luau:7: function (??)
+{PATH}/costack.luau:6: function (??)
+{PATH}/costack.luau:3: function (??)
+attempt to call a string value

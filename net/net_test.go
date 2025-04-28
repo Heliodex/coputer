@@ -24,7 +24,7 @@ func url(p string) vm.WebUrl {
 
 var webTests = [...]ProgramTest[vm.WebArgs, vm.WebRets]{
 	{
-		"../test/web1",
+		"../test/programs/web1",
 		vm.WebArgs{
 			Url:    url("/"),
 			Method: "GET",
@@ -39,7 +39,7 @@ var webTests = [...]ProgramTest[vm.WebArgs, vm.WebRets]{
 		},
 	},
 	{
-		"../test/web1",
+		"../test/programs/web1",
 		vm.WebArgs{
 			Url:    url("/submit?"),
 			Method: "POST",

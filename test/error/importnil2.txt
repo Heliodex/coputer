@@ -1,0 +1,2 @@
+{PATH}/importnil2.luau:1: function (main)
+attempt to index nil with 'test'

@@ -1,2 +1,0 @@
-error/call2.luau:2: function (main)
-attempt to call a number value

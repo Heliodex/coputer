@@ -1,2 +1,0 @@
-error/badrequire5.luau:1: function (main)
-error requiring module: consider removing the file extension

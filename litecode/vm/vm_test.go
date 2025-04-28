@@ -12,6 +12,12 @@ import (
 	"time"
 )
 
+const (
+	conformanceDir = "../../test/conformance"
+	errorsDir      = "../../test/error"
+	benchDir       = "../../test/benchmark"
+)
+
 func trimext(s string) string {
 	return strings.TrimSuffix(s, Ext)
 }
@@ -19,8 +25,7 @@ func trimext(s string) string {
 func litecode(t *testing.T, f string, c Compiler) (string, time.Duration) {
 	p, err := c.Compile(f)
 	if err != nil {
-		t.Error(err)
-		return "", 0
+		t.Fatal(err)
 	}
 
 	b := strings.Builder{}
@@ -55,8 +60,7 @@ func litecode(t *testing.T, f string, c Compiler) (string, time.Duration) {
 func litecodeE(t *testing.T, f string, c Compiler) (string, error) {
 	p, err := c.Compile(f)
 	if err != nil {
-		t.Error(err)
-		return "", err
+		t.Fatal(err)
 	}
 
 	b := strings.Builder{}
@@ -94,10 +98,9 @@ func luau(f string) (string, error) {
 }
 
 func TestConformance(t *testing.T) {
-	files, err := os.ReadDir("test")
+	files, err := os.ReadDir(conformanceDir)
 	if err != nil {
-		t.Error("error reading test directory:", err)
-		return
+		t.Fatal("error reading conformance tests directory:", err)
 	}
 
 	// const onlyTest = "luauception"
@@ -115,10 +118,11 @@ func TestConformance(t *testing.T) {
 		// }
 
 		t.Log(" -- Testing", name, "--")
-		filename := fmt.Sprintf("./test/%s", name) // ./ required for requires
+		filename := fmt.Sprintf("%s/%s", conformanceDir, name)
 
 		og, err := luau(filename)
 		if err != nil {
+			fmt.Println("failed on filename", filename)
 			t.Fatal("error running luau:", err)
 		}
 
@@ -153,10 +157,9 @@ func TestConformance(t *testing.T) {
 }
 
 func TestErrors(t *testing.T) {
-	files, err := os.ReadDir("error")
+	files, err := os.ReadDir(errorsDir)
 	if err != nil {
-		t.Error("error reading error directory:", err)
-		return
+		t.Fatal("error reading error tests directory:", err)
 	}
 
 	has := []string{} // actually warranted to use one of these here
@@ -179,7 +182,7 @@ func TestErrors(t *testing.T) {
 		// }
 
 		t.Log(" -- Testing", name, "--\n")
-		filename := fmt.Sprintf("error/%s", name)
+		filename := fmt.Sprintf("%s/%s", errorsDir, name)
 
 		_, lerr := litecodeE(t, filename, c1)
 
@@ -188,27 +191,29 @@ func TestErrors(t *testing.T) {
 			continue
 		}
 
-		errorname := fmt.Sprintf("error/%s.txt", name)
+		errorname := fmt.Sprintf("%s/%s.txt", errorsDir, name)
 		og, err := os.ReadFile(errorname)
 		if err != nil {
-			t.Error("error reading error file (meta lol):", err)
+			t.Fatal("error reading error file (meta lol):", err)
 			continue
 		}
 
+		strog := strings.ReplaceAll(string(og), "{PATH}", errorsDir)
+		strog = strings.ReplaceAll(strog, "\r\n", "\n")
+
 		fmt.Println(lerr)
 		fmt.Println()
-		if lerr.Error() != strings.ReplaceAll(string(og), "\r\n", "\n") {
-			t.Fatalf("error mismatch:\n-- Expected\n%s\n-- Got\n%s", og, lerr)
+		if lerr.Error() != strog {
+			t.Fatalf("error mismatch:\n-- Expected\n%s\n-- Got\n%s", strog, lerr)
 		}
 	}
 }
 
 // not using benchmark because i can do what i want
 func TestBenchmark(t *testing.T) {
-	files, err := os.ReadDir("bench")
+	files, err := os.ReadDir(benchDir)
 	if err != nil {
-		t.Error("error reading bench directory:", err)
-		return
+		t.Fatal("error reading benchmark tests directory:", err)
 	}
 
 	f, err := os.Create("cpu.prof")
@@ -230,7 +235,7 @@ func TestBenchmark(t *testing.T) {
 
 		fmt.Println()
 		t.Log("-- Benchmarking", name, "--")
-		filename := fmt.Sprintf("bench/%s", name)
+		filename := fmt.Sprintf("%s/%s", benchDir, name)
 
 		for o, compiler := range compilers {
 			output, time := litecode(t, filename, compiler)

@@ -1,0 +1,2 @@
+{PATH}/call1.luau:2: function (main)
+attempt to call a nil value

@@ -1,0 +1,3 @@
+{PATH}/wrap.luau:5: function (main)
+{PATH}/wrap.luau:2: function cs
+cannot resume running coroutine

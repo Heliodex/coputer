@@ -1,2 +1,0 @@
-error/arg1.luau:1: function (main)
-invalid argument #1 to 'sin' (number expected, got string)

@@ -1,3 +1,0 @@
-error/requireinit.luau:1: function (main)
-error/dir2/init.luau:1: function (main)
-module must return a value

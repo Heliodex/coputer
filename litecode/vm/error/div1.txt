@@ -1,2 +1,0 @@
-error/div1.luau:4: function (main)
-attempt to perform arithmetic (div) on string and vector

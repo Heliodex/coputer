@@ -1,2 +1,0 @@
-error/iter1.luau:1: function (main)
-attempt to iterate over a string value

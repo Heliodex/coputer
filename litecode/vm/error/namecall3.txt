@@ -1,2 +1,0 @@
-error/namecall3.luau:3: function (main)
-attempt to call missing method 'world' of string

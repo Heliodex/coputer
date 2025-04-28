@@ -1,2 +1,0 @@
-error/arg4.luau:1: function (main)
-missing argument #2 to 'format'

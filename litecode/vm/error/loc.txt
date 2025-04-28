@@ -1,2 +1,0 @@
-error/loc.luau:4: function (main)
-attempt to call a nil value
