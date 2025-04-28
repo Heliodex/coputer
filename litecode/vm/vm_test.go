@@ -100,7 +100,7 @@ func TestConformance(t *testing.T) {
 		return
 	}
 
-	// const onlyTest = "pairs"
+	// const onlyTest = "anon"
 
 	c0, c1, c2 := NewCompiler(0), NewCompiler(1), NewCompiler(2)
 
@@ -171,7 +171,7 @@ func TestErrors(t *testing.T) {
 
 	c1 := NewCompiler(1) // just test O1 for the time being
 
-	// onlyTest := "requireinit"
+	// const onlyTest = "loc"
 
 	for _, name := range has {
 		// if name != onlyTest {

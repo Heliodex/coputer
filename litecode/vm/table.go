@@ -70,12 +70,17 @@ func table_create(args Args) (r []Val, err error) {
 		return nil, errors.New("index out of range")
 	}
 
-	if len(args.List) == 1 { // no value fill
+	var value Val
+	if len(args.List) > 1 {
+		value = args.GetAny()
+	}
+
+	if value == nil {
+		// no value fill or fill with nil (tests/niltable.luau)
 		a := make([]Val, 0, s)
 		return []Val{&Table{Array: a}}, nil
 	}
 
-	value := args.GetAny()
 	a := make([]Val, s)
 	for i := range a {
 		a[i] = value

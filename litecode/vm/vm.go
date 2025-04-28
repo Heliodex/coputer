@@ -506,6 +506,7 @@ func (e *Error) Error() string {
 	var eb strings.Builder
 
 	for e != nil {
+		// this was hell I think
 		err, ok := e.sub.(*Error)
 		if !ok {
 			eb.WriteString(
@@ -1441,15 +1442,22 @@ func namecall(pc *int, i *inst, stack *[]Val, p proto, top *int, co *Coroutine, 
 		return err
 	}
 	if !ok {
-		fmt.Println("namecall", kv, "not found")
+		// fmt.Println("namecall", kv, "not found")
 		switch t := (*stack)[B].(type) {
 		case *Table:
+			var call Val
 			if t.Hash == nil {
-				(*stack)[A] = nil
+				call = nil
 			} else {
-				(*stack)[A] = t.GetHash(kv)
+				call = t.GetHash(kv)
 			}
-			return missingMethod(TypeOf(t), kv)
+
+			if call == nil {
+				return missingMethod(TypeOf(t), kv)
+			}
+
+			(*stack)[A] = call
+			return
 		case string:
 			return missingMethod(TypeOf(t), kv)
 		default:
@@ -2274,17 +2282,23 @@ func wrapclosure(towrap toWrap) Function {
 			list = args[np:]
 		}
 
-		dbg := &debugging{enabled: proto.lineinfoenabled, opcode: 255}
-		co.dbg = dbg
+		originalDebug := co.dbg
 
+		dbg := &debugging{enabled: proto.lineinfoenabled, opcode: 255}
+		// fmt.Println("started on", co.dbg.line, dbg.line)
+		co.dbg = dbg
+		
 		r, err = execute(towrap, &stack, co, list, max(la-np, 0))
+		// fmt.Println("ended on", co.dbg.line, dbg.line)
 		if !*towrap.alive {
 			return
 		}
 		if err != nil {
 			return nil, &Error{dbg, co.dbgpath, err}
 		}
-
+		
+		// prevent line mismatches (error/loc.luau)
+		co.dbg = originalDebug
 		return
 	})
 }
