@@ -19,6 +19,8 @@ print(v["x"], v["y"], v["z"])
 local x, y, z = "x", "y", "z"
 print(v[x], v[y], v[z]) -- yeet
 
+print(v.X, v.Y, v.Z) -- graah
+
 local u = vector.create(1.23, -4.56, 7.89)
 local t = vector.create(0.12, 1.45, 2.78)
 

@@ -1275,14 +1275,14 @@ func gettable(index, v Val) (Val, error) {
 		return t.Get(index), nil
 	case Vector: // direction,,, and mmmagnitude!! oh yeah!!11!!
 		switch index {
-		case "x":
-			return t[0], nil
-		case "y":
-			return t[1], nil
-		case "z":
-			return t[2], nil
-			// case "w":
-			// 	return t[3], nil
+		case "x", "X": // yes, we allow the capitalised versions anyway
+			return float64(t[0]), nil // alright, who's the wise guy whose idea it was to put a float32 on the stack
+		case "y", "Y":
+			return float64(t[1]), nil
+		case "z", "Z":
+			return float64(t[2]), nil
+			// case "w", "W":
+			// 	return float64(t[3]), nil
 		}
 		return nil, invalidIndex(typeprefix+"Vector", index)
 	}
@@ -1652,10 +1652,6 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 		co.dbg.enabled = p.lineinfoenabled
 		co.dbg.opcode = i.opcode
 		co.dbg.dbgname = p.dbgname
-
-		if pc > 2000 { 
-			panic(pc)
-		}
 
 		// fmt.Println(top)
 

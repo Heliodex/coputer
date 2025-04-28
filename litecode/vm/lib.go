@@ -45,7 +45,6 @@ func getArg[T Val](a *Args, optV []T, tx string) (g T) {
 	}
 
 	possibleArg := a.List[a.pos-1]
-
 	arg, ok := possibleArg.(T)
 	if !ok {
 		a.Co.Error(invalidArgType(a.pos, a.name, TypeOf(arg), TypeOf(possibleArg)))
