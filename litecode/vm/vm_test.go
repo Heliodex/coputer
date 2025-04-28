@@ -218,7 +218,7 @@ func TestBenchmark(t *testing.T) {
 	pprof.StartCPUProfile(f)
 	defer pprof.StopCPUProfile()
 
-	// onlyBench := "12"
+	// const onlyBench = "luauception"
 
 	compilers := []Compiler{NewCompiler(0), NewCompiler(1), NewCompiler(2)}
 

@@ -345,7 +345,7 @@ type yield struct {
 }
 
 type debugging struct {
-	// top     int
+	// top,
 	line    uint32
 	enabled bool
 	opcode  uint8
@@ -869,9 +869,9 @@ func readProto(stringList []string, s *stream) (p proto, err error) {
 				t[j] = s.rVarInt() // whatever
 			}
 
-			p.k[i] = t
+			p.k[i] = t // ⚠️ not a val ⚠️
 		case 6: // Closure
-			p.k[i] = s.rVarInt()
+			p.k[i] = s.rVarInt() // ⚠️ not a val ⚠️
 		case 7: // Vector
 			p.k[i] = Vector{s.rFloat32(), s.rFloat32(), s.rFloat32(), s.rFloat32()}
 		default:
@@ -991,7 +991,7 @@ type iterator struct {
 type upval struct {
 	value   Val
 	store   []Val
-	index   int
+	index   int32 // never seen above 200 but whatever
 	selfRef bool
 }
 
@@ -1362,7 +1362,7 @@ func getImport(i inst, towrap toWrap, stack *[]Val) error {
 	return nil
 }
 
-func newClosure(towrap toWrap, p proto, i inst, stack *[]Val, pc *int, openUpvals *[]*upval, upvals []*upval) {
+func newClosure(pc *int32, i inst, towrap toWrap, p proto, stack *[]Val, openUpvals *[]*upval, upvals []*upval) {
 	newProto := towrap.protolist[p.protos[i.D]-1]
 
 	nups := newProto.nups
@@ -1378,22 +1378,19 @@ func newClosure(towrap toWrap, p proto, i inst, stack *[]Val, pc *int, openUpval
 	for n := range nups {
 		switch pseudo := p.code[*pc]; pseudo.A {
 		case 0: // -- value
-			uv := &upval{
+			towrap.upvals[n] = &upval{
 				value:   (*stack)[pseudo.B],
 				selfRef: true,
 			}
-			uv.store = nil
-
-			towrap.upvals[n] = uv
 		case 1: // -- reference
-			index := int(pseudo.B)
+			index := pseudo.B
 			// fmt.Println("index", index, len(openUpvals))
 			// for si, sv := range *stack {
 			// 	fmt.Printf("  [%d] = %v\n", si, sv)
 			// }
 
 			var prev *upval
-			if index < len(*openUpvals) {
+			if index < int32(len(*openUpvals)) {
 				prev = (*openUpvals)[index]
 			}
 
@@ -1403,7 +1400,7 @@ func newClosure(towrap toWrap, p proto, i inst, stack *[]Val, pc *int, openUpval
 					index: index,
 				}
 
-				for len(*openUpvals) <= index {
+				for index >= int32(len(*openUpvals)) {
 					*openUpvals = append(*openUpvals, nil)
 				}
 				(*openUpvals)[index] = prev
@@ -1419,7 +1416,7 @@ func newClosure(towrap toWrap, p proto, i inst, stack *[]Val, pc *int, openUpval
 	}
 }
 
-func namecall(pc *int, i *inst, stack *[]Val, p proto, top *int32, co *Coroutine, op *uint8) (err error) {
+func namecall(pc, top *int32, i *inst, p proto, stack *[]Val, co *Coroutine, op *uint8) (err error) {
 	A, B := i.A, i.B
 	kv := i.K.(string)
 	// fmt.Println("kv", kv)
@@ -1442,7 +1439,7 @@ func namecall(pc *int, i *inst, stack *[]Val, p proto, top *int32, co *Coroutine
 
 	ok, retList, err := namecallHandler(co, kv, stack, callA+1, callA+params)
 	if err != nil {
-		return err
+		return
 	}
 	if !ok {
 		// fmt.Println("namecall", kv, "not found")
@@ -1468,12 +1465,10 @@ func namecall(pc *int, i *inst, stack *[]Val, p proto, top *int32, co *Coroutine
 		}
 	}
 
-	*pc += 2 // -- adjust for aux, Skip next CALL instruction
-
 	*i = *callInst
 	*op = callOp
 
-	co.dbg.line = p.instlineinfo[*pc-1]
+	co.dbg.line = p.instlineinfo[*pc+1]
 	co.dbg.opcode = i.opcode
 
 	retCount := int32(len(retList))
@@ -1485,6 +1480,7 @@ func namecall(pc *int, i *inst, stack *[]Val, p proto, top *int32, co *Coroutine
 	}
 
 	moveStack(stack, retList, retCount, callA)
+	*pc += 2 // -- adjust for aux, Skip next CALL instruction
 	return
 }
 
@@ -1515,7 +1511,7 @@ func handleRequire(towrap toWrap, lc compiled, co *Coroutine) ([]Val, error) {
 	return []Val{ret}, nil
 }
 
-func call(i inst, top *int32, stack *[]Val, co *Coroutine, towrap toWrap) (err error) {
+func call(top *int32, i inst, towrap toWrap, stack *[]Val, co *Coroutine) (err error) {
 	A, B, C := i.A, i.B, i.C
 
 	var params int32
@@ -1576,7 +1572,7 @@ func call(i inst, top *int32, stack *[]Val, co *Coroutine, towrap toWrap) (err e
 }
 
 // for gloop lel
-func forgloop(i inst, top *int32, stack *[]Val, co *Coroutine, pc *int, generalisedIterators *map[inst]*iterator) (err error) {
+func forgloop(pc, top *int32, i inst, stack *[]Val, co *Coroutine, generalisedIterators *map[inst]*iterator) (err error) {
 	A := i.A
 	res := int32(i.K.(uint32))
 
@@ -1625,13 +1621,42 @@ func forgloop(i inst, top *int32, stack *[]Val, co *Coroutine, pc *int, generali
 	default:
 		return fmt.Errorf("attempt to iterate over a %s value", TypeOf(it))
 	}
-	*pc += int(i.D) + 1
+	*pc += i.D + 1
 	return
+}
+
+func dupClosure(pc *int32, i inst, towrap toWrap, p proto, stack *[]Val, upvals []*upval) {
+	newProto := towrap.protolist[i.K.(uint32)]
+
+	nups := newProto.nups
+	towrap.upvals = make([]*upval, nups)
+
+	// reusing wrapping again bcause we're eco friendly
+	towrap.proto = newProto
+
+	(*stack)[i.A] = wrapclosure(towrap)
+
+	for i := range nups {
+		switch pseudo := p.code[*pc]; pseudo.A {
+		case 0: // value
+			towrap.upvals[i] = &upval{
+				value:   (*stack)[pseudo.B],
+				selfRef: true,
+			}
+
+		// -- references dont get handled by DUPCLOSURE
+		case 2: // upvalue
+			towrap.upvals[i] = upvals[pseudo.B]
+		}
+
+		*pc++
+	}
 }
 
 func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsLen uint8) (r []Val, err error) {
 	p, upvals := towrap.proto, towrap.upvals
-	pc, top, openUpvals, generalisedIterators := 1, int32(-1), []*upval{}, map[inst]*iterator{}
+	// int32 > uint32 lel
+	pc, top, openUpvals, generalisedIterators := int32(1), int32(-1), []*upval{}, map[inst]*iterator{}
 
 	var handlingBreak bool
 	var i inst
@@ -1662,29 +1687,28 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 
 		switch op {
 		case 0: // NOP
-			pc++
 			// -- Do nothing
+			pc++
 		case 1: // BREAK
 			op = p.dbgcode[pc]
 			handlingBreak = true
 		case 2: // LOADNIL
-			pc++
 			(*stack)[i.A] = nil
+			pc++
 		case 3: // LOADB
-			pc++
 			(*stack)[i.A] = i.B == 1
-			pc += int(i.C)
+			pc += i.C + 1
 		case 4: // LOADN
-			pc++
 			(*stack)[i.A] = float64(i.D) // never put an int on the stack
-		case 5: // LOADK
 			pc++
+		case 5: // LOADK
 			// fmt.Println("LOADK", i.A, i.K)
 			(*stack)[i.A] = i.K
-		case 6: // MOVE
 			pc++
+		case 6: // MOVE
 			// we should (ALMOST) never have to change the size of the stack (p.maxstacksize)
 			(*stack)[i.A] = (*stack)[i.B]
+			pc++
 		case 7: // GETGLOBAL
 			kv := i.K
 
@@ -1721,7 +1745,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			}
 			pc++
 		case 11: // CLOSEUPVALS
-			A := int(i.A)
+			A := i.A
 
 			for n, uv := range openUpvals {
 				if uv == nil || uv.selfRef || uv.index < A {
@@ -1793,18 +1817,18 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 
 			pc++
 		case 19: // NEWCLOSURE
-			newClosure(towrap, p, i, stack, &pc, &openUpvals, upvals)
+			newClosure(&pc, i, towrap, p, stack, &openUpvals, upvals)
 			pc++
 		case 20: // NAMECALL
 			pc++
-			if err := namecall(&pc, &i, stack, p, &top, co, &op); err != nil {
-				return nil, err
+			if err = namecall(&pc, &top, &i, p, stack, co, &op); err != nil {
+				return
 			}
 		case 21: // CALL
-			pc++
-			if err := call(i, &top, stack, co, towrap); err != nil {
-				return nil, err
+			if err = call(&top, i, towrap, stack, co); err != nil {
+				return
 			}
+			pc++
 		case 22: // RETURN
 			pc++
 			A := i.A
@@ -1817,22 +1841,22 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 
 			return (*stack)[A:max(A+b, 0)], nil
 		case 23, 24: // JUMP, JUMPBACK
-			pc += int(i.D) + 1
+			pc += i.D + 1
 		case 25: // JUMPIF
 			if truthy((*stack)[i.A]) {
-				pc += int(i.D) + 1
+				pc += i.D + 1
 			} else {
 				pc++
 			}
 		case 26: // JUMPIFNOT
 			if !truthy((*stack)[i.A]) {
-				pc += int(i.D) + 1
+				pc += i.D + 1
 			} else {
 				pc++
 			}
 		case 27: // jump
 			if (*stack)[i.A] == (*stack)[i.aux] {
-				pc += int(i.D) + 1
+				pc += i.D + 1
 			} else {
 				pc += 2
 			}
@@ -1840,7 +1864,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			if j, err := jumpLe((*stack)[i.A], (*stack)[i.aux]); err != nil {
 				return nil, err
 			} else if j {
-				pc += int(i.D) + 1
+				pc += i.D + 1
 			} else {
 				pc += 2
 			}
@@ -1848,13 +1872,13 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			if j, err := jumpLt((*stack)[i.A], (*stack)[i.aux]); err != nil {
 				return nil, err
 			} else if j {
-				pc += int(i.D) + 1
+				pc += i.D + 1
 			} else {
 				pc += 2
 			}
 		case 30:
 			if (*stack)[i.A] != (*stack)[i.aux] {
-				pc += int(i.D) + 1
+				pc += i.D + 1
 			} else {
 				pc += 2
 			}
@@ -1862,7 +1886,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			if j, err := jumpGt((*stack)[i.A], (*stack)[i.aux]); err != nil {
 				return nil, err
 			} else if j {
-				pc += int(i.D) + 1
+				pc += i.D + 1
 			} else {
 				pc += 2
 			}
@@ -1870,7 +1894,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			if j, err := jumpGe((*stack)[i.A], (*stack)[i.aux]); err != nil {
 				return nil, err
 			} else if j {
-				pc += int(i.D) + 1
+				pc += i.D + 1
 			} else {
 				pc += 2
 			}
@@ -1944,59 +1968,45 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 				return
 			}
 			pc++
-
 		case 45: // logic AND
-			pc++
-			a := (*stack)[i.B]
-			b := (*stack)[i.C]
-
-			if truthy(a) {
+			if a, b := (*stack)[i.B], (*stack)[i.C]; truthy(a) {
 				(*stack)[i.A] = b
 			} else {
 				(*stack)[i.A] = a
 			}
+			pc++
 		case 46: // logic OR
-			pc++
-			a := (*stack)[i.B]
-			b := (*stack)[i.C]
-
-			if truthy(a) {
+			if a, b := (*stack)[i.B], (*stack)[i.C]; truthy(a) {
 				(*stack)[i.A] = a
 			} else if truthy(b) {
 				(*stack)[i.A] = b
 			} else {
 				(*stack)[i.A] = false
 			}
+			pc++
 		case 47: // logik AND
-			pc++
 			// fmt.Println("LOGIK")
-			a := (*stack)[i.B]
-			b := i.K
-
-			if truthy(a) {
+			if a, b := (*stack)[i.B], i.K; truthy(a) {
 				(*stack)[i.A] = b
 			} else {
 				(*stack)[i.A] = a
 			}
-		case 48: // logik OR
 			pc++
+		case 48: // logik OR
 			// fmt.Println("LOGIK")
-			a := (*stack)[i.B]
-			b := i.K
-
-			if truthy(a) {
+			if a, b := (*stack)[i.B], i.K; truthy(a) {
 				(*stack)[i.A] = a
 			} else if truthy(b) {
 				(*stack)[i.A] = b
 			} else {
 				(*stack)[i.A] = false
 			}
-		case 49: // CONCAT
 			pc++
+		case 49: // CONCAT
 			s := strings.Builder{}
 
-			var first int
-			for n := int(i.B); n <= int(i.C); n++ {
+			var first int32
+			for n := i.B; n <= i.C; n++ {
 				toWrite, ok := (*stack)[n].(string)
 				if !ok {
 					// ensure correct order of operands in error message
@@ -2006,19 +2016,19 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 				first = -1
 			}
 			(*stack)[i.A] = s.String()
+			pc++
 		case 50: // NOT
-			pc++
 			(*stack)[i.A] = !truthy((*stack)[i.B])
-		case 51: // MINUS
 			pc++
+		case 51: // MINUS
 			a, ok := (*stack)[i.B].(float64)
 			if !ok {
 				return nil, invalidUnm(TypeOf((*stack)[i.B]))
 			}
 
 			(*stack)[i.A] = -a
-		case 52: // LENGTH
 			pc++
+		case 52: // LENGTH
 			switch t := (*stack)[i.B].(type) {
 			case *Table:
 				(*stack)[i.A] = float64(t.Len())
@@ -2027,6 +2037,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			default:
 				return nil, invalidLength(TypeOf(t))
 			}
+			pc++
 		case 53: // NEWTABLE
 			(*stack)[i.A] = &Table{}
 
@@ -2079,10 +2090,10 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 
 			if step > 0 {
 				if index > limit {
-					pc += int(i.D)
+					pc += i.D
 				}
 			} else if index < limit {
-				pc += int(i.D)
+				pc += i.D
 			}
 			pc++
 		case 57: // FORNLOOP
@@ -2095,21 +2106,21 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 
 			if step > 0 {
 				if limit >= init {
-					pc += int(i.D)
+					pc += i.D
 				}
 			} else if limit <= init {
-				pc += int(i.D)
+				pc += i.D
 			}
 			pc++
 		case 58: // FORGLOOP
-			if err := forgloop(i, &top, stack, co, &pc, &generalisedIterators); err != nil {
+			if err := forgloop(&pc, &top, i, stack, co, &generalisedIterators); err != nil {
 				return nil, err
 			}
 		case 59, 61: // FORGPREP_INEXT, FORGPREP_NEXT
 			if _, ok := (*stack)[i.A].(Function); !ok {
 				return nil, fmt.Errorf("attempt to iterate over a %s value", TypeOf((*stack)[i.A])) // -- encountered non-function value
 			}
-			pc += int(i.D) + 1
+			pc += i.D + 1
 		case 60: // FASTCALL3
 			// Skipped
 			pc += 2 // adjust for aux
@@ -2128,41 +2139,17 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			moveStack(stack, vargsList, b, A)
 			pc++
 		case 64: // DUPCLOSURE
-			newProto := towrap.protolist[i.K.(uint32)]
-
-			nups := newProto.nups
-			towrap.upvals = make([]*upval, nups)
-
-			// reusing wrapping again bcause we're eco friendly
-			towrap.proto = newProto
-
-			(*stack)[i.A] = wrapclosure(towrap)
-
-			for i := range nups {
-				switch pseudo := p.code[pc]; pseudo.A {
-				case 0: // value
-					towrap.upvals[i] = &upval{
-						value:   (*stack)[pseudo.B],
-						selfRef: true,
-					}
-
-				// -- references dont get handled by DUPCLOSURE
-				case 2: // upvalue
-					towrap.upvals[i] = upvals[pseudo.B]
-				}
-
-				pc++
-			}
+			dupClosure(&pc, i, towrap, p, stack, upvals)
 			pc++
 		case 65: // PREPVARARGS
-			pc++
 			// Handled by wrapper
+			pc++
 		case 66: // LOADKX
 			(*stack)[i.A] = float64(i.K.(uint32)) // kv (graah)
 
 			pc += 2 // -- adjust for aux
 		case 67: // JUMPX
-			pc += int(i.E) + 1
+			pc += i.E + 1
 		case 68: // FASTCALL
 			pc++
 			// Skipped
@@ -2189,7 +2176,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			// Skipped
 			pc += 2 // adjust for aux
 		case 76: // FORGPREP
-			pc += int(i.D) + 1
+			pc += i.D + 1
 			if _, ok := (*stack)[i.A].(Function); ok {
 				break
 			}
@@ -2208,25 +2195,25 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			generalisedIterators[loopInst] = c
 		case 77: // JUMPXEQKNIL
 			if ra := (*stack)[i.A]; ra == nil != i.KN {
-				pc += int(i.D) + 1
+				pc += i.D + 1
 			} else {
 				pc += 2
 			}
 		case 78: //  JUMPXEQKB
 			if kv, ra := i.K.(bool), (*stack)[i.A].(bool); ra == kv != i.KN {
-				pc += int(i.D) + 1
+				pc += i.D + 1
 			} else {
 				pc += 2
 			}
 		case 79: // JUMPXEQKN
 			if kv, ra := i.K.(float64), (*stack)[i.A].(float64); ra == kv != i.KN {
-				pc += int(i.D) + 1
+				pc += i.D + 1
 			} else {
 				pc += 2
 			}
 		case 80: // JUMPXEQKS
 			if kv, ra := i.K.(string), (*stack)[i.A].(string); ra == kv != i.KN {
-				pc += int(i.D) + 1
+				pc += i.D + 1
 			} else {
 				pc += 2
 			}
