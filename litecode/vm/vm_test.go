@@ -100,7 +100,7 @@ func TestConformance(t *testing.T) {
 		return
 	}
 
-	// const onlyTest = "anon"
+	// const onlyTest = "topheavy"
 
 	c0, c1, c2 := NewCompiler(0), NewCompiler(1), NewCompiler(2)
 

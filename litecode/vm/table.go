@@ -480,13 +480,17 @@ func table_unpack(args Args) (r []Val, err error) {
 	}
 
 	ui, uj := int(i), int(e)
+	if uj - ui >= 8000 { // it's over 8000!!!!!!!!! (or =)
+		return nil, errors.New("too many results to unpack") // a limit we don't have to impose, but no real reason to not. who says it's truly "too many" anyway?
+	}
+
 	if uj <= len(list.Array) {
 		return list.Array[ui-1 : uj], nil
 	}
 
 	r = make([]Val, uj-ui+1)
-	for k := i; k <= e; k++ {
-		r[int(k)-ui] = list.Get(k)
+	for k := ui; k <= uj; k++ {
+		r[k-ui] = list.Get(float64(k))
 	}
 
 	return

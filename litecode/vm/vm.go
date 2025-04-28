@@ -579,7 +579,7 @@ func (co *Coroutine) Resume(args ...Val) (r []Val, err error) {
 
 const luau_multret = -1
 
-func namecallHandler(co *Coroutine, kv string, stack *[]Val, c1, c2 int) (ok bool, retList []Val, err error) {
+func namecallHandler(co *Coroutine, kv string, stack *[]Val, c1, c2 int32) (ok bool, retList []Val, err error) {
 	switch kv {
 	case "format":
 		str := (*stack)[c1].(string)
@@ -1315,13 +1315,13 @@ func iterate(c *iterator) {
 	c.resume <- nil
 }
 
-func moveStack(stack *[]Val, src []Val, b, t int) {
-	for t+b >= len(*stack) { // graah stack expansion
+func moveStack(stack *[]Val, src []Val, b, t int32) {
+	for t+b >= int32(len(*stack)) { // graah stack expansion
 		*stack = append(*stack, nil)
 	}
 
 	for i := range b {
-		if i >= len(src) {
+		if i >= int32(len(src)) {
 			(*stack)[t+i] = nil
 			continue
 		}
@@ -1417,7 +1417,7 @@ func newClosure(towrap toWrap, p proto, i inst, stack *[]Val, pc *int, openUpval
 	}
 }
 
-func namecall(pc *int, i *inst, stack *[]Val, p proto, top *int, co *Coroutine, op *uint8) (err error) {
+func namecall(pc *int, i *inst, stack *[]Val, p proto, top *int32, co *Coroutine, op *uint8) (err error) {
 	A, B := i.A, i.B
 	kv := i.K.(string)
 	// fmt.Println("kv", kv)
@@ -1429,9 +1429,9 @@ func namecall(pc *int, i *inst, stack *[]Val, p proto, top *int, co *Coroutine, 
 	callOp := callInst.opcode
 
 	// -- Copied from the CALL handler
-	callA, callB, callC := int(callInst.A), int(callInst.B), callInst.C
+	callA, callB, callC := callInst.A, callInst.B, callInst.C
 
-	var params int
+	var params int32
 	if callB == 0 {
 		params = *top - callA
 	} else {
@@ -1474,19 +1474,19 @@ func namecall(pc *int, i *inst, stack *[]Val, p proto, top *int, co *Coroutine, 
 	co.dbg.line = p.instlineinfo[*pc-1]
 	co.dbg.opcode = i.opcode
 
-	retCount := len(retList)
+	retCount := int32(len(retList))
 
 	if callC == 0 {
 		*top = callA + retCount - 1
 	} else {
-		retCount = int(callC) - 1
+		retCount = callC - 1
 	}
 
 	moveStack(stack, retList, retCount, callA)
 	return
 }
 
-func handleRequire(towrap toWrap, lc compiled, retList []Val, co *Coroutine) ([]Val, error) {
+func handleRequire(towrap toWrap, lc compiled, co *Coroutine) ([]Val, error) {
 	if c, ok := towrap.requireCache[lc.filepath]; ok {
 		return []Val{c}, nil
 	}
@@ -1513,10 +1513,10 @@ func handleRequire(towrap toWrap, lc compiled, retList []Val, co *Coroutine) ([]
 	return []Val{ret}, nil
 }
 
-func call(i inst, top *int, stack *[]Val, co *Coroutine, towrap toWrap) (err error) {
-	A, B, C := int(i.A), int(i.B), int(i.C)
+func call(i inst, top *int32, stack *[]Val, co *Coroutine, towrap toWrap) (err error) {
+	A, B, C := i.A, i.B, i.C
 
-	var params int
+	var params int32
 	if B == 0 {
 		params = *top - A
 	} else {
@@ -1539,7 +1539,7 @@ func call(i inst, top *int, stack *[]Val, co *Coroutine, towrap toWrap) (err err
 		return
 	}
 	// fmt.Println("resultt", retList)
-	retCount := len(retList)
+	retCount := int32(len(retList))
 
 	// fmt.Println("COUNT", retCount)
 	if retCount == 1 { // requires should return only 1 value anyway
@@ -1547,7 +1547,7 @@ func call(i inst, top *int, stack *[]Val, co *Coroutine, towrap toWrap) (err err
 			// it's a require
 			// fmt.Println("REQUIRE", lc.filepath)
 
-			if retList, err = handleRequire(towrap, lc, retList, co); err != nil {
+			if retList, err = handleRequire(towrap, lc, co); err != nil {
 				return err
 			}
 		}
@@ -1574,9 +1574,9 @@ func call(i inst, top *int, stack *[]Val, co *Coroutine, towrap toWrap) (err err
 }
 
 // for gloop lel
-func forgloop(i inst, top *int, stack *[]Val, co *Coroutine, pc *int, generalisedIterators *map[inst]*iterator) (err error) {
-	A := int(i.A)
-	res := int(i.K.(uint32))
+func forgloop(i inst, top *int32, stack *[]Val, co *Coroutine, pc *int, generalisedIterators *map[inst]*iterator) (err error) {
+	A := i.A
+	res := int32(i.K.(uint32))
 
 	*top = A + 6
 
@@ -1630,7 +1630,7 @@ func forgloop(i inst, top *int, stack *[]Val, co *Coroutine, pc *int, generalise
 
 func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsLen uint8) (r []Val, err error) {
 	p, upvals := towrap.proto, towrap.upvals
-	pc, top, openUpvals, generalisedIterators := 1, -1, []*upval{}, map[inst]*iterator{}
+	pc, top, openUpvals, generalisedIterators := 1, int32(-1), []*upval{}, map[inst]*iterator{}
 
 	var handlingBreak bool
 	var i inst
@@ -1652,9 +1652,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 		co.dbg.opcode = i.opcode
 		co.dbg.dbgname = p.dbgname
 
-		// if top > 2015 || top < -1 {
-		// 	panic(top)
-		// }
+		// fmt.Println(top)
 
 		// if len(upvals) > 0 {
 		// 	fmt.Println("upval", upvals[0])
@@ -1808,8 +1806,8 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			}
 		case 22: // RETURN
 			pc++
-			A := int(i.A)
-			b := int(i.B - 1)
+			A := i.A
+			b := i.B - 1
 
 			// nresults
 			if b == luau_multret {
@@ -2043,8 +2041,8 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			}
 			(*stack)[i.A] = serialised
 		case 55: // SETLIST
-			A, B := i.A, int(i.B)
-			c := int(i.C - 1)
+			A, B := i.A, i.B
+			c := i.C - 1
 
 			if c == luau_multret {
 				c = top - B + 1
@@ -2056,7 +2054,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			}
 
 			// one-indexed lol
-			for n, v := range (*stack)[B:min(B+c, len(*stack))] {
+			for n, v := range (*stack)[B:min(B+c, int32(len(*stack)))] {
 				s.SetArray(n+int(i.aux), v)
 			}
 			// (*stack)[A] = s // in-place
@@ -2117,12 +2115,12 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 			// Skipped
 			pc += 2 // adjust for aux
 		case 63: // GETVARARGS
-			A := int(i.A)
-			b := int(i.B - 1)
+			A := i.A
+			b := i.B - 1
 
 			// fmt.Println("MULTRET", b, vargsLen)
 			if b == luau_multret {
-				b = int(vargsLen)
+				b = int32(vargsLen)
 				top = A + b - 1
 			}
 

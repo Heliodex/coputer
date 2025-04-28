@@ -1,0 +1,1 @@
+table.unpack(table.create(1e5, 0))
