@@ -12,15 +12,15 @@ func args_web(args Args) (r []types.Val, err error) {
 		return nil, errors.New("web args only available in web mode")
 	}
 
-	headers := make(types.ValMap, len(pargs.Headers))
+	headers := make(map[types.Val]types.Val, len(pargs.Headers))
 	for k, v := range pargs.Headers {
 		headers[k] = v
 	}
 
 	webargs := &Table{
-		Hash: types.ValMap{
+		Hash: map[types.Val]types.Val{
 			"url": &Table{
-				Hash: types.ValMap{
+				Hash: map[types.Val]types.Val{
 					"rawpath":  pargs.Url.Rawpath,
 					"path":     pargs.Url.Path,
 					"rawquery": pargs.Url.Rawquery,
@@ -41,6 +41,6 @@ func args_web(args Args) (r []types.Val, err error) {
 	return []types.Val{webargs}, nil
 }
 
-var libargs = NewLib([]Function{
+var libargs = NewLib([]types.Function[*Coroutine]{
 	MakeFn("web", args_web),
 })

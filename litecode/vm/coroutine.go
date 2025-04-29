@@ -95,7 +95,7 @@ func coroutine_yield(args Args) (r []types.Val, err error) {
 	// fmt.Println("C.Y resumed")
 }
 
-var libcoroutine = NewLib([]Function{
+var libcoroutine = NewLib([]types.Function[*Coroutine]{
 	MakeFn("close", coroutine_close),
 	MakeFn("create", coroutine_create),
 	MakeFn("isyieldable", coroutine_isyieldable),

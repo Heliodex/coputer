@@ -142,10 +142,9 @@ func global_tonumber(args Args) (r []types.Val, err error) {
 	return []types.Val{float64(n)}, nil
 }
 
-const (
-	kPow10TableMin = -292
-	kPow10TableMax = 324
-)
+const kPow10TableMin = -292
+
+// const kPow10TableMax = 324
 
 var kPow5Table = [16]uint64{
 	0x8000000000000000, 0xa000000000000000, 0xc800000000000000, 0xfa00000000000000, 0x9c40000000000000, 0xc350000000000000,
@@ -560,12 +559,7 @@ func global_tostring(args Args) (r []types.Val, err error) {
 func global_type(args Args) (r []types.Val, err error) {
 	obj := args.GetAny()
 
-	t, ok := luautype[TypeOf(obj)]
-	if !ok {
-		fmt.Println("userdata generated", TypeOf(obj))
-		return []types.Val{"userdata"}, nil
-	}
-	return []types.Val{t}, nil
+	return []types.Val{TypeOf(obj)}, nil
 }
 
 func isAbsolutePath(p string) bool {

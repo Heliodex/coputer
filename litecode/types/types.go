@@ -3,8 +3,14 @@ package types
 
 type (
 	// Val represents any possible Luau value. Luau type `any`
-	Val    any
-	ValMap map[Val]Val
+	Val any
+
+	// Function represents a native or wrapped Luau function. Luau type `function`
+	Function[co any] struct {
+		// Run is the native body of the function. Its coroutine argument is used to run the function in a coroutine.
+		Run  *func(co co, args ...Val) (r []Val, err error)
+		Name string
+	}
 
 	// Buffer represents a Luau byte buffer. Luau type`buffer`
 	Buffer []byte

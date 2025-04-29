@@ -307,7 +307,7 @@ func buffer_fill(args Args) (r []types.Val, err error) {
 	return []types.Val{nil, true}, nil
 }
 
-var libbuffer = NewLib([]Function{
+var libbuffer = NewLib([]types.Function[*Coroutine]{
 	MakeFn("create", buffer_create),
 	MakeFn("fromstring", buffer_fromstring),
 	MakeFn("tostring", buffer_tostring),

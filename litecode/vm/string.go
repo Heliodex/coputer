@@ -83,10 +83,10 @@ func iscntrl(c byte) bool  { return c < ' ' || c == 127 }
 func isdigit(c byte) bool  { return c-'0' < 10 }
 func isgraph(c byte) bool  { return c-'!' < 94 }
 func islower(c byte) bool  { return c-'a' < 26 }
-func ispunct(c byte) bool  { return isgraph(c) && !isalnum(c) }
 func isspace(c byte) bool  { return c == ' ' || c-'\t' < 5 }
 func isupper(c byte) bool  { return c-'A' < 26 }
 func isalnum(c byte) bool  { return isalpha(c) || isdigit(c) }
+func ispunct(c byte) bool  { return isgraph(c) && !isalnum(c) }
 func isxdigit(c byte) bool { return isdigit(c) || c|32-'a' < 6 }
 
 func string_find(args Args) (r []types.Val, err error) {
@@ -319,7 +319,7 @@ func add_value(caps *captures, b *strings.Builder, co *Coroutine, s string, si, 
 	switch n := next.(type) {
 	case string:
 		return add_s(caps, b, s, si, ei, n)
-	case Function:
+	case types.Function[*Coroutine]:
 		rets, err := (*n.Run)(co, s[si:ei])
 		if err != nil {
 			return err
@@ -341,7 +341,7 @@ func add_value(caps *captures, b *strings.Builder, co *Coroutine, s string, si, 
 		return
 	}
 	if _, ok := val.(string); !ok {
-		return fmt.Errorf("invalid replacement value (a %s)", luautype[TypeOf(val)])
+		return fmt.Errorf("invalid replacement value (a %s)", TypeOf(val))
 	}
 
 	// add result to accumulator?
@@ -355,9 +355,9 @@ func string_gsub(args Args) (r []types.Val, err error) {
 	next := args.GetAny()
 
 	switch next.(type) {
-	case string, Function, *Table:
+	case string, types.Function[*Coroutine], *Table:
 	default:
-		return nil, fmt.Errorf("invalid argument #3 to 'gsub' (string/function/table expected, got %s)", luautype[TypeOf(next)])
+		return nil, fmt.Errorf("invalid argument #3 to 'gsub' (string/function/table expected, got %s)", TypeOf(next))
 	}
 
 	srcl := len(src)
@@ -477,7 +477,7 @@ func string_upper(args Args) (r []types.Val, err error) {
 	return []types.Val{strings.ToUpper(s)}, nil
 }
 
-var libstring = NewLib([]Function{
+var libstring = NewLib([]types.Function[*Coroutine]{
 	MakeFn("byte", string_byte),
 	MakeFn("char", string_char),
 	MakeFn("find", string_find),

@@ -1,9 +1,9 @@
 package vm
 
-import
-(
+import (
 	"fmt"
-"github.com/Heliodex/coputer/litecode/types"
+
+	"github.com/Heliodex/coputer/litecode/types"
 )
 
 func invalidNumArgs(f string, nx int, tx ...string) error {
@@ -14,7 +14,7 @@ func invalidNumArgs(f string, nx int, tx ...string) error {
 }
 
 func invalidArgType(i int, fn, tx, tg string) error {
-	return fmt.Errorf("invalid argument #%d to '%s' (%s expected, got %s)", i, fn, luautype[tx], luautype[tg])
+	return fmt.Errorf("invalid argument #%d to '%s' (%s expected, got %s)", i, fn, tx, tg)
 }
 
 func invalidArg(i int, fn, msg string) error {
@@ -80,7 +80,7 @@ func (a *Args) GetTable(optV ...*Table) *Table {
 }
 
 // GetFunction returns the next argument as a function value. An optional value can be passed if the argument is not required.
-func (a *Args) GetFunction(optV ...Function) Function {
+func (a *Args) GetFunction(optV ...types.Function[*Coroutine]) types.Function[*Coroutine] {
 	return getArg(a, optV, "function")
 }
 
@@ -114,11 +114,11 @@ func (a *Args) GetAny(optV ...types.Val) (arg types.Val) {
 }
 
 // NewLib creates a new library with a given table of functions and other values, such as constants. Functions can be created using MakeFn.
-func NewLib(functions []Function, other ...map[string]types.Val) *Table {
+func NewLib(functions []types.Function[*Coroutine], other ...map[string]types.Val) *Table {
 	// remember, no duplicates
-	hash := make(types.ValMap, len(functions)+len(other))
+	hash := make(map[types.Val]types.Val, len(functions)+len(other))
 	for _, f := range functions {
-		hash[f.name] = f
+		hash[f.Name] = f
 	}
 	if len(other) > 0 {
 		for k, v := range other[0] {
@@ -133,7 +133,7 @@ func NewLib(functions []Function, other ...map[string]types.Val) *Table {
 }
 
 // MakeFn creates a new function with a given name and body. Functions created by MakeFn can be added to a library using NewLib.
-func MakeFn(name string, f func(args Args) (r []types.Val, err error)) Function {
+func MakeFn(name string, f func(args Args) (r []types.Val, err error)) types.Function[*Coroutine] {
 	return fn(name, func(co *Coroutine, vargs ...types.Val) (r []types.Val, err error) {
 		return f(Args{
 			Co:   co,

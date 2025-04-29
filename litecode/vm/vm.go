@@ -43,7 +43,7 @@ func iterArray(array []types.Val, y func(types.Val, types.Val) bool) {
 	}
 }
 
-func iterHash(hash types.ValMap, y func(types.Val, types.Val) bool) {
+func iterHash(hash map[types.Val]types.Val, y func(types.Val, types.Val) bool) {
 	// order keys in map
 	keys := make([]types.Val, 0, len(hash))
 	for k := range hash {
@@ -70,7 +70,7 @@ func iterHash(hash types.ValMap, y func(types.Val, types.Val) bool) {
 // Table represents a Luau table, with resizeable array and hash parts. Luau type `table`
 type Table struct {
 	Array    []types.Val
-	Hash     types.ValMap
+	Hash     map[types.Val]types.Val
 	readonly bool
 }
 
@@ -88,7 +88,7 @@ func (t *Table) SetHash(k types.Val, v types.Val) {
 		if v == nil {
 			return
 		}
-		t.Hash = types.ValMap{k: v}
+		t.Hash = map[types.Val]types.Val{k: v}
 	} else if v == nil {
 		delete(t.Hash, k)
 	} else {
@@ -316,15 +316,11 @@ var opList = [83]opInfo{
 
 // Functions and Tables are used as pointers normally, as they need to be hashed
 
-// Function represents a native or wrapped Luau function. Luau type `function`
-type Function struct {
-	// Run is the native body of the function. Its coroutine argument is used to run the function in a coroutine.
-	Run  *func(co *Coroutine, args ...types.Val) (r []types.Val, err error)
-	name string
-}
-
-func fn(name string, f func(co *Coroutine, args ...types.Val) (r []types.Val, err error)) Function {
-	return Function{&f, name}
+func fn(name string, f func(co *Coroutine, args ...types.Val) (r []types.Val, err error)) types.Function[*Coroutine] {
+	return types.Function[*Coroutine]{
+		Run:  &f,
+		Name: name,
+	}
 }
 
 // Status represents the status of a coroutine.
@@ -352,14 +348,14 @@ type debugging struct {
 }
 
 // Env represents a global Luau environment.
-type Env types.ValMap
+type Env map[types.Val]types.Val
 
 // AddFn adds a function to the environment.
-func (e *Env) AddFn(f Function) {
+func (e *Env) AddFn(f types.Function[*Coroutine]) {
 	if *e == nil {
-		*e = Env{f.name: f}
+		*e = Env{f.Name: f}
 	} else {
-		(*e)[f.name] = f
+		(*e)[f.Name] = f
 	}
 }
 
@@ -483,7 +479,7 @@ func (r1 WebRets) Equal(r2 WebRets) error {
 
 // Coroutine represents a Luau coroutine, including the main coroutine. Luau type `thread`
 type Coroutine struct {
-	body              Function
+	body              types.Function[*Coroutine]
 	env               Env
 	dbgpath, filepath string   // actually does well here
 	requireHistory    []string // prevents cyclic module dependencies
@@ -522,7 +518,7 @@ func (e *CoError) Error() string {
 	return eb.String()
 }
 
-func createCoroutine(body Function, currentCo *Coroutine) *Coroutine {
+func createCoroutine(body types.Function[*Coroutine], currentCo *Coroutine) *Coroutine {
 	// first time i actually ran into the channel axiom issues
 	return &Coroutine{
 		body:     body,
@@ -998,75 +994,76 @@ func truthy(v types.Val) bool {
 	return v != nil && v != false
 }
 
-const typeprefix = "vm."
-
 var luautype = map[string]string{
-	"nil":                          "nil",
-	"float64":                      "number",
-	"string":                       "string",
-	"bool":                         "boolean",
-	"*" + typeprefix + "Table":     "table",
-	typeprefix + "Function":        "function",
-	"*" + typeprefix + "Coroutine": "thread",
-	"*types.Buffer":    "buffer",
-	"types.Vector":          "vector",
+	"nil":       "nil",
+	"float64":   "number",
+	"string":    "string",
+	"bool":      "boolean",
+	"*vm.Table": "table",
+	"types.Function[*github.com/Heliodex/coputer/litecode/vm.Coroutine]": "function",
+	"*vm.Coroutine": "thread",
+	"*types.Buffer": "buffer",
+	"types.Vector":  "vector",
 }
 
 func invalidCompare(op, ta, tb string) error {
-	return fmt.Errorf("attempt to compare %s %s %s", luautype[ta], op, luautype[tb])
+	return fmt.Errorf("attempt to compare %s %s %s", ta, op, tb)
 }
 
 func uncallableType(v string) error {
-	return fmt.Errorf("attempt to call a %s value", luautype[v])
+	return fmt.Errorf("attempt to call a %s value", v)
 }
 
 func invalidArithmetic(op, ta, tb string) error {
-	return fmt.Errorf("attempt to perform arithmetic (%s) on %s and %s", op, luautype[ta], luautype[tb])
+	return fmt.Errorf("attempt to perform arithmetic (%s) on %s and %s", op, ta, tb)
 }
 
 func invalidUnm(t string) error {
-	return fmt.Errorf("attempt to perform arithmetic (unm) on %s", luautype[t])
+	return fmt.Errorf("attempt to perform arithmetic (unm) on %s", t)
 }
 
 func invalidFor(pos, t string) error {
-	return fmt.Errorf("invalid 'for' %s (number expected, got %s)", pos, luautype[t])
+	return fmt.Errorf("invalid 'for' %s (number expected, got %s)", pos, t)
 }
 
 func invalidLength(t string) error {
-	return fmt.Errorf("attempt to get length of a %s value", luautype[t])
+	return fmt.Errorf("attempt to get length of a %s value", t)
 }
 
 func invalidConcat(t1, t2 string) error {
-	return fmt.Errorf("attempt to concatenate %s with %s", luautype[t1], luautype[t2])
+	return fmt.Errorf("attempt to concatenate %s with %s", t1, t2)
 }
 
 func invalidIndex(ta string, v types.Val) error {
-	tb := luautype[TypeOf(v)]
+	tb := TypeOf(v)
 	if tb == "string" {
 		tb = fmt.Sprintf("'%v'", v)
 	}
 
-	return fmt.Errorf("attempt to index %v with %v", luautype[ta], tb)
+	return fmt.Errorf("attempt to index %v with %v", ta, tb)
 }
 
 func missingMethod(ta string, v types.Val) error {
-	tb := luautype[TypeOf(v)]
+	tb := TypeOf(v)
 	if tb == "string" {
 		tb = fmt.Sprintf("'%v'", v)
 	}
 
-	return fmt.Errorf("attempt to call missing method %v of %v", tb, luautype[ta])
+	return fmt.Errorf("attempt to call missing method %v of %v", tb, ta)
 }
 
 // TypeOf returns the underlying VM datatype of a value as a string.
 // This does not return the Luau type, as type() does.
-func TypeOf(v types.Val) string {
+func TypeOf(v types.Val) (t string) {
 	if v == nil { // prevent nil pointer dereference
 		return "nil"
 	}
 
-	fmt.Println("FOUND TYPE", reflect.TypeOf(v).String())
-	return reflect.TypeOf(v).String()
+	t, ok := luautype[reflect.TypeOf(v).String()]
+	if !ok {
+		return reflect.TypeOf(v).String()
+	}
+	return
 }
 
 func aAdd(a, b types.Val) (nt types.Val, err error) {
@@ -1502,7 +1499,7 @@ func handleRequire(towrap toWrap, lc compiled, co *Coroutine) ([]types.Val, erro
 	// only the last return value (weird luau behaviour...)
 	ret := reqrets[len(reqrets)-1]
 	switch ret.(type) {
-	case *Table, Function:
+	case *Table, types.Function[*Coroutine]:
 	default:
 		return nil, errors.New("module must return a table or function")
 	}
@@ -1524,7 +1521,7 @@ func call(top *int32, i inst, towrap toWrap, stack *[]types.Val, co *Coroutine) 
 	// fmt.Println(A, B, C, (*stack)[A], params)
 
 	f := (*stack)[A]
-	fn, ok := f.(Function)
+	fn, ok := f.(types.Function[*Coroutine])
 	// fmt.Println("calling with", (*stack)[A+1:][:params])
 	if !ok {
 		return uncallableType(TypeOf(f))
@@ -1579,7 +1576,7 @@ func forgloop(pc, top *int32, i inst, stack *[]types.Val, co *Coroutine, general
 	*top = A + 6
 
 	switch it := (*stack)[A].(type) {
-	case Function:
+	case types.Function[*Coroutine]:
 		// fmt.Println("IT func", fn, (*stack)[A+1], (*stack)[A+2])
 		vals, err := (*it.Run)(co, (*stack)[A+1], (*stack)[A+2])
 		if err != nil {
@@ -2117,7 +2114,7 @@ func execute(towrap toWrap, stack *[]types.Val, co *Coroutine, vargsList []types
 				return nil, err
 			}
 		case 59, 61: // FORGPREP_INEXT, FORGPREP_NEXT
-			if _, ok := (*stack)[i.A].(Function); !ok {
+			if _, ok := (*stack)[i.A].(types.Function[*Coroutine]); !ok {
 				return nil, fmt.Errorf("attempt to iterate over a %s value", TypeOf((*stack)[i.A])) // -- encountered non-function value
 			}
 			pc += i.D + 1
@@ -2177,7 +2174,7 @@ func execute(towrap toWrap, stack *[]types.Val, co *Coroutine, vargsList []types
 			pc += 2 // adjust for aux
 		case 76: // FORGPREP
 			pc += i.D + 1
-			if _, ok := (*stack)[i.A].(Function); ok {
+			if _, ok := (*stack)[i.A].(types.Function[*Coroutine]); ok {
 				break
 			}
 
@@ -2242,7 +2239,7 @@ func execute(towrap toWrap, stack *[]types.Val, co *Coroutine, vargsList []types
 	return
 }
 
-func wrapclosure(towrap toWrap) Function {
+func wrapclosure(towrap toWrap) types.Function[*Coroutine] {
 	proto := towrap.proto
 
 	return fn("", func(co *Coroutine, args ...types.Val) (r []types.Val, err error) {

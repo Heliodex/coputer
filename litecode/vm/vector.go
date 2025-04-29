@@ -160,7 +160,7 @@ func vector_min(args Args) (r []types.Val, err error) {
 	return []types.Val{result}, nil
 }
 
-var libvector = NewLib([]Function{
+var libvector = NewLib([]types.Function[*Coroutine]{
 	MakeFn("create", vector_create),
 	MakeFn("magnitude", vector_magnitude),
 	MakeFn("normalize", vector_normalize),

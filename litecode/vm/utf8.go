@@ -178,7 +178,7 @@ func utf8_nfdnormalize(args Args) (r []types.Val, err error) {
 	return []types.Val{norm.NFD.String(s)}, nil
 }
 
-var libutf8 = NewLib([]Function{
+var libutf8 = NewLib([]types.Function[*Coroutine]{
 	MakeFn("char", utf8_char),
 	MakeFn("codes", utf8_codes),
 	MakeFn("codepoint", utf8_codepoint),

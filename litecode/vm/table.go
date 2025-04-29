@@ -30,7 +30,7 @@ func table_clone(args Args) (r []types.Val, err error) {
 	}
 
 	if t.Hash != nil {
-		h := make(types.ValMap, len(t.Hash))
+		h := make(map[types.Val]types.Val, len(t.Hash))
 		for k, v := range t.Hash {
 			h[k] = v
 		}
@@ -241,7 +241,7 @@ func table_pack(args Args) (r []types.Val, err error) {
 	copy(a, args.List)
 
 	return []types.Val{&Table{
-		Hash:  types.ValMap{"n": float64(l)},
+		Hash:  map[types.Val]types.Val{"n": float64(l)},
 		Array: a,
 	}}, nil
 }
@@ -498,7 +498,7 @@ func table_unpack(args Args) (r []types.Val, err error) {
 	return
 }
 
-var libtable = NewLib([]Function{
+var libtable = NewLib([]types.Function[*Coroutine]{
 	MakeFn("clear", table_clear),
 	MakeFn("clone", table_clone),
 	MakeFn("concat", table_concat),
