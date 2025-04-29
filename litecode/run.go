@@ -27,11 +27,17 @@ func startWeb(v any) (rets vm.WebRets, err error) {
 		return vm.WebRets{}, errors.New("return statuscode, if provided, must be a number")
 	}
 	rets.StatusCode = int(tstatuscode)
+	if rets.StatusCode < 100 || rets.StatusCode > 599 {
+		return vm.WebRets{}, errors.New("return statuscode, if provided, must be between 100 and 599")
+	}
 
 	statusmesage := t.GetHash("statusmessage")
 	if statusmesage == nil {
 		// default status message for the given status code
 		rets.StatusMessage = http.StatusText(rets.StatusCode)
+		if rets.StatusMessage == "" {
+			rets.StatusMessage = fmt.Sprintf("Error %d", rets.StatusCode)
+		}
 	} else if rets.StatusMessage, ok = statusmesage.(string); !ok {
 		return vm.WebRets{}, errors.New("return statusmessage, if provided, must be a string")
 	}
@@ -61,8 +67,14 @@ func startWeb(v any) (rets vm.WebRets, err error) {
 			return vm.WebRets{}, errors.New("return body, if provided, must be a buffer")
 		}
 		rets.Body = *tbody
+	} else { // default to status message if no body
+		if rets.Headers == nil {
+			rets.Headers = make(map[string]string, 1)
+		}
+		rets.Headers["content-type"] = "text/plain; charset=utf-8"
+		rets.Body = []byte(rets.StatusMessage)
 	}
-	return rets, nil
+	return
 }
 
 func Start(c vm.Compiler, hash string, args vm.ProgramArgs) (output vm.ProgramRets, err error) {

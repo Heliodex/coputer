@@ -2,6 +2,7 @@ package net
 
 import (
 	"crypto/sha3"
+	"net/http"
 	"testing"
 
 	"github.com/Heliodex/coputer/bundle"
@@ -9,7 +10,7 @@ import (
 )
 
 type ProgramTest[A vm.ProgramArgs, R vm.ProgramRets] struct {
-	Path string
+	Name string
 	Args A
 	Rets R
 }
@@ -22,35 +23,97 @@ func url(p string) vm.WebUrl {
 	return wurl
 }
 
+const testProgramPath = "../test/programs"
+
 var webTests = [...]ProgramTest[vm.WebArgs, vm.WebRets]{
 	{
-		"../test/programs/web1",
+		"web1",
 		vm.WebArgs{
 			Url:    url("/"),
 			Method: "GET",
 		},
 		vm.WebRets{
 			StatusCode:    200,
-			StatusMessage: "OK",
+			StatusMessage: http.StatusText(200),
 			Headers: map[string]string{
-				"content-type": "text/html",
+				"content-type": "text/plain; charset=utf-8",
 			},
 			Body: []byte("hello GET / world! /"),
 		},
 	},
 	{
-		"../test/programs/web1",
+		"web1",
 		vm.WebArgs{
 			Url:    url("/submit?"),
 			Method: "POST",
 		},
 		vm.WebRets{
 			StatusCode:    200,
-			StatusMessage: "OK",
+			StatusMessage: http.StatusText(200),
 			Headers: map[string]string{
-				"content-type": "text/html",
+				"content-type": "text/plain; charset=utf-8",
 			},
 			Body: []byte("hello POST /submit world! /submit?"),
+		},
+	},
+	{
+		"web2",
+		vm.WebArgs{
+			Url:    url("/"),
+			Method: "POST",
+		},
+		vm.WebRets{
+			StatusCode:    405,
+			StatusMessage: http.StatusText(405),
+			Headers: map[string]string{
+				"content-type": "text/plain; charset=utf-8",
+			},
+			Body: []byte(http.StatusText(405)),
+		},
+	},
+	{
+		"web2",
+		vm.WebArgs{
+			Url:    url("/"),
+			Method: "GET",
+		},
+		vm.WebRets{
+			StatusCode:    200,
+			StatusMessage: http.StatusText(200),
+			Headers: map[string]string{
+				"content-type": "text/html; charset=utf-8",
+			},
+			Body: []byte("<h1>WELCOME TO MY WEBSITE</h1>"),
+		},
+	},
+	{
+		"web2",
+		vm.WebArgs{
+			Url:    url("/hello"),
+			Method: "GET",
+		},
+		vm.WebRets{
+			StatusCode:    200,
+			StatusMessage: http.StatusText(200),
+			Headers: map[string]string{
+				"content-type": "text/html; charset=utf-8",
+			},
+			Body: []byte("<p>hello page</p>"),
+		},
+	},
+	{
+		"web2",
+		vm.WebArgs{
+			Url:    url("/error"),
+			Method: "GET",
+		},
+		vm.WebRets{
+			StatusCode:    454,
+			StatusMessage: "Error 454",
+			Headers: map[string]string{
+				"content-type": "text/plain; charset=utf-8",
+			},
+			Body: []byte("Error 454"),
 		},
 	},
 }
@@ -67,7 +130,7 @@ func getBundled(p string, t *testing.T) (b []byte) {
 // signet lel
 func TestNet(t *testing.T) {
 	for _, test := range webTests {
-		b := getBundled(test.Path, t)
+		b := getBundled(testProgramPath+"/"+test.Name, t)
 		hash := sha3.Sum256(b)
 
 		lnet := LocalNet{}

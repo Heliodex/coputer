@@ -4,7 +4,7 @@ local body = `hello {webargs.method} {webargs.url.path} world! {webargs.url.rawp
 
 return {
 	headers = {
-		["content-type"] = "text/html",
+		["content-type"] = "text/plain; charset=utf-8",
 	},
 	body = buffer.fromstring(body),
 } :: WebRes

@@ -44,8 +44,9 @@ func findExists(w http.ResponseWriter, hash string) (b bool) {
 func main() {
 	c := vm.NewCompiler(1)
 
-	startErrCache := make(map[[32]byte]error)
-	inputErrCache := make(map[[32]byte]map[[32]byte]error)
+	// just 1 error cache, as different inputs may result in errors/not
+	// (we don't want one error to bring down the whole program for every user)
+	errCache := make(map[[32]byte]map[[32]byte]error)
 	runCache := make(map[[32]byte]map[[32]byte]vm.ProgramRets)
 
 	// store program (bundled version)
@@ -98,10 +99,7 @@ func main() {
 
 		if !findExists(w, hexhash) {
 			return
-		} else if err, ok := startErrCache[hash]; ok {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		} else if err, ok := inputErrCache[hash][inputhash]; ok {
+		} else if err, ok := errCache[hash][inputhash]; ok {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		} else if res, ok := runCache[hash][inputhash]; ok {
@@ -118,13 +116,16 @@ func main() {
 		// rets program
 		output, err := Start(c, hexhash, args)
 		if err != nil {
-			startErrCache[hash] = err
+			if errCache[hash] == nil {
+				errCache[hash] = make(map[[32]byte]error, 1)
+			}
+			errCache[hash][inputhash] = err
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		if runCache[hash] == nil {
-			runCache[hash] = make(map[[32]byte]vm.ProgramRets)
+			runCache[hash] = make(map[[32]byte]vm.ProgramRets, 1)
 		}
 		runCache[hash][inputhash] = output
 

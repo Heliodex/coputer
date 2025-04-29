@@ -6,9 +6,11 @@ import (
 	"github.com/Heliodex/coputer/bundle"
 )
 
-func TestWeb(t *testing.T) {
+func TestExec(t *testing.T) {
 	for _, test := range webTests {
-		b, err := bundle.Bundle(test.Path)
+		t.Log("-- Testing", test.Name)
+
+		b, err := bundle.Bundle(testProgramPath + "/" + test.Name)
 		if err != nil {
 			t.Fatal(err)
 		}

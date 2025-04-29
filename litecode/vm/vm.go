@@ -467,7 +467,7 @@ type WebRets struct {
 
 func (r1 WebRets) Equal(r2 WebRets) error {
 	if r1.StatusCode != r2.StatusCode {
-		return fmt.Errorf("Expected StatusCode %b, got %b", r1.StatusCode, r2.StatusCode)
+		return fmt.Errorf("Expected StatusCode %d, got %d", r1.StatusCode, r2.StatusCode)
 	}
 	if r1.StatusMessage != r2.StatusMessage {
 		return fmt.Errorf("Expected StatusMessage %s, got %s", r1.StatusMessage, r2.StatusMessage)

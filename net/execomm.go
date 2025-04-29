@@ -42,7 +42,7 @@ func StoreProgram(data []byte) (hash [32]byte, err error) {
 			return [32]byte{}, err
 		}
 
-		return [32]byte{}, fmt.Errorf("bad status: %s, %s", res.Status, string(b))
+		return [32]byte{}, fmt.Errorf("bad status from execution server while storing web program: %s, %s", res.Status, string(b))
 	}
 
 	return
@@ -65,7 +65,7 @@ func StartWebProgram(hash [32]byte, args vm.WebArgs) (output vm.WebRets, err err
 	if err != nil {
 		return vm.WebRets{}, err
 	} else if res.StatusCode != http.StatusOK {
-		return vm.WebRets{}, fmt.Errorf("bad status: %s, %s", res.Status, b)
+		return vm.WebRets{}, fmt.Errorf("bad status from execution server while starting web program: %s, %s", res.Status, b)
 	}
 
 	// deserialise it
