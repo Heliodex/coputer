@@ -7,20 +7,17 @@ import (
 	"github.com/Heliodex/coputer/litecode/types"
 )
 
-// Buffer represents a Luau byte buffer. Luau type`buffer`
-type Buffer []byte
-
 func buffer_create(args Args) (r []types.Val, err error) {
 	size := int(args.GetNumber())
 
-	b := make(Buffer, size)
+	b := make(types.Buffer, size)
 	return []types.Val{&b}, nil
 }
 
 func buffer_fromstring(args Args) (r []types.Val, err error) {
 	str := args.GetString()
 
-	b := Buffer(str)
+	b := types.Buffer(str)
 	return []types.Val{&b}, nil
 }
 
@@ -36,7 +33,7 @@ func buffer_len(args Args) (r []types.Val, err error) {
 	return []types.Val{float64(len(b))}, nil
 }
 
-func readValues(args *Args) (b Buffer, offset int) {
+func readValues(args *Args) (b types.Buffer, offset int) {
 	b = *args.GetBuffer()
 	offset = int(args.GetNumber())
 	return
@@ -102,7 +99,7 @@ type num interface {
 
 var oob = []types.Val{"buffer access out of bounds", false}
 
-func writeValues[V num](args *Args) (b Buffer, offset int, value V) {
+func writeValues[V num](args *Args) (b types.Buffer, offset int, value V) {
 	b, offset = readValues(args)
 	value = V(args.GetNumber())
 	return

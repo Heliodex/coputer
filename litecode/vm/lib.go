@@ -90,12 +90,12 @@ func (a *Args) GetCoroutine(optV ...*Coroutine) *Coroutine {
 }
 
 // GetBuffer returns the next argument as a buffer value. An optional value can be passed if the argument is not required.
-func (a *Args) GetBuffer(optV ...*Buffer) *Buffer {
+func (a *Args) GetBuffer(optV ...*types.Buffer) *types.Buffer {
 	return getArg(a, optV, "buffer")
 }
 
 // GetVector returns the next argument as a vector value. An optional value can be passed if the argument is not required.
-func (a *Args) GetVector(optV ...Vector) Vector {
+func (a *Args) GetVector(optV ...types.Vector) types.Vector {
 	return getArg(a, optV, "vector")
 }
 

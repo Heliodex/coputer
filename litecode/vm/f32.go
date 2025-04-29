@@ -130,5 +130,5 @@ func vector_create(args Args) (r []types.Val, err error) {
 		w = float32(args.GetNumber())
 	}
 
-	return []types.Val{Vector{x, y, z, w}}, nil
+	return []types.Val{types.Vector{x, y, z, w}}, nil
 }

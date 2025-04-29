@@ -63,7 +63,7 @@ func startWeb(v any) (rets vm.WebRets, err error) {
 	}
 
 	if body := t.GetHash("body"); body != nil {
-		tbody, ok := body.(*vm.Buffer)
+		tbody, ok := body.(*types.Buffer)
 		if !ok {
 			return vm.WebRets{}, errors.New("return body, if provided, must be a buffer")
 		}

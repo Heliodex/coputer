@@ -199,9 +199,6 @@ func (t *Table) Iter() iter.Seq2[types.Val, types.Val] {
 	}
 }
 
-// Vector represents a 3-wide or 4-wide vector value. Luau type `vector`
-type Vector [4]float32
-
 // bit32 extraction
 func extract(n, field, width uint32) uint32 {
 	return n >> field & (1<<width - 1)
@@ -499,19 +496,19 @@ type Coroutine struct {
 	programArgs       ProgramArgs // idk how
 }
 
-// Error is a custom error type that includes debugging information.
-type Error struct {
+// CoError is a custom error type that includes debugging information.
+type CoError struct {
 	dbg  *debugging
 	path string
 	sub  error
 }
 
-func (e *Error) Error() string {
+func (e *CoError) Error() string {
 	var eb strings.Builder
 
 	for e != nil {
 		// this was hell I think
-		err, ok := e.sub.(*Error)
+		err, ok := e.sub.(*CoError)
 		if !ok {
 			eb.WriteString(
 				fmt.Sprintf("%s:%d: function %s\n%s", e.path, e.dbg.line, e.dbg.dbgname, e.sub))
@@ -538,7 +535,7 @@ func createCoroutine(body Function, currentCo *Coroutine) *Coroutine {
 
 // Error yields an error to the coroutine, killing it shortly after.
 func (co *Coroutine) Error(err error) {
-	co.yield <- yield{nil, &Error{co.dbg, co.dbgpath, err}}
+	co.yield <- yield{nil, &CoError{co.dbg, co.dbgpath, err}}
 
 	// ostensibly blocks forever, but the coroutine is dead/to be killed very soon so it doesn't matter
 	select {}
@@ -725,7 +722,7 @@ func (s *stream) rWord() (w uint32) {
 }
 
 // this is the only thing float32s are ever used for anyway
-func (s *stream) rVector() (r Vector) {
+func (s *stream) rVector() (r types.Vector) {
 	if safe {
 		for i := range 4 {
 			r[i] = math.Float32frombits(s.rWord())
@@ -733,7 +730,7 @@ func (s *stream) rVector() (r Vector) {
 		return
 	}
 
-	r = *(*Vector)(unsafe.Pointer(&s.data[s.pos]))
+	r = *(*types.Vector)(unsafe.Pointer(&s.data[s.pos]))
 	s.pos += 16
 	return
 }
@@ -875,7 +872,7 @@ func readProto(stringList []string, s *stream) (p *proto, err error) {
 			p.k[i] = t // ⚠️ not a val ⚠️
 		case 6: // Closure
 			p.k[i] = s.rVarInt() // ⚠️ not a val ⚠️
-		case 7: // Vector
+		case 7: // types.Vector
 			p.k[i] = s.rVector()
 		default:
 			return nil, fmt.Errorf("unknown ktype %d", kt)
@@ -1011,8 +1008,8 @@ var luautype = map[string]string{
 	"*" + typeprefix + "Table":     "table",
 	typeprefix + "Function":        "function",
 	"*" + typeprefix + "Coroutine": "thread",
-	"*" + typeprefix + "Buffer":    "buffer",
-	typeprefix + "Vector":          "vector",
+	"*types.Buffer":    "buffer",
+	"types.Vector":          "vector",
 }
 
 func invalidCompare(op, ta, tb string) error {
@@ -1067,6 +1064,8 @@ func TypeOf(v types.Val) string {
 	if v == nil { // prevent nil pointer dereference
 		return "nil"
 	}
+
+	fmt.Println("FOUND TYPE", reflect.TypeOf(v).String())
 	return reflect.TypeOf(v).String()
 }
 
@@ -1077,10 +1076,10 @@ func aAdd(a, b types.Val) (nt types.Val, err error) {
 		return fa + fb, nil
 	}
 
-	va, ok3 := a.(Vector)
-	vb, ok4 := b.(Vector)
+	va, ok3 := a.(types.Vector)
+	vb, ok4 := b.(types.Vector)
 	if ok3 && ok4 {
-		return Vector{va[0] + vb[0], va[1] + vb[1], va[2] + vb[2], va[3] + vb[3]}, nil
+		return types.Vector{va[0] + vb[0], va[1] + vb[1], va[2] + vb[2], va[3] + vb[3]}, nil
 	}
 
 	return nt, invalidArithmetic("add", TypeOf(a), TypeOf(b))
@@ -1093,10 +1092,10 @@ func aSub(a, b types.Val) (nt types.Val, err error) {
 		return fa - fb, nil
 	}
 
-	va, ok3 := a.(Vector)
-	vb, ok4 := b.(Vector)
+	va, ok3 := a.(types.Vector)
+	vb, ok4 := b.(types.Vector)
 	if ok3 && ok4 {
-		return Vector{va[0] - vb[0], va[1] - vb[1], va[2] - vb[2], va[3] - vb[3]}, nil
+		return types.Vector{va[0] - vb[0], va[1] - vb[1], va[2] - vb[2], va[3] - vb[3]}, nil
 	}
 
 	return nt, invalidArithmetic("sub", TypeOf(a), TypeOf(b))
@@ -1109,17 +1108,17 @@ func aMul(a, b types.Val) (nt types.Val, err error) {
 		return fa * fb, nil
 	}
 
-	va, ok3 := a.(Vector)
-	vb, ok4 := b.(Vector)
+	va, ok3 := a.(types.Vector)
+	vb, ok4 := b.(types.Vector)
 	switch {
 	case ok3 && ok4:
-		return Vector{va[0] * vb[0], va[1] * vb[1], va[2] * vb[2], va[3] * vb[3]}, nil
+		return types.Vector{va[0] * vb[0], va[1] * vb[1], va[2] * vb[2], va[3] * vb[3]}, nil
 	case ok1 && ok4:
 		f := float32(fa)
-		return Vector{f * vb[0], f * vb[1], f * vb[2], f * vb[3]}, nil
+		return types.Vector{f * vb[0], f * vb[1], f * vb[2], f * vb[3]}, nil
 	case ok3 && ok2:
 		f := float32(fb)
-		return Vector{va[0] * f, va[1] * f, va[2] * f, va[3] * f}, nil
+		return types.Vector{va[0] * f, va[1] * f, va[2] * f, va[3] * f}, nil
 	}
 
 	return nt, invalidArithmetic("mul", TypeOf(a), TypeOf(b))
@@ -1132,17 +1131,17 @@ func aDiv(a, b types.Val) (nt types.Val, err error) {
 		return fa / fb, nil
 	}
 
-	va, ok3 := a.(Vector)
-	vb, ok4 := b.(Vector)
+	va, ok3 := a.(types.Vector)
+	vb, ok4 := b.(types.Vector)
 	switch {
 	case ok3 && ok4:
-		return Vector{va[0] / vb[0], va[1] / vb[1], va[2] / vb[2], va[3] / vb[3]}, nil
+		return types.Vector{va[0] / vb[0], va[1] / vb[1], va[2] / vb[2], va[3] / vb[3]}, nil
 	case ok1 && ok4:
 		f := float32(fa)
-		return Vector{f / vb[0], f / vb[1], f / vb[2], f / vb[3]}, nil
+		return types.Vector{f / vb[0], f / vb[1], f / vb[2], f / vb[3]}, nil
 	case ok3 && ok2:
 		f := float32(fb)
-		return Vector{va[0] / f, va[1] / f, va[2] / f, va[3] / f}, nil
+		return types.Vector{va[0] / f, va[1] / f, va[2] / f, va[3] / f}, nil
 	}
 
 	return nt, invalidArithmetic("div", TypeOf(a), TypeOf(b))
@@ -1175,11 +1174,11 @@ func aIdiv(a, b types.Val) (types.Val, error) {
 		return math.Floor(fa / fb), nil
 	}
 
-	va, ok3 := a.(Vector)
-	vb, ok4 := b.(Vector)
+	va, ok3 := a.(types.Vector)
+	vb, ok4 := b.(types.Vector)
 	switch {
 	case ok3 && ok4:
-		return Vector{
+		return types.Vector{
 			f32Floor(va[0] / vb[0]),
 			f32Floor(va[1] / vb[1]),
 			f32Floor(va[2] / vb[2]),
@@ -1187,7 +1186,7 @@ func aIdiv(a, b types.Val) (types.Val, error) {
 		}, nil
 	case ok1 && ok4:
 		f := float32(fa)
-		return Vector{
+		return types.Vector{
 			f32Floor(f / vb[0]),
 			f32Floor(f / vb[1]),
 			f32Floor(f / vb[2]),
@@ -1195,7 +1194,7 @@ func aIdiv(a, b types.Val) (types.Val, error) {
 		}, nil
 	case ok3 && ok2:
 		f := float32(fb)
-		return Vector{
+		return types.Vector{
 			f32Floor(va[0] / f),
 			f32Floor(va[1] / f),
 			f32Floor(va[2] / f),
@@ -1275,9 +1274,9 @@ func gettable(index, v types.Val) (types.Val, error) {
 	switch t := v.(type) {
 	case *Table:
 		return t.Get(index), nil
-	case Vector: // direction,,, and mmmagnitude!! oh yeah!!11!!
+	case types.Vector: // direction,,, and mmmagnitude!! oh yeah!!11!!
 		switch index {
-		case "x", "X": // yes, we allow the capitalised versions anyway
+		case "x", "X": // yes, we'll allow the capitalised versions anyway
 			return float64(t[0]), nil // alright, who's the wise guy whose idea it was to put a float32 on the stack
 		case "y", "Y":
 			return float64(t[1]), nil
@@ -1286,7 +1285,6 @@ func gettable(index, v types.Val) (types.Val, error) {
 			// case "w", "W":
 			// 	return float64(t[3]), nil
 		}
-		return nil, invalidIndex(typeprefix+"Vector", index)
 	}
 	return nil, invalidIndex(TypeOf(v), index)
 }
@@ -1773,7 +1771,7 @@ func execute(towrap toWrap, stack *[]types.Val, co *Coroutine, vargsList []types
 			pc++
 		case 14: // SETTABLE
 			index := (*stack)[i.C]
-			t, ok := (*stack)[i.B].(*Table) // SETTABLE or SETTABLEKS on a Vector actually does return "attempt to index vector with 'whatever'"
+			t, ok := (*stack)[i.B].(*Table) // SETTABLE or SETTABLEKS on a types.Vector actually does return "attempt to index vector with 'whatever'"
 			if !ok {
 				return nil, invalidIndex(TypeOf((*stack)[i.B]), index)
 			}
@@ -2272,7 +2270,7 @@ func wrapclosure(towrap toWrap) Function {
 			return
 		}
 		if err != nil {
-			return nil, &Error{dbg, co.dbgpath, err}
+			return nil, &CoError{dbg, co.dbgpath, err}
 		}
 
 		// prevent line mismatches (error/loc.luau)

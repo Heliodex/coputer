@@ -33,7 +33,7 @@ func args_web(args Args) (r []types.Val, err error) {
 				Hash:     headers,
 				readonly: true,
 			},
-			"body": Buffer(pargs.Body),
+			"body": types.Buffer(pargs.Body),
 		},
 		readonly: true,
 	}

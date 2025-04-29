@@ -542,7 +542,7 @@ func ToString(a types.Val) string {
 		return "false"
 	case float64:
 		return num2str(v)
-	case Vector:
+	case types.Vector:
 		// just 3-wide 4-now
 		return fmt.Sprintf("%s, %s, %s", num2str(float64(v[0])), num2str(float64(v[1])), num2str(float64(v[2])))
 	case string:
