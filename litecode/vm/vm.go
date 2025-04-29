@@ -12,11 +12,13 @@ import (
 	"slices"
 	"strings"
 	"unsafe"
+
+	"github.com/Heliodex/coputer/litecode/types"
 )
 
 const safe = false
 
-func arrayKey(k Val) (int, bool) {
+func arrayKey(k types.Val) (int, bool) {
 	fk, ok := k.(float64)
 	if !ok {
 		return 0, false
@@ -26,14 +28,14 @@ func arrayKey(k Val) (int, bool) {
 	return ik, 1 <= ik && float64(ik) == fk
 }
 
-func mapKeySort(a, b Val) int {
+func mapKeySort(a, b types.Val) int {
 	// It doesn't have to be pretty for map keys
 	// (in fact, the reference implementation of Luau has a rather insane sort order)
 	// It just has to be DETERMINISTIC
 	return strings.Compare(fmt.Sprint(a), fmt.Sprint(b))
 }
 
-func iterArray(array []Val, y func(Val, Val) bool) {
+func iterArray(array []types.Val, y func(types.Val, types.Val) bool) {
 	for i, v := range array {
 		if v != nil && !y(float64(i+1), v) {
 			return
@@ -41,9 +43,9 @@ func iterArray(array []Val, y func(Val, Val) bool) {
 	}
 }
 
-func iterHash(hash ValMap, y func(Val, Val) bool) {
+func iterHash(hash types.ValMap, y func(types.Val, types.Val) bool) {
 	// order keys in map
-	keys := make([]Val, 0, len(hash))
+	keys := make([]types.Val, 0, len(hash))
 	for k := range hash {
 		keys = append(keys, k)
 	}
@@ -67,8 +69,8 @@ func iterHash(hash ValMap, y func(Val, Val) bool) {
 
 // Table represents a Luau table, with resizeable array and hash parts. Luau type `table`
 type Table struct {
-	Array    []Val
-	Hash     ValMap
+	Array    []types.Val
+	Hash     types.ValMap
 	readonly bool
 }
 
@@ -81,12 +83,12 @@ func (t *Table) Len() int {
 }
 
 // SetHash updates or deletes a key-value pair in the hash part of the table.
-func (t *Table) SetHash(k Val, v Val) {
+func (t *Table) SetHash(k types.Val, v types.Val) {
 	if t.Hash == nil {
 		if v == nil {
 			return
 		}
-		t.Hash = ValMap{k: v}
+		t.Hash = types.ValMap{k: v}
 	} else if v == nil {
 		delete(t.Hash, k)
 	} else {
@@ -111,12 +113,12 @@ func (t *Table) moveToArray(l int) {
 }
 
 // SetArray sets a value at an integer index, placing it into the Array part or the Hash part and resizing each as appropriate.
-func (t *Table) SetArray(i int, v Val) {
+func (t *Table) SetArray(i int, v types.Val) {
 	// fmt.Println("SetArray", i, v)
 
 	if t.Array == nil {
 		if i == 1 {
-			t.Array = []Val{v}
+			t.Array = []types.Val{v}
 
 			t.moveToArray(0)
 			return
@@ -150,7 +152,7 @@ func (t *Table) SetArray(i int, v Val) {
 }
 
 // ForceSet sets a table value at a key, regardless of whether the table is readonly.
-func (t *Table) ForceSet(k Val, v Val) {
+func (t *Table) ForceSet(k types.Val, v types.Val) {
 	if ak, ok := arrayKey(k); ok {
 		t.SetArray(ak, v)
 		return
@@ -161,7 +163,7 @@ func (t *Table) ForceSet(k Val, v Val) {
 var errReadonly = errors.New("attempt to modify a readonly table")
 
 // Set sets a table value at a key, returning an error if the table is readonly.
-func (t *Table) Set(k Val, v Val) error {
+func (t *Table) Set(k types.Val, v types.Val) error {
 	if t.readonly {
 		return errReadonly
 	}
@@ -170,7 +172,7 @@ func (t *Table) Set(k Val, v Val) error {
 }
 
 // GetHash returns a value at a key, only searching the hash part of the table.
-func (t *Table) GetHash(k Val) (v Val) {
+func (t *Table) GetHash(k types.Val) (v types.Val) {
 	if t.Hash == nil {
 		return
 	}
@@ -178,7 +180,7 @@ func (t *Table) GetHash(k Val) (v Val) {
 }
 
 // Get returns a value at a key in the table.
-func (t *Table) Get(k Val) Val {
+func (t *Table) Get(k types.Val) types.Val {
 	if ak, ok := arrayKey(k); ok && ak <= t.Len() {
 		return t.Array[ak-1]
 	}
@@ -186,8 +188,8 @@ func (t *Table) Get(k Val) Val {
 }
 
 // Iter returns an iterator over the table, yielding key-value pairs in a deterministic order.
-func (t *Table) Iter() iter.Seq2[Val, Val] {
-	return func(y func(Val, Val) bool) {
+func (t *Table) Iter() iter.Seq2[types.Val, types.Val] {
+	return func(y func(types.Val, types.Val) bool) {
 		if t.Array != nil {
 			iterArray(t.Array, y)
 		}
@@ -320,11 +322,11 @@ var opList = [83]opInfo{
 // Function represents a native or wrapped Luau function. Luau type `function`
 type Function struct {
 	// Run is the native body of the function. Its coroutine argument is used to run the function in a coroutine.
-	Run  *func(co *Coroutine, args ...Val) (r []Val, err error)
+	Run  *func(co *Coroutine, args ...types.Val) (r []types.Val, err error)
 	name string
 }
 
-func fn(name string, f func(co *Coroutine, args ...Val) (r []Val, err error)) Function {
+func fn(name string, f func(co *Coroutine, args ...types.Val) (r []types.Val, err error)) Function {
 	return Function{&f, name}
 }
 
@@ -340,7 +342,7 @@ const (
 )
 
 type yield struct {
-	rets []Val
+	rets []types.Val
 	err  error
 }
 
@@ -353,7 +355,7 @@ type debugging struct {
 }
 
 // Env represents a global Luau environment.
-type Env ValMap
+type Env types.ValMap
 
 // AddFn adds a function to the environment.
 func (e *Env) AddFn(f Function) {
@@ -489,7 +491,7 @@ type Coroutine struct {
 	dbgpath, filepath string   // actually does well here
 	requireHistory    []string // prevents cyclic module dependencies
 	yield             chan yield
-	resume            chan []Val
+	resume            chan []types.Val
 	dbg               *debugging
 	compiler          *Compiler
 	status            Status
@@ -530,7 +532,7 @@ func createCoroutine(body Function, currentCo *Coroutine) *Coroutine {
 		filepath: currentCo.filepath,
 		dbgpath:  currentCo.dbgpath,
 		yield:    make(chan yield, 1),
-		resume:   make(chan []Val, 1),
+		resume:   make(chan []types.Val, 1),
 	}
 }
 
@@ -542,7 +544,7 @@ func (co *Coroutine) Error(err error) {
 	select {}
 }
 
-func startCoroutine(co *Coroutine, args []Val) {
+func startCoroutine(co *Coroutine, args []types.Val) {
 	// fmt.Println(" RG calling coroutine body with", args)
 	r, err := (*co.body.Run)(co, args...)
 
@@ -560,7 +562,7 @@ func startCoroutine(co *Coroutine, args []Val) {
 }
 
 // Resume executes the coroutine with the provided arguments, starting it with the given arguments if it is not already started, otherwise resuming it and passing the argument values back to the yielded function.
-func (co *Coroutine) Resume(args ...Val) (r []Val, err error) {
+func (co *Coroutine) Resume(args ...types.Val) (r []types.Val, err error) {
 	if !co.started {
 		// fmt.Println("RM  starting", args)
 		co.started = true
@@ -581,7 +583,7 @@ func (co *Coroutine) Resume(args ...Val) (r []Val, err error) {
 
 const luau_multret = -1
 
-func namecallHandler(co *Coroutine, kv string, stack *[]Val, c1, c2 int32) (ok bool, retList []Val, err error) {
+func namecallHandler(co *Coroutine, kv string, stack *[]types.Val, c1, c2 int32) (ok bool, retList []types.Val, err error) {
 	switch kv {
 	case "format":
 		str := (*stack)[c1].(string)
@@ -591,7 +593,7 @@ func namecallHandler(co *Coroutine, kv string, stack *[]Val, c1, c2 int32) (ok b
 		if err != nil {
 			return false, nil, err
 		}
-		return true, []Val{f}, nil
+		return true, []types.Val{f}, nil
 	}
 	return
 }
@@ -629,7 +631,7 @@ type inst struct {
 	opInfo
 
 	// K0, K1, K2 for imports (up to 3 lay.ers.deep)
-	K, K0, K1, K2       Val
+	K, K0, K1, K2       types.Val
 	KC, opcode, A, B, C uint8
 	D, E                int32
 	aux                 uint32
@@ -638,7 +640,7 @@ type inst struct {
 
 type proto struct {
 	dbgname              string
-	k                    []Val
+	k                    []types.Val
 	code                 []*inst
 	instlineinfo, protos []uint32
 	dbgcode              []uint8
@@ -653,7 +655,7 @@ type deserialised struct {
 	protoList []*proto
 }
 
-func checkkmode(i *inst, k []Val) {
+func checkkmode(i *inst, k []types.Val) {
 	switch i.kMode {
 	case 1: // AUX
 		if i.aux < uint32(len(k)) { // sometimes huge for some reason
@@ -848,7 +850,7 @@ func readProto(stringList []string, s *stream) (p *proto, err error) {
 	}
 
 	sizek := s.rVarInt()
-	p.k = make([]Val, sizek) // crazy
+	p.k = make([]types.Val, sizek) // crazy
 
 	for i := range sizek {
 		switch kt := s.rByte(); kt {
@@ -984,18 +986,18 @@ func deserialise(b []byte) (des deserialised, err error) {
 
 type iterator struct {
 	args    chan *Table
-	resume  chan *[]Val
+	resume  chan *[]types.Val
 	running bool
 }
 
 type upval struct {
-	value   Val
-	store   []Val
+	value   types.Val
+	store   []types.Val
 	index   uint8
 	selfRef bool
 }
 
-func truthy(v Val) bool {
+func truthy(v types.Val) bool {
 	return v != nil && v != false
 }
 
@@ -1041,7 +1043,7 @@ func invalidConcat(t1, t2 string) error {
 	return fmt.Errorf("attempt to concatenate %s with %s", luautype[t1], luautype[t2])
 }
 
-func invalidIndex(ta string, v Val) error {
+func invalidIndex(ta string, v types.Val) error {
 	tb := luautype[TypeOf(v)]
 	if tb == "string" {
 		tb = fmt.Sprintf("'%v'", v)
@@ -1050,7 +1052,7 @@ func invalidIndex(ta string, v Val) error {
 	return fmt.Errorf("attempt to index %v with %v", luautype[ta], tb)
 }
 
-func missingMethod(ta string, v Val) error {
+func missingMethod(ta string, v types.Val) error {
 	tb := luautype[TypeOf(v)]
 	if tb == "string" {
 		tb = fmt.Sprintf("'%v'", v)
@@ -1061,14 +1063,14 @@ func missingMethod(ta string, v Val) error {
 
 // TypeOf returns the underlying VM datatype of a value as a string.
 // This does not return the Luau type, as type() does.
-func TypeOf(v Val) string {
+func TypeOf(v types.Val) string {
 	if v == nil { // prevent nil pointer dereference
 		return "nil"
 	}
 	return reflect.TypeOf(v).String()
 }
 
-func aAdd(a, b Val) (nt Val, err error) {
+func aAdd(a, b types.Val) (nt types.Val, err error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
@@ -1084,7 +1086,7 @@ func aAdd(a, b Val) (nt Val, err error) {
 	return nt, invalidArithmetic("add", TypeOf(a), TypeOf(b))
 }
 
-func aSub(a, b Val) (nt Val, err error) {
+func aSub(a, b types.Val) (nt types.Val, err error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
@@ -1100,7 +1102,7 @@ func aSub(a, b Val) (nt Val, err error) {
 	return nt, invalidArithmetic("sub", TypeOf(a), TypeOf(b))
 }
 
-func aMul(a, b Val) (nt Val, err error) {
+func aMul(a, b types.Val) (nt types.Val, err error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
@@ -1123,7 +1125,7 @@ func aMul(a, b Val) (nt Val, err error) {
 	return nt, invalidArithmetic("mul", TypeOf(a), TypeOf(b))
 }
 
-func aDiv(a, b Val) (nt Val, err error) {
+func aDiv(a, b types.Val) (nt types.Val, err error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
@@ -1146,7 +1148,7 @@ func aDiv(a, b Val) (nt Val, err error) {
 	return nt, invalidArithmetic("div", TypeOf(a), TypeOf(b))
 }
 
-func aMod(a, b Val) (nt Val, err error) {
+func aMod(a, b types.Val) (nt types.Val, err error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
@@ -1156,7 +1158,7 @@ func aMod(a, b Val) (nt Val, err error) {
 	return nt, invalidArithmetic("mod", TypeOf(a), TypeOf(b))
 }
 
-func aPow(a, b Val) (nt Val, err error) {
+func aPow(a, b types.Val) (nt types.Val, err error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
@@ -1166,7 +1168,7 @@ func aPow(a, b Val) (nt Val, err error) {
 	return nt, invalidArithmetic("pow", TypeOf(a), TypeOf(b))
 }
 
-func aIdiv(a, b Val) (Val, error) {
+func aIdiv(a, b types.Val) (types.Val, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
@@ -1205,7 +1207,7 @@ func aIdiv(a, b Val) (Val, error) {
 }
 
 // vectors dont have these comparisons
-func jumpLe(a, b Val) (bool, error) {
+func jumpLe(a, b types.Val) (bool, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
@@ -1221,7 +1223,7 @@ func jumpLe(a, b Val) (bool, error) {
 	return false, invalidCompare("<=", TypeOf(a), TypeOf(b))
 }
 
-func jumpLt(a, b Val) (bool, error) {
+func jumpLt(a, b types.Val) (bool, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
@@ -1237,7 +1239,7 @@ func jumpLt(a, b Val) (bool, error) {
 	return false, invalidCompare("<", TypeOf(a), TypeOf(b))
 }
 
-func jumpGt(a, b Val) (bool, error) {
+func jumpGt(a, b types.Val) (bool, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
@@ -1253,7 +1255,7 @@ func jumpGt(a, b Val) (bool, error) {
 	return false, invalidCompare(">", TypeOf(a), TypeOf(b))
 }
 
-func jumpGe(a, b Val) (bool, error) {
+func jumpGe(a, b types.Val) (bool, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
@@ -1269,7 +1271,7 @@ func jumpGe(a, b Val) (bool, error) {
 	return false, invalidCompare(">=", TypeOf(a), TypeOf(b))
 }
 
-func gettable(index, v Val) (Val, error) {
+func gettable(index, v types.Val) (types.Val, error) {
 	switch t := v.(type) {
 	case *Table:
 		return t.Get(index), nil
@@ -1296,7 +1298,7 @@ type toWrap struct {
 	alive     *bool
 	env       Env
 	// Store the last return, as it's the only one that's relevant
-	requireCache map[string]Val
+	requireCache map[string]types.Val
 }
 
 func iterate(c *iterator) {
@@ -1310,14 +1312,14 @@ func iterate(c *iterator) {
 			return
 		}
 		// fmt.Println("-2- yielding", i, v)
-		c.resume <- &[]Val{i, v}
+		c.resume <- &[]types.Val{i, v}
 		// fmt.Println("-2- yielded!")
 	}
 
 	c.resume <- nil
 }
 
-func moveStack(stack *[]Val, src []Val, b, t int32) {
+func moveStack(stack *[]types.Val, src []types.Val, b, t int32) {
 	for t+b >= int32(len(*stack)) { // graah stack expansion
 		*stack = append(*stack, nil)
 	}
@@ -1331,7 +1333,7 @@ func moveStack(stack *[]Val, src []Val, b, t int32) {
 	}
 }
 
-func getImport(i inst, towrap toWrap, stack *[]Val) error {
+func getImport(i inst, towrap toWrap, stack *[]types.Val) error {
 	k0 := i.K0
 	imp := exts[k0]
 	if imp == nil {
@@ -1362,7 +1364,7 @@ func getImport(i inst, towrap toWrap, stack *[]Val) error {
 	return nil
 }
 
-func newClosure(pc *int32, i inst, towrap toWrap, p *proto, stack *[]Val, openUpvals *[]*upval, upvals []*upval) {
+func newClosure(pc *int32, i inst, towrap toWrap, p *proto, stack *[]types.Val, openUpvals *[]*upval, upvals []*upval) {
 	newProto := towrap.protoList[p.protos[i.D]-1]
 
 	nups := newProto.nups
@@ -1416,7 +1418,7 @@ func newClosure(pc *int32, i inst, towrap toWrap, p *proto, stack *[]Val, openUp
 	}
 }
 
-func namecall(pc, top *int32, i *inst, p *proto, stack *[]Val, co *Coroutine, op *uint8) (err error) {
+func namecall(pc, top *int32, i *inst, p *proto, stack *[]types.Val, co *Coroutine, op *uint8) (err error) {
 	A, B := i.A, i.B
 	kv := i.K.(string)
 	// fmt.Println("kv", kv)
@@ -1445,7 +1447,7 @@ func namecall(pc, top *int32, i *inst, p *proto, stack *[]Val, co *Coroutine, op
 		// fmt.Println("namecall", kv, "not found")
 		switch t := (*stack)[B].(type) {
 		case *Table:
-			var call Val
+			var call types.Val
 			if t.Hash == nil {
 				call = nil
 			} else {
@@ -1484,9 +1486,9 @@ func namecall(pc, top *int32, i *inst, p *proto, stack *[]Val, co *Coroutine, op
 	return
 }
 
-func handleRequire(towrap toWrap, lc compiled, co *Coroutine) ([]Val, error) {
+func handleRequire(towrap toWrap, lc compiled, co *Coroutine) ([]types.Val, error) {
 	if c, ok := towrap.requireCache[lc.filepath]; ok {
-		return []Val{c}, nil
+		return []types.Val{c}, nil
 	}
 
 	// since environments only store global libraries etc, using the same env here should be fine??
@@ -1508,10 +1510,10 @@ func handleRequire(towrap toWrap, lc compiled, co *Coroutine) ([]Val, error) {
 	}
 
 	towrap.requireCache[lc.filepath] = ret
-	return []Val{ret}, nil
+	return []types.Val{ret}, nil
 }
 
-func call(top *int32, i inst, towrap toWrap, stack *[]Val, co *Coroutine) (err error) {
+func call(top *int32, i inst, towrap toWrap, stack *[]types.Val, co *Coroutine) (err error) {
 	A, B, C := int32(i.A), int32(i.B), i.C
 
 	var params int32
@@ -1572,7 +1574,7 @@ func call(top *int32, i inst, towrap toWrap, stack *[]Val, co *Coroutine) (err e
 }
 
 // for gloop lel
-func forgloop(pc, top *int32, i inst, stack *[]Val, co *Coroutine, generalisedIterators *map[inst]*iterator) (err error) {
+func forgloop(pc, top *int32, i inst, stack *[]types.Val, co *Coroutine, generalisedIterators *map[inst]*iterator) (err error) {
 	A := int32(i.A)
 	res := int32(i.K.(uint32))
 
@@ -1625,7 +1627,7 @@ func forgloop(pc, top *int32, i inst, stack *[]Val, co *Coroutine, generalisedIt
 	return
 }
 
-func dupClosure(pc *int32, i inst, towrap toWrap, p *proto, stack *[]Val, upvals []*upval) {
+func dupClosure(pc *int32, i inst, towrap toWrap, p *proto, stack *[]types.Val, upvals []*upval) {
 	newProto := towrap.protoList[i.K.(uint32)]
 
 	nups := newProto.nups
@@ -1653,7 +1655,7 @@ func dupClosure(pc *int32, i inst, towrap toWrap, p *proto, stack *[]Val, upvals
 	}
 }
 
-func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsLen uint8) (r []Val, err error) {
+func execute(towrap toWrap, stack *[]types.Val, co *Coroutine, vargsList []types.Val, vargsLen uint8) (r []types.Val, err error) {
 	p, upvals := towrap.proto, towrap.upvals
 	// int32 > uint32 lel
 	pc, top, openUpvals, generalisedIterators := int32(1), int32(-1), []*upval{}, map[inst]*iterator{}
@@ -2188,7 +2190,7 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 
 			c := &iterator{
 				args:   make(chan *Table),
-				resume: make(chan *[]Val),
+				resume: make(chan *[]types.Val),
 			}
 			go iterate(c)
 			// fmt.Println("SETTING GENITER", loopInst)
@@ -2245,15 +2247,15 @@ func execute(towrap toWrap, stack *[]Val, co *Coroutine, vargsList []Val, vargsL
 func wrapclosure(towrap toWrap) Function {
 	proto := towrap.proto
 
-	return fn("", func(co *Coroutine, args ...Val) (r []Val, err error) {
+	return fn("", func(co *Coroutine, args ...types.Val) (r []types.Val, err error) {
 		maxs, np := proto.maxstacksize, proto.numparams // maxs 2 lel
 
 		la := uint8(len(args)) // we can't have more than 255 args anyway right?
 		// fmt.Println("MAX STACK SIZE", maxs)
-		stack := make([]Val, maxs)
+		stack := make([]types.Val, maxs)
 		copy(stack, args[:min(np, la)])
 
-		var list []Val
+		var list []types.Val
 		if np < la {
 			list = args[np:]
 		}
@@ -2279,7 +2281,7 @@ func wrapclosure(towrap toWrap) Function {
 	})
 }
 
-func loadmodule(m compiled, env Env, requireCache map[string]Val, requireHistory []string, args ProgramArgs) (co Coroutine, cancel func()) {
+func loadmodule(m compiled, env Env, requireCache map[string]types.Val, requireHistory []string, args ProgramArgs) (co Coroutine, cancel func()) {
 	alive := true
 
 	towrap := toWrap{
@@ -2297,7 +2299,7 @@ func loadmodule(m compiled, env Env, requireCache map[string]Val, requireHistory
 		dbgpath:        m.dbgpath,
 		requireHistory: requireHistory,
 		yield:          make(chan yield, 1),
-		resume:         make(chan []Val, 1),
+		resume:         make(chan []types.Val, 1),
 		dbg:            &debugging{opcode: 255},
 		compiler:       m.compiler,
 		programArgs:    args,

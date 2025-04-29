@@ -5,6 +5,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/Heliodex/coputer/litecode/types"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -23,17 +24,17 @@ func utf8_posrelat(pos, len int) int {
 	return len + pos + 1
 }
 
-func utf8_char(args Args) (r []Val, err error) {
+func utf8_char(args Args) (r []types.Val, err error) {
 	b := strings.Builder{}
 
 	for range args.List {
 		a := args.GetNumber()
 		b.WriteRune(rune(a))
 	}
-	return []Val{b.String()}, nil
+	return []types.Val{b.String()}, nil
 }
 
-func iter_aux(args Args) (cps []Val, err error) {
+func iter_aux(args Args) (cps []types.Val, err error) {
 	s := args.GetString()
 	n := args.GetNumber() - 1
 
@@ -54,18 +55,18 @@ func iter_aux(args Args) (cps []Val, err error) {
 	if r == utf8.RuneError {
 		return nil, errors.New("invalid UTF-8 code")
 	}
-	return []Val{float64(n + 1), float64(r)}, nil
+	return []types.Val{float64(n + 1), float64(r)}, nil
 }
 
-func utf8_codes(args Args) (r []Val, err error) {
+func utf8_codes(args Args) (r []types.Val, err error) {
 	str := args.GetString()
 
-	return []Val{MakeFn("codes", iter_aux), str, float64(0)}, nil
+	return []types.Val{MakeFn("codes", iter_aux), str, float64(0)}, nil
 }
 
 const int_max = int(^uint(0) >> 1)
 
-func utf8_codepoint(args Args) (cps []Val, err error) {
+func utf8_codepoint(args Args) (cps []types.Val, err error) {
 	s := args.GetString()
 	i := args.GetNumber(1)
 	j := args.GetNumber(i)
@@ -99,7 +100,7 @@ func utf8_codepoint(args Args) (cps []Val, err error) {
 }
 
 // roblox docs says this returns 1 number (incorrect)
-func utf8_len(args Args) (r []Val, err error) {
+func utf8_len(args Args) (r []types.Val, err error) {
 	s := args.GetString()
 	i := args.GetNumber(1)
 	j := args.GetNumber(-1)
@@ -109,10 +110,10 @@ func utf8_len(args Args) (r []Val, err error) {
 	sl := s[max(posi-1, 0):min(pose, len(s))]
 	n := utf8.RuneCountInString(sl)
 
-	return []Val{float64(n)}, nil
+	return []types.Val{float64(n)}, nil
 }
 
-func utf8_offset(args Args) (r []Val, err error) {
+func utf8_offset(args Args) (r []types.Val, err error) {
 	s := args.GetString()
 	n := args.GetNumber()
 
@@ -130,7 +131,7 @@ func utf8_offset(args Args) (r []Val, err error) {
 		for posi > 0 && iscont(s[posi]) {
 			posi--
 		}
-		return []Val{float64(posi + 1)}, nil
+		return []types.Val{float64(posi + 1)}, nil
 	}
 	if iscont(s[posi]) {
 		return nil, errors.New("initial position is a continuation byte")
@@ -158,23 +159,23 @@ func utf8_offset(args Args) (r []Val, err error) {
 		// no such character
 		return
 	}
-	return []Val{float64(posi + 1)}, nil
+	return []types.Val{float64(posi + 1)}, nil
 }
 
 // func utf8_graphemes(args Args) (r Rets, err error) {
 // 	panic("not implemented")
 // }
 
-func utf8_nfcnormalize(args Args) (r []Val, err error) {
+func utf8_nfcnormalize(args Args) (r []types.Val, err error) {
 	s := args.GetString()
 
-	return []Val{norm.NFC.String(s)}, nil
+	return []types.Val{norm.NFC.String(s)}, nil
 }
 
-func utf8_nfdnormalize(args Args) (r []Val, err error) {
+func utf8_nfdnormalize(args Args) (r []types.Val, err error) {
 	s := args.GetString()
 
-	return []Val{norm.NFD.String(s)}, nil
+	return []types.Val{norm.NFD.String(s)}, nil
 }
 
 var libutf8 = NewLib([]Function{
@@ -186,6 +187,6 @@ var libutf8 = NewLib([]Function{
 	// MakeFn("graphemes", utf8_graphemes), // we can't actually test this, mainly due to the fact it... doesn't exist in the reference implementation..?
 	MakeFn("nfcnormalize", utf8_nfcnormalize), // these are also untestable but they're so trivial here
 	MakeFn("nfdnormalize", utf8_nfdnormalize),
-}, map[string]Val{
+}, map[string]types.Val{
 	"charpattern": "[\x00-\x7F\xC2-\xF4][\x80-\xBF]*",
 })

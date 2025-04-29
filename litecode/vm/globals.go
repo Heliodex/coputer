@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/Heliodex/coputer/litecode/types"
 )
 
 // p sure that 'globals' is a misnomer here but whatever
@@ -25,7 +27,7 @@ select: this function's kinda stupid
 typeof: not much use without metatables
 */
 
-func ipairs_iter(args Args) (r []Val, err error) {
+func ipairs_iter(args Args) (r []types.Val, err error) {
 	a := args.GetTable()
 	i := args.GetNumber() + 1
 
@@ -33,21 +35,21 @@ func ipairs_iter(args Args) (r []Val, err error) {
 		return
 	}
 	if v := a.Array[int(i)-1]; v != nil {
-		return []Val{i, v}, nil
+		return []types.Val{i, v}, nil
 	}
 	return // would prefer nil, nil but whateverrrrr
 }
 
 var ipairs = MakeFn("ipairs", ipairs_iter)
 
-func global_ipairs(args Args) (r []Val, err error) {
+func global_ipairs(args Args) (r []types.Val, err error) {
 	a := args.GetTable()
 
-	return []Val{ipairs, a, float64(0)}, nil
+	return []types.Val{ipairs, a, float64(0)}, nil
 }
 
 // The call next(t, k), where k is a key of the table t, returns a next key in the table, in an arbitrary order. (It returns also the value associated with that key, as a second return value.) The call next(t, nil) returns a first pair. When there are no more pairs, next returns nil.
-func global_next(args Args) (r []Val, err error) {
+func global_next(args Args) (r []types.Val, err error) {
 	t := args.GetTable()
 	fk := args.GetAny(nil)
 
@@ -57,14 +59,14 @@ func global_next(args Args) (r []Val, err error) {
 
 		k, v, ok := next()
 		if ok {
-			return []Val{k, v}, nil
+			return []types.Val{k, v}, nil
 		}
 	}
 
 	next, stop := iter.Pull2(t.Iter())
 	defer stop()
 
-	var k Val
+	var k types.Val
 	var ok bool
 	for k != fk {
 		if k, _, ok = next(); !ok {
@@ -74,32 +76,32 @@ func global_next(args Args) (r []Val, err error) {
 
 	k, v, ok := next()
 	if !ok {
-		return []Val{nil}, nil
+		return []types.Val{nil}, nil
 	}
-	return []Val{k, v}, nil
+	return []types.Val{k, v}, nil
 }
 
-func global_pairs(args Args) (r []Val, err error) {
+func global_pairs(args Args) (r []types.Val, err error) {
 	t := args.GetTable()
 
-	return []Val{MakeFn("next", global_next), t}, nil
+	return []types.Val{MakeFn("next", global_next), t}, nil
 }
 
 const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-func global_tonumber(args Args) (r []Val, err error) {
+func global_tonumber(args Args) (r []types.Val, err error) {
 	value := args.GetAny()
 	radix := uint64(args.GetNumber(10))
 
 	str, ok := value.(string)
 	if !ok || radix < 2 || radix > 36 {
-		return []Val{nil}, nil
+		return []types.Val{nil}, nil
 		// panic("base out of range") // invalid argument #2
 	}
 
 	if radix == 10 {
 		if f, err := strconv.ParseFloat(str, 64); err == nil {
-			return []Val{f}, nil
+			return []types.Val{f}, nil
 		}
 	}
 
@@ -129,15 +131,15 @@ func global_tonumber(args Args) (r []Val, err error) {
 		n *= radix
 		index := strings.IndexRune(radixChars, c)
 		if index == -1 {
-			return []Val{nil}, nil
+			return []types.Val{nil}, nil
 		}
 		n += uint64(index)
 	}
 
 	if negative {
-		return []Val{float64(-n)}, nil
+		return []types.Val{float64(-n)}, nil
 	}
-	return []Val{float64(n)}, nil
+	return []types.Val{float64(n)}, nil
 }
 
 const (
@@ -529,7 +531,7 @@ func num2str(n float64) string {
 }
 
 // ToString returns a string representation of any value.
-func ToString(a Val) string {
+func ToString(a types.Val) string {
 	switch v := a.(type) {
 	case nil:
 		return "nil"
@@ -549,21 +551,21 @@ func ToString(a Val) string {
 	return fmt.Sprint(a)
 }
 
-func global_tostring(args Args) (r []Val, err error) {
+func global_tostring(args Args) (r []types.Val, err error) {
 	value := args.GetAny()
 
-	return []Val{ToString(value)}, nil
+	return []types.Val{ToString(value)}, nil
 }
 
-func global_type(args Args) (r []Val, err error) {
+func global_type(args Args) (r []types.Val, err error) {
 	obj := args.GetAny()
 
 	t, ok := luautype[TypeOf(obj)]
 	if !ok {
 		fmt.Println("userdata generated", TypeOf(obj))
-		return []Val{"userdata"}, nil
+		return []types.Val{"userdata"}, nil
 	}
-	return []Val{t}, nil
+	return []types.Val{t}, nil
 }
 
 func isAbsolutePath(p string) bool {
@@ -575,7 +577,7 @@ func hasValidPrefix(path string) bool {
 	return path[:2] == "./" || path[:3] == "../"
 }
 
-func global_require(args Args) (r []Val, err error) {
+func global_require(args Args) (r []types.Val, err error) {
 	name := args.GetString()
 	if isAbsolutePath(name) {
 		return nil, invalidArg(1, "require", "cannot require an absolute path")
@@ -614,5 +616,5 @@ func global_require(args Args) (r []Val, err error) {
 	p.requireHistory = append(rh, fp)
 
 	// this is where we take it to the top babbyyyyy (with the same as parent global env)
-	return []Val{p}, nil
+	return []types.Val{p}, nil
 }

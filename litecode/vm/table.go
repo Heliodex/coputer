@@ -3,9 +3,11 @@ package vm
 import (
 	"errors"
 	"strings"
+
+	"github.com/Heliodex/coputer/litecode/types"
 )
 
-func table_clear(args Args) (r []Val, err error) {
+func table_clear(args Args) (r []types.Val, err error) {
 	t := args.GetTable()
 	if t.readonly {
 		return nil, errors.New("attempt to modify a readonly table")
@@ -16,36 +18,36 @@ func table_clear(args Args) (r []Val, err error) {
 	return
 }
 
-func table_clone(args Args) (r []Val, err error) {
+func table_clone(args Args) (r []types.Val, err error) {
 	t := args.GetTable()
 
 	nt := &Table{}
 
 	if t.Array != nil {
-		a := make([]Val, len(t.Array))
+		a := make([]types.Val, len(t.Array))
 		copy(a, t.Array)
 		nt.Array = a
 	}
 
 	if t.Hash != nil {
-		h := make(ValMap, len(t.Hash))
+		h := make(types.ValMap, len(t.Hash))
 		for k, v := range t.Hash {
 			h[k] = v
 		}
 		nt.Hash = h
 	}
 
-	return []Val{nt}, nil
+	return []types.Val{nt}, nil
 }
 
-func table_concat(args Args) (r []Val, err error) {
+func table_concat(args Args) (r []types.Val, err error) {
 	t := args.GetTable()
 	sep := args.GetString("")
 	i := args.GetNumber(1)
 	j := args.GetNumber(float64(t.Len()))
 
 	if i > j {
-		return []Val{""}, nil
+		return []types.Val{""}, nil
 	}
 
 	b := strings.Builder{}
@@ -61,35 +63,35 @@ func table_concat(args Args) (r []Val, err error) {
 		}
 	}
 
-	return []Val{b.String()}, nil
+	return []types.Val{b.String()}, nil
 }
 
-func table_create(args Args) (r []Val, err error) {
+func table_create(args Args) (r []types.Val, err error) {
 	s := int(args.GetNumber())
 	if s < 0 {
 		return nil, errors.New("index out of range")
 	}
 
-	var value Val
+	var val types.Val
 	if len(args.List) > 1 {
-		value = args.GetAny()
+		val = args.GetAny()
 	}
 
-	if value == nil {
+	if val == nil {
 		// no value fill or fill with nil (tests/niltable.luau)
-		a := make([]Val, 0, s)
-		return []Val{&Table{Array: a}}, nil
+		a := make([]types.Val, 0, s)
+		return []types.Val{&Table{Array: a}}, nil
 	}
 
-	a := make([]Val, s)
+	a := make([]types.Val, s)
 	for i := range a {
-		a[i] = value
+		a[i] = val
 	}
 
-	return []Val{&Table{Array: a}}, nil
+	return []types.Val{&Table{Array: a}}, nil
 }
 
-func table_find(args Args) (r []Val, err error) {
+func table_find(args Args) (r []types.Val, err error) {
 	haystack := args.GetTable()
 	needle := args.GetAny()
 	init := args.GetNumber(1)
@@ -100,26 +102,26 @@ func table_find(args Args) (r []Val, err error) {
 	if haystack.Array != nil {
 		for i := int(init) - 1; i < len(haystack.Array); i++ {
 			if needle == haystack.Array[i] {
-				return []Val{float64(i + 1)}, nil
+				return []types.Val{float64(i + 1)}, nil
 			}
 		}
 	}
 	if haystack.Hash != nil {
 		for k, v := range haystack.Hash {
 			if needle == v {
-				return []Val{k}, nil
+				return []types.Val{k}, nil
 			}
 		}
 	}
 
-	return []Val{nil}, nil
+	return []types.Val{nil}, nil
 }
 
-func table_freeze(args Args) (r []Val, err error) {
+func table_freeze(args Args) (r []types.Val, err error) {
 	t := args.GetTable()
 
 	t.readonly = true
-	return []Val{t}, nil
+	return []types.Val{t}, nil
 }
 
 func bumpelements(t *Table, start int) {
@@ -149,7 +151,7 @@ func bumpelements(t *Table, start int) {
 	// fmt.Println()
 }
 
-func table_insert(args Args) (r []Val, err error) {
+func table_insert(args Args) (r []types.Val, err error) {
 	t := args.GetTable()
 	if t.readonly {
 		return nil, errors.New("attempt to modify a readonly table")
@@ -180,13 +182,13 @@ func table_insert(args Args) (r []Val, err error) {
 	return
 }
 
-func table_isfrozen(args Args) (r []Val, err error) {
+func table_isfrozen(args Args) (r []types.Val, err error) {
 	t := args.GetTable()
 
-	return []Val{t.readonly}, nil
+	return []types.Val{t.readonly}, nil
 }
 
-func table_maxn(args Args) (r []Val, err error) {
+func table_maxn(args Args) (r []types.Val, err error) {
 	t := args.GetTable()
 
 	var maxn float64
@@ -215,10 +217,10 @@ func table_maxn(args Args) (r []Val, err error) {
 		}
 	}
 
-	return []Val{maxn}, nil
+	return []types.Val{maxn}, nil
 }
 
-func table_move(args Args) (r []Val, err error) {
+func table_move(args Args) (r []types.Val, err error) {
 	src := args.GetTable()
 	a, b, t := args.GetNumber(), args.GetNumber(), args.GetNumber()
 	dst := args.GetTable(src)
@@ -230,21 +232,21 @@ func table_move(args Args) (r []Val, err error) {
 		dst.ForceSet(t+i-a, src.Get(i))
 	}
 
-	return []Val{dst}, nil
+	return []types.Val{dst}, nil
 }
 
-func table_pack(args Args) (r []Val, err error) {
+func table_pack(args Args) (r []types.Val, err error) {
 	l := len(args.List)
-	a := make([]Val, l)
+	a := make([]types.Val, l)
 	copy(a, args.List)
 
-	return []Val{&Table{
-		Hash:  ValMap{"n": float64(l)},
+	return []types.Val{&Table{
+		Hash:  types.ValMap{"n": float64(l)},
 		Array: a,
 	}}, nil
 }
 
-func table_remove(args Args) (r []Val, err error) {
+func table_remove(args Args) (r []types.Val, err error) {
 	t := args.GetTable()
 	if t.readonly {
 		return nil, errors.New("attempt to modify a readonly table")
@@ -262,11 +264,11 @@ func table_remove(args Args) (r []Val, err error) {
 		}
 		t.ForceSet(l, nil)
 	}
-	return []Val{p}, nil
+	return []types.Val{p}, nil
 }
 
 // ltablib.cpp
-type comp func(a, b Val) (bool, error) // ton, compton, aint no city quite like miiine
+type comp func(a, b types.Val) (bool, error) // ton, compton, aint no city quite like miiine
 
 func sort_swap(t *Table, i, j int) {
 	a := t.Array
@@ -445,7 +447,7 @@ func sort_rec(t *Table, l, u, limit int, c comp) (err error) {
 	return
 }
 
-func table_sort(args Args) (r []Val, err error) {
+func table_sort(args Args) (r []types.Val, err error) {
 	t := args.GetTable()
 	if t.readonly {
 		return nil, errors.New("attempt to modify a readonly table")
@@ -456,7 +458,7 @@ func table_sort(args Args) (r []Val, err error) {
 		c = jumpLt
 	} else {
 		f := args.GetFunction()
-		c = func(a, b Val) (bool, error) {
+		c = func(a, b types.Val) (bool, error) {
 			res, err := (*f.Run)(args.Co, a, b)
 			if err != nil {
 				return false, err
@@ -471,7 +473,7 @@ func table_sort(args Args) (r []Val, err error) {
 	return
 }
 
-func table_unpack(args Args) (r []Val, err error) {
+func table_unpack(args Args) (r []types.Val, err error) {
 	list := args.GetTable()
 	i := args.GetNumber(1)
 	e := args.GetNumber(float64(list.Len()))
@@ -480,7 +482,7 @@ func table_unpack(args Args) (r []Val, err error) {
 	}
 
 	ui, uj := int(i), int(e)
-	if uj - ui >= 8000 { // it's over 8000!!!!!!!!! (or =)
+	if uj-ui >= 8000 { // it's over 8000!!!!!!!!! (or =)
 		return nil, errors.New("too many results to unpack") // a limit we don't have to impose, but no real reason to not. who says it's truly "too many" anyway?
 	}
 
@@ -488,7 +490,7 @@ func table_unpack(args Args) (r []Val, err error) {
 		return list.Array[ui-1 : uj], nil
 	}
 
-	r = make([]Val, uj-ui+1)
+	r = make([]types.Val, uj-ui+1)
 	for k := ui; k <= uj; k++ {
 		r[k-ui] = list.Get(float64(k))
 	}

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Heliodex/coputer/bundle"
+	"github.com/Heliodex/coputer/litecode/types"
 	"github.com/Heliodex/coputer/litecode/vm"
 )
 
@@ -83,7 +84,7 @@ func Start(c vm.Compiler, hash string, args vm.ProgramArgs) (output vm.ProgramRe
 		return
 	}
 
-	luau_print := vm.MakeFn("print", func(args vm.Args) (r []vm.Val, err error) {
+	luau_print := vm.MakeFn("print", func(args vm.Args) (r []types.Val, err error) {
 		for _, arg := range args.List {
 			fmt.Print("\t")
 			fmt.Print(vm.ToString(arg))

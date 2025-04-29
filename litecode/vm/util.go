@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+
+	"github.com/Heliodex/coputer/litecode/types"
 )
 
 const Ext = ".luau"
@@ -18,7 +20,7 @@ func luauCompile(path string, o uint8) (bytecode []byte, err error) {
 // simpler compilation, deserialisation, and loading API
 type deserpath struct {
 	deserialised
-	dbgpath   string
+	dbgpath string
 }
 
 type compiled struct {
@@ -93,5 +95,5 @@ func (c Compiler) Compile(path string) (p compiled, err error) {
 }
 
 func (p compiled) Load(env Env, args ProgramArgs) (co Coroutine, cancel func()) {
-	return loadmodule(p, env, map[string]Val{}, nil, args)
+	return loadmodule(p, env, map[string]types.Val{}, nil, args)
 }

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Heliodex/coputer/litecode/types"
 )
 
 const (
@@ -29,7 +31,7 @@ func litecode(t *testing.T, f string, c Compiler) (string, time.Duration) {
 	}
 
 	b := strings.Builder{}
-	luau_print := MakeFn("print", func(args Args) (r []Val, err error) {
+	luau_print := MakeFn("print", func(args Args) (r []types.Val, err error) {
 		// b.WriteString(fmt.Sprint(args...))
 		for i, arg := range args.List {
 			b.WriteString(ToString(arg))
@@ -64,7 +66,7 @@ func litecodeE(t *testing.T, f string, c Compiler) (string, error) {
 	}
 
 	b := strings.Builder{}
-	luau_print := MakeFn("print", func(args Args) (r []Val, err error) {
+	luau_print := MakeFn("print", func(args Args) (r []types.Val, err error) {
 		// b.WriteString(fmt.Sprint(args...))
 		for i, arg := range args.List {
 			b.WriteString(ToString(arg))

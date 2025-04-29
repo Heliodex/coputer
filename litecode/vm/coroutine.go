@@ -1,35 +1,39 @@
 package vm
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/Heliodex/coputer/litecode/types"
+)
 
 // ngl this might be the easiest library yet (or at least because most of its functionality is coroutines in the main file instead of here)
 
-func coroutine_close(args Args) (r []Val, err error) {
+func coroutine_close(args Args) (r []types.Val, err error) {
 	co := args.GetCoroutine()
 
 	co.status = CoDead
 	return
 }
 
-func coroutine_create(args Args) (r []Val, err error) {
+func coroutine_create(args Args) (r []types.Val, err error) {
 	f := args.GetFunction()
 
-	return []Val{createCoroutine(f, args.Co)}, nil
+	return []types.Val{createCoroutine(f, args.Co)}, nil
 }
 
-func coroutine_isyieldable(args Args) (r []Val, err error) {
-	return []Val{true}, nil // phuck yo metamethod/C-call boundary
+func coroutine_isyieldable(args Args) (r []types.Val, err error) {
+	return []types.Val{true}, nil // phuck yo metamethod/C-call boundary
 }
 
-func coroutine_resume(args Args) (r []Val, err error) {
+func coroutine_resume(args Args) (r []types.Val, err error) {
 	co := args.GetCoroutine()
 	a := args.List[1:]
 
 	if co.status == CoDead {
-		return []Val{false, "cannot resume dead coroutine"}, nil
+		return []types.Val{false, "cannot resume dead coroutine"}, nil
 	}
 	if co.status == CoRunning {
-		return []Val{false, "cannot resume running coroutine"}, nil
+		return []types.Val{false, "cannot resume running coroutine"}, nil
 	}
 
 	// fmt.Println("C.R resuming")
@@ -38,34 +42,34 @@ func coroutine_resume(args Args) (r []Val, err error) {
 	if err != nil {
 		return
 	}
-	return append([]Val{true}, res...), nil
+	return append([]types.Val{true}, res...), nil
 }
 
-func coroutine_running(args Args) (r []Val, err error) {
+func coroutine_running(args Args) (r []types.Val, err error) {
 	// fmt.Println("RUNNING")
-	return []Val{args.Co}, nil
+	return []types.Val{args.Co}, nil
 }
 
-func coroutine_status(args Args) (r []Val, err error) {
+func coroutine_status(args Args) (r []types.Val, err error) {
 	co := args.GetCoroutine()
 
 	switch co.status {
 	case CoSuspended:
-		return []Val{"suspended"}, nil
+		return []types.Val{"suspended"}, nil
 	case CoRunning:
-		return []Val{"running"}, nil
+		return []types.Val{"running"}, nil
 	case CoNormal:
-		return []Val{"normal"}, nil
+		return []types.Val{"normal"}, nil
 	}
-	return []Val{"dead"}, nil
+	return []types.Val{"dead"}, nil
 }
 
-func coroutine_wrap(args Args) (r []Val, err error) {
+func coroutine_wrap(args Args) (r []types.Val, err error) {
 	f := args.GetFunction()
 
 	co := createCoroutine(f, args.Co)
 
-	return []Val{fn("wrap", func(_ *Coroutine, args ...Val) (r []Val, err error) {
+	return []types.Val{fn("wrap", func(_ *Coroutine, args ...types.Val) (r []types.Val, err error) {
 		if co.status == CoDead {
 			return nil, errors.New("cannot resume dead coroutine") // ought to be better (return false, error message) if we can figure out how
 		}
@@ -76,7 +80,7 @@ func coroutine_wrap(args Args) (r []Val, err error) {
 	})}, nil
 }
 
-func coroutine_yield(args Args) (r []Val, err error) {
+func coroutine_yield(args Args) (r []types.Val, err error) {
 	co := args.Co
 
 	if co.status == CoRunning {
