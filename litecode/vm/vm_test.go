@@ -162,21 +162,17 @@ func TestErrors(t *testing.T) {
 		t.Fatal("error reading error tests directory:", err)
 	}
 
-	has := []string{} // actually warranted to use one of these here
-
-	for _, f := range files {
-		name := f.Name()
-
-		if strings.HasSuffix(name, Ext) {
-			has = append(has, trimext(name))
-		}
-	}
-
 	c1 := NewCompiler(1) // just test O1 for the time being
 
 	// const onlyTest = "loc"
 
-	for _, name := range has {
+	for _, f := range files {
+		fn := f.Name()
+		if !strings.HasSuffix(fn, Ext) {
+			continue
+		}
+		name := trimext(fn)
+
 		// if name != onlyTest {
 		// 	continue
 		// }

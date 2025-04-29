@@ -16,17 +16,16 @@ func luauCompile(path string, o uint8) (bytecode []byte, err error) {
 }
 
 // simpler compilation, deserialisation, and loading API
-type compiled struct {
-	deserialised
-	filepath       string
-	dbgpath        string
-	compiler       *Compiler
-	requireHistory []string
-}
-
 type deserpath struct {
 	deserialised
-	dbgpath string
+	dbgpath   string
+}
+
+type compiled struct {
+	deserpath
+	filepath       string
+	compiler       *Compiler
+	requireHistory []string
 }
 
 // Compiler allows programs to be compiled and deserialised with a cache and given optimisation level.
@@ -50,10 +49,9 @@ func (c Compiler) deserialise(b []byte, path, dbgpath string) (compiled, error) 
 	}
 
 	return compiled{
-		deserialised: d,
-		filepath:     path,
-		dbgpath:      dbgpath,
-		compiler:     &c,
+		deserpath: deserpath{d, dbgpath},
+		filepath:  path,
+		compiler:  &c,
 	}, nil
 }
 
@@ -61,12 +59,11 @@ func (c Compiler) deserialise(b []byte, path, dbgpath string) (compiled, error) 
 func (c Compiler) Compile(path string) (p compiled, err error) {
 	// hash path instead of bytecode
 	hash := sha3.Sum256([]byte(path))
-	if d, ok := c.cache[hash]; ok {
+	if dp, ok := c.cache[hash]; ok {
 		return compiled{
-			deserialised: d.deserialised,
-			filepath:     path,
-			dbgpath:      d.dbgpath,
-			compiler:     &c,
+			deserpath: dp,
+			filepath:  path,
+			compiler:  &c,
 		}, nil
 	}
 
@@ -91,10 +88,7 @@ func (c Compiler) Compile(path string) (p compiled, err error) {
 		return
 	}
 
-	c.cache[hash] = deserpath{
-		deserialised: p.deserialised,
-		dbgpath:      pathext,
-	}
+	c.cache[hash] = p.deserpath
 	return
 }
 

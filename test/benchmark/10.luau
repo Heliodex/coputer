@@ -1,7 +1,6 @@
 local max = 2e5
 
 local function isPrime(n: number)
-	if n % 2 == 0 then return false end
 	for i = 3, math.sqrt(n), 2 do
 		if n % i == 0 then return false end
 	end

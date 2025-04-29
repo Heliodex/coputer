@@ -6,10 +6,10 @@ const wide4 = false
 
 // float32 maths
 const (
-	uvnan = 0x7FE00000
-	mask  = 0xFF
+	uvnan = 0x7fe00000
+	mask  = 0xff
 	shift = 32 - 8 - 1
-	bias  = 127
+	bias  = 0x7f
 )
 
 func f32NaN() float32 {
