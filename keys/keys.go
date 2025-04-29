@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"slices"
 	"time"
 
@@ -204,13 +205,17 @@ func decryptAddrs(encryptedAddrs []byte, peerpk *[32]byte, sk [32]byte) (addrs [
 }
 
 // todo: version cyphertexts
-func (kp Keypair) Decrypt(ct []byte) (from Peer, msg []byte, err error) {
+func (kp Keypair) Decrypt(emsg []byte) (from Peer, msg []byte, err error) {
 	pk := new([32]byte)
 	copy(pk[3:], kp.Pk[:])
 	sk := [32]byte(kp.Sk)
 
 	// Sender pk [29] + Address count [1]
-	encryptedKey, ct := ct[:keyEnc], ct[keyEnc:]
+	if len(emsg) < keyEnc+1 {
+		return Peer{}, nil, fmt.Errorf("message too short (%d)", len(emsg))
+	}
+
+	encryptedKey, ct := emsg[:keyEnc], emsg[keyEnc:]
 	ppk, addrCount, ok := decryptKey(encryptedKey, pk, sk)
 	if !ok {
 		return Peer{}, nil, errors.New("key decryption failed")

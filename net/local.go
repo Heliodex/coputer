@@ -18,15 +18,13 @@ var sampleKeys = [...]string{
 var sampleKeysUsed uint8 = 0
 
 func getSampleKeypair() (kp keys.Keypair) {
-	if sampleKeysUsed >= uint8(len(sampleKeys)) {
-		panic("no more sample keys")
-	} else if skBytes, err := keys.DecodeSK(sampleKeys[sampleKeysUsed]); err != nil {
+ if skBytes, err := keys.DecodeSK(sampleKeys[sampleKeysUsed]); err != nil {
 		panic("invalid sample key")
 	} else if kp, err = keys.KeypairSK(skBytes); err != nil {
 		panic("invalid keypair")
 	}
 
-	sampleKeysUsed++
+	sampleKeysUsed = (sampleKeysUsed + 1) % uint8(len(sampleKeys))
 	return
 }
 
@@ -55,7 +53,7 @@ func (n *LocalNet) SendRaw(p *keys.Peer, m []byte) (err error) {
 	return
 }
 
-func (n *LocalNet) NewNode() (node Node) {
+func (n *LocalNet) NewNode() (node *Node) {
 	kp := getSampleKeypair()
 	peer := keys.Peer{
 		Pk:        kp.Pk,
@@ -64,15 +62,15 @@ func (n *LocalNet) NewNode() (node Node) {
 
 	recv := make(chan EncryptedMsg)
 	n.AddPeer(peer, recv)
-	node = Node{
-		keys.ThisPeer{
+	node = &Node{
+		ThisPeer: keys.ThisPeer{
 			Peer: peer,
 			Kp:   kp,
 		},
-		make(map[keys.PK]*keys.Peer),
-		n.SendRaw,
-		recv,
-		make(map[[32]byte]map[[32]byte]chan vm.ProgramRets),
+		Peers: make(map[keys.PK]*keys.Peer),
+		SendRaw: n.SendRaw,
+		ReceiveRaw: recv,
+		resultsWaiting: make(map[[32]byte]map[[32]byte]chan vm.ProgramRets),
 	}
 
 	go node.Start()

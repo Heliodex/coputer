@@ -66,8 +66,9 @@ type Node struct {
 
 	Peers          map[keys.PK]*keys.Peer // known peers
 	SendRaw        func(peer *keys.Peer, msg []byte) (err error)
-	ReceiveRaw     <-chan EncryptedMsg
+	ReceiveRaw     chan EncryptedMsg
 	resultsWaiting map[[32]byte]map[[32]byte]chan vm.ProgramRets // [program hash][input hash]
+	running        bool
 }
 
 func (n *Node) AddPeer(p *keys.Peer) {
@@ -207,7 +208,7 @@ func (n *Node) peerRun(hash, inputhash [32]byte, ptype vm.ProgramType, input vm.
 	if len(n.Peers) == 0 {
 		return nil, errors.New("no peers to run program")
 	}
-	
+
 	ch := make(chan vm.ProgramRets)
 	if _, ok := n.resultsWaiting[hash]; !ok {
 		n.resultsWaiting[hash] = make(map[[32]byte]chan vm.ProgramRets)
@@ -254,6 +255,7 @@ func (n *Node) RunWebProgram(hash [32]byte, input vm.WebArgs, useLocal bool) (re
 
 func (n *Node) Start() {
 	pke := n.Kp.Pk.Encode()
+	n.running = true
 
 	n.log(
 		"Starting\n",
@@ -264,6 +266,10 @@ func (n *Node) Start() {
 	// Receiver
 	for {
 		rec := <-n.ReceiveRaw
+		if !n.running {
+			break
+		}
+
 		msg, err := rec.Decode(n.Kp)
 		if err != nil {
 			n.log("Failed to decode message\n", err)
@@ -279,4 +285,10 @@ func (n *Node) Start() {
 
 		n.handleMessage(msg)
 	}
+}
+
+func (n *Node) Stop() {
+	n.log("Stopping")
+	n.running = false
+	close(n.ReceiveRaw)
 }

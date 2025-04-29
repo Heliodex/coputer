@@ -155,8 +155,10 @@ func TestNet(t *testing.T) {
 			t.Fatal("return value not equal:", err)
 		}
 
+		n1.Stop()
+		n2.Stop()
+
 		t.Log(string(res.Body))
 		t.Log("Passed!\n")
-		break
 	}
 }
