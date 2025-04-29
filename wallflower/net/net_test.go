@@ -23,7 +23,7 @@ func url(p string) vm.WebUrl {
 	return wurl
 }
 
-const testProgramPath = "../test/programs"
+const testProgramPath = "../../test/programs"
 
 var webTests = [...]ProgramTest[vm.WebArgs, vm.WebRets]{
 	{

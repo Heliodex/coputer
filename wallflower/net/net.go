@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Heliodex/coputer/keys"
+	"github.com/Heliodex/coputer/wallflower/keys"
 	"github.com/Heliodex/coputer/litecode/vm"
 )
 

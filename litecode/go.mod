@@ -2,9 +2,8 @@ module github.com/Heliodex/coputer/litecode
 
 go 1.24.2
 
-require (
-	github.com/Heliodex/coputer v0.0.0-00010101000000-000000000000
-	golang.org/x/text v0.22.0
-)
+require golang.org/x/text v0.22.0
 
-replace github.com/Heliodex/coputer => ..
+require github.com/Heliodex/coputer/bundle v0.0.0-00010101000000-000000000000
+
+replace github.com/Heliodex/coputer/bundle => ../bundle
