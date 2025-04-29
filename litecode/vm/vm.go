@@ -352,11 +352,11 @@ type Env map[types.Val]types.Val
 
 // AddFn adds a function to the environment.
 func (e *Env) AddFn(f types.Function[*Coroutine]) {
-	if *e == nil {
-		*e = Env{f.Name: f}
-	} else {
+	if *e != nil {
 		(*e)[f.Name] = f
+		return
 	}
+	*e = Env{f.Name: f}
 }
 
 // ProgramType represents the type of a program.
@@ -492,32 +492,6 @@ type Coroutine struct {
 	programArgs       ProgramArgs // idk how
 }
 
-// CoError is a custom error type that includes debugging information.
-type CoError struct {
-	dbg  *debugging
-	path string
-	sub  error
-}
-
-func (e *CoError) Error() string {
-	var eb strings.Builder
-
-	for e != nil {
-		// this was hell I think
-		err, ok := e.sub.(*CoError)
-		if !ok {
-			eb.WriteString(
-				fmt.Sprintf("%s:%d: function %s\n%s", e.path, e.dbg.line, e.dbg.dbgname, e.sub))
-			break
-		}
-		eb.WriteString(
-			fmt.Sprintf("%s:%d: function %s\n", e.path, e.dbg.line, e.dbg.dbgname))
-		e = err
-	}
-
-	return eb.String()
-}
-
 func createCoroutine(body types.Function[*Coroutine], currentCo *Coroutine) *Coroutine {
 	// first time i actually ran into the channel axiom issues
 	return &Coroutine{
@@ -531,10 +505,12 @@ func createCoroutine(body types.Function[*Coroutine], currentCo *Coroutine) *Cor
 
 // Error yields an error to the coroutine, killing it shortly after.
 func (co *Coroutine) Error(err error) {
-	co.yield <- yield{nil, &CoError{co.dbg, co.dbgpath, err}}
-
-	// ostensibly blocks forever, but the coroutine is dead/to be killed very soon so it doesn't matter
-	select {}
+	co.yield <- yield{nil, &types.CoError{
+		Line:    co.dbg.line,
+		Dbgname: co.dbg.dbgname,
+		Path:    co.dbgpath,
+		Sub:     err,
+	}}
 }
 
 func startCoroutine(co *Coroutine, args []types.Val) {
@@ -2267,7 +2243,12 @@ func wrapclosure(towrap toWrap) types.Function[*Coroutine] {
 			return
 		}
 		if err != nil {
-			return nil, &CoError{dbg, co.dbgpath, err}
+			return nil, &types.CoError{
+				Line:    dbg.line,
+				Dbgname: dbg.dbgname,
+				Path:    co.dbgpath,
+				Sub:     err,
+			}
 		}
 
 		// prevent line mismatches (error/loc.luau)
