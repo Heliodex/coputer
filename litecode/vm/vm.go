@@ -341,9 +341,9 @@ type yield struct {
 
 type debugging struct {
 	// top,
-	line    uint32
-	enabled bool
-	opcode  uint8
+	line uint32
+	// enabled bool
+	// opcode  uint8
 	dbgname string
 }
 
@@ -481,7 +481,7 @@ func (r1 WebRets) Equal(r2 WebRets) error {
 type Coroutine struct {
 	body              types.Function[*Coroutine]
 	env               Env
-	dbgpath, filepath string   // actually does well here
+	filepath, dbgpath string   // actually does well here
 	requireHistory    []string // prevents cyclic module dependencies
 	yield             chan yield
 	resume            chan []types.Val
@@ -517,17 +517,10 @@ func startCoroutine(co *Coroutine, args []types.Val) {
 	// fmt.Println(" RG calling coroutine body with", args)
 	r, err := (*co.body.Run)(co, args...)
 
+	co.status = CoDead
 	// fmt.Println("RG  yielding", r)
 	co.yield <- yield{r, err}
 	// fmt.Println("RG  yielded", r)
-
-	co.status = CoDead
-	if len(co.yield) == 0 {
-		// finish up
-		// fmt.Println("RG  yielding, finishing up")
-		co.yield <- yield{}
-		// fmt.Println("RG  yielding, finished up")
-	}
 }
 
 // Resume executes the coroutine with the provided arguments, starting it with the given arguments if it is not already started, otherwise resuming it and passing the argument values back to the yielded function.
@@ -1442,7 +1435,7 @@ func namecall(pc, top *int32, i *inst, p *proto, stack *[]types.Val, co *Corouti
 	*op = callOp
 
 	co.dbg.line = p.instlineinfo[*pc+1]
-	co.dbg.opcode = i.opcode
+	// co.dbg.opcode = i.opcode
 
 	retCount := int32(len(retList))
 
@@ -1463,7 +1456,7 @@ func handleRequire(towrap toWrap, lc compiled, co *Coroutine) ([]types.Val, erro
 	}
 
 	// since environments only store global libraries etc, using the same env here should be fine??
-	c2, _ := loadmodule(lc, co.env, towrap.requireCache, lc.requireHistory, co.programArgs)
+	c2, _ := loadmodule(lc, co.env, towrap.requireCache, co.programArgs)
 	reqrets, err := c2.Resume()
 	if err != nil {
 		return nil, err
@@ -1519,7 +1512,7 @@ func call(top *int32, i inst, towrap toWrap, stack *[]types.Val, co *Coroutine) 
 			// fmt.Println("REQUIRE", lc.filepath)
 
 			if retList, err = handleRequire(towrap, lc, co); err != nil {
-				return err
+				return
 			}
 		}
 	}
@@ -1647,8 +1640,8 @@ func execute(towrap toWrap, stack *[]types.Val, co *Coroutine, vargsList []types
 
 		co.dbg.line = p.instlineinfo[pc-1]
 		// co.dbg.top = top
-		co.dbg.enabled = p.lineinfoenabled
-		co.dbg.opcode = i.opcode
+		// co.dbg.enabled = p.lineinfoenabled
+		// co.dbg.opcode = i.opcode
 		co.dbg.dbgname = p.dbgname
 
 		// fmt.Println(top)
@@ -2233,7 +2226,7 @@ func wrapclosure(towrap toWrap) types.Function[*Coroutine] {
 
 		originalDebug := co.dbg
 
-		dbg := &debugging{enabled: proto.lineinfoenabled, opcode: 255}
+		dbg := &debugging{ /* enabled: proto.lineinfoenabled, opcode: 255 */ }
 		// fmt.Println("started on", co.dbg.line, dbg.line)
 		co.dbg = dbg
 
@@ -2257,7 +2250,7 @@ func wrapclosure(towrap toWrap) types.Function[*Coroutine] {
 	})
 }
 
-func loadmodule(m compiled, env Env, requireCache map[string]types.Val, requireHistory []string, args ProgramArgs) (co Coroutine, cancel func()) {
+func loadmodule(m compiled, env Env, requireCache map[string]types.Val, args ProgramArgs) (co Coroutine, cancel func()) {
 	alive := true
 
 	towrap := toWrap{
@@ -2273,10 +2266,9 @@ func loadmodule(m compiled, env Env, requireCache map[string]types.Val, requireH
 		env:            env,
 		filepath:       m.filepath,
 		dbgpath:        m.dbgpath,
-		requireHistory: requireHistory,
+		requireHistory: m.requireHistory,
 		yield:          make(chan yield, 1),
 		resume:         make(chan []types.Val, 1),
-		dbg:            &debugging{opcode: 255},
 		compiler:       m.compiler,
 		programArgs:    args,
 	}, func() { alive = false }
