@@ -3,11 +3,8 @@ package types
 
 import "github.com/Heliodex/coputer/litecode/internal"
 
-// Status represents the status of a coroutine.
-type Status uint8
-
-// Debugging stores debugging information for a coroutine.
-type Debugging struct {
+// debugging stores debugging information for a coroutine.
+type debugging struct {
 	// top,
 	Line uint32
 	// enabled bool
@@ -15,14 +12,9 @@ type Debugging struct {
 	Name string
 }
 
-type Deserpath struct {
-	internal.Deserialised
-	Dbgpath string
-}
-
 // types.Compiler allows programs to be compiled and deserialised with a cache and given optimisation level.
 type Compiler struct {
-	Cache map[[32]byte]Deserpath
+	Cache map[[32]byte]internal.Deserpath
 	O     uint8
 }
 
@@ -52,20 +44,11 @@ type (
 		RequireHistory    []string // prevents cyclic module dependencies
 		YieldChan         chan internal.Yield
 		ResumeChan        chan []Val
-		Dbg               Debugging
+		Dbg               debugging
 		Compiler          Compiler // for require()
-		Status            Status
-		Started           bool
+		Status            internal.Status
 		ProgramArgs       ProgramArgs // idk how
 	}
-)
-
-// Coroutine stati
-const (
-	CoSuspended Status = iota
-	CoRunning
-	CoNormal
-	CoDead
 )
 
 // Error yields an error to the coroutine, killing it shortly after.
@@ -85,7 +68,7 @@ func startCoroutine(co *Coroutine, args []Val) {
 	// fmt.Println(" RG calling coroutine body with", args)
 	r, err := (*co.Body.Run)(co, args...)
 
-	co.Status = CoDead
+	co.Status = internal.CoDead
 	// fmt.Println("RG  yielding", r)
 	co.YieldChan <- internal.Yield{
 		Rets: r,
@@ -96,14 +79,13 @@ func startCoroutine(co *Coroutine, args []Val) {
 
 // Resume executes the coroutine with the provided arguments, starting it with the given arguments if it is not already started, otherwise resuming it and passing the argument values back to the yielded function.
 func (co *Coroutine) Resume(args ...Val) (r []Val, err error) {
-	if !co.Started {
+	if co.Status == internal.CoNotStarted {
 		// fmt.Println("RM  starting", args)
-		co.Started = true
-		co.Status = CoRunning
+		co.Status = internal.CoRunning
 
 		go startCoroutine(co, args)
 	} else {
-		co.Status = CoRunning
+		co.Status = internal.CoRunning
 		// fmt.Println("RM  resuming", args)
 		co.ResumeChan <- args
 		// fmt.Println("RM  resumed", args)

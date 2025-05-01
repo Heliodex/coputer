@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/Heliodex/coputer/litecode/internal"
 	"github.com/Heliodex/coputer/litecode/types"
 )
 
@@ -18,7 +19,7 @@ func luauCompile(path string, o uint8) (bytecode []byte, err error) {
 }
 
 type compiled struct {
-	types.Deserpath
+	internal.Deserpath
 	Filepath       string
 	Compiler       types.Compiler
 	RequireHistory []string
@@ -27,7 +28,7 @@ type compiled struct {
 // NewCompiler creates a new compiler with the given optimisation level.
 func NewCompiler(o uint8) types.Compiler {
 	return types.Compiler{
-		Cache: make(map[[32]byte]types.Deserpath),
+		Cache: make(map[[32]byte]internal.Deserpath),
 		O:     o,
 	}
 }
@@ -67,7 +68,7 @@ func Compile(c types.Compiler, path string) (p compiled, err error) {
 
 	c.Cache[hash] = p.Deserpath
 	return compiled{
-		Deserpath: types.Deserpath{
+		Deserpath: internal.Deserpath{
 			Deserialised: d,
 			Dbgpath:      pathext,
 		},

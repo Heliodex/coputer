@@ -12,7 +12,7 @@ import (
 func coroutine_close(args Args) (r []types.Val, err error) {
 	co := args.GetCoroutine()
 
-	co.Status = types.CoDead
+	co.Status = internal.CoDead
 	return
 }
 
@@ -30,10 +30,10 @@ func coroutine_resume(args Args) (r []types.Val, err error) {
 	co := args.GetCoroutine()
 	a := args.List[1:]
 
-	if co.Status == types.CoDead {
+	if co.Status == internal.CoDead {
 		return []types.Val{false, "cannot resume dead coroutine"}, nil
 	}
-	if co.Status == types.CoRunning {
+	if co.Status == internal.CoRunning {
 		return []types.Val{false, "cannot resume running coroutine"}, nil
 	}
 
@@ -55,11 +55,11 @@ func coroutine_status(args Args) (r []types.Val, err error) {
 	co := args.GetCoroutine()
 
 	switch co.Status {
-	case types.CoSuspended:
+	case internal.CoNotStarted, internal.CoSuspended:
 		return []types.Val{"suspended"}, nil
-	case types.CoRunning:
+	case internal.CoRunning:
 		return []types.Val{"running"}, nil
-	case types.CoNormal:
+	case internal.CoNormal:
 		return []types.Val{"normal"}, nil
 	}
 	return []types.Val{"dead"}, nil
@@ -71,10 +71,10 @@ func coroutine_wrap(args Args) (r []types.Val, err error) {
 	co := createCoroutine(f, args.Co)
 
 	return []types.Val{fn("wrap", func(_ *types.Coroutine, args ...types.Val) (r []types.Val, err error) {
-		if co.Status == types.CoDead {
+		if co.Status == internal.CoDead {
 			return nil, errors.New("cannot resume dead coroutine") // ought to be better (return false, error message) if we can figure out how
 		}
-		if co.Status == types.CoRunning {
+		if co.Status == internal.CoRunning {
 			return nil, errors.New("cannot resume running coroutine")
 		}
 		return co.Resume(args...)
@@ -84,9 +84,9 @@ func coroutine_wrap(args Args) (r []types.Val, err error) {
 func coroutine_yield(args Args) (r []types.Val, err error) {
 	co := args.Co
 
-	if co.Status == types.CoRunning {
+	if co.Status == internal.CoRunning {
 		// fmt.Println("C.Y suspending coroutine")
-		co.Status = types.CoSuspended
+		co.Status = internal.CoSuspended
 	}
 
 	// fmt.Println("C.Y yielding")

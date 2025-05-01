@@ -3,6 +3,14 @@ package internal
 
 import "fmt"
 
+// Luau types
+type (
+	// Val represents any possible Luau value. Luau type `any`
+	Val any
+)
+
+// VM internals types
+
 type OpInfo struct {
 	Mode, KMode uint8
 	HasAux      bool
@@ -32,15 +40,29 @@ type Proto struct {
 }
 
 // simpler compilation, deserialisation, and loading API
+
 type Deserialised struct {
 	MainProto *Proto
 	ProtoList []*Proto
 }
 
-// Luau types
-type (
-	// Val represents any possible Luau value. Luau type `any`
-	Val any
+type Deserpath struct {
+	Deserialised
+	Dbgpath string
+}
+
+// Coroutine types
+
+// Status represents the status of a coroutine.
+type Status uint8
+
+// Coroutine stati
+const (
+	CoNotStarted Status = iota
+	CoSuspended
+	CoRunning
+	CoNormal
+	CoDead
 )
 
 // CoError is a custom error type used in coroutines that includes debugging information.
