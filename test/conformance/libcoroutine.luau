@@ -64,6 +64,16 @@ print(
 	)
 )
 
-local cc
+local cc: thread
 cc = coroutine.create(function() coroutine.yield(coroutine.resume(cc)) end)
 print(coroutine.resume(cc))
+
+local c1: thread
+c1 = coroutine.create(function()
+	print("c1", coroutine.status(c1))
+	local c2 = coroutine.create(
+		function() print("c2", coroutine.status(c1)) end
+	)
+	coroutine.resume(c2)
+end)
+coroutine.resume(c1)

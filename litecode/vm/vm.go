@@ -1542,7 +1542,6 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 			}
 			pc++
 		case 22: // RETURN
-			pc++
 			A := int32(i.A)
 			b := int32(i.B) - 1
 

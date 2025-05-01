@@ -38,7 +38,9 @@ func coroutine_resume(args Args) (r []types.Val, err error) {
 	}
 
 	// fmt.Println("C.R resuming")
+	args.Co.Status = internal.CoNormal
 	res, err := co.Resume(a...)
+	args.Co.Status = internal.CoRunning
 	// fmt.Println("C.R resumed", r)
 	if err != nil {
 		return
