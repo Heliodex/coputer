@@ -311,13 +311,13 @@ func add_s(caps *captures, b *strings.Builder, s string, si, ei int, news string
 	return nil
 }
 
-func add_value(caps *captures, b *strings.Builder, co *Coroutine, s string, si, ei int, next types.Val) (err error) {
+func add_value(caps *captures, b *strings.Builder, co *types.Coroutine, s string, si, ei int, next types.Val) (err error) {
 	var val types.Val
 
 	switch n := next.(type) {
 	case string:
 		return add_s(caps, b, s, si, ei, n)
-	case types.Function[*Coroutine]:
+	case types.Function:
 		rets, err := (*n.Run)(co, s[si:ei])
 		if err != nil {
 			return err
@@ -355,7 +355,7 @@ func string_gsub(args Args) (r []types.Val, err error) {
 	next := args.GetAny()
 
 	switch next.(type) {
-	case string, types.Function[*Coroutine], *Table:
+	case string, types.Function, *Table:
 	default:
 		return nil, fmt.Errorf("invalid argument #3 to 'gsub' (string/function/table expected, got %s)", TypeOf(next))
 	}
@@ -477,7 +477,7 @@ func string_upper(args Args) (r []types.Val, err error) {
 	return []types.Val{strings.ToUpper(s)}, nil
 }
 
-var libstring = NewLib([]types.Function[*Coroutine]{
+var libstring = NewLib([]types.Function{
 	MakeFn("byte", string_byte),
 	MakeFn("char", string_char),
 	MakeFn("find", string_find),

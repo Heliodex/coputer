@@ -26,7 +26,7 @@ func invalidArg(i int, fn, msg string) error {
 // A number of helper functions are provided to extract arguments from the list. If these functions fail to extract the argument, the coroutine yields an invalid/missing argument error.
 type Args struct {
 	// Co is the coroutine that the function is running.
-	Co *Coroutine
+	Co *types.Coroutine
 	// List is the list of all arguments passed to the function.
 	List []types.Val
 	name string
@@ -80,12 +80,12 @@ func (a *Args) GetTable(optV ...*Table) *Table {
 }
 
 // GetFunction returns the next argument as a function value. An optional value can be passed if the argument is not required.
-func (a *Args) GetFunction(optV ...types.Function[*Coroutine]) types.Function[*Coroutine] {
+func (a *Args) GetFunction(optV ...types.Function) types.Function {
 	return getArg(a, optV, "function")
 }
 
 // GetCoroutine returns the next argument as a coroutine value. An optional value can be passed if the argument is not required.
-func (a *Args) GetCoroutine(optV ...*Coroutine) *Coroutine {
+func (a *Args) GetCoroutine(optV ...*types.Coroutine) *types.Coroutine {
 	return getArg(a, optV, "thread")
 }
 
@@ -114,7 +114,7 @@ func (a *Args) GetAny(optV ...types.Val) (arg types.Val) {
 }
 
 // NewLib creates a new library with a given table of functions and other values, such as constants. Functions can be created using MakeFn.
-func NewLib(functions []types.Function[*Coroutine], other ...map[string]types.Val) *Table {
+func NewLib(functions []types.Function, other ...map[string]types.Val) *Table {
 	// remember, no duplicates
 	hash := make(map[types.Val]types.Val, len(functions)+len(other))
 	for _, f := range functions {
@@ -133,8 +133,8 @@ func NewLib(functions []types.Function[*Coroutine], other ...map[string]types.Va
 }
 
 // MakeFn creates a new function with a given name and body. Functions created by MakeFn can be added to a library using NewLib.
-func MakeFn(name string, f func(args Args) (r []types.Val, err error)) types.Function[*Coroutine] {
-	return fn(name, func(co *Coroutine, vargs ...types.Val) (r []types.Val, err error) {
+func MakeFn(name string, f func(args Args) (r []types.Val, err error)) types.Function {
+	return fn(name, func(co *types.Coroutine, vargs ...types.Val) (r []types.Val, err error) {
 		return f(Args{
 			Co:   co,
 			List: vargs,

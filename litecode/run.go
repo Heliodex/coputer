@@ -78,8 +78,8 @@ func startWeb(v any) (rets types.WebRets, err error) {
 	return
 }
 
-func Start(c vm.Compiler, hash string, args types.ProgramArgs) (output types.ProgramRets, err error) {
-	p, err := c.Compile(filepath.Join(bundle.ProgramsDir, hash, bundle.Entrypoint))
+func Start(c types.Compiler, hash string, args types.ProgramArgs) (output types.ProgramRets, err error) {
+	p, err := vm.Compile(c, filepath.Join(bundle.ProgramsDir, hash, bundle.Entrypoint))
 	if err != nil {
 		return
 	}
@@ -93,7 +93,7 @@ func Start(c vm.Compiler, hash string, args types.ProgramArgs) (output types.Pro
 		return
 	})
 
-	var env vm.Env
+	var env types.Env
 	env.AddFn(luau_print)
 
 	co, cancel := p.Load(env, args)

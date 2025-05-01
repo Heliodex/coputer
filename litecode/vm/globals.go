@@ -585,8 +585,8 @@ func global_require(args Args) (r []types.Val, err error) {
 	}
 
 	// combine filepath and name to get the new path
-	fp := args.Co.filepath
-	path := filepath.Join(filepath.Dir(args.Co.dbgpath), name)
+	fp := args.Co.Filepath
+	path := filepath.Join(filepath.Dir(args.Co.Dbgpath), name)
 	path = strings.ReplaceAll(path, "\\", "/")
 	// fmt.Println("REQUIRING", path)
 
@@ -595,16 +595,16 @@ func global_require(args Args) (r []types.Val, err error) {
 	}
 
 	// compile bytecodeee
-	p, err := args.Co.compiler.Compile(path)
+	p, err := Compile(args.Co.Compiler, path)
 	if err != nil {
 		return nil, fmt.Errorf("error requiring module: %w", err)
 	}
 
-	rh := args.Co.requireHistory
+	rh := args.Co.RequireHistory
 	if slices.Contains(rh, path) {
 		return nil, errors.New("cyclic module dependency: file requires itself indirectly")
 	}
-	p.requireHistory = append(rh, fp)
+	p.RequireHistory = append(rh, fp)
 
 	// this is where we take it to the top babbyyyyy (with the same as parent global env)
 	return []types.Val{p}, nil

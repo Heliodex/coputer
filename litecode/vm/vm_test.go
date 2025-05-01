@@ -24,8 +24,8 @@ func trimext(s string) string {
 	return strings.TrimSuffix(s, Ext)
 }
 
-func litecode(t *testing.T, f string, c Compiler) (string, time.Duration) {
-	p, err := c.Compile(f)
+func litecode(t *testing.T, f string, c types.Compiler) (string, time.Duration) {
+	p, err := Compile(c, f)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func litecode(t *testing.T, f string, c Compiler) (string, time.Duration) {
 		return
 	})
 
-	var env Env
+	var env types.Env
 	env.AddFn(luau_print)
 
 	co, _ := p.Load(env, types.TestArgs{})
@@ -59,8 +59,8 @@ func litecode(t *testing.T, f string, c Compiler) (string, time.Duration) {
 	return strings.ReplaceAll(b.String(), "\r\n", "\n"), endTime.Sub(startTime)
 }
 
-func litecodeE(t *testing.T, f string, c Compiler) (string, error) {
-	p, err := c.Compile(f)
+func litecodeE(t *testing.T, f string, c types.Compiler) (string, error) {
+	p, err := Compile(c, f)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +79,7 @@ func litecodeE(t *testing.T, f string, c Compiler) (string, error) {
 		return
 	})
 
-	var env Env
+	var env types.Env
 	env.AddFn(luau_print)
 
 	co, _ := p.Load(env, types.TestArgs{})
@@ -223,7 +223,7 @@ func TestBenchmark(t *testing.T) {
 
 	// const onlyBench = "luauception"
 
-	compilers := []Compiler{NewCompiler(0), NewCompiler(1), NewCompiler(2)}
+	compilers := []types.Compiler{NewCompiler(0), NewCompiler(1), NewCompiler(2)}
 
 	for _, f := range files {
 		name := trimext(f.Name())

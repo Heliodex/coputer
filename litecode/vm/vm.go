@@ -212,12 +212,7 @@ func extract(n, field, width uint32) uint32 {
 //		6 = AUX number low 24 bits
 // HasAux boolean specifies whether the instruction is followed up with an AUX word, which may be used to execute the instruction.
 
-type opInfo struct {
-	mode, kMode uint8
-	hasAux      bool
-}
-
-var opList = [83]opInfo{
+var opList = [83]types.OpInfo{
 	{0, 0, false}, // NOP
 	{0, 0, false}, // BREAK
 	{1, 0, false}, // LOADNIL
@@ -305,118 +300,27 @@ var opList = [83]opInfo{
 
 // Functions and Tables are used as pointers normally, as they need to be hashed
 
-func fn(name string, f func(co *Coroutine, args ...types.Val) (r []types.Val, err error)) types.Function[*Coroutine] {
-	return types.Function[*Coroutine]{
+func fn(name string, f func(co *types.Coroutine, args ...types.Val) (r []types.Val, err error)) types.Function {
+	return types.Function{
 		Run:  &f,
 		Name: name,
 	}
 }
 
-// status represents the status of a coroutine.
-type status uint8
-
-// Coroutine stati
-const (
-	coSuspended status = iota
-	coRunning
-	coNormal
-	coDead
-)
-
-type yield struct {
-	rets []types.Val
-	err  error
-}
-
-type debugging struct {
-	// top,
-	line uint32
-	// enabled bool
-	// opcode  uint8
-	dbgname string
-}
-
-// Env represents a global Luau environment.
-type Env map[types.Val]types.Val
-
-// AddFn adds a function to the environment.
-func (e *Env) AddFn(f types.Function[*Coroutine]) {
-	if *e != nil {
-		(*e)[f.Name] = f
-		return
-	}
-	*e = Env{f.Name: f}
-}
-
-// Coroutine represents a Luau coroutine, including the main coroutine. Luau type `thread`
-type Coroutine struct {
-	body              types.Function[*Coroutine]
-	env               Env
-	filepath, dbgpath string   // actually does well here
-	requireHistory    []string // prevents cyclic module dependencies
-	yield             chan yield
-	resume            chan []types.Val
-	dbg               *debugging
-	compiler          Compiler // for require()
-	status            status
-	started           bool
-	programArgs       types.ProgramArgs // idk how
-}
-
-func createCoroutine(body types.Function[*Coroutine], currentCo *Coroutine) *Coroutine {
+func createCoroutine(body types.Function, currentCo *types.Coroutine) *types.Coroutine {
 	// first time i actually ran into the channel axiom issues
-	return &Coroutine{
-		body:     body,
-		filepath: currentCo.filepath,
-		dbgpath:  currentCo.dbgpath,
-		yield:    make(chan yield, 1),
-		resume:   make(chan []types.Val, 1),
+	return &types.Coroutine{
+		Body:       body,
+		Filepath:   currentCo.Filepath,
+		Dbgpath:    currentCo.Dbgpath,
+		YieldChan:  make(chan types.Yield, 1),
+		ResumeChan: make(chan []types.Val, 1),
 	}
-}
-
-// Error yields an error to the coroutine, killing it shortly after.
-func (co *Coroutine) Error(err error) {
-	co.yield <- yield{nil, &types.CoError{
-		Line:    co.dbg.line,
-		Dbgname: co.dbg.dbgname,
-		Path:    co.dbgpath,
-		Sub:     err,
-	}}
-}
-
-func startCoroutine(co *Coroutine, args []types.Val) {
-	// fmt.Println(" RG calling coroutine body with", args)
-	r, err := (*co.body.Run)(co, args...)
-
-	co.status = coDead
-	// fmt.Println("RG  yielding", r)
-	co.yield <- yield{r, err}
-	// fmt.Println("RG  yielded", r)
-}
-
-// Resume executes the coroutine with the provided arguments, starting it with the given arguments if it is not already started, otherwise resuming it and passing the argument values back to the yielded function.
-func (co *Coroutine) Resume(args ...types.Val) (r []types.Val, err error) {
-	if !co.started {
-		// fmt.Println("RM  starting", args)
-		co.started = true
-		co.status = coRunning
-
-		go startCoroutine(co, args)
-	} else {
-		co.status = coRunning
-		// fmt.Println("RM  resuming", args)
-		co.resume <- args
-		// fmt.Println("RM  resumed", args)
-	}
-	// fmt.Println("RM  waiting for yield")
-	y := <-co.yield
-	// fmt.Println("RM  waited for yield", y.rets)
-	return y.rets, y.err
 }
 
 const luau_multret = -1
 
-func namecallHandler(co *Coroutine, kv string, stack *[]types.Val, c1, c2 int32) (ok bool, retList []types.Val, err error) {
+func namecallHandler(co *types.Coroutine, kv string, stack *[]types.Val, c1, c2 int32) (ok bool, retList []types.Val, err error) {
 	switch kv {
 	case "format":
 		str := (*stack)[c1].(string)
@@ -431,7 +335,7 @@ func namecallHandler(co *Coroutine, kv string, stack *[]types.Val, c1, c2 int32)
 	return
 }
 
-var exts = Env{
+var exts = types.Env{
 	"math":      libmath,
 	"table":     libtable,
 	"string":    libstring,
@@ -460,39 +364,11 @@ var exts = Env{
 // var VectorSize = 4
 // var AllowProxyErrors = false
 
-type inst struct {
-	opInfo
-
-	// K0, K1, K2 for imports (up to 3 lay.ers.deep)
-	K, K0, K1, K2       types.Val
-	KC, opcode, A, B, C uint8
-	D, E                int32
-	aux                 uint32
-	KN                  bool
-}
-
-type proto struct {
-	dbgname              string
-	k                    []types.Val
-	code                 []*inst
-	instlineinfo, protos []uint32
-	dbgcode              []uint8
-
-	// linedefined uint32
-	maxstacksize, numparams, nups uint8
-	lineinfoenabled               bool
-}
-
-type deserialised struct {
-	mainProto *proto
-	protoList []*proto
-}
-
-func checkkmode(i *inst, k []types.Val) {
-	switch i.kMode {
+func checkkmode(i *types.Inst, k []types.Val) {
+	switch i.KMode {
 	case 1: // AUX
-		if i.aux < uint32(len(k)) { // sometimes huge for some reason
-			i.K = k[i.aux]
+		if i.Aux < uint32(len(k)) { // sometimes huge for some reason
+			i.K = k[i.Aux]
 		}
 	case 2: // C
 		i.K = k[i.C]
@@ -500,7 +376,7 @@ func checkkmode(i *inst, k []types.Val) {
 	case 3: // D
 		i.K = k[i.D]
 	case 4: // AUX import
-		extend := i.aux
+		extend := i.Aux
 		count := uint8(extend >> 30)
 		i.KC = count
 
@@ -517,15 +393,15 @@ func checkkmode(i *inst, k []types.Val) {
 			i.K2 = k[id2]
 		}
 	case 5: // AUX boolean low 1 bit
-		i.K = extract(i.aux, 0, 1) == 1
-		i.KN = extract(i.aux, 31, 1) == 1
+		i.K = extract(i.Aux, 0, 1) == 1
+		i.KN = extract(i.Aux, 31, 1) == 1
 	case 6: // AUX number low 24 bits
-		i.K = k[extract(i.aux, 0, 24)]
-		i.KN = extract(i.aux, 31, 1) == 1
+		i.K = k[extract(i.Aux, 0, 24)]
+		i.KN = extract(i.Aux, 31, 1) == 1
 	case 7: // B
 		i.K = k[i.B]
 	case 8: // AUX number low 16 bits
-		i.K = i.aux & 0xf
+		i.K = i.Aux & 0xf
 	}
 }
 
@@ -619,19 +495,19 @@ func (s *stream) CheckEnd() error {
 }
 
 // reads either 1 or 2 words
-func readInst(codeList *[]*inst, s *stream) bool {
+func readInst(codeList *[]*types.Inst, s *stream) bool {
 	value := s.rWord()
 
 	opcode := uint8(value)
 	opinfo := opList[opcode]
 
-	i := inst{
-		opInfo: opinfo,
-		opcode: opcode,
+	i := types.Inst{
+		OpInfo: opinfo,
+		Opcode:       opcode,
 	}
 
 	value >>= 8
-	switch opinfo.mode {
+	switch opinfo.Mode {
 	case 1: // A
 		i.A = uint8(value) // 8 bit
 	case 2: // AB
@@ -648,20 +524,20 @@ func readInst(codeList *[]*inst, s *stream) bool {
 	}
 
 	*codeList = append(*codeList, &i)
-	if opinfo.hasAux {
-		i.aux = s.rWord()
+	if opinfo.HasAux {
+		i.Aux = s.rWord()
 
-		*codeList = append(*codeList, &inst{})
+		*codeList = append(*codeList, &types.Inst{})
 	}
 
-	return opinfo.hasAux
+	return opinfo.HasAux
 }
 
-func readProto(stringList []string, s *stream) (p *proto, err error) {
-	p = &proto{
-		maxstacksize: s.rByte(),
-		numparams:    s.rByte(),
-		nups:         s.rByte(),
+func readProto(stringList []string, s *stream) (p *types.Proto, err error) {
+	p = &types.Proto{
+		MaxStackSize: s.rByte(),
+		NumParams:    s.rByte(),
+		Nups:         s.rByte(),
 	}
 
 	// s.rBool()            // isvararg
@@ -672,31 +548,31 @@ func readProto(stringList []string, s *stream) (p *proto, err error) {
 	sizecode := s.rVarInt()
 
 	for i := uint32(0); i < sizecode; i++ {
-		if readInst(&p.code, s) {
+		if readInst(&p.Code, s) {
 			i++
 		}
 	}
 
-	p.dbgcode = make([]uint8, sizecode)
+	p.Dbgcode = make([]uint8, sizecode)
 	for i := range sizecode {
-		p.dbgcode[i] = p.code[i].opcode
+		p.Dbgcode[i] = p.Code[i].Opcode
 	}
 
 	sizek := s.rVarInt()
-	p.k = make([]types.Val, sizek) // crazy
+	p.K = make([]types.Val, sizek) // crazy
 
 	for i := range sizek {
 		switch kt := s.rByte(); kt {
 		case 0: // Nil
-			p.k[i] = nil
+			p.K[i] = nil
 		case 1: // Bool
-			p.k[i] = s.rBool()
+			p.K[i] = s.rBool()
 		case 2: // Number
-			p.k[i] = s.rFloat64()
+			p.K[i] = s.rFloat64()
 		case 3: // String
-			p.k[i] = stringList[s.rVarInt()-1]
+			p.K[i] = stringList[s.rVarInt()-1]
 		case 4: // Import
-			p.k[i] = s.rWord() // ⚠️ strange, TODO need something to test this ⚠️
+			p.K[i] = s.rWord() // ⚠️ strange, TODO need something to test this ⚠️
 		case 5: // Table
 			dataLength := s.rVarInt()
 			t := make([]uint32, dataLength)
@@ -705,11 +581,11 @@ func readProto(stringList []string, s *stream) (p *proto, err error) {
 				t[j] = s.rVarInt() // whatever
 			}
 
-			p.k[i] = t // ⚠️ not a val ⚠️
+			p.K[i] = t // ⚠️ not a val ⚠️
 		case 6: // Closure
-			p.k[i] = s.rVarInt() // ⚠️ not a val ⚠️
+			p.K[i] = s.rVarInt() // ⚠️ not a val ⚠️
 		case 7: // types.Vector
-			p.k[i] = s.rVector()
+			p.K[i] = s.rVector()
 		default:
 			return nil, fmt.Errorf("unknown ktype %d", kt)
 		}
@@ -717,26 +593,26 @@ func readProto(stringList []string, s *stream) (p *proto, err error) {
 
 	// -- 2nd pass to replace constant references in the instruction
 	for i := range sizecode {
-		checkkmode(p.code[i], p.k)
+		checkkmode(p.Code[i], p.K)
 	}
 
 	sizep := s.rVarInt()
-	p.protos = make([]uint32, sizep)
+	p.Protos = make([]uint32, sizep)
 	for i := range sizep {
-		p.protos[i] = s.rVarInt() + 1
+		p.Protos[i] = s.rVarInt() + 1
 	}
 
 	// p.linedefined = s.rVarInt()
 	s.skipVarInt()
 
 	if dbgnamei := s.rVarInt(); dbgnamei == 0 {
-		p.dbgname = "(??)"
+		p.Dbgname = "(??)"
 	} else {
-		p.dbgname = stringList[dbgnamei-1]
+		p.Dbgname = stringList[dbgnamei-1]
 	}
 
 	// -- lineinfo
-	if p.lineinfoenabled = s.rBool(); p.lineinfoenabled {
+	if p.LineInfoEnabled = s.rBool(); p.LineInfoEnabled {
 		linegaplog2 := s.rByte()
 		intervals := uint32((sizecode-1)>>linegaplog2) + 1
 
@@ -755,10 +631,10 @@ func readProto(stringList []string, s *stream) (p *proto, err error) {
 			abslineinfo[i] = lastline // overflow babyy (faster than % (1 << 32))
 		}
 
-		p.instlineinfo = make([]uint32, sizecode)
+		p.InstLineInfo = make([]uint32, sizecode)
 		for i := range sizecode {
 			// -- p->abslineinfo[pc >> p->linegaplog2] + p->lineinfo[pc];
-			p.instlineinfo[i] = abslineinfo[i>>linegaplog2] + uint32(lineinfo[i])
+			p.InstLineInfo[i] = abslineinfo[i>>linegaplog2] + uint32(lineinfo[i])
 		}
 	}
 
@@ -779,16 +655,16 @@ func readProto(stringList []string, s *stream) (p *proto, err error) {
 	return
 }
 
-func deserialise(b []byte) (des deserialised, err error) {
+func deserialise(b []byte) (des types.Deserialised, err error) {
 	s := &stream{data: b}
 
 	if luauVersion := s.rByte(); luauVersion == 0 {
-		return deserialised{}, errors.New("the provided bytecode is an error message")
+		return types.Deserialised{}, errors.New("the provided bytecode is an error message")
 	} else if luauVersion != 6 {
-		return deserialised{}, errors.New("the version of the provided bytecode is unsupported")
+		return types.Deserialised{}, errors.New("the version of the provided bytecode is unsupported")
 	}
 	if s.rByte() != 3 { // types version
-		return deserialised{}, errors.New("the types version of the provided bytecode is unsupported")
+		return types.Deserialised{}, errors.New("the types version of the provided bytecode is unsupported")
 	}
 
 	stringCount := s.rVarInt()
@@ -803,7 +679,7 @@ func deserialise(b []byte) (des deserialised, err error) {
 	}
 
 	protoCount := s.rVarInt()
-	protoList := make([]*proto, protoCount)
+	protoList := make([]*types.Proto, protoCount)
 	for i := range protoCount {
 		protoList[i], err = readProto(stringList, s)
 		if err != nil {
@@ -812,9 +688,9 @@ func deserialise(b []byte) (des deserialised, err error) {
 	}
 
 	mainProto := protoList[s.rVarInt()]
-	mainProto.dbgname = "(main)"
+	mainProto.Dbgname = "(main)"
 
-	return deserialised{mainProto, protoList}, s.CheckEnd()
+	return types.Deserialised{mainProto, protoList}, s.CheckEnd()
 }
 
 type iterator struct {
@@ -840,8 +716,8 @@ var luautype = map[string]string{
 	"string":    "string",
 	"bool":      "boolean",
 	"*vm.Table": "table",
-	"types.Function[*github.com/Heliodex/coputer/litecode/vm.Coroutine]": "function",
-	"*vm.Coroutine": "thread",
+	"types.Function": "function",
+	"*types.Coroutine": "thread",
 	"*types.Buffer": "buffer",
 	"types.Vector":  "vector",
 }
@@ -1127,11 +1003,11 @@ func gettable(index, v types.Val) (types.Val, error) {
 }
 
 type toWrap struct {
-	proto     *proto
-	protoList []*proto
+	proto     *types.Proto
+	protoList []*types.Proto
 	upvals    []*upval
 	alive     *bool
-	env       Env
+	env       types.Env
 	// Store the last return, as it's the only one that's relevant
 	requireCache map[string]types.Val
 }
@@ -1168,7 +1044,7 @@ func moveStack(stack *[]types.Val, src []types.Val, b, t int32) {
 	}
 }
 
-func getImport(i inst, towrap toWrap, stack *[]types.Val) error {
+func getImport(i types.Inst, towrap toWrap, stack *[]types.Val) error {
 	k0 := i.K0
 	imp := exts[k0]
 	if imp == nil {
@@ -1199,10 +1075,10 @@ func getImport(i inst, towrap toWrap, stack *[]types.Val) error {
 	return nil
 }
 
-func newClosure(pc *int32, i inst, towrap toWrap, p *proto, stack *[]types.Val, openUpvals *[]*upval, upvals []*upval) {
-	newProto := towrap.protoList[p.protos[i.D]-1]
+func newClosure(pc *int32, i types.Inst, towrap toWrap, p *types.Proto, stack *[]types.Val, openUpvals *[]*upval, upvals []*upval) {
+	newProto := towrap.protoList[p.Protos[i.D]-1]
 
-	nups := newProto.nups
+	nups := newProto.Nups
 	towrap.upvals = make([]*upval, nups)
 
 	// wrap is reused for closures
@@ -1213,7 +1089,7 @@ func newClosure(pc *int32, i inst, towrap toWrap, p *proto, stack *[]types.Val, 
 
 	// fmt.Println("nups", nups)
 	for n := range nups {
-		switch pseudo := p.code[*pc]; pseudo.A {
+		switch pseudo := p.Code[*pc]; pseudo.A {
 		case 0: // -- value
 			towrap.upvals[n] = &upval{
 				value:   (*stack)[pseudo.B],
@@ -1253,7 +1129,7 @@ func newClosure(pc *int32, i inst, towrap toWrap, p *proto, stack *[]types.Val, 
 	}
 }
 
-func namecall(pc, top *int32, i *inst, p *proto, stack *[]types.Val, co *Coroutine, op *uint8) (err error) {
+func namecall(pc, top *int32, i *types.Inst, p *types.Proto, stack *[]types.Val, co *types.Coroutine, op *uint8) (err error) {
 	A, B := i.A, i.B
 	kv := i.K.(string)
 	// fmt.Println("kv", kv)
@@ -1261,8 +1137,8 @@ func namecall(pc, top *int32, i *inst, p *proto, stack *[]types.Val, co *Corouti
 	(*stack)[A+1] = (*stack)[B]
 
 	// -- Special handling for native namecall behaviour
-	callInst := p.code[*pc]
-	callOp := callInst.opcode
+	callInst := p.Code[*pc]
+	callOp := callInst.Opcode
 
 	// -- Copied from the CALL handler
 	callA, callB, callC := int32(callInst.A), int32(callInst.B), callInst.C
@@ -1305,8 +1181,7 @@ func namecall(pc, top *int32, i *inst, p *proto, stack *[]types.Val, co *Corouti
 	*i = *callInst
 	*op = callOp
 
-	co.dbg.line = p.instlineinfo[*pc+1]
-	// co.dbg.opcode = i.opcode
+	co.Dbg.Line = p.InstLineInfo[*pc+1]
 
 	retCount := int32(len(retList))
 
@@ -1321,13 +1196,13 @@ func namecall(pc, top *int32, i *inst, p *proto, stack *[]types.Val, co *Corouti
 	return
 }
 
-func handleRequire(towrap toWrap, lc compiled, co *Coroutine) ([]types.Val, error) {
-	if c, ok := towrap.requireCache[lc.filepath]; ok {
+func handleRequire(towrap toWrap, lc compiled, co *types.Coroutine) ([]types.Val, error) {
+	if c, ok := towrap.requireCache[lc.Filepath]; ok {
 		return []types.Val{c}, nil
 	}
 
 	// since environments only store global libraries etc, using the same env here should be fine??
-	c2, _ := loadmodule(lc, co.env, towrap.requireCache, co.programArgs)
+	c2, _ := loadmodule(lc, co.Env, towrap.requireCache, co.ProgramArgs)
 	reqrets, err := c2.Resume()
 	if err != nil {
 		return nil, err
@@ -1339,16 +1214,16 @@ func handleRequire(towrap toWrap, lc compiled, co *Coroutine) ([]types.Val, erro
 	// only the last return value (weird luau behaviour...)
 	ret := reqrets[len(reqrets)-1]
 	switch ret.(type) {
-	case *Table, types.Function[*Coroutine]:
+	case *Table, types.Function:
 	default:
 		return nil, errors.New("module must return a table or function")
 	}
 
-	towrap.requireCache[lc.filepath] = ret
+	towrap.requireCache[lc.Filepath] = ret
 	return []types.Val{ret}, nil
 }
 
-func call(top *int32, i inst, towrap toWrap, stack *[]types.Val, co *Coroutine) (err error) {
+func call(top *int32, i types.Inst, towrap toWrap, stack *[]types.Val, co *types.Coroutine) (err error) {
 	A, B, C := int32(i.A), int32(i.B), i.C
 
 	var params int32
@@ -1361,7 +1236,7 @@ func call(top *int32, i inst, towrap toWrap, stack *[]types.Val, co *Coroutine) 
 	// fmt.Println(A, B, C, (*stack)[A], params)
 
 	f := (*stack)[A]
-	fn, ok := f.(types.Function[*Coroutine])
+	fn, ok := f.(types.Function)
 	// fmt.Println("calling with", (*stack)[A+1:][:params])
 	if !ok {
 		return uncallableType(TypeOf(f))
@@ -1409,14 +1284,14 @@ func call(top *int32, i inst, towrap toWrap, stack *[]types.Val, co *Coroutine) 
 }
 
 // for gloop lel
-func forgloop(pc, top *int32, i inst, stack *[]types.Val, co *Coroutine, generalisedIterators *map[inst]*iterator) (err error) {
+func forgloop(pc, top *int32, i types.Inst, stack *[]types.Val, co *types.Coroutine, generalisedIterators *map[types.Inst]*iterator) (err error) {
 	A := int32(i.A)
 	res := int32(i.K.(uint32))
 
 	*top = A + 6
 
 	switch it := (*stack)[A].(type) {
-	case types.Function[*Coroutine]:
+	case types.Function:
 		// fmt.Println("IT func", fn, (*stack)[A+1], (*stack)[A+2])
 		vals, err := (*it.Run)(co, (*stack)[A+1], (*stack)[A+2])
 		if err != nil {
@@ -1462,10 +1337,10 @@ func forgloop(pc, top *int32, i inst, stack *[]types.Val, co *Coroutine, general
 	return
 }
 
-func dupClosure(pc *int32, i inst, towrap toWrap, p *proto, stack *[]types.Val, upvals []*upval) {
+func dupClosure(pc *int32, i types.Inst, towrap toWrap, p *types.Proto, stack *[]types.Val, upvals []*upval) {
 	newProto := towrap.protoList[i.K.(uint32)]
 
-	nups := newProto.nups
+	nups := newProto.Nups
 	towrap.upvals = make([]*upval, nups)
 
 	// reusing wrapping again bcause we're eco friendly
@@ -1474,7 +1349,7 @@ func dupClosure(pc *int32, i inst, towrap toWrap, p *proto, stack *[]types.Val, 
 	(*stack)[i.A] = wrapclosure(towrap)
 
 	for n := range nups {
-		switch pseudo := p.code[*pc]; pseudo.A {
+		switch pseudo := p.Code[*pc]; pseudo.A {
 		case 0: // value
 			towrap.upvals[n] = &upval{
 				value:   (*stack)[pseudo.B],
@@ -1490,13 +1365,13 @@ func dupClosure(pc *int32, i inst, towrap toWrap, p *proto, stack *[]types.Val, 
 	}
 }
 
-func execute(towrap toWrap, stack *[]types.Val, co *Coroutine, vargsList []types.Val, vargsLen uint8) (r []types.Val, err error) {
+func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList []types.Val, vargsLen uint8) (r []types.Val, err error) {
 	p, upvals := towrap.proto, towrap.upvals
 	// int32 > uint32 lel
-	pc, top, openUpvals, generalisedIterators := int32(1), int32(-1), []*upval{}, map[inst]*iterator{}
+	pc, top, openUpvals, generalisedIterators := int32(1), int32(-1), []*upval{}, map[types.Inst]*iterator{}
 
 	var handlingBreak bool
-	var i inst
+	var i types.Inst
 	var op uint8
 
 	// a a a a
@@ -1504,16 +1379,13 @@ func execute(towrap toWrap, stack *[]types.Val, co *Coroutine, vargsList []types
 	// fmt.Println("starting with upvals", upvals)
 	for *towrap.alive {
 		if !handlingBreak {
-			i = *p.code[pc-1]
-			op = i.opcode
+			i = *p.Code[pc-1]
+			op = i.Opcode
 		}
 		handlingBreak = false
 
-		co.dbg.line = p.instlineinfo[pc-1]
-		// co.dbg.top = top
-		// co.dbg.enabled = p.lineinfoenabled
-		// co.dbg.opcode = i.opcode
-		co.dbg.dbgname = p.dbgname
+		co.Dbg.Line = p.InstLineInfo[pc-1]
+		co.Dbg.Name = p.Dbgname
 
 		// fmt.Println(top)
 
@@ -1527,7 +1399,7 @@ func execute(towrap toWrap, stack *[]types.Val, co *Coroutine, vargsList []types
 			// -- Do nothing
 			pc++
 		case 1: // BREAK
-			op = p.dbgcode[pc]
+			op = p.Dbgcode[pc]
 			handlingBreak = true
 		case 2: // LOADNIL
 			(*stack)[i.A] = nil
@@ -1691,13 +1563,13 @@ func execute(towrap toWrap, stack *[]types.Val, co *Coroutine, vargsList []types
 				pc++
 			}
 		case 27: // jump
-			if (*stack)[i.A] == (*stack)[i.aux] {
+			if (*stack)[i.A] == (*stack)[i.Aux] {
 				pc += i.D + 1
 			} else {
 				pc += 2
 			}
 		case 28:
-			if j, err := jumpLe((*stack)[i.A], (*stack)[i.aux]); err != nil {
+			if j, err := jumpLe((*stack)[i.A], (*stack)[i.Aux]); err != nil {
 				return nil, err
 			} else if j {
 				pc += i.D + 1
@@ -1705,7 +1577,7 @@ func execute(towrap toWrap, stack *[]types.Val, co *Coroutine, vargsList []types
 				pc += 2
 			}
 		case 29:
-			if j, err := jumpLt((*stack)[i.A], (*stack)[i.aux]); err != nil {
+			if j, err := jumpLt((*stack)[i.A], (*stack)[i.Aux]); err != nil {
 				return nil, err
 			} else if j {
 				pc += i.D + 1
@@ -1713,13 +1585,13 @@ func execute(towrap toWrap, stack *[]types.Val, co *Coroutine, vargsList []types
 				pc += 2
 			}
 		case 30:
-			if (*stack)[i.A] != (*stack)[i.aux] {
+			if (*stack)[i.A] != (*stack)[i.Aux] {
 				pc += i.D + 1
 			} else {
 				pc += 2
 			}
 		case 31:
-			if j, err := jumpGt((*stack)[i.A], (*stack)[i.aux]); err != nil {
+			if j, err := jumpGt((*stack)[i.A], (*stack)[i.Aux]); err != nil {
 				return nil, err
 			} else if j {
 				pc += i.D + 1
@@ -1727,7 +1599,7 @@ func execute(towrap toWrap, stack *[]types.Val, co *Coroutine, vargsList []types
 				pc += 2
 			}
 		case 32:
-			if j, err := jumpGe((*stack)[i.A], (*stack)[i.aux]); err != nil {
+			if j, err := jumpGe((*stack)[i.A], (*stack)[i.Aux]); err != nil {
 				return nil, err
 			} else if j {
 				pc += i.D + 1
@@ -1882,7 +1754,7 @@ func execute(towrap toWrap, stack *[]types.Val, co *Coroutine, vargsList []types
 			serialised := &Table{}
 			// fmt.Println("TEMPLATING")
 			for _, id := range i.K.([]uint32) { // template
-				serialised.Set(p.k[id], nil) // constants
+				serialised.Set(p.K[id], nil) // constants
 			}
 			(*stack)[i.A] = serialised
 			pc++
@@ -1901,7 +1773,7 @@ func execute(towrap toWrap, stack *[]types.Val, co *Coroutine, vargsList []types
 
 			// one-indexed lol
 			for n, v := range (*stack)[B:min(B+c, int32(len(*stack)))] {
-				s.SetInt(n+int(i.aux), v)
+				s.SetInt(n+int(i.Aux), v)
 			}
 			// (*stack)[A] = s // in-place
 
@@ -1953,7 +1825,7 @@ func execute(towrap toWrap, stack *[]types.Val, co *Coroutine, vargsList []types
 				return nil, err
 			}
 		case 59, 61: // FORGPREP_INEXT, FORGPREP_NEXT
-			if _, ok := (*stack)[i.A].(types.Function[*Coroutine]); !ok {
+			if _, ok := (*stack)[i.A].(types.Function); !ok {
 				return nil, fmt.Errorf("attempt to iterate over a %s value", TypeOf((*stack)[i.A])) // -- encountered non-function value
 			}
 			pc += i.D + 1
@@ -2013,11 +1885,11 @@ func execute(towrap toWrap, stack *[]types.Val, co *Coroutine, vargsList []types
 			pc += 2 // adjust for aux
 		case 76: // FORGPREP
 			pc += i.D + 1
-			if _, ok := (*stack)[i.A].(types.Function[*Coroutine]); ok {
+			if _, ok := (*stack)[i.A].(types.Function); ok {
 				break
 			}
 
-			loopInst := *p.code[pc-1]
+			loopInst := *p.Code[pc-1]
 			if generalisedIterators[loopInst] != nil {
 				break
 			}
@@ -2078,11 +1950,11 @@ func execute(towrap toWrap, stack *[]types.Val, co *Coroutine, vargsList []types
 	return
 }
 
-func wrapclosure(towrap toWrap) types.Function[*Coroutine] {
+func wrapclosure(towrap toWrap) types.Function {
 	proto := towrap.proto
 
-	return fn("", func(co *Coroutine, args ...types.Val) (r []types.Val, err error) {
-		maxs, np := proto.maxstacksize, proto.numparams // maxs 2 lel
+	return fn("", func(co *types.Coroutine, args ...types.Val) (r []types.Val, err error) {
+		maxs, np := proto.MaxStackSize, proto.NumParams // maxs 2 lel
 
 		la := uint8(len(args)) // we can't have more than 255 args anyway right?
 		// fmt.Println("MAX STACK SIZE", maxs)
@@ -2094,52 +1966,52 @@ func wrapclosure(towrap toWrap) types.Function[*Coroutine] {
 			list = args[np:]
 		}
 
-		originalDebug := co.dbg
+		originalDebug := co.Dbg
 
-		dbg := &debugging{ /* enabled: proto.lineinfoenabled, opcode: 255 */ }
-		// fmt.Println("started on", co.dbg.line, dbg.line)
-		co.dbg = dbg
+		dbg := &types.Debugging{ /* enabled: proto.lineinfoenabled, opcode: 255 */ }
+		// fmt.Println("started on", co.Dbg.line, dbg.line)
+		co.Dbg = dbg
 
 		r, err = execute(towrap, &stack, co, list, max(la-np, 0))
-		// fmt.Println("ended on", co.dbg.line, dbg.line)
+		// fmt.Println("ended on", co.Dbg.line, dbg.line)
 		if !*towrap.alive {
 			return
 		}
 		if err != nil {
 			return nil, &types.CoError{
-				Line:    dbg.line,
-				Dbgname: dbg.dbgname,
-				Path:    co.dbgpath,
+				Line:    dbg.Line,
+				Dbgname: dbg.Name,
+				Path:    co.Dbgpath,
 				Sub:     err,
 			}
 		}
 
 		// prevent line mismatches (error/loc.luau)
-		co.dbg = originalDebug
+		co.Dbg = originalDebug
 		return
 	})
 }
 
-func loadmodule(m compiled, env Env, requireCache map[string]types.Val, args types.ProgramArgs) (co Coroutine, cancel func()) {
+func loadmodule(m compiled, env types.Env, requireCache map[string]types.Val, args types.ProgramArgs) (co types.Coroutine, cancel func()) {
 	alive := true
 
 	towrap := toWrap{
-		proto:        m.mainProto,
-		protoList:    m.protoList,
+		proto:        m.MainProto,
+		protoList:    m.ProtoList,
 		alive:        &alive,
 		env:          env,
 		requireCache: requireCache,
 	}
 
-	return Coroutine{
-		body:           wrapclosure(towrap),
-		env:            env,
-		filepath:       m.filepath,
-		dbgpath:        m.dbgpath,
-		requireHistory: m.requireHistory,
-		yield:          make(chan yield, 1),
-		resume:         make(chan []types.Val, 1),
-		compiler:       m.compiler,
-		programArgs:    args,
+	return types.Coroutine{
+		Body:           wrapclosure(towrap),
+		Env:            env,
+		Filepath:       m.Filepath,
+		Dbgpath:        m.Dbgpath,
+		RequireHistory: m.RequireHistory,
+		YieldChan:      make(chan types.Yield, 1),
+		ResumeChan:     make(chan []types.Val, 1),
+		Compiler:       m.Compiler,
+		ProgramArgs:    args,
 	}, func() { alive = false }
 }

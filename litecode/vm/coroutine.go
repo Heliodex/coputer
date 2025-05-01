@@ -11,7 +11,7 @@ import (
 func coroutine_close(args Args) (r []types.Val, err error) {
 	co := args.GetCoroutine()
 
-	co.status = coDead
+	co.Status = types.CoDead
 	return
 }
 
@@ -29,10 +29,10 @@ func coroutine_resume(args Args) (r []types.Val, err error) {
 	co := args.GetCoroutine()
 	a := args.List[1:]
 
-	if co.status == coDead {
+	if co.Status == types.CoDead {
 		return []types.Val{false, "cannot resume dead coroutine"}, nil
 	}
-	if co.status == coRunning {
+	if co.Status == types.CoRunning {
 		return []types.Val{false, "cannot resume running coroutine"}, nil
 	}
 
@@ -53,12 +53,12 @@ func coroutine_running(args Args) (r []types.Val, err error) {
 func coroutine_status(args Args) (r []types.Val, err error) {
 	co := args.GetCoroutine()
 
-	switch co.status {
-	case coSuspended:
+	switch co.Status {
+	case types.CoSuspended:
 		return []types.Val{"suspended"}, nil
-	case coRunning:
+	case types.CoRunning:
 		return []types.Val{"running"}, nil
-	case coNormal:
+	case types.CoNormal:
 		return []types.Val{"normal"}, nil
 	}
 	return []types.Val{"dead"}, nil
@@ -69,11 +69,11 @@ func coroutine_wrap(args Args) (r []types.Val, err error) {
 
 	co := createCoroutine(f, args.Co)
 
-	return []types.Val{fn("wrap", func(_ *Coroutine, args ...types.Val) (r []types.Val, err error) {
-		if co.status == coDead {
+	return []types.Val{fn("wrap", func(_ *types.Coroutine, args ...types.Val) (r []types.Val, err error) {
+		if co.Status == types.CoDead {
 			return nil, errors.New("cannot resume dead coroutine") // ought to be better (return false, error message) if we can figure out how
 		}
-		if co.status == coRunning {
+		if co.Status == types.CoRunning {
 			return nil, errors.New("cannot resume running coroutine")
 		}
 		return co.Resume(args...)
@@ -83,19 +83,19 @@ func coroutine_wrap(args Args) (r []types.Val, err error) {
 func coroutine_yield(args Args) (r []types.Val, err error) {
 	co := args.Co
 
-	if co.status == coRunning {
+	if co.Status == types.CoRunning {
 		// fmt.Println("C.Y suspending coroutine")
-		co.status = coSuspended
+		co.Status = types.CoSuspended
 	}
 
 	// fmt.Println("C.Y yielding")
-	co.yield <- yield{rets: args.List}
+	co.YieldChan <- types.Yield{Rets: args.List}
 	// fmt.Println("C.Y yielded", "waiting for resume")
-	return <-co.resume, nil
+	return <-co.ResumeChan, nil
 	// fmt.Println("C.Y resumed")
 }
 
-var libcoroutine = NewLib([]types.Function[*Coroutine]{
+var libcoroutine = NewLib([]types.Function{
 	MakeFn("close", coroutine_close),
 	MakeFn("create", coroutine_create),
 	MakeFn("isyieldable", coroutine_isyieldable),

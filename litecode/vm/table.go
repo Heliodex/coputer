@@ -498,7 +498,7 @@ func table_unpack(args Args) (r []types.Val, err error) {
 	return
 }
 
-var libtable = NewLib([]types.Function[*Coroutine]{
+var libtable = NewLib([]types.Function{
 	MakeFn("clear", table_clear),
 	MakeFn("clone", table_clone),
 	MakeFn("concat", table_concat),

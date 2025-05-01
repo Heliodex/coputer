@@ -178,7 +178,7 @@ func bit32_rshift(args Args) (r []types.Val, err error) {
 	return []types.Val{float64(b_shift(x, -disp))}, nil
 }
 
-var libbit32 = NewLib([]types.Function[*Coroutine]{
+var libbit32 = NewLib([]types.Function{
 	MakeFn("arshift", bit32_arshift),
 	MakeFn("band", bit32_band),
 	MakeFn("bnot", bit32_bnot),

@@ -7,7 +7,7 @@ import (
 )
 
 func args_web(args Args) (r []types.Val, err error) {
-	pargs, ok := args.Co.programArgs.(types.WebArgs)
+	pargs, ok := args.Co.ProgramArgs.(types.WebArgs)
 	if !ok {
 		return nil, errors.New("web args only available in web mode")
 	}
@@ -41,6 +41,6 @@ func args_web(args Args) (r []types.Val, err error) {
 	return []types.Val{webargs}, nil
 }
 
-var libargs = NewLib([]types.Function[*Coroutine]{
+var libargs = NewLib([]types.Function{
 	MakeFn("web", args_web),
 })

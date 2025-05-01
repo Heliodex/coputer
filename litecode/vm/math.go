@@ -296,7 +296,7 @@ func math_tanh(args Args) (r []types.Val, err error) {
 	return []types.Val{math.Tanh(x)}, nil
 }
 
-var libmath = NewLib([]types.Function[*Coroutine]{
+var libmath = NewLib([]types.Function{
 	MakeFn("abs", math_abs),
 	MakeFn("acos", math_acos),
 	MakeFn("asin", math_asin),
