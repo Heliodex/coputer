@@ -595,10 +595,9 @@ func global_require(args Args) (r []types.Val, err error) {
 		return nil, errors.New("cyclic module dependency: file requires itself")
 	}
 
-	c := args.Co.compiler
 
 	// compile bytecodeee
-	p, err := c.Compile(path)
+	p, err := args.Co.compiler.Compile(path)
 	if err != nil {
 		return nil, fmt.Errorf("error requiring module: %w", err)
 	}

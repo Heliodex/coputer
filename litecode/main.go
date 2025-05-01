@@ -11,6 +11,7 @@ import (
 
 	"github.com/Heliodex/coputer/bundle"
 	"github.com/Heliodex/coputer/litecode/vm"
+	"github.com/Heliodex/coputer/litecode/types"
 )
 
 // ensure hash is valid decodable hex
@@ -47,7 +48,7 @@ func main() {
 	// just 1 error cache, as different inputs may result in errors/not
 	// (we don't want one error to bring down the whole program for every user)
 	errCache := make(map[[32]byte]map[[32]byte]error)
-	runCache := make(map[[32]byte]map[[32]byte]vm.ProgramRets)
+	runCache := make(map[[32]byte]map[[32]byte]types.ProgramRets)
 
 	// store program (bundled version)
 	http.HandleFunc("PUT /store", func(w http.ResponseWriter, r *http.Request) {
@@ -91,7 +92,7 @@ func main() {
 		inputhash := sha3.Sum256(input) // let's hope it's canonical
 
 		// decode input as json
-		var args vm.WebArgs
+		var args types.WebArgs
 		if err := json.Unmarshal(input, &args); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -125,7 +126,7 @@ func main() {
 		}
 
 		if runCache[hash] == nil {
-			runCache[hash] = make(map[[32]byte]vm.ProgramRets, 1)
+			runCache[hash] = make(map[[32]byte]types.ProgramRets, 1)
 		}
 		runCache[hash][inputhash] = output
 

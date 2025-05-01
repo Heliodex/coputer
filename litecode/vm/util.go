@@ -26,7 +26,7 @@ type deserpath struct {
 type compiled struct {
 	deserpath
 	filepath       string
-	compiler       *Compiler
+	compiler       Compiler
 	requireHistory []string
 }
 
@@ -53,7 +53,7 @@ func (c Compiler) deserialise(b []byte, path, dbgpath string) (compiled, error) 
 	return compiled{
 		deserpath: deserpath{d, dbgpath},
 		filepath:  path,
-		compiler:  &c,
+		compiler:  c,
 	}, nil
 }
 
@@ -65,7 +65,7 @@ func (c Compiler) Compile(path string) (p compiled, err error) {
 		return compiled{
 			deserpath: dp,
 			filepath:  path,
-			compiler:  &c,
+			compiler:  c,
 		}, nil
 	}
 
@@ -94,6 +94,6 @@ func (c Compiler) Compile(path string) (p compiled, err error) {
 	return
 }
 
-func (p compiled) Load(env Env, args ProgramArgs) (co Coroutine, cancel func()) {
+func (p compiled) Load(env Env, args types.ProgramArgs) (co Coroutine, cancel func()) {
 	return loadmodule(p, env, map[string]types.Val{}, args)
 }

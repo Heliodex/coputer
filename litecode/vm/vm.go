@@ -5,9 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"iter"
-	"maps"
 	"math"
-	"net/url"
 	"reflect"
 	"slices"
 	"strings"
@@ -323,15 +321,15 @@ func fn(name string, f func(co *Coroutine, args ...types.Val) (r []types.Val, er
 	}
 }
 
-// Status represents the status of a coroutine.
-type Status uint8
+// status represents the status of a coroutine.
+type status uint8
 
 // Coroutine stati
 const (
-	CoSuspended Status = iota
-	CoRunning
-	CoNormal
-	CoDead
+	coSuspended status = iota
+	coRunning
+	coNormal
+	coDead
 )
 
 type yield struct {
@@ -359,124 +357,6 @@ func (e *Env) AddFn(f types.Function[*Coroutine]) {
 	*e = Env{f.Name: f}
 }
 
-// ProgramType represents the type of a program.
-type ProgramType uint8
-
-const (
-	// TestProgramType represents the type of a test program.
-	// Test programs are to be used for debugging and testing purposes only.
-	TestProgramType ProgramType = iota
-	// WebProgramType represents the type of a web program.
-	WebProgramType
-)
-
-// ProgramArgs represents the arguments passed to a program.
-type ProgramArgs interface {
-	Type() ProgramType
-}
-
-// ProgramRets represents the response returned from a program.
-type ProgramRets interface {
-	Type() ProgramType
-}
-
-// Test programs
-
-// Type returns WebProgramType.
-func (WebRets) Type() ProgramType {
-	return WebProgramType
-}
-
-// TestArgs stores the arguments passed to a test program.
-type TestArgs struct{}
-
-// Type returns TestProgramType.
-func (TestArgs) Type() ProgramType {
-	return TestProgramType
-}
-
-// TestRets stores the response returned from a test program.
-type TestRets struct{}
-
-func (r1 TestRets) Equal(r2 TestRets) error {
-	return nil
-}
-
-// Type returns TestProgramType.
-func (TestRets) Type() ProgramType {
-	return TestProgramType
-}
-
-// Web programs
-
-// WebUrl represents a parsed URL and its properties.
-type WebUrl struct {
-	Rawpath  string            `json:"rawpath"`
-	Path     string            `json:"path"`
-	Rawquery string            `json:"rawquery"`
-	Query    map[string]string `json:"query"`
-}
-
-func queryToMap(q url.Values) (m map[string]string) {
-	m = make(map[string]string, len(q))
-	for k, v := range q {
-		m[k] = strings.Join(v, "")
-	}
-
-	return
-}
-
-func WebUrlFromString(s string) (wurl WebUrl, err error) {
-	url, err := url.Parse(s)
-	if err != nil {
-		return
-	}
-
-	wurl.Rawpath = s
-	wurl.Path = url.Path
-	wurl.Rawquery = url.RawQuery
-	wurl.Query = queryToMap(url.Query())
-	return
-}
-
-// WebArgs stores the arguments passed to a web program.
-type WebArgs struct {
-	Url     WebUrl            `json:"url"`
-	Method  string            `json:"method"`
-	Headers map[string]string `json:"headers"`
-	Body    []byte            `json:"body"`
-}
-
-// Type returns WebProgramType.
-func (WebArgs) Type() ProgramType {
-	return WebProgramType
-}
-
-// WebRets stores the response returned from a web program.
-type WebRets struct {
-	StatusCode    int               `json:"statuscode"`
-	StatusMessage string            `json:"statusmessage"`
-	Headers       map[string]string `json:"headers"`
-	Body          []byte            `json:"body"`
-}
-
-func (r1 WebRets) Equal(r2 WebRets) error {
-	if r1.StatusCode != r2.StatusCode {
-		return fmt.Errorf("Expected StatusCode %d, got %d", r1.StatusCode, r2.StatusCode)
-	}
-	if r1.StatusMessage != r2.StatusMessage {
-		return fmt.Errorf("Expected StatusMessage %s, got %s", r1.StatusMessage, r2.StatusMessage)
-	}
-	if !maps.Equal(r1.Headers, r2.Headers) {
-		return fmt.Errorf("Expected Headers %v, got %v", r1.Headers, r2.Headers)
-	}
-	if !slices.Equal(r1.Body, r2.Body) {
-		return fmt.Errorf("Expected Body %q, got %q", string(r1.Body), string(r2.Body))
-	}
-
-	return nil
-}
-
 // Coroutine represents a Luau coroutine, including the main coroutine. Luau type `thread`
 type Coroutine struct {
 	body              types.Function[*Coroutine]
@@ -486,10 +366,10 @@ type Coroutine struct {
 	yield             chan yield
 	resume            chan []types.Val
 	dbg               *debugging
-	compiler          *Compiler
-	status            Status
+	compiler          Compiler // for require()
+	status            status
 	started           bool
-	programArgs       ProgramArgs // idk how
+	programArgs       types.ProgramArgs // idk how
 }
 
 func createCoroutine(body types.Function[*Coroutine], currentCo *Coroutine) *Coroutine {
@@ -517,7 +397,7 @@ func startCoroutine(co *Coroutine, args []types.Val) {
 	// fmt.Println(" RG calling coroutine body with", args)
 	r, err := (*co.body.Run)(co, args...)
 
-	co.status = CoDead
+	co.status = coDead
 	// fmt.Println("RG  yielding", r)
 	co.yield <- yield{r, err}
 	// fmt.Println("RG  yielded", r)
@@ -528,11 +408,11 @@ func (co *Coroutine) Resume(args ...types.Val) (r []types.Val, err error) {
 	if !co.started {
 		// fmt.Println("RM  starting", args)
 		co.started = true
-		co.status = CoRunning
+		co.status = coRunning
 
 		go startCoroutine(co, args)
 	} else {
-		co.status = CoRunning
+		co.status = coRunning
 		// fmt.Println("RM  resuming", args)
 		co.resume <- args
 		// fmt.Println("RM  resumed", args)
@@ -2250,7 +2130,7 @@ func wrapclosure(towrap toWrap) types.Function[*Coroutine] {
 	})
 }
 
-func loadmodule(m compiled, env Env, requireCache map[string]types.Val, args ProgramArgs) (co Coroutine, cancel func()) {
+func loadmodule(m compiled, env Env, requireCache map[string]types.Val, args types.ProgramArgs) (co Coroutine, cancel func()) {
 	alive := true
 
 	towrap := toWrap{

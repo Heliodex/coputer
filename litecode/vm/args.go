@@ -7,7 +7,7 @@ import (
 )
 
 func args_web(args Args) (r []types.Val, err error) {
-	pargs, ok := args.Co.programArgs.(WebArgs)
+	pargs, ok := args.Co.programArgs.(types.WebArgs)
 	if !ok {
 		return nil, errors.New("web args only available in web mode")
 	}

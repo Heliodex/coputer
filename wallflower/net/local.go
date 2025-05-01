@@ -1,8 +1,8 @@
 package net
 
 import (
+	"github.com/Heliodex/coputer/litecode/types"
 	"github.com/Heliodex/coputer/wallflower/keys"
-	"github.com/Heliodex/coputer/litecode/vm"
 )
 
 // real secret keys for the purposes of testing
@@ -18,7 +18,7 @@ var sampleKeys = [...]string{
 var sampleKeysUsed uint8 = 0
 
 func getSampleKeypair() (kp keys.Keypair) {
- if skBytes, err := keys.DecodeSK(sampleKeys[sampleKeysUsed]); err != nil {
+	if skBytes, err := keys.DecodeSK(sampleKeys[sampleKeysUsed]); err != nil {
 		panic("invalid sample key")
 	} else if kp, err = keys.KeypairSK(skBytes); err != nil {
 		panic("invalid keypair")
@@ -67,10 +67,10 @@ func (n *LocalNet) NewNode() (node *Node) {
 			Peer: peer,
 			Kp:   kp,
 		},
-		Peers: make(map[keys.PK]*keys.Peer),
-		SendRaw: n.SendRaw,
-		ReceiveRaw: recv,
-		resultsWaiting: make(map[[32]byte]map[[32]byte]chan vm.ProgramRets),
+		Peers:          make(map[keys.PK]*keys.Peer),
+		SendRaw:        n.SendRaw,
+		ReceiveRaw:     recv,
+		resultsWaiting: make(map[[32]byte]map[[32]byte]chan types.ProgramRets),
 	}
 
 	go node.Start()

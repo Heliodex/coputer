@@ -11,7 +11,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/Heliodex/coputer/litecode/vm"
+	"github.com/Heliodex/coputer/litecode/types"
 )
 
 const (
@@ -48,7 +48,7 @@ func StoreProgram(data []byte) (hash [32]byte, err error) {
 	return
 }
 
-func StartWebProgram(hash [32]byte, args vm.WebArgs) (output vm.WebRets, err error) {
+func StartWebProgram(hash [32]byte, args types.WebArgs) (output types.WebRets, err error) {
 	// encode to json
 	jsonargs, err := json.Marshal(args)
 	if err != nil {
@@ -63,9 +63,9 @@ func StartWebProgram(hash [32]byte, args vm.WebArgs) (output vm.WebRets, err err
 	// we need the body either way
 	b, err := io.ReadAll(res.Body)
 	if err != nil {
-		return vm.WebRets{}, err
+		return types.WebRets{}, err
 	} else if res.StatusCode != http.StatusOK {
-		return vm.WebRets{}, fmt.Errorf("bad status from execution server while starting web program: %s, %s", res.Status, b)
+		return types.WebRets{}, fmt.Errorf("bad status from execution server while starting web program: %s, %s", res.Status, b)
 	}
 
 	// deserialise it

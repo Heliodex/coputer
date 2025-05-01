@@ -3,36 +3,53 @@ package net
 import (
 	"crypto/sha3"
 	"net/http"
+	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/Heliodex/coputer/bundle"
-	"github.com/Heliodex/coputer/litecode/vm"
+	"github.com/Heliodex/coputer/litecode/types"
 )
 
-type ProgramTest[A vm.ProgramArgs, R vm.ProgramRets] struct {
+type ProgramTest[A types.ProgramArgs, R types.ProgramRets] struct {
 	Name string
 	Args A
 	Rets R
 }
 
-func url(p string) vm.WebUrl {
-	wurl, err := vm.WebUrlFromString(p)
+func queryToMap(q url.Values) (m map[string]string) {
+	m = make(map[string]string, len(q))
+	for k, v := range q {
+		m[k] = strings.Join(v, "")
+	}
+
+	return
+}
+
+func wurl(s string) (w types.WebArgsUrl) {
+	url, err := url.Parse(s)
 	if err != nil {
 		panic(err)
 	}
-	return wurl
+
+	return types.WebArgsUrl{
+		Rawpath:  s,
+		Path:     url.Path,
+		Rawquery: url.RawQuery,
+		Query:    queryToMap(url.Query()),
+	}
 }
 
 const testProgramPath = "../../test/programs"
 
-var webTests = [...]ProgramTest[vm.WebArgs, vm.WebRets]{
+var webTests = [...]ProgramTest[types.WebArgs, types.WebRets]{
 	{
 		"web1",
-		vm.WebArgs{
-			Url:    url("/"),
+		types.WebArgs{
+			Url:    wurl("/"),
 			Method: "GET",
 		},
-		vm.WebRets{
+		types.WebRets{
 			StatusCode:    200,
 			StatusMessage: http.StatusText(200),
 			Headers: map[string]string{
@@ -43,11 +60,11 @@ var webTests = [...]ProgramTest[vm.WebArgs, vm.WebRets]{
 	},
 	{
 		"web1",
-		vm.WebArgs{
-			Url:    url("/submit?"),
+		types.WebArgs{
+			Url:    wurl("/submit?"),
 			Method: "POST",
 		},
-		vm.WebRets{
+		types.WebRets{
 			StatusCode:    200,
 			StatusMessage: http.StatusText(200),
 			Headers: map[string]string{
@@ -58,11 +75,11 @@ var webTests = [...]ProgramTest[vm.WebArgs, vm.WebRets]{
 	},
 	{
 		"web2",
-		vm.WebArgs{
-			Url:    url("/"),
+		types.WebArgs{
+			Url:    wurl("/"),
 			Method: "POST",
 		},
-		vm.WebRets{
+		types.WebRets{
 			StatusCode:    405,
 			StatusMessage: http.StatusText(405),
 			Headers: map[string]string{
@@ -73,11 +90,11 @@ var webTests = [...]ProgramTest[vm.WebArgs, vm.WebRets]{
 	},
 	{
 		"web2",
-		vm.WebArgs{
-			Url:    url("/"),
+		types.WebArgs{
+			Url:    wurl("/"),
 			Method: "GET",
 		},
-		vm.WebRets{
+		types.WebRets{
 			StatusCode:    200,
 			StatusMessage: http.StatusText(200),
 			Headers: map[string]string{
@@ -88,11 +105,11 @@ var webTests = [...]ProgramTest[vm.WebArgs, vm.WebRets]{
 	},
 	{
 		"web2",
-		vm.WebArgs{
-			Url:    url("/hello"),
+		types.WebArgs{
+			Url:    wurl("/hello"),
 			Method: "GET",
 		},
-		vm.WebRets{
+		types.WebRets{
 			StatusCode:    200,
 			StatusMessage: http.StatusText(200),
 			Headers: map[string]string{
@@ -103,11 +120,11 @@ var webTests = [...]ProgramTest[vm.WebArgs, vm.WebRets]{
 	},
 	{
 		"web2",
-		vm.WebArgs{
-			Url:    url("/error"),
+		types.WebArgs{
+			Url:    wurl("/error"),
 			Method: "GET",
 		},
-		vm.WebRets{
+		types.WebRets{
 			StatusCode:    454,
 			StatusMessage: "Error 454",
 			Headers: map[string]string{

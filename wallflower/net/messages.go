@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Heliodex/coputer/litecode/types"
 	"github.com/Heliodex/coputer/wallflower/keys"
-	"github.com/Heliodex/coputer/litecode/vm"
 )
 
 type (
@@ -43,16 +43,16 @@ func (m AnyMsg) Deserialise() (SentMsg, error) {
 		copy(hash[:], m.Body)
 		return mStoreResult{hash}, nil
 	case tRun:
-		ptype := vm.ProgramType(m.Body[0])
+		ptype := types.ProgramType(m.Body[0])
 
 		var hash [32]byte
 		copy(hash[:], m.Body[1:][:32])
 		rest := m.Body[33:]
 
-		var in vm.ProgramArgs
+		var in types.ProgramArgs
 		switch ptype {
-		case vm.WebProgramType:
-			var tin vm.WebArgs
+		case types.WebProgramType:
+			var tin types.WebArgs
 			if err := json.Unmarshal(rest, &tin); err != nil {
 				return nil, fmt.Errorf("failed to unmarshal web args: %w", err)
 			}
@@ -63,18 +63,18 @@ func (m AnyMsg) Deserialise() (SentMsg, error) {
 
 		return mRun{ptype, hash, in}, nil
 	case tRunResult:
-		ptype := vm.ProgramType(m.Body[0])
+		ptype := types.ProgramType(m.Body[0])
 
 		var hash, inputhash [32]byte
 		copy(hash[:], m.Body[1:][:32])
 		copy(inputhash[:], m.Body[33:][:32])
 		rest := m.Body[65:]
 
-		var res vm.ProgramRets
+		var res types.ProgramRets
 
 		switch ptype {
-		case vm.WebProgramType:
-			var tres vm.WebRets
+		case types.WebProgramType:
+			var tres types.WebRets
 			if err := json.Unmarshal(rest, &tres); err != nil {
 				return nil, fmt.Errorf("failed to unmarshal web result: %w", err)
 			}
@@ -110,9 +110,9 @@ func (m mStoreResult) Serialise() []byte {
 }
 
 type mRun struct {
-	Type  vm.ProgramType // 1
+	Type  types.ProgramType // 1
 	Hash  [32]byte
-	Input vm.ProgramArgs
+	Input types.ProgramArgs
 }
 
 func (m mRun) Serialise() []byte {
@@ -131,10 +131,10 @@ func (m mRun) Serialise() []byte {
 }
 
 type mRunResult struct {
-	Type      vm.ProgramType // 1
+	Type      types.ProgramType // 1
 	Hash      [32]byte
 	InputHash [32]byte
-	Result    vm.ProgramRets
+	Result    types.ProgramRets
 }
 
 func (m mRunResult) Serialise() []byte {

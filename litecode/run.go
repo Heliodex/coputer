@@ -12,11 +12,11 @@ import (
 	"github.com/Heliodex/coputer/litecode/vm"
 )
 
-func startWeb(v any) (rets vm.WebRets, err error) {
+func startWeb(v any) (rets types.WebRets, err error) {
 	t, ok := v.(*vm.Table)
 	if !ok {
 		fmt.Println("no table", v, vm.TypeOf(v))
-		return vm.WebRets{}, errors.New("web program did not return a table")
+		return types.WebRets{}, errors.New("web program did not return a table")
 	}
 
 	// ahh, error checking beauty
@@ -25,11 +25,11 @@ func startWeb(v any) (rets vm.WebRets, err error) {
 	if statuscode := t.GetHash("statuscode"); statuscode == nil {
 		tstatuscode = 200
 	} else if tstatuscode, ok = statuscode.(float64); !ok {
-		return vm.WebRets{}, errors.New("return statuscode, if provided, must be a number")
+		return types.WebRets{}, errors.New("return statuscode, if provided, must be a number")
 	}
 	rets.StatusCode = int(tstatuscode)
 	if rets.StatusCode < 100 || rets.StatusCode > 599 {
-		return vm.WebRets{}, errors.New("return statuscode, if provided, must be between 100 and 599")
+		return types.WebRets{}, errors.New("return statuscode, if provided, must be between 100 and 599")
 	}
 
 	statusmesage := t.GetHash("statusmessage")
@@ -40,22 +40,22 @@ func startWeb(v any) (rets vm.WebRets, err error) {
 			rets.StatusMessage = fmt.Sprintf("Error %d", rets.StatusCode)
 		}
 	} else if rets.StatusMessage, ok = statusmesage.(string); !ok {
-		return vm.WebRets{}, errors.New("return statusmessage, if provided, must be a string")
+		return types.WebRets{}, errors.New("return statusmessage, if provided, must be a string")
 	}
 
 	if headers := t.GetHash("headers"); headers != nil {
 		theaders, ok := headers.(*vm.Table)
 		if !ok {
-			return vm.WebRets{}, errors.New("return headers, if provided, must be a table")
+			return types.WebRets{}, errors.New("return headers, if provided, must be a table")
 		}
 		rets.Headers = make(map[string]string, len(theaders.Hash))
 
 		// we don't have to care about the array content, but we will here
 		for k, v := range theaders.Iter() {
 			if tk, ok := k.(string); !ok {
-				return vm.WebRets{}, errors.New("header keys must be strings")
+				return types.WebRets{}, errors.New("header keys must be strings")
 			} else if tv, ok := v.(string); !ok {
-				return vm.WebRets{}, errors.New("header values must be strings")
+				return types.WebRets{}, errors.New("header values must be strings")
 			} else {
 				rets.Headers[tk] = tv
 			}
@@ -65,7 +65,7 @@ func startWeb(v any) (rets vm.WebRets, err error) {
 	if body := t.GetHash("body"); body != nil {
 		tbody, ok := body.(*types.Buffer)
 		if !ok {
-			return vm.WebRets{}, errors.New("return body, if provided, must be a buffer")
+			return types.WebRets{}, errors.New("return body, if provided, must be a buffer")
 		}
 		rets.Body = *tbody
 	} else { // default to status message if no body
@@ -78,7 +78,7 @@ func startWeb(v any) (rets vm.WebRets, err error) {
 	return
 }
 
-func Start(c vm.Compiler, hash string, args vm.ProgramArgs) (output vm.ProgramRets, err error) {
+func Start(c vm.Compiler, hash string, args types.ProgramArgs) (output types.ProgramRets, err error) {
 	p, err := c.Compile(filepath.Join(bundle.ProgramsDir, hash, bundle.Entrypoint))
 	if err != nil {
 		return
@@ -113,9 +113,9 @@ func Start(c vm.Compiler, hash string, args vm.ProgramArgs) (output vm.ProgramRe
 	ret := r[0]
 
 	switch args.Type() {
-	case vm.TestProgramType:
+	case types.TestProgramType:
 		return nil, errors.New("test program type not supported in this context")
-	case vm.WebProgramType:
+	case types.WebProgramType:
 		return startWeb(ret)
 	default:
 		return nil, errors.New("unknown program type")
