@@ -3,6 +3,7 @@ package vm
 import (
 	"errors"
 
+	"github.com/Heliodex/coputer/litecode/internal"
 	"github.com/Heliodex/coputer/litecode/types"
 )
 
@@ -89,7 +90,7 @@ func coroutine_yield(args Args) (r []types.Val, err error) {
 	}
 
 	// fmt.Println("C.Y yielding")
-	co.YieldChan <- types.Yield{Rets: args.List}
+	co.YieldChan <- internal.Yield{Rets: args.List}
 	// fmt.Println("C.Y yielded", "waiting for resume")
 	return <-co.ResumeChan, nil
 	// fmt.Println("C.Y resumed")

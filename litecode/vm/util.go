@@ -39,8 +39,8 @@ func Compile(c types.Compiler, path string) (p compiled, err error) {
 	if dp, ok := c.Cache[hash]; ok {
 		return compiled{
 			Deserpath: dp,
-			Filepath:        path,
-			Compiler:        c,
+			Filepath:  path,
+			Compiler:  c,
 		}, nil
 	}
 
@@ -67,9 +67,12 @@ func Compile(c types.Compiler, path string) (p compiled, err error) {
 
 	c.Cache[hash] = p.Deserpath
 	return compiled{
-		Deserpath: types.Deserpath{d, pathext},
-		Filepath:        path,
-		Compiler:        c,
+		Deserpath: types.Deserpath{
+			Deserialised: d,
+			Dbgpath:      pathext,
+		},
+		Filepath: path,
+		Compiler: c,
 	}, nil
 }
 

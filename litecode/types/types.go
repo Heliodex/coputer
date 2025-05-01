@@ -1,7 +1,7 @@
-// package types holds type definitions for the Litecode VM.
+// package types holds type definitions used for interfacing with the Litecode VM.
 package types
 
-import "fmt"
+import "github.com/Heliodex/coputer/litecode/internal"
 
 // Status represents the status of a coroutine.
 type Status uint8
@@ -15,44 +15,8 @@ type Debugging struct {
 	Name string
 }
 
-// graah vm internals
-// this package is getting out of hand
-type OpInfo struct {
-	Mode, KMode uint8
-	HasAux      bool
-}
-
-type Inst struct {
-	OpInfo
-
-	// K0, K1, K2 for imports (up to 3 lay.ers.deep)
-	K, K0, K1, K2       Val
-	KC, Opcode, A, B, C uint8
-	D, E                int32
-	Aux                 uint32
-	KN                  bool
-}
-
-type Proto struct {
-	Dbgname              string
-	K                    []Val
-	Code                 []*Inst
-	InstLineInfo, Protos []uint32
-	Dbgcode              []uint8
-
-	// LineDefined uint32
-	MaxStackSize, NumParams, Nups uint8
-	LineInfoEnabled               bool
-}
-
-// simpler compilation, deserialisation, and loading API
-type Deserialised struct {
-	MainProto *Proto
-	ProtoList []*Proto
-}
-
 type Deserpath struct {
-	Deserialised
+	internal.Deserialised
 	Dbgpath string
 }
 
@@ -65,7 +29,7 @@ type Compiler struct {
 // Luau types
 type (
 	// Val represents any possible Luau value. Luau type `any`
-	Val any
+	Val = internal.Val
 
 	// Function represents a native or wrapped Luau function. Luau type `function`
 	Function struct {
@@ -86,9 +50,9 @@ type (
 		Env               Env
 		Filepath, Dbgpath string   // actually does well here
 		RequireHistory    []string // prevents cyclic module dependencies
-		YieldChan         chan Yield
+		YieldChan         chan internal.Yield
 		ResumeChan        chan []Val
-		Dbg               *Debugging
+		Dbg               Debugging
 		Compiler          Compiler // for require()
 		Status            Status
 		Started           bool
@@ -106,12 +70,15 @@ const (
 
 // Error yields an error to the coroutine, killing it shortly after.
 func (co *Coroutine) Error(err error) {
-	co.YieldChan <- Yield{nil, &CoError{
-		Line:    co.Dbg.Line,
-		Dbgname: co.Dbg.Name,
-		Path:    co.Dbgpath,
-		Sub:     err,
-	}}
+	co.YieldChan <- internal.Yield{
+		Rets: nil,
+		Err: &internal.CoError{
+			Line:    co.Dbg.Line,
+			Dbgname: co.Dbg.Name,
+			Path:    co.Dbgpath,
+			Sub:     err,
+		},
+	}
 }
 
 func startCoroutine(co *Coroutine, args []Val) {
@@ -120,7 +87,10 @@ func startCoroutine(co *Coroutine, args []Val) {
 
 	co.Status = CoDead
 	// fmt.Println("RG  yielding", r)
-	co.YieldChan <- Yield{r, err}
+	co.YieldChan <- internal.Yield{
+		Rets: r,
+		Err:  err,
+	}
 	// fmt.Println("RG  yielded", r)
 }
 
@@ -142,24 +112,6 @@ func (co *Coroutine) Resume(args ...Val) (r []Val, err error) {
 	y := <-co.YieldChan
 	// fmt.Println("RM  waited for yield", y.rets)
 	return y.Rets, y.Err
-}
-
-// CoError is a custom error type used in coroutines that includes debugging information.
-type CoError struct {
-	Line          uint32
-	Dbgname, Path string
-	Sub           error
-}
-
-func (e *CoError) Error() string {
-	// MUCH better than previous
-	return fmt.Sprintf("%s:%d: function %s\n%s", e.Path, e.Line, e.Dbgname, e.Sub.Error())
-}
-
-// Yield represents a coroutine yield, containing the return values or error if one occurred.
-type Yield struct {
-	Rets []Val
-	Err  error
 }
 
 // Env represents a global Luau environment.

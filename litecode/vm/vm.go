@@ -11,6 +11,7 @@ import (
 	"strings"
 	"unsafe"
 
+	"github.com/Heliodex/coputer/litecode/internal"
 	"github.com/Heliodex/coputer/litecode/types"
 )
 
@@ -212,90 +213,90 @@ func extract(n, field, width uint32) uint32 {
 //		6 = AUX number low 24 bits
 // HasAux boolean specifies whether the instruction is followed up with an AUX word, which may be used to execute the instruction.
 
-var opList = [83]types.OpInfo{
-	{0, 0, false}, // NOP
-	{0, 0, false}, // BREAK
-	{1, 0, false}, // LOADNIL
-	{3, 0, false}, // LOADB
-	{4, 0, false}, // LOADN
-	{4, 3, false}, // LOADK
-	{2, 0, false}, // MOVE
-	{1, 1, true},  // GETGLOBAL
-	{1, 1, true},  // SETGLOBAL
-	{2, 0, false}, // GETUPVAL
-	{2, 0, false}, // SETUPVAL
-	{1, 0, false}, // CLOSEUPVALS
-	{4, 4, true},  // GETIMPORT
-	{3, 0, false}, // GETTABLE
-	{3, 0, false}, // SETTABLE
-	{3, 1, true},  // GETTABLEKS
-	{3, 1, true},  // SETTABLEKS
-	{3, 0, false}, // GETTABLEN
-	{3, 0, false}, // SETTABLEN
-	{4, 0, false}, // NEWCLOSURE
-	{3, 1, true},  // NAMECALL
-	{3, 0, false}, // CALL
-	{2, 0, false}, // RETURN
-	{4, 0, false}, // JUMP
-	{4, 0, false}, // JUMPBACK
-	{4, 0, false}, // JUMPIF
-	{4, 0, false}, // JUMPIFNOT
-	{4, 0, true},  // JUMPIFEQ
-	{4, 0, true},  // JUMPIFLE
-	{4, 0, true},  // JUMPIFLT
-	{4, 0, true},  // JUMPIFNOTEQ
-	{4, 0, true},  // JUMPIFNOTLE
-	{4, 0, true},  // JUMPIFNOTLT
-	{3, 0, false}, // ADD
-	{3, 0, false}, // SUB
-	{3, 0, false}, // MUL
-	{3, 0, false}, // DIV
-	{3, 0, false}, // MOD
-	{3, 0, false}, // POW
-	{3, 2, false}, // ADDK
-	{3, 2, false}, // SUBK
-	{3, 2, false}, // MULK
-	{3, 2, false}, // DIVK
-	{3, 2, false}, // MODK
-	{3, 2, false}, // POWK
-	{3, 0, false}, // AND
-	{3, 0, false}, // OR
-	{3, 2, false}, // ANDK
-	{3, 2, false}, // ORK
-	{3, 0, false}, // CONCAT
-	{2, 0, false}, // NOT
-	{2, 0, false}, // MINUS
-	{2, 0, false}, // LENGTH
-	{2, 0, true},  // NEWTABLE
-	{4, 3, false}, // DUPTABLE
-	{3, 0, true},  // SETLIST
-	{4, 0, false}, // FORNPREP
-	{4, 0, false}, // FORNLOOP
-	{4, 8, true},  // FORGLOOP
-	{4, 0, false}, // FORGPREP_INEXT
-	{3, 1, true},  // FASTCALL3
-	{4, 0, false}, // FORGPREP_NEXT
-	{0, 0, false}, // FORGLOOP_NEXT (deprecated)
-	{2, 0, false}, // GETVARARGS
-	{4, 3, false}, // DUPCLOSURE
-	{1, 0, false}, // PREPVARARGS
-	{1, 1, true},  // LOADKX
-	{5, 0, false}, // JUMPX
-	{3, 0, false}, // FASTCALL
-	{5, 0, false}, // COVERAGE
-	{2, 0, false}, // CAPTURE
-	{3, 7, false}, // SUBRK
-	{3, 7, false}, // DIVRK
-	{3, 0, false}, // FASTCALL1
-	{3, 0, true},  // FASTCALL2
-	{3, 1, true},  // FASTCALL2K
-	{4, 0, false}, // FORGPREP
-	{4, 5, true},  // JUMPXEQKNIL
-	{4, 5, true},  // JUMPXEQKB
-	{4, 6, true},  // JUMPXEQKN
-	{4, 6, true},  // JUMPXEQKS
-	{3, 0, false}, // IDIV
-	{3, 2, false}, // IDIVK
+var opList = [83]internal.OpInfo{
+	{Mode: 0, KMode: 0, HasAux: false}, // NOP
+	{Mode: 0, KMode: 0, HasAux: false}, // BREAK
+	{Mode: 1, KMode: 0, HasAux: false}, // LOADNIL
+	{Mode: 3, KMode: 0, HasAux: false}, // LOADB
+	{Mode: 4, KMode: 0, HasAux: false}, // LOADN
+	{Mode: 4, KMode: 3, HasAux: false}, // LOADK
+	{Mode: 2, KMode: 0, HasAux: false}, // MOVE
+	{Mode: 1, KMode: 1, HasAux: true},  // GETGLOBAL
+	{Mode: 1, KMode: 1, HasAux: true},  // SETGLOBAL
+	{Mode: 2, KMode: 0, HasAux: false}, // GETUPVAL
+	{Mode: 2, KMode: 0, HasAux: false}, // SETUPVAL
+	{Mode: 1, KMode: 0, HasAux: false}, // CLOSEUPVALS
+	{Mode: 4, KMode: 4, HasAux: true},  // GETIMPORT
+	{Mode: 3, KMode: 0, HasAux: false}, // GETTABLE
+	{Mode: 3, KMode: 0, HasAux: false}, // SETTABLE
+	{Mode: 3, KMode: 1, HasAux: true},  // GETTABLEKS
+	{Mode: 3, KMode: 1, HasAux: true},  // SETTABLEKS
+	{Mode: 3, KMode: 0, HasAux: false}, // GETTABLEN
+	{Mode: 3, KMode: 0, HasAux: false}, // SETTABLEN
+	{Mode: 4, KMode: 0, HasAux: false}, // NEWCLOSURE
+	{Mode: 3, KMode: 1, HasAux: true},  // NAMECALL
+	{Mode: 3, KMode: 0, HasAux: false}, // CALL
+	{Mode: 2, KMode: 0, HasAux: false}, // RETURN
+	{Mode: 4, KMode: 0, HasAux: false}, // JUMP
+	{Mode: 4, KMode: 0, HasAux: false}, // JUMPBACK
+	{Mode: 4, KMode: 0, HasAux: false}, // JUMPIF
+	{Mode: 4, KMode: 0, HasAux: false}, // JUMPIFNOT
+	{Mode: 4, KMode: 0, HasAux: true},  // JUMPIFEQ
+	{Mode: 4, KMode: 0, HasAux: true},  // JUMPIFLE
+	{Mode: 4, KMode: 0, HasAux: true},  // JUMPIFLT
+	{Mode: 4, KMode: 0, HasAux: true},  // JUMPIFNOTEQ
+	{Mode: 4, KMode: 0, HasAux: true},  // JUMPIFNOTLE
+	{Mode: 4, KMode: 0, HasAux: true},  // JUMPIFNOTLT
+	{Mode: 3, KMode: 0, HasAux: false}, // ADD
+	{Mode: 3, KMode: 0, HasAux: false}, // SUB
+	{Mode: 3, KMode: 0, HasAux: false}, // MUL
+	{Mode: 3, KMode: 0, HasAux: false}, // DIV
+	{Mode: 3, KMode: 0, HasAux: false}, // MOD
+	{Mode: 3, KMode: 0, HasAux: false}, // POW
+	{Mode: 3, KMode: 2, HasAux: false}, // ADDK
+	{Mode: 3, KMode: 2, HasAux: false}, // SUBK
+	{Mode: 3, KMode: 2, HasAux: false}, // MULK
+	{Mode: 3, KMode: 2, HasAux: false}, // DIVK
+	{Mode: 3, KMode: 2, HasAux: false}, // MODK
+	{Mode: 3, KMode: 2, HasAux: false}, // POWK
+	{Mode: 3, KMode: 0, HasAux: false}, // AND
+	{Mode: 3, KMode: 0, HasAux: false}, // OR
+	{Mode: 3, KMode: 2, HasAux: false}, // ANDK
+	{Mode: 3, KMode: 2, HasAux: false}, // ORK
+	{Mode: 3, KMode: 0, HasAux: false}, // CONCAT
+	{Mode: 2, KMode: 0, HasAux: false}, // NOT
+	{Mode: 2, KMode: 0, HasAux: false}, // MINUS
+	{Mode: 2, KMode: 0, HasAux: false}, // LENGTH
+	{Mode: 2, KMode: 0, HasAux: true},  // NEWTABLE
+	{Mode: 4, KMode: 3, HasAux: false}, // DUPTABLE
+	{Mode: 3, KMode: 0, HasAux: true},  // SETLIST
+	{Mode: 4, KMode: 0, HasAux: false}, // FORNPREP
+	{Mode: 4, KMode: 0, HasAux: false}, // FORNLOOP
+	{Mode: 4, KMode: 8, HasAux: true},  // FORGLOOP
+	{Mode: 4, KMode: 0, HasAux: false}, // FORGPREP_INEXT
+	{Mode: 3, KMode: 1, HasAux: true},  // FASTCALL3
+	{Mode: 4, KMode: 0, HasAux: false}, // FORGPREP_NEXT
+	{Mode: 0, KMode: 0, HasAux: false}, // FORGLOOP_NEXT (deprecated)
+	{Mode: 2, KMode: 0, HasAux: false}, // GETVARARGS
+	{Mode: 4, KMode: 3, HasAux: false}, // DUPCLOSURE
+	{Mode: 1, KMode: 0, HasAux: false}, // PREPVARARGS
+	{Mode: 1, KMode: 1, HasAux: true},  // LOADKX
+	{Mode: 5, KMode: 0, HasAux: false}, // JUMPX
+	{Mode: 3, KMode: 0, HasAux: false}, // FASTCALL
+	{Mode: 5, KMode: 0, HasAux: false}, // COVERAGE
+	{Mode: 2, KMode: 0, HasAux: false}, // CAPTURE
+	{Mode: 3, KMode: 7, HasAux: false}, // SUBRK
+	{Mode: 3, KMode: 7, HasAux: false}, // DIVRK
+	{Mode: 3, KMode: 0, HasAux: false}, // FASTCALL1
+	{Mode: 3, KMode: 0, HasAux: true},  // FASTCALL2
+	{Mode: 3, KMode: 1, HasAux: true},  // FASTCALL2K
+	{Mode: 4, KMode: 0, HasAux: false}, // FORGPREP
+	{Mode: 4, KMode: 5, HasAux: true},  // JUMPXEQKNIL
+	{Mode: 4, KMode: 5, HasAux: true},  // JUMPXEQKB
+	{Mode: 4, KMode: 6, HasAux: true},  // JUMPXEQKN
+	{Mode: 4, KMode: 6, HasAux: true},  // JUMPXEQKS
+	{Mode: 3, KMode: 0, HasAux: false}, // IDIV
+	{Mode: 3, KMode: 2, HasAux: false}, // IDIVK
 }
 
 // Functions and Tables are used as pointers normally, as they need to be hashed
@@ -313,7 +314,7 @@ func createCoroutine(body types.Function, currentCo *types.Coroutine) *types.Cor
 		Body:       body,
 		Filepath:   currentCo.Filepath,
 		Dbgpath:    currentCo.Dbgpath,
-		YieldChan:  make(chan types.Yield, 1),
+		YieldChan:  make(chan internal.Yield, 1),
 		ResumeChan: make(chan []types.Val, 1),
 	}
 }
@@ -364,7 +365,7 @@ var exts = types.Env{
 // var VectorSize = 4
 // var AllowProxyErrors = false
 
-func checkkmode(i *types.Inst, k []types.Val) {
+func checkkmode(i *internal.Inst, k []types.Val) {
 	switch i.KMode {
 	case 1: // AUX
 		if i.Aux < uint32(len(k)) { // sometimes huge for some reason
@@ -495,15 +496,15 @@ func (s *stream) CheckEnd() error {
 }
 
 // reads either 1 or 2 words
-func readInst(codeList *[]*types.Inst, s *stream) bool {
+func readInst(codeList *[]*internal.Inst, s *stream) bool {
 	value := s.rWord()
 
 	opcode := uint8(value)
 	opinfo := opList[opcode]
 
-	i := types.Inst{
+	i := internal.Inst{
 		OpInfo: opinfo,
-		Opcode:       opcode,
+		Opcode: opcode,
 	}
 
 	value >>= 8
@@ -527,14 +528,14 @@ func readInst(codeList *[]*types.Inst, s *stream) bool {
 	if opinfo.HasAux {
 		i.Aux = s.rWord()
 
-		*codeList = append(*codeList, &types.Inst{})
+		*codeList = append(*codeList, &internal.Inst{})
 	}
 
 	return opinfo.HasAux
 }
 
-func readProto(stringList []string, s *stream) (p *types.Proto, err error) {
-	p = &types.Proto{
+func readProto(stringList []string, s *stream) (p *internal.Proto, err error) {
+	p = &internal.Proto{
 		MaxStackSize: s.rByte(),
 		NumParams:    s.rByte(),
 		Nups:         s.rByte(),
@@ -655,16 +656,16 @@ func readProto(stringList []string, s *stream) (p *types.Proto, err error) {
 	return
 }
 
-func deserialise(b []byte) (des types.Deserialised, err error) {
+func deserialise(b []byte) (des internal.Deserialised, err error) {
 	s := &stream{data: b}
 
 	if luauVersion := s.rByte(); luauVersion == 0 {
-		return types.Deserialised{}, errors.New("the provided bytecode is an error message")
+		return internal.Deserialised{}, errors.New("the provided bytecode is an error message")
 	} else if luauVersion != 6 {
-		return types.Deserialised{}, errors.New("the version of the provided bytecode is unsupported")
+		return internal.Deserialised{}, errors.New("the version of the provided bytecode is unsupported")
 	}
 	if s.rByte() != 3 { // types version
-		return types.Deserialised{}, errors.New("the types version of the provided bytecode is unsupported")
+		return internal.Deserialised{}, errors.New("the types version of the provided bytecode is unsupported")
 	}
 
 	stringCount := s.rVarInt()
@@ -679,7 +680,7 @@ func deserialise(b []byte) (des types.Deserialised, err error) {
 	}
 
 	protoCount := s.rVarInt()
-	protoList := make([]*types.Proto, protoCount)
+	protoList := make([]*internal.Proto, protoCount)
 	for i := range protoCount {
 		protoList[i], err = readProto(stringList, s)
 		if err != nil {
@@ -690,7 +691,10 @@ func deserialise(b []byte) (des types.Deserialised, err error) {
 	mainProto := protoList[s.rVarInt()]
 	mainProto.Dbgname = "(main)"
 
-	return types.Deserialised{mainProto, protoList}, s.CheckEnd()
+	return internal.Deserialised{
+		MainProto: mainProto,
+		ProtoList: protoList,
+	}, s.CheckEnd()
 }
 
 type iterator struct {
@@ -711,15 +715,15 @@ func truthy(v types.Val) bool {
 }
 
 var luautype = map[string]string{
-	"nil":       "nil",
-	"float64":   "number",
-	"string":    "string",
-	"bool":      "boolean",
-	"*vm.Table": "table",
-	"types.Function": "function",
+	"nil":              "nil",
+	"float64":          "number",
+	"string":           "string",
+	"bool":             "boolean",
+	"*vm.Table":        "table",
+	"types.Function":   "function",
 	"*types.Coroutine": "thread",
-	"*types.Buffer": "buffer",
-	"types.Vector":  "vector",
+	"*types.Buffer":    "buffer",
+	"types.Vector":     "vector",
 }
 
 func invalidCompare(op, ta, tb string) error {
@@ -1003,8 +1007,8 @@ func gettable(index, v types.Val) (types.Val, error) {
 }
 
 type toWrap struct {
-	proto     *types.Proto
-	protoList []*types.Proto
+	proto     *internal.Proto
+	protoList []*internal.Proto
 	upvals    []*upval
 	alive     *bool
 	env       types.Env
@@ -1044,7 +1048,7 @@ func moveStack(stack *[]types.Val, src []types.Val, b, t int32) {
 	}
 }
 
-func getImport(i types.Inst, towrap toWrap, stack *[]types.Val) error {
+func getImport(i internal.Inst, towrap toWrap, stack *[]types.Val) error {
 	k0 := i.K0
 	imp := exts[k0]
 	if imp == nil {
@@ -1075,7 +1079,7 @@ func getImport(i types.Inst, towrap toWrap, stack *[]types.Val) error {
 	return nil
 }
 
-func newClosure(pc *int32, i types.Inst, towrap toWrap, p *types.Proto, stack *[]types.Val, openUpvals *[]*upval, upvals []*upval) {
+func newClosure(pc *int32, i internal.Inst, towrap toWrap, p *internal.Proto, stack *[]types.Val, openUpvals *[]*upval, upvals []*upval) {
 	newProto := towrap.protoList[p.Protos[i.D]-1]
 
 	nups := newProto.Nups
@@ -1129,7 +1133,7 @@ func newClosure(pc *int32, i types.Inst, towrap toWrap, p *types.Proto, stack *[
 	}
 }
 
-func namecall(pc, top *int32, i *types.Inst, p *types.Proto, stack *[]types.Val, co *types.Coroutine, op *uint8) (err error) {
+func namecall(pc, top *int32, i *internal.Inst, p *internal.Proto, stack *[]types.Val, co *types.Coroutine, op *uint8) (err error) {
 	A, B := i.A, i.B
 	kv := i.K.(string)
 	// fmt.Println("kv", kv)
@@ -1223,7 +1227,7 @@ func handleRequire(towrap toWrap, lc compiled, co *types.Coroutine) ([]types.Val
 	return []types.Val{ret}, nil
 }
 
-func call(top *int32, i types.Inst, towrap toWrap, stack *[]types.Val, co *types.Coroutine) (err error) {
+func call(top *int32, i internal.Inst, towrap toWrap, stack *[]types.Val, co *types.Coroutine) (err error) {
 	A, B, C := int32(i.A), int32(i.B), i.C
 
 	var params int32
@@ -1284,7 +1288,7 @@ func call(top *int32, i types.Inst, towrap toWrap, stack *[]types.Val, co *types
 }
 
 // for gloop lel
-func forgloop(pc, top *int32, i types.Inst, stack *[]types.Val, co *types.Coroutine, generalisedIterators *map[types.Inst]*iterator) (err error) {
+func forgloop(pc, top *int32, i internal.Inst, stack *[]types.Val, co *types.Coroutine, generalisedIterators *map[internal.Inst]*iterator) (err error) {
 	A := int32(i.A)
 	res := int32(i.K.(uint32))
 
@@ -1337,7 +1341,7 @@ func forgloop(pc, top *int32, i types.Inst, stack *[]types.Val, co *types.Corout
 	return
 }
 
-func dupClosure(pc *int32, i types.Inst, towrap toWrap, p *types.Proto, stack *[]types.Val, upvals []*upval) {
+func dupClosure(pc *int32, i internal.Inst, towrap toWrap, p *internal.Proto, stack *[]types.Val, upvals []*upval) {
 	newProto := towrap.protoList[i.K.(uint32)]
 
 	nups := newProto.Nups
@@ -1368,10 +1372,10 @@ func dupClosure(pc *int32, i types.Inst, towrap toWrap, p *types.Proto, stack *[
 func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList []types.Val, vargsLen uint8) (r []types.Val, err error) {
 	p, upvals := towrap.proto, towrap.upvals
 	// int32 > uint32 lel
-	pc, top, openUpvals, generalisedIterators := int32(1), int32(-1), []*upval{}, map[types.Inst]*iterator{}
+	pc, top, openUpvals, generalisedIterators := int32(1), int32(-1), []*upval{}, map[internal.Inst]*iterator{}
 
 	var handlingBreak bool
-	var i types.Inst
+	var i internal.Inst
 	var op uint8
 
 	// a a a a
@@ -1966,28 +1970,27 @@ func wrapclosure(towrap toWrap) types.Function {
 			list = args[np:]
 		}
 
-		originalDebug := co.Dbg
+		// prevent line mismatches (error/loc.luau)
+		initDbg := co.Dbg
+		defer func() {
+			co.Dbg = initDbg
+		}()
 
-		dbg := &types.Debugging{ /* enabled: proto.lineinfoenabled, opcode: 255 */ }
-		// fmt.Println("started on", co.Dbg.line, dbg.line)
-		co.Dbg = dbg
-
+		// fmt.Println("started on", co.Dbg.Line)
 		r, err = execute(towrap, &stack, co, list, max(la-np, 0))
-		// fmt.Println("ended on", co.Dbg.line, dbg.line)
+		// fmt.Println("ended on", co.Dbg.Line)
 		if !*towrap.alive {
 			return
 		}
 		if err != nil {
-			return nil, &types.CoError{
-				Line:    dbg.Line,
-				Dbgname: dbg.Name,
+			return nil, &internal.CoError{
+				Line:    co.Dbg.Line,
+				Dbgname: co.Dbg.Name,
 				Path:    co.Dbgpath,
 				Sub:     err,
 			}
 		}
 
-		// prevent line mismatches (error/loc.luau)
-		co.Dbg = originalDebug
 		return
 	})
 }
@@ -2009,7 +2012,7 @@ func loadmodule(m compiled, env types.Env, requireCache map[string]types.Val, ar
 		Filepath:       m.Filepath,
 		Dbgpath:        m.Dbgpath,
 		RequireHistory: m.RequireHistory,
-		YieldChan:      make(chan types.Yield, 1),
+		YieldChan:      make(chan internal.Yield, 1),
 		ResumeChan:     make(chan []types.Val, 1),
 		Compiler:       m.Compiler,
 		ProgramArgs:    args,
