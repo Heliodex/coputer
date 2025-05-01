@@ -50,7 +50,7 @@ func startWeb(v any) (rets types.WebRets, err error) {
 		}
 		rets.Headers = make(map[string]string, len(theaders.Hash))
 
-		// we don't have to care about the array content, but we will here
+		// we don't have to care about the list content, but we will here
 		for k, v := range theaders.Iter() {
 			if tk, ok := k.(string); !ok {
 				return types.WebRets{}, errors.New("header keys must be strings")

@@ -283,10 +283,8 @@ func string_gmatch(args Args) (r []types.Val, err error) {
 	return []types.Val{MakeFn("gmatch", gmatch)}, nil
 }
 
-func add_s(caps *captures, b *strings.Builder, s string, si, ei int, news string) (err error) {
-	l := len(news)
-
-	for i := 0; i < l; i++ {
+func add_s(caps *captures, b *strings.Builder, s string, si, ei int, news string) error {
+	for i := 0; i < len(news); i++ {
 		if news[i] != l_esc {
 			b.WriteByte(news[i])
 			continue
@@ -310,7 +308,7 @@ func add_s(caps *captures, b *strings.Builder, s string, si, ei int, news string
 		}
 	}
 
-	return
+	return nil
 }
 
 func add_value(caps *captures, b *strings.Builder, co *Coroutine, s string, si, ei int, next types.Val) (err error) {
@@ -328,12 +326,14 @@ func add_value(caps *captures, b *strings.Builder, co *Coroutine, s string, si, 
 			val = rets[0]
 		}
 	case *Table:
-		r, err := pushCapture(caps, s, si, ei, 0)
+		r, err := pushCapture(caps, s, si, ei, 0) // at least pretty sure this'll always return a string
 		if err != nil {
 			return err
 		}
 
-		val = n.GetHash(r) // at least pretty sure this'll always be in the #
+		// fmt.Println("typeofr", TypeOf(r))
+
+		val = n.GetHash(ToString(r)) // we'll tostring here to be safe
 	}
 
 	if !truthy(val) { // nil or false?
@@ -454,7 +454,7 @@ func string_split(args Args) (r []types.Val, err error) {
 		a[i] = v
 	}
 
-	return []types.Val{&Table{Array: a}}, nil
+	return []types.Val{&Table{List: a}}, nil
 }
 
 func string_sub(args Args) (r []types.Val, err error) {

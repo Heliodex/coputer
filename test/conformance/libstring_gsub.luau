@@ -15,13 +15,16 @@ end)) --> I have 24 cats. 1
 -- Replace only twice
 print(string.gsub("aaa", "a", "b", 2)) --> "bba", 2
 
+print(string.gsub("12345", "%d+", { [12345] = "67890" }))
+print(string.gsub("12345", "%d+", { ["12345"] = "67890" }))
+
 local f = [[
 return function ( a , b , c , d , e )
   local x = a >= b or c or ( d and e ) or nil
   return x
 end , { a = 1 , b = 2 >= 1 , } or { 1 };
 ]]
-print( string.gsub(f, "%s+", "\n"))
+print(string.gsub(f, "%s+", "\n"))
 
 -- print "long strings"
 local x =

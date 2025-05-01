@@ -13,7 +13,7 @@ func table_clear(args Args) (r []types.Val, err error) {
 		return nil, errors.New("attempt to modify a readonly table")
 	}
 
-	t.Array = nil
+	t.List = nil
 	t.Hash = nil
 	return
 }
@@ -23,10 +23,10 @@ func table_clone(args Args) (r []types.Val, err error) {
 
 	nt := &Table{}
 
-	if t.Array != nil {
-		a := make([]types.Val, len(t.Array))
-		copy(a, t.Array)
-		nt.Array = a
+	if t.List != nil {
+		a := make([]types.Val, len(t.List))
+		copy(a, t.List)
+		nt.List = a
 	}
 
 	if t.Hash != nil {
@@ -80,7 +80,7 @@ func table_create(args Args) (r []types.Val, err error) {
 	if val == nil {
 		// no value fill or fill with nil (tests/niltable.luau)
 		a := make([]types.Val, 0, s)
-		return []types.Val{&Table{Array: a}}, nil
+		return []types.Val{&Table{List: a}}, nil
 	}
 
 	a := make([]types.Val, s)
@@ -88,7 +88,7 @@ func table_create(args Args) (r []types.Val, err error) {
 		a[i] = val
 	}
 
-	return []types.Val{&Table{Array: a}}, nil
+	return []types.Val{&Table{List: a}}, nil
 }
 
 func table_find(args Args) (r []types.Val, err error) {
@@ -99,9 +99,9 @@ func table_find(args Args) (r []types.Val, err error) {
 		return nil, errors.New("index out of range")
 	}
 
-	if haystack.Array != nil {
-		for i := int(init) - 1; i < len(haystack.Array); i++ {
-			if needle == haystack.Array[i] {
+	if haystack.List != nil {
+		for i := int(init) - 1; i < len(haystack.List); i++ {
+			if needle == haystack.List[i] {
 				return []types.Val{float64(i + 1)}, nil
 			}
 		}
@@ -194,8 +194,8 @@ func table_maxn(args Args) (r []types.Val, err error) {
 	var maxn float64
 
 	// array kvs
-	if t.Array != nil {
-		for i, v := range t.Array {
+	if t.List != nil {
+		for i, v := range t.List {
 			if v == nil {
 				continue
 			}
@@ -241,8 +241,8 @@ func table_pack(args Args) (r []types.Val, err error) {
 	copy(a, args.List)
 
 	return []types.Val{&Table{
-		Hash:  map[types.Val]types.Val{"n": float64(l)},
-		Array: a,
+		Hash: map[types.Val]types.Val{"n": float64(l)},
+		List: a,
 	}}, nil
 }
 
@@ -271,7 +271,7 @@ func table_remove(args Args) (r []types.Val, err error) {
 type comp func(a, b types.Val) (bool, error) // ton, compton, aint no city quite like miiine
 
 func sort_swap(t *Table, i, j int) {
-	a := t.Array
+	a := t.List
 	// LUAU_ASSERT(unsigned(i) < unsigned(n) && unsigned(j) < unsigned(n)) // contract maintained in sort_less after predicate call
 
 	// no barrier required because both elements are in the array before and after the swap
@@ -279,7 +279,7 @@ func sort_swap(t *Table, i, j int) {
 }
 
 func sort_less(t *Table, i, j int, c comp) (res bool, err error) {
-	a, n := t.Array, len(t.Array)
+	a, n := t.List, len(t.List)
 	// LUAU_ASSERT(unsigned(i) < unsigned(n) && unsigned(j) < unsigned(n)) // contract maintained in sort_less after predicate call
 
 	res, err = c(a[i], a[j])
@@ -486,8 +486,8 @@ func table_unpack(args Args) (r []types.Val, err error) {
 		return nil, errors.New("too many results to unpack") // a limit we don't have to impose, but no real reason to not. who says it's truly "too many" anyway?
 	}
 
-	if uj <= len(list.Array) {
-		return list.Array[ui-1 : uj], nil
+	if uj <= len(list.List) {
+		return list.List[ui-1 : uj], nil
 	}
 
 	r = make([]types.Val, uj-ui+1)

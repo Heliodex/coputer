@@ -31,10 +31,10 @@ func ipairs_iter(args Args) (r []types.Val, err error) {
 	a := args.GetTable()
 	i := args.GetNumber() + 1
 
-	if a.Array == nil || int(i) > len(a.Array) {
+	if a.List == nil || int(i) > len(a.List) {
 		return
 	}
-	if v := a.Array[int(i)-1]; v != nil {
+	if v := a.List[int(i)-1]; v != nil {
 		return []types.Val{i, v}, nil
 	}
 	return // would prefer nil, nil but whateverrrrr
@@ -57,8 +57,7 @@ func global_next(args Args) (r []types.Val, err error) {
 		next, stop := iter.Pull2(t.Iter())
 		defer stop()
 
-		k, v, ok := next()
-		if ok {
+		if k, v, ok := next(); ok {
 			return []types.Val{k, v}, nil
 		}
 	}
@@ -594,7 +593,6 @@ func global_require(args Args) (r []types.Val, err error) {
 	if path == fp {
 		return nil, errors.New("cyclic module dependency: file requires itself")
 	}
-
 
 	// compile bytecodeee
 	p, err := args.Co.compiler.Compile(path)

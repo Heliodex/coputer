@@ -16,7 +16,7 @@ import (
 
 const safe = false
 
-func arrayKey(k types.Val) (int, bool) {
+func listKey(k types.Val) (int, bool) {
 	fk, ok := k.(float64)
 	if !ok {
 		return 0, false
@@ -33,23 +33,23 @@ func mapKeySort(a, b types.Val) int {
 	return strings.Compare(fmt.Sprint(a), fmt.Sprint(b))
 }
 
-func iterArray(array []types.Val, y func(types.Val, types.Val) bool) {
-	for i, v := range array {
+func iterList(l []types.Val, y func(types.Val, types.Val) bool) {
+	for i, v := range l {
 		if v != nil && !y(float64(i+1), v) {
 			return
 		}
 	}
 }
 
-func iterHash(hash map[types.Val]types.Val, y func(types.Val, types.Val) bool) {
+func iterHash(m map[types.Val]types.Val, y func(types.Val, types.Val) bool) {
 	// order keys in map
-	keys := make([]types.Val, 0, len(hash))
-	for k := range hash {
+	keys := make([]types.Val, 0, len(m))
+	for k := range m {
 		keys = append(keys, k)
 	}
 	slices.SortFunc(keys, mapKeySort)
 	for _, k := range keys {
-		if !y(k, hash[k]) {
+		if !y(k, m[k]) {
 			return
 		}
 	}
@@ -57,27 +57,27 @@ func iterHash(hash map[types.Val]types.Val, y func(types.Val, types.Val) bool) {
 
 // Q why are tables like this
 // A:
-// 1: the reference implementation of tables is too complex: rehashing and resizing is a pain but not too bad, array boundaries are worse and I don't want 1.5k lines of code just for that, and Go does a resizing-like thing automatically with slices anyway
+// 1: the reference implementation of tables is too complex: rehashing and resizing is a pain but not too bad, list boundaries are worse and I don't want 1.5k lines of code just for that, and Go does a resizing-like thing automatically with slices anyway
 // 2: the way nodes are implemented works well in C++ and not in Go (plus I don't know if it's actually O(1) for node lookups??)
 // 3: rehashing etc is slower than just using a slice... somehow. most of this program is between 10-20x slower than the reference implementation, but the tables (which were previously like 50x slower) are now only like 2-3x slower for large allocations (bench/largealloc.luau)
-// 4: having an array part is actually nice for iteration and for large tables (as opposed to the lua4 way, where it's *just* a hash part), the way it's done here is simpler though we have to move stuff around and between the array and node parts more explicitly
+// 4: having a list part is actually nice for iteration and for large tables (as opposed to the lua4 way, where it's *just* a hash part), the way it's done here is simpler though we have to move stuff around and between the list and node parts more explicitly
 // 5: very weird quirks arise from table length implementations etc. the nil stuff can easily be forgiven, it's the stuff with creating a table and getting a length afterwards (see tests/clear.luau) that is fucking devilish; this is one of the few parts that puts Luau, as the language at the top of my favourites list, in jeopardy
 // 6: we don't actually break *that* much compatibility doing it this way, right??
 // 7: if anyone tells you tables are simple THEY ARE LYING, CALL THEM OUT ON THEIR SHIT
 
-// Table represents a Luau table, with resizeable array and hash parts. Luau type `table`
+// Table represents a Luau table, with resizeable list and hash parts. Luau type `table`
 type Table struct {
-	Array    []types.Val
+	List     []types.Val
 	Hash     map[types.Val]types.Val
 	Readonly bool
 }
 
-// Len returns the length of the array part of the table (the length of the array up until the first nil).
+// Len returns the length of the list part of the table (the length of the list up until the first nil).
 func (t *Table) Len() int {
-	if t.Array == nil {
+	if t.List == nil {
 		return 0
 	}
-	return len(t.Array)
+	return len(t.List)
 }
 
 // setHash updates or deletes a key-value pair in the hash part of the table.
@@ -94,8 +94,8 @@ func (t *Table) setHash(k types.Val, v types.Val) {
 	}
 }
 
-// check if we can move some stuff from the hash part to the array part
-func (t *Table) moveToArray(l int) {
+// check if we can move some stuff from the hash part to the list part
+func (t *Table) moveToList(l int) {
 	if t.Hash == nil {
 		return
 	}
@@ -105,32 +105,32 @@ func (t *Table) moveToArray(l int) {
 		if !ok {
 			break
 		}
-		t.Array = append(t.Array, v2)
+		t.List = append(t.List, v2)
 		delete(t.Hash, f2)
 	}
 }
 
-// SetArray sets a value at an integer index, placing it into the Array part or the Hash part and resizing each as appropriate.
-func (t *Table) SetArray(i int, v types.Val) {
-	// fmt.Println("SetArray", i, v)
+// SetInt sets a value at an integer index, placing it into the List part or the Hash part and resizing each as appropriate.
+func (t *Table) SetInt(i int, v types.Val) {
+	// fmt.Println("SetInt", i, v)
 
-	if t.Array == nil {
+	if t.List == nil {
 		if i == 1 {
-			t.Array = []types.Val{v}
+			t.List = []types.Val{v}
 
-			t.moveToArray(0)
+			t.moveToList(0)
 			return
 		}
-	} else if l := len(t.Array); i < l+1 {
+	} else if l := len(t.List); i < l+1 {
 		if v != nil {
-			// set in the array portion
-			t.Array[i-1] = v
+			// set in the list portion
+			t.List[i-1] = v
 			return
 		}
 
-		// cut the array portion
-		after := t.Array[i:]
-		t.Array = t.Array[:i-1]
+		// cut the list portion
+		after := t.List[i:]
+		t.List = t.List[:i-1]
 
 		// move the rest to the hash part
 		for i2, v2 := range after {
@@ -139,9 +139,9 @@ func (t *Table) SetArray(i int, v types.Val) {
 		return
 	} else if i == l+1 {
 		// append to the end
-		t.Array = append(t.Array, v)
+		t.List = append(t.List, v)
 
-		t.moveToArray(l)
+		t.moveToList(l)
 		return
 	}
 
@@ -151,8 +151,8 @@ func (t *Table) SetArray(i int, v types.Val) {
 
 // Set sets a table value at a key. Make sure to check if the table is readonly beforehand.
 func (t *Table) Set(k types.Val, v types.Val) {
-	if ak, ok := arrayKey(k); ok {
-		t.SetArray(ak, v)
+	if ak, ok := listKey(k); ok {
+		t.SetInt(ak, v)
 		return
 	}
 	t.setHash(k, v)
@@ -168,8 +168,8 @@ func (t *Table) GetHash(k types.Val) (v types.Val) {
 
 // Get returns a value at a key in the table.
 func (t *Table) Get(k types.Val) types.Val {
-	if ak, ok := arrayKey(k); ok && ak <= t.Len() {
-		return t.Array[ak-1]
+	if ak, ok := listKey(k); ok && ak <= t.Len() {
+		return t.List[ak-1]
 	}
 	return t.GetHash(k)
 }
@@ -177,8 +177,8 @@ func (t *Table) Get(k types.Val) types.Val {
 // Iter returns an iterator over the table, yielding key-value pairs in a deterministic order.
 func (t *Table) Iter() iter.Seq2[types.Val, types.Val] {
 	return func(y func(types.Val, types.Val) bool) {
-		if t.Array != nil {
-			iterArray(t.Array, y)
+		if t.List != nil {
+			iterList(t.List, y)
 		}
 		if t.Hash != nil {
 			iterHash(t.Hash, y)
@@ -1473,17 +1473,17 @@ func dupClosure(pc *int32, i inst, towrap toWrap, p *proto, stack *[]types.Val, 
 
 	(*stack)[i.A] = wrapclosure(towrap)
 
-	for i := range nups {
+	for n := range nups {
 		switch pseudo := p.code[*pc]; pseudo.A {
 		case 0: // value
-			towrap.upvals[i] = &upval{
+			towrap.upvals[n] = &upval{
 				value:   (*stack)[pseudo.B],
 				selfRef: true,
 			}
 
 		// -- references dont get handled by DUPCLOSURE
 		case 2: // upvalue
-			towrap.upvals[i] = upvals[pseudo.B]
+			towrap.upvals[n] = upvals[pseudo.B]
 		}
 
 		*pc++
@@ -1650,7 +1650,7 @@ func execute(towrap toWrap, stack *[]types.Val, co *Coroutine, vargsList []types
 			}
 
 			// fmt.Println("SETTABLEN", i.C+1, (*stack)[i.A])
-			t.SetArray(int(i.C)+1, (*stack)[i.A])
+			t.SetInt(int(i.C)+1, (*stack)[i.A])
 			pc++
 		case 19: // NEWCLOSURE
 			newClosure(&pc, i, towrap, p, stack, &openUpvals, upvals)
@@ -1901,7 +1901,7 @@ func execute(towrap toWrap, stack *[]types.Val, co *Coroutine, vargsList []types
 
 			// one-indexed lol
 			for n, v := range (*stack)[B:min(B+c, int32(len(*stack)))] {
-				s.SetArray(n+int(i.aux), v)
+				s.SetInt(n+int(i.aux), v)
 			}
 			// (*stack)[A] = s // in-place
 
