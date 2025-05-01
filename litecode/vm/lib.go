@@ -127,7 +127,7 @@ func NewLib(functions []types.Function[*Coroutine], other ...map[string]types.Va
 	}
 
 	return &Table{
-		readonly: true,
+		Readonly: true,
 		Hash:     hash,
 	}
 }

@@ -26,16 +26,16 @@ func args_web(args Args) (r []types.Val, err error) {
 					"rawquery": pargs.Url.Rawquery,
 					"query":    pargs.Url.Query,
 				},
-				readonly: true,
+				Readonly: true,
 			},
 			"method": pargs.Method,
 			"headers": &Table{
 				Hash:     headers,
-				readonly: true,
+				Readonly: true,
 			},
 			"body": types.Buffer(pargs.Body),
 		},
-		readonly: true,
+		Readonly: true,
 	}
 
 	return []types.Val{webargs}, nil

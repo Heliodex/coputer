@@ -9,7 +9,7 @@ import (
 
 func table_clear(args Args) (r []types.Val, err error) {
 	t := args.GetTable()
-	if t.readonly {
+	if t.Readonly {
 		return nil, errors.New("attempt to modify a readonly table")
 	}
 
@@ -120,7 +120,7 @@ func table_find(args Args) (r []types.Val, err error) {
 func table_freeze(args Args) (r []types.Val, err error) {
 	t := args.GetTable()
 
-	t.readonly = true
+	t.Readonly = true
 	return []types.Val{t}, nil
 }
 
@@ -143,7 +143,7 @@ func bumpelements(t *Table, start int) {
 
 	for k := keys; k >= fstart; k-- {
 		// fmt.Println("moving key", k+1, "=", t.Get(k))
-		t.ForceSet(k+1, t.Get(k))
+		t.Set(k+1, t.Get(k))
 	}
 
 	// fmt.Println("AFTER")
@@ -153,7 +153,7 @@ func bumpelements(t *Table, start int) {
 
 func table_insert(args Args) (r []types.Val, err error) {
 	t := args.GetTable()
-	if t.readonly {
+	if t.Readonly {
 		return nil, errors.New("attempt to modify a readonly table")
 	}
 
@@ -177,7 +177,7 @@ func table_insert(args Args) (r []types.Val, err error) {
 	}
 
 	v := args.GetAny()
-	t.ForceSet(float64(pos), v)
+	t.Set(float64(pos), v)
 
 	return
 }
@@ -185,7 +185,7 @@ func table_insert(args Args) (r []types.Val, err error) {
 func table_isfrozen(args Args) (r []types.Val, err error) {
 	t := args.GetTable()
 
-	return []types.Val{t.readonly}, nil
+	return []types.Val{t.Readonly}, nil
 }
 
 func table_maxn(args Args) (r []types.Val, err error) {
@@ -224,12 +224,12 @@ func table_move(args Args) (r []types.Val, err error) {
 	src := args.GetTable()
 	a, b, t := args.GetNumber(), args.GetNumber(), args.GetNumber()
 	dst := args.GetTable(src)
-	if dst.readonly {
+	if dst.Readonly {
 		return nil, errors.New("attempt to modify a readonly table")
 	}
 
 	for i := a; i <= b; i++ {
-		dst.ForceSet(t+i-a, src.Get(i))
+		dst.Set(t+i-a, src.Get(i))
 	}
 
 	return []types.Val{dst}, nil
@@ -248,7 +248,7 @@ func table_pack(args Args) (r []types.Val, err error) {
 
 func table_remove(args Args) (r []types.Val, err error) {
 	t := args.GetTable()
-	if t.readonly {
+	if t.Readonly {
 		return nil, errors.New("attempt to modify a readonly table")
 	}
 
@@ -257,12 +257,12 @@ func table_remove(args Args) (r []types.Val, err error) {
 
 	p := t.Get(pos)
 	if uint(pos) == uint(l) {
-		t.ForceSet(pos, nil)
+		t.Set(pos, nil)
 	} else if 0 < pos && pos < l {
 		for i := pos; i < l; i++ {
-			t.ForceSet(i, t.Get(i+1))
+			t.Set(i, t.Get(i+1))
 		}
-		t.ForceSet(l, nil)
+		t.Set(l, nil)
 	}
 	return []types.Val{p}, nil
 }
@@ -449,7 +449,7 @@ func sort_rec(t *Table, l, u, limit int, c comp) (err error) {
 
 func table_sort(args Args) (r []types.Val, err error) {
 	t := args.GetTable()
-	if t.readonly {
+	if t.Readonly {
 		return nil, errors.New("attempt to modify a readonly table")
 	}
 

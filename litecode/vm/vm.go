@@ -69,7 +69,7 @@ func iterHash(hash map[types.Val]types.Val, y func(types.Val, types.Val) bool) {
 type Table struct {
 	Array    []types.Val
 	Hash     map[types.Val]types.Val
-	readonly bool
+	Readonly bool
 }
 
 // Len returns the length of the array part of the table (the length of the array up until the first nil).
@@ -80,8 +80,8 @@ func (t *Table) Len() int {
 	return len(t.Array)
 }
 
-// SetHash updates or deletes a key-value pair in the hash part of the table.
-func (t *Table) SetHash(k types.Val, v types.Val) {
+// setHash updates or deletes a key-value pair in the hash part of the table.
+func (t *Table) setHash(k types.Val, v types.Val) {
 	if t.Hash == nil {
 		if v == nil {
 			return
@@ -134,7 +134,7 @@ func (t *Table) SetArray(i int, v types.Val) {
 
 		// move the rest to the hash part
 		for i2, v2 := range after {
-			t.SetHash(float64(i+i2), v2)
+			t.setHash(float64(i+i2), v2)
 		}
 		return
 	} else if i == l+1 {
@@ -146,27 +146,16 @@ func (t *Table) SetArray(i int, v types.Val) {
 	}
 
 	// add to the hash part instead
-	t.SetHash(float64(i), v)
+	t.setHash(float64(i), v)
 }
 
-// ForceSet sets a table value at a key, regardless of whether the table is readonly.
-func (t *Table) ForceSet(k types.Val, v types.Val) {
+// Set sets a table value at a key. Make sure to check if the table is readonly beforehand.
+func (t *Table) Set(k types.Val, v types.Val) {
 	if ak, ok := arrayKey(k); ok {
 		t.SetArray(ak, v)
 		return
 	}
-	t.SetHash(k, v)
-}
-
-var errReadonly = errors.New("attempt to modify a readonly table")
-
-// Set sets a table value at a key, returning an error if the table is readonly.
-func (t *Table) Set(k types.Val, v types.Val) error {
-	if t.readonly {
-		return errReadonly
-	}
-	t.ForceSet(k, v)
-	return nil
+	t.setHash(k, v)
 }
 
 // GetHash returns a value at a key, only searching the hash part of the table.
@@ -196,6 +185,8 @@ func (t *Table) Iter() iter.Seq2[types.Val, types.Val] {
 		}
 	}
 }
+
+var errReadonly = errors.New("attempt to modify a readonly table")
 
 // bit32 extraction
 func extract(n, field, width uint32) uint32 {
@@ -1621,11 +1612,12 @@ func execute(towrap toWrap, stack *[]types.Val, co *Coroutine, vargsList []types
 			if !ok {
 				return nil, invalidIndex(TypeOf((*stack)[i.B]), index)
 			}
+			if t.Readonly {
+				return nil, errReadonly
+			}
 
 			// fmt.Println("SETTABLE", index, (*stack)[i.A])
-			if err := t.Set(index, (*stack)[i.A]); err != nil {
-				return nil, err
-			}
+			t.Set(index, (*stack)[i.A])
 			pc++
 		case 15: // GETTABLEKS
 			if (*stack)[i.A], err = gettable(i.K, (*stack)[i.B]); err != nil {
@@ -1639,28 +1631,26 @@ func execute(towrap toWrap, stack *[]types.Val, co *Coroutine, vargsList []types
 				// fmt.Println("indexing", typeOf((*stack)[i.B]), "with", index)
 				return nil, invalidIndex(TypeOf((*stack)[i.B]), index)
 			}
-
-			if err := t.Set(index, (*stack)[i.A]); err != nil {
-				return nil, err
+			if t.Readonly {
+				return nil, errReadonly
 			}
 
+			t.Set(index, (*stack)[i.A])
 			pc += 2 // -- adjust for aux
 		case 17: // GETTABLEN
 			t := (*stack)[i.B].(*Table)
 			idx := i.C + 1
 
 			(*stack)[i.A] = t.Get(float64(idx))
-
 			pc++
 		case 18: // SETTABLEN
-			if t := (*stack)[i.B].(*Table); t.readonly {
+			t := (*stack)[i.B].(*Table)
+			if t.Readonly {
 				return nil, errReadonly
-			} else if i, v := int(i.C)+1, (*stack)[i.A]; 1 <= i || i > len(t.Array) {
-				t.SetArray(i, v)
-			} else {
-				t.SetHash(float64(i), v)
 			}
 
+			// fmt.Println("SETTABLEN", i.C+1, (*stack)[i.A])
+			t.SetArray(int(i.C)+1, (*stack)[i.A])
 			pc++
 		case 19: // NEWCLOSURE
 			newClosure(&pc, i, towrap, p, stack, &openUpvals, upvals)
@@ -1892,7 +1882,7 @@ func execute(towrap toWrap, stack *[]types.Val, co *Coroutine, vargsList []types
 			serialised := &Table{}
 			// fmt.Println("TEMPLATING")
 			for _, id := range i.K.([]uint32) { // template
-				serialised.ForceSet(p.k[id], nil) // constants
+				serialised.Set(p.k[id], nil) // constants
 			}
 			(*stack)[i.A] = serialised
 			pc++
@@ -1905,7 +1895,7 @@ func execute(towrap toWrap, stack *[]types.Val, co *Coroutine, vargsList []types
 			}
 
 			s := (*stack)[A].(*Table)
-			if s.readonly {
+			if s.Readonly {
 				return nil, errReadonly
 			}
 
