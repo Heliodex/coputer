@@ -1,0 +1,2 @@
+{PATH}/setnil.luau:1: function (main)
+attempt to index nil with number

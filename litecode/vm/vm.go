@@ -382,17 +382,20 @@ func checkkmode(i *internal.Inst, k []types.Val) {
 		i.KC = count
 
 		id0 := extend >> 20 & 0x3ff
-		i.K0 = k[id0] // maybe can .(string) this
+		i.K0 = k[id0].(string) // lmk if this panics lol
 		// fmt.Println("AUX", i.K0)
 
-		if count >= 2 {
-			id1 := extend >> 10 & 0x3ff
-			i.K1 = k[id1]
+		if count < 2 {
+			break
 		}
-		if count == 3 { // should never be 3
-			id2 := extend & 0x3ff
-			i.K2 = k[id2]
+		id1 := extend >> 10 & 0x3ff
+		i.K1 = k[id1].(string)
+
+		if count < 3 { // should never be >3
+			break
 		}
+		id2 := extend & 0x3ff
+		i.K2 = k[id2].(string)
 	case 5: // AUX boolean low 1 bit
 		i.K = extract(i.Aux, 0, 1) == 1
 		i.KN = extract(i.Aux, 31, 1) == 1
@@ -574,6 +577,7 @@ func readProto(stringList []string, s *stream) (p *internal.Proto, err error) {
 			p.K[i] = stringList[s.rVarInt()-1]
 		case 4: // Import
 			p.K[i] = s.rWord() // ⚠️ strange, TODO need something to test this ⚠️
+			fmt.Println("case 4", p.K[i])
 		case 5: // Table
 			dataLength := s.rVarInt()
 			t := make([]uint32, dataLength)
@@ -583,8 +587,10 @@ func readProto(stringList []string, s *stream) (p *internal.Proto, err error) {
 			}
 
 			p.K[i] = t // ⚠️ not a val ⚠️
+			fmt.Println("case 5", p.K[i])
 		case 6: // Closure
 			p.K[i] = s.rVarInt() // ⚠️ not a val ⚠️
+			fmt.Println("case 6", p.K[i])
 		case 7: // types.Vector
 			p.K[i] = s.rVector()
 		default:
@@ -987,12 +993,12 @@ func jumpGe(a, b types.Val) (bool, error) {
 	return false, invalidCompare(">=", TypeOf(a), TypeOf(b))
 }
 
-func gettable(index, v types.Val) (types.Val, error) {
+func gettable(k, v types.Val) (types.Val, error) {
 	switch t := v.(type) {
 	case *Table:
-		return t.Get(index), nil
+		return t.Get(k), nil
 	case types.Vector: // direction,,, and mmmagnitude!! oh yeah!!11!!
-		switch index {
+		switch k {
 		case "x", "X": // yes, we'll allow the capitalised versions anyway
 			return float64(t[0]), nil // alright, who's the wise guy whose idea it was to put a float32 on the stack
 		case "y", "Y":
@@ -1003,7 +1009,8 @@ func gettable(index, v types.Val) (types.Val, error) {
 			// 	return float64(t[3]), nil
 		}
 	}
-	return nil, invalidIndex(TypeOf(v), index)
+
+	return nil, invalidIndex(TypeOf(v), k)
 }
 
 type toWrap struct {
@@ -1048,35 +1055,42 @@ func moveStack(stack *[]types.Val, src []types.Val, b, t int32) {
 	}
 }
 
-func getImport(i internal.Inst, towrap toWrap, stack *[]types.Val) error {
+func getImport(i internal.Inst, towrap toWrap, stack *[]types.Val) (err error) {
 	k0 := i.K0
 	imp := exts[k0]
 	if imp == nil {
 		imp = towrap.env[k0]
 	}
 
-	if count := i.KC; count >= 2 {
-		t1, ok := imp.(*Table)
-		if !ok {
-			return invalidIndex("nil", i.K1)
-		}
+	count := i.KC
 
-		imp = t1.Get(i.K1)
-		// fmt.Println("GETIMPORT2", i.A, (*stack)[i.A])
-
-		if count == 3 {
-			t2, ok := imp.(*Table)
-			if !ok {
-				return invalidIndex(TypeOf(imp), i.K2)
-			}
-
-			imp = t2.Get(i.K2)
-			// fmt.Println("GETIMPORT3", i.A, (*stack)[i.A])
-		}
+	if count < 2 {
+		(*stack)[i.A] = imp
+		return
 	}
 
-	(*stack)[i.A] = imp
-	return nil
+	t1, ok := imp.(*Table)
+	if !ok {
+		return invalidIndex("nil", i.K1)
+	}
+
+	imp = t1.GetHash(i.K1)
+	// fmt.Println("GETIMPORT2", i.A, (*stack)[i.A])
+
+	if count <= 3 {
+		(*stack)[i.A] = imp
+		return
+	}
+
+	t2, ok := imp.(*Table)
+	if !ok {
+		return invalidIndex(TypeOf(imp), i.K2)
+	}
+
+	(*stack)[i.A] = t2.GetHash(i.K2)
+	// fmt.Println("GETIMPORT3", i.A, (*stack)[i.A])
+
+	return
 }
 
 func newClosure(pc *int32, i internal.Inst, towrap toWrap, p *internal.Proto, stack *[]types.Val, openUpvals *[]*upval, upvals []*upval) {
@@ -1100,27 +1114,27 @@ func newClosure(pc *int32, i internal.Inst, towrap toWrap, p *internal.Proto, st
 				selfRef: true,
 			}
 		case 1: // -- reference
-			index := pseudo.B
-			// fmt.Println("index", index, len(openUpvals))
+			idx := pseudo.B
+			// fmt.Println("index", idx, len(openUpvals))
 			// for si, sv := range *stack {
 			// 	fmt.Printf("  [%d] = %v\n", si, sv)
 			// }
 
 			var prev *upval
-			if index < uint8(len(*openUpvals)) {
-				prev = (*openUpvals)[index]
+			if idx < uint8(len(*openUpvals)) {
+				prev = (*openUpvals)[idx]
 			}
 
 			if prev == nil {
 				prev = &upval{
 					store: *stack,
-					index: index,
+					index: idx,
 				}
 
-				for index >= uint8(len(*openUpvals)) {
+				for idx >= uint8(len(*openUpvals)) {
 					*openUpvals = append(*openUpvals, nil)
 				}
-				(*openUpvals)[index] = prev
+				(*openUpvals)[idx] = prev
 			}
 
 			towrap.upvals[n] = prev
@@ -1162,13 +1176,7 @@ func namecall(pc, top *int32, i *internal.Inst, p *internal.Proto, stack *[]type
 		// fmt.Println("namecall", kv, "not found")
 		switch t := (*stack)[B].(type) {
 		case *Table:
-			var call types.Val
-			if t.Hash == nil {
-				call = nil
-			} else {
-				call = t.GetHash(kv)
-			}
-
+			call := t.GetHash(kv)
 			if call == nil {
 				return missingMethod(TypeOf(t), kv)
 			}
@@ -1483,17 +1491,17 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 			}
 			pc++
 		case 14: // SETTABLE
-			index := (*stack)[i.C]
+			idx := (*stack)[i.C]
 			t, ok := (*stack)[i.B].(*Table) // SETTABLE or SETTABLEKS on a types.Vector actually does return "attempt to index vector with 'whatever'"
 			if !ok {
-				return nil, invalidIndex(TypeOf((*stack)[i.B]), index)
+				return nil, invalidIndex(TypeOf((*stack)[i.B]), idx)
 			}
 			if t.Readonly {
 				return nil, errReadonly
 			}
 
-			// fmt.Println("SETTABLE", index, (*stack)[i.A])
-			t.Set(index, (*stack)[i.A])
+			// fmt.Println("SETTABLE", idx, (*stack)[i.A])
+			t.Set(idx, (*stack)[i.A])
 			pc++
 		case 15: // GETTABLEKS
 			if (*stack)[i.A], err = gettable(i.K, (*stack)[i.B]); err != nil {
@@ -1501,32 +1509,41 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 			}
 			pc += 2 // -- adjust for aux
 		case 16: // SETTABLEKS
-			index := i.K
+			idx := i.K
 			t, ok := (*stack)[i.B].(*Table)
 			if !ok {
-				// fmt.Println("indexing", typeOf((*stack)[i.B]), "with", index)
-				return nil, invalidIndex(TypeOf((*stack)[i.B]), index)
+				// fmt.Println("indexing", typeOf((*stack)[i.B]), "with", idx)
+				return nil, invalidIndex(TypeOf((*stack)[i.B]), idx)
 			}
 			if t.Readonly {
 				return nil, errReadonly
 			}
 
-			t.Set(index, (*stack)[i.A])
+			t.Set(idx, (*stack)[i.A])
 			pc += 2 // -- adjust for aux
 		case 17: // GETTABLEN
-			t := (*stack)[i.B].(*Table)
-			idx := i.C + 1
+			idx := float64(i.C + 1)
+			t, ok := (*stack)[i.B].(*Table)
+			if !ok {
+				// fmt.Println("gettableninvalidindex")
+				return nil, invalidIndex(TypeOf((*stack)[i.B]), idx)
+			}
 
-			(*stack)[i.A] = t.Get(float64(idx))
+			(*stack)[i.A] = t.Get(idx)
 			pc++
 		case 18: // SETTABLEN
-			t := (*stack)[i.B].(*Table)
+			idx := int(i.C) + 1
+			t, ok := (*stack)[i.B].(*Table)
+			if !ok {
+				// fmt.Println("gettableninvalidindex")
+				return nil, invalidIndex(TypeOf((*stack)[i.B]), float64(idx))
+			}
 			if t.Readonly {
 				return nil, errReadonly
 			}
 
 			// fmt.Println("SETTABLEN", i.C+1, (*stack)[i.A])
-			t.SetInt(int(i.C)+1, (*stack)[i.A])
+			t.SetInt(idx, (*stack)[i.A])
 			pc++
 		case 19: // NEWCLOSURE
 			newClosure(&pc, i, towrap, p, stack, &openUpvals, upvals)
@@ -1784,7 +1801,7 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 		case 56: // FORNPREP
 			A := i.A
 
-			index, ok := (*stack)[A+2].(float64)
+			idx, ok := (*stack)[A+2].(float64)
 			if !ok {
 				return nil, invalidFor("initial value", TypeOf((*stack)[A+2]))
 			}
@@ -1800,10 +1817,10 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 			}
 
 			if step > 0 {
-				if index > limit {
+				if idx > limit {
 					pc += i.D
 				}
-			} else if index < limit {
+			} else if idx < limit {
 				pc += i.D
 			}
 			pc++
@@ -1960,14 +1977,15 @@ func wrapclosure(towrap toWrap) types.Function {
 		maxs, np := proto.MaxStackSize, proto.NumParams // maxs 2 lel
 
 		la := uint8(len(args)) // we can't have more than 255 args anyway right?
-		// fmt.Println("MAX STACK SIZE", maxs)
-		stack := make([]types.Val, maxs)
-		copy(stack, args[:min(np, la)])
 
 		var list []types.Val
 		if np < la {
 			list = args[np:]
 		}
+
+		// fmt.Println("MAX STACK SIZE", maxs)
+		stack := make([]types.Val, max(maxs, la-np)) // at least not have to resize *as* much when getting vargs
+		copy(stack, args[:min(np, la)])
 
 		// prevent line mismatches (error/loc.luau)
 		initDbg := co.Dbg

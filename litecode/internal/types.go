@@ -19,8 +19,9 @@ type OpInfo struct {
 type Inst struct {
 	OpInfo
 
+	K Val
 	// K0, K1, K2 for imports (up to 3 lay.ers.deep)
-	K, K0, K1, K2       Val
+	K0, K1, K2          string
 	KC, Opcode, A, B, C uint8
 	D, E                int32
 	Aux                 uint32
