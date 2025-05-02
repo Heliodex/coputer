@@ -3,11 +3,8 @@ package internal
 
 import "fmt"
 
-// Luau types
-type (
-	// Val represents any possible Luau value. Luau type `any`
-	Val any
-)
+// Val represents any possible VM stack/register value.
+type Val any
 
 // VM internals types
 
