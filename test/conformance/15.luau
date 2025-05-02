@@ -1,4 +1,4 @@
-local memo = {}
+local memo: { { number } } = {}
 
 local function findRoutes(x: number, y: number)
 	if x == 0 and y == 0 then return 1 end

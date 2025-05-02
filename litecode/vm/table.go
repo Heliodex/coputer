@@ -38,7 +38,7 @@ func table_concat(args Args) (r []types.Val, err error) {
 		return []types.Val{""}, nil
 	}
 
-	b := strings.Builder{}
+	var b strings.Builder
 	for ; i <= j; i++ {
 		v, ok := t.Get(i).(string)
 		if !ok {
@@ -112,14 +112,13 @@ func table_freeze(args Args) (r []types.Val, err error) {
 	return []types.Val{t}, nil
 }
 
-func bumpelements(t *types.Table, start int) {
+func bumpelements(t *types.Table, start float64) {
 	// fmt.Println("BEFORE", start)
 	// fmt.Println(t)
 	// fmt.Println()
 
-	fstart := float64(start)
 	var keys float64
-	for i := fstart; ; i++ {
+	for i := start; ; i++ {
 		// fmt.Println("starting with", i)
 		if t.Get(i) == nil {
 			keys = i - 1
@@ -129,7 +128,7 @@ func bumpelements(t *types.Table, start int) {
 
 	// fmt.Println("keys", keys)
 
-	for k := keys; k >= fstart; k-- {
+	for k := keys; k >= start; k-- {
 		// fmt.Println("moving key", k+1, "=", t.Get(k))
 		t.Set(k+1, t.Get(k))
 	}
@@ -145,20 +144,18 @@ func table_insert(args Args) (r []types.Val, err error) {
 		return nil, errors.New("attempt to modify a readonly table")
 	}
 
-	n := t.Len()
-
 	var pos int
 
-	switch len(args.List) {
+	switch n := t.Len(); len(args.List) {
 	case 2:
 		pos = n + 1
 	case 3:
-		pos = int(args.GetNumber()) // 2nd argument is the position
+		p := args.GetNumber() // 2nd argument is the position
 
 		// fmt.Println("bumping elements up", pos)
 		// move elements up if necessary
-		if n > 0 && 1 <= pos && pos <= n {
-			bumpelements(t, pos)
+		if pos = int(p); n > 0 && 1 <= pos && pos <= n {
+			bumpelements(t, p)
 		}
 	default:
 		return nil, errors.New("wrong number of arguments to 'insert'")

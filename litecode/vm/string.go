@@ -206,8 +206,7 @@ func formatItem(args *Args, formatIndicator byte, form string, b *strings.Builde
 }
 
 func fmtstring(strfrmt string, args Args) (string, error) {
-	b := strings.Builder{}
-
+	var b strings.Builder
 	for i, sfl := 0, len(strfrmt); i < sfl; {
 		if strfrmt[i] != l_esc {
 			b.WriteByte(strfrmt[i])
@@ -371,8 +370,8 @@ func string_gsub(args Args) (r []types.Val, err error) {
 	}
 
 	var n int // number of replacements
+	var b strings.Builder
 	caps := &captures{}
-	b := strings.Builder{}
 
 	for n < m {
 		caps.level = 0

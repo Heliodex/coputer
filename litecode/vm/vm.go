@@ -607,8 +607,8 @@ func missingMethod(ta string, v types.Val) error {
 
 // TypeOf returns the underlying VM datatype of a value as a string.
 // This does not return the Luau type, as type() does.
-func TypeOf(v types.Val) (t string) {
-	if v == nil { // prevent nil pointer dereference
+func TypeOf(v types.Val) string {
+	if v == nil {
 		return "nil"
 	}
 
@@ -633,7 +633,7 @@ func TypeOf(v types.Val) (t string) {
 	return "userdata"
 }
 
-func aAdd(a, b types.Val) (nt types.Val, err error) {
+func aAdd(a, b types.Val) (types.Val, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
@@ -646,10 +646,10 @@ func aAdd(a, b types.Val) (nt types.Val, err error) {
 		return types.Vector{va[0] + vb[0], va[1] + vb[1], va[2] + vb[2], va[3] + vb[3]}, nil
 	}
 
-	return nt, invalidArithmetic("add", TypeOf(a), TypeOf(b))
+	return nil, invalidArithmetic("add", TypeOf(a), TypeOf(b))
 }
 
-func aSub(a, b types.Val) (nt types.Val, err error) {
+func aSub(a, b types.Val) (types.Val, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
@@ -662,10 +662,10 @@ func aSub(a, b types.Val) (nt types.Val, err error) {
 		return types.Vector{va[0] - vb[0], va[1] - vb[1], va[2] - vb[2], va[3] - vb[3]}, nil
 	}
 
-	return nt, invalidArithmetic("sub", TypeOf(a), TypeOf(b))
+	return nil, invalidArithmetic("sub", TypeOf(a), TypeOf(b))
 }
 
-func aMul(a, b types.Val) (nt types.Val, err error) {
+func aMul(a, b types.Val) (types.Val, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
@@ -685,10 +685,10 @@ func aMul(a, b types.Val) (nt types.Val, err error) {
 		return types.Vector{va[0] * f, va[1] * f, va[2] * f, va[3] * f}, nil
 	}
 
-	return nt, invalidArithmetic("mul", TypeOf(a), TypeOf(b))
+	return nil, invalidArithmetic("mul", TypeOf(a), TypeOf(b))
 }
 
-func aDiv(a, b types.Val) (nt types.Val, err error) {
+func aDiv(a, b types.Val) (types.Val, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
@@ -708,27 +708,27 @@ func aDiv(a, b types.Val) (nt types.Val, err error) {
 		return types.Vector{va[0] / f, va[1] / f, va[2] / f, va[3] / f}, nil
 	}
 
-	return nt, invalidArithmetic("div", TypeOf(a), TypeOf(b))
+	return nil, invalidArithmetic("div", TypeOf(a), TypeOf(b))
 }
 
-func aMod(a, b types.Val) (nt types.Val, err error) {
+func aMod(a, b types.Val) (types.Val, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
 		return fa - fb*math.Floor(fa/fb), nil
 	}
 
-	return nt, invalidArithmetic("mod", TypeOf(a), TypeOf(b))
+	return nil, invalidArithmetic("mod", TypeOf(a), TypeOf(b))
 }
 
-func aPow(a, b types.Val) (nt types.Val, err error) {
+func aPow(a, b types.Val) (types.Val, error) {
 	fa, ok1 := a.(float64)
 	fb, ok2 := b.(float64)
 	if ok1 && ok2 {
 		return math.Pow(fa, fb), nil
 	}
 
-	return nt, invalidArithmetic("pow", TypeOf(a), TypeOf(b))
+	return nil, invalidArithmetic("pow", TypeOf(a), TypeOf(b))
 }
 
 func aIdiv(a, b types.Val) (types.Val, error) {
@@ -1572,19 +1572,17 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 			}
 			pc++
 		case 49: // CONCAT
-			s := strings.Builder{}
-
-			var first uint8
-			for n := i.B; n <= i.C; n++ {
+			var b strings.Builder
+			for first, n := uint8(0), i.B; n <= i.C; n++ {
 				toWrite, ok := (*stack)[n].(string)
 				if !ok {
 					// ensure correct order of operands in error message
 					return nil, invalidConcat(TypeOf((*stack)[n-first]), TypeOf((*stack)[n+1-first]))
 				}
-				s.WriteString(toWrite)
+				b.WriteString(toWrite)
 				first = 1
 			}
-			(*stack)[i.A] = s.String()
+			(*stack)[i.A] = b.String()
 			pc++
 		case 50: // NOT
 			(*stack)[i.A] = !truthy((*stack)[i.B])

@@ -110,9 +110,7 @@ func Start(c types.Compiler, hash string, args types.ProgramArgs) (output types.
 		return nil, errors.New("program did not return a single value")
 	}
 
-	ret := r[0]
-
-	switch args.Type() {
+	switch ret := r[0]; args.Type() {
 	case types.TestProgramType:
 		return nil, errors.New("test program type not supported in this context")
 	case types.WebProgramType:

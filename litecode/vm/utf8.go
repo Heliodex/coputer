@@ -25,8 +25,7 @@ func utf8_posrelat(pos, len int) int {
 }
 
 func utf8_char(args Args) (r []types.Val, err error) {
-	b := strings.Builder{}
-
+	var b strings.Builder
 	for range args.List {
 		a := args.GetNumber()
 		b.WriteRune(rune(a))

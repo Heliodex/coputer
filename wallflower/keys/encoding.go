@@ -73,7 +73,7 @@ func (s PK) Encode() string {
 	}
 
 	// 5 sections of 9 characters each
-	b := strings.Builder{}
+	var b strings.Builder
 	b.WriteString(PubStart)
 
 	for i := range 5 {
@@ -111,7 +111,7 @@ func (s SK) Encode() string {
 	}
 
 	// 5 sections of 10 characters each
-	b := strings.Builder{}
+	var b strings.Builder
 	b.WriteString(SecStart)
 
 	for i := range 5 {

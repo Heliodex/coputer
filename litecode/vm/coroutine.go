@@ -28,7 +28,6 @@ func coroutine_isyieldable(args Args) (r []types.Val, err error) {
 
 func coroutine_resume(args Args) (r []types.Val, err error) {
 	co := args.GetCoroutine()
-	a := args.List[1:]
 
 	if co.Status == internal.CoDead {
 		return []types.Val{false, "cannot resume dead coroutine"}, nil
@@ -37,6 +36,7 @@ func coroutine_resume(args Args) (r []types.Val, err error) {
 		return []types.Val{false, "cannot resume running coroutine"}, nil
 	}
 
+	a := args.List[1:]
 	// fmt.Println("C.R resuming")
 	args.Co.Status = internal.CoNormal
 	res, err := co.Resume(a...)
@@ -54,9 +54,7 @@ func coroutine_running(args Args) (r []types.Val, err error) {
 }
 
 func coroutine_status(args Args) (r []types.Val, err error) {
-	co := args.GetCoroutine()
-
-	switch co.Status {
+	switch co := args.GetCoroutine(); co.Status {
 	case internal.CoNotStarted, internal.CoSuspended:
 		return []types.Val{"suspended"}, nil
 	case internal.CoRunning:
