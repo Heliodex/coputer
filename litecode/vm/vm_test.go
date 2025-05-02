@@ -186,14 +186,12 @@ func TestErrors(t *testing.T) {
 
 		if lerr == nil {
 			t.Fatal("expected error, got nil")
-			continue
 		}
 
 		errorname := fmt.Sprintf("%s/%s.txt", errorsDir, name)
 		og, err := os.ReadFile(errorname)
 		if err != nil {
 			t.Fatal("error reading error file (meta lol):", err)
-			continue
 		}
 
 		strog := strings.ReplaceAll(string(og), "{PATH}", errorsDir)

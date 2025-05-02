@@ -545,7 +545,11 @@ func readProto(stringList []string, s *stream) (p *internal.Proto, err error) {
 	}
 
 	// s.rBool()            // isvararg
-	// s.rByte()            // -- flags
+	// native := s.rByte() // -- flags
+	// if (native&1) != 0 || (native&4) != 0 {
+	// 	return nil, fmt.Errorf("native function not supported")
+	// }
+
 	s.pos += 2
 	s.pos += s.rVarInt() // typesize
 
@@ -568,7 +572,7 @@ func readProto(stringList []string, s *stream) (p *internal.Proto, err error) {
 	for i := range sizek {
 		switch kt := s.rByte(); kt {
 		case 0: // Nil
-			p.K[i] = nil
+		// yeah
 		case 1: // Bool
 			p.K[i] = s.rBool()
 		case 2: // Number
@@ -576,21 +580,20 @@ func readProto(stringList []string, s *stream) (p *internal.Proto, err error) {
 		case 3: // String
 			p.K[i] = stringList[s.rVarInt()-1]
 		case 4: // Import
+			// see resolveImport"Safe" in ref impl
 			p.K[i] = s.rWord() // ⚠️ strange, TODO need something to test this ⚠️
-			fmt.Println("case 4", p.K[i])
+			// fmt.Println("case 4", p.K[i])
 		case 5: // Table
-			dataLength := s.rVarInt()
-			t := make([]uint32, dataLength)
-
-			for j := range dataLength {
-				t[j] = s.rVarInt() // whatever
+			// moot, whatever
+			for range s.rVarInt() {
+				s.skipVarInt()
 			}
 
-			p.K[i] = t // ⚠️ not a val ⚠️
-			fmt.Println("case 5", p.K[i])
+			// fmt.Println("case 5", p.K[i])
 		case 6: // Closure
+			// pain in the cranium
 			p.K[i] = s.rVarInt() // ⚠️ not a val ⚠️
-			fmt.Println("case 6", p.K[i])
+			// fmt.Println("case 6", p.K[i])
 		case 7: // types.Vector
 			p.K[i] = s.rVector()
 		default:
@@ -680,16 +683,25 @@ func deserialise(b []byte) (des internal.Deserialised, err error) {
 		stringList[i] = s.rString()
 	}
 
-	// userdataRemapping (not used in VM, left unused)
+	// const userdataTypeLimit = 32
+
+	// userdata type remapping table
+	// for unknown userdata types, the entry will remap to common 'userdata' type
+	// for idx := s.rByte(); idx != 0; idx = s.rByte() {
+	// 	name := stringList[s.rVarInt()]
+
+	// 	if idx-1 < userdataTypeLimit {}
+	// }
+
+	// (not used in VM, left unused)
 	for s.rBool() {
-		s.rVarInt()
+		s.skipVarInt()
 	}
 
 	protoCount := s.rVarInt()
 	protoList := make([]*internal.Proto, protoCount)
 	for i := range protoCount {
-		protoList[i], err = readProto(stringList, s)
-		if err != nil {
+		if protoList[i], err = readProto(stringList, s); err != nil {
 			return
 		}
 	}
@@ -1077,7 +1089,7 @@ func getImport(i internal.Inst, towrap toWrap, stack *[]types.Val) (err error) {
 	imp = t1.GetHash(i.K1)
 	// fmt.Println("GETIMPORT2", i.A, (*stack)[i.A])
 
-	if count <= 3 {
+	if count < 3 {
 		(*stack)[i.A] = imp
 		return
 	}
@@ -1350,7 +1362,7 @@ func forgloop(pc, top *int32, i internal.Inst, stack *[]types.Val, co *types.Cor
 }
 
 func dupClosure(pc *int32, i internal.Inst, towrap toWrap, p *internal.Proto, stack *[]types.Val, upvals []*upval) {
-	newProto := towrap.protoList[i.K.(uint32)]
+	newProto := towrap.protoList[i.K.(uint32)] // 6 closure
 
 	nups := newProto.Nups
 	towrap.upvals = make([]*upval, nups)
@@ -1768,15 +1780,9 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 			pc++
 		case 53: // NEWTABLE
 			(*stack)[i.A] = &Table{}
-
 			pc += 2 // -- adjust for aux
 		case 54: // DUPTABLE
-			serialised := &Table{}
-			// fmt.Println("TEMPLATING")
-			for _, id := range i.K.([]uint32) { // template
-				serialised.Set(p.K[id], nil) // constants
-			}
-			(*stack)[i.A] = serialised
+			(*stack)[i.A] = &Table{} // doesn't really apply here...
 			pc++
 		case 55: // SETLIST
 			A, B := i.A, int32(i.B)
@@ -1873,7 +1879,8 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 			// Handled by wrapper
 			pc++
 		case 66: // LOADKX
-			(*stack)[i.A] = float64(i.K.(uint32)) // kv (graah)
+			// THIS OPCODE NEVER EVEN FUCKING RUNS
+			(*stack)[i.A] = i.K
 
 			pc += 2 // -- adjust for aux
 		case 67: // JUMPX
