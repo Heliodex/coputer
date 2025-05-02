@@ -325,7 +325,7 @@ func add_value(caps *captures, b *strings.Builder, co *types.Coroutine, s string
 		if len(rets) != 0 {
 			val = rets[0]
 		}
-	case *Table:
+	case *types.Table:
 		r, err := pushCapture(caps, s, si, ei, 0) // at least pretty sure this'll always return a string
 		if err != nil {
 			return err
@@ -355,7 +355,7 @@ func string_gsub(args Args) (r []types.Val, err error) {
 	next := args.GetAny()
 
 	switch next.(type) {
-	case string, types.Function, *Table:
+	case string, types.Function, *types.Table:
 	default:
 		return nil, fmt.Errorf("invalid argument #3 to 'gsub' (string/function/table expected, got %s)", TypeOf(next))
 	}
@@ -454,7 +454,7 @@ func string_split(args Args) (r []types.Val, err error) {
 		a[i] = v
 	}
 
-	return []types.Val{&Table{List: a}}, nil
+	return []types.Val{&types.Table{List: a}}, nil
 }
 
 func string_sub(args Args) (r []types.Val, err error) {

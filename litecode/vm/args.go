@@ -17,9 +17,9 @@ func args_web(args Args) (r []types.Val, err error) {
 		headers[k] = v
 	}
 
-	webargs := &Table{
+	webargs := &types.Table{
 		Hash: map[types.Val]types.Val{
-			"url": &Table{
+			"url": &types.Table{
 				Hash: map[types.Val]types.Val{
 					"rawpath":  pargs.Url.Rawpath,
 					"path":     pargs.Url.Path,
@@ -29,7 +29,7 @@ func args_web(args Args) (r []types.Val, err error) {
 				Readonly: true,
 			},
 			"method": pargs.Method,
-			"headers": &Table{
+			"headers": &types.Table{
 				Hash:     headers,
 				Readonly: true,
 			},

@@ -2,6 +2,8 @@ package vm
 
 import (
 	"errors"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/Heliodex/coputer/litecode/types"
@@ -13,31 +15,17 @@ func table_clear(args Args) (r []types.Val, err error) {
 		return nil, errors.New("attempt to modify a readonly table")
 	}
 
-	t.List = nil
-	t.Hash = nil
+	*t = types.Table{}
 	return
 }
 
 func table_clone(args Args) (r []types.Val, err error) {
 	t := args.GetTable()
 
-	nt := &Table{}
-
-	if t.List != nil {
-		a := make([]types.Val, len(t.List))
-		copy(a, t.List)
-		nt.List = a
-	}
-
-	if t.Hash != nil {
-		h := make(map[types.Val]types.Val, len(t.Hash))
-		for k, v := range t.Hash {
-			h[k] = v
-		}
-		nt.Hash = h
-	}
-
-	return []types.Val{nt}, nil
+	return []types.Val{&types.Table{
+		List: slices.Clone(t.List),
+		Hash: maps.Clone(t.Hash),
+	}}, nil
 }
 
 func table_concat(args Args) (r []types.Val, err error) {
@@ -80,7 +68,7 @@ func table_create(args Args) (r []types.Val, err error) {
 	if val == nil {
 		// no value fill or fill with nil (tests/niltable.luau)
 		a := make([]types.Val, 0, s)
-		return []types.Val{&Table{List: a}}, nil
+		return []types.Val{&types.Table{List: a}}, nil
 	}
 
 	a := make([]types.Val, s)
@@ -88,7 +76,7 @@ func table_create(args Args) (r []types.Val, err error) {
 		a[i] = val
 	}
 
-	return []types.Val{&Table{List: a}}, nil
+	return []types.Val{&types.Table{List: a}}, nil
 }
 
 func table_find(args Args) (r []types.Val, err error) {
@@ -124,7 +112,7 @@ func table_freeze(args Args) (r []types.Val, err error) {
 	return []types.Val{t}, nil
 }
 
-func bumpelements(t *Table, start int) {
+func bumpelements(t *types.Table, start int) {
 	// fmt.Println("BEFORE", start)
 	// fmt.Println(t)
 	// fmt.Println()
@@ -236,13 +224,9 @@ func table_move(args Args) (r []types.Val, err error) {
 }
 
 func table_pack(args Args) (r []types.Val, err error) {
-	l := len(args.List)
-	a := make([]types.Val, l)
-	copy(a, args.List)
-
-	return []types.Val{&Table{
-		Hash: map[types.Val]types.Val{"n": float64(l)},
-		List: a,
+	return []types.Val{&types.Table{
+		Hash: map[types.Val]types.Val{"n": float64(len(args.List))},
+		List: slices.Clone(args.List),
 	}}, nil
 }
 
@@ -270,7 +254,7 @@ func table_remove(args Args) (r []types.Val, err error) {
 // ltablib.cpp
 type comp func(a, b types.Val) (bool, error) // ton, compton, aint no city quite like miiine
 
-func sort_swap(t *Table, i, j int) {
+func sort_swap(t *types.Table, i, j int) {
 	a := t.List
 	// LUAU_ASSERT(unsigned(i) < unsigned(n) && unsigned(j) < unsigned(n)) // contract maintained in sort_less after predicate call
 
@@ -278,7 +262,7 @@ func sort_swap(t *Table, i, j int) {
 	a[i], a[j] = a[j], a[i]
 }
 
-func sort_less(t *Table, i, j int, c comp) (res bool, err error) {
+func sort_less(t *types.Table, i, j int, c comp) (res bool, err error) {
 	a, n := t.List, len(t.List)
 	// LUAU_ASSERT(unsigned(i) < unsigned(n) && unsigned(j) < unsigned(n)) // contract maintained in sort_less after predicate call
 
@@ -291,7 +275,7 @@ func sort_less(t *Table, i, j int, c comp) (res bool, err error) {
 	return
 }
 
-func sort_siftheap(t *Table, l, u int, c comp, root int) (err error) {
+func sort_siftheap(t *types.Table, l, u int, c comp, root int) (err error) {
 	// LUAU_ASSERT(l <= u)
 	count := u - l + 1
 
@@ -334,7 +318,7 @@ func sort_siftheap(t *Table, l, u int, c comp, root int) (err error) {
 	return
 }
 
-func sort_heap(t *Table, l, u int, c comp) {
+func sort_heap(t *types.Table, l, u int, c comp) {
 	// LUAU_ASSERT(l <= u)
 	count := u - l + 1
 
@@ -348,7 +332,7 @@ func sort_heap(t *Table, l, u int, c comp) {
 	}
 }
 
-func sort_rec(t *Table, l, u, limit int, c comp) (err error) {
+func sort_rec(t *types.Table, l, u, limit int, c comp) (err error) {
 	// sort range [l..u] (inclusive, 0-based)
 	for l < u {
 		// if the limit has been reached, quick sort is going over the permitted nlogn complexity, so we fall back to heap sort

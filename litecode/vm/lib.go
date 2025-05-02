@@ -75,7 +75,7 @@ func (a *Args) GetBool(optV ...bool) bool {
 }
 
 // GetTable returns the next argument as a table value. An optional value can be passed if the argument is not required.
-func (a *Args) GetTable(optV ...*Table) *Table {
+func (a *Args) GetTable(optV ...*types.Table) *types.Table {
 	return getArg(a, optV, "table")
 }
 
@@ -114,7 +114,7 @@ func (a *Args) GetAny(optV ...types.Val) (arg types.Val) {
 }
 
 // NewLib creates a new library with a given table of functions and other values, such as constants. Functions can be created using MakeFn.
-func NewLib(functions []types.Function, other ...map[string]types.Val) *Table {
+func NewLib(functions []types.Function, other ...map[string]types.Val) *types.Table {
 	// remember, no duplicates
 	hash := make(map[types.Val]types.Val, len(functions)+len(other))
 	for _, f := range functions {
@@ -126,7 +126,7 @@ func NewLib(functions []types.Function, other ...map[string]types.Val) *Table {
 		}
 	}
 
-	return &Table{
+	return &types.Table{
 		Readonly: true,
 		Hash:     hash,
 	}
