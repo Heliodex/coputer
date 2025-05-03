@@ -1,0 +1,2 @@
+{PATH}/nilindex.luau:3: function (main)
+table index is nil

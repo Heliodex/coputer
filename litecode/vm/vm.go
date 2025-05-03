@@ -14,7 +14,10 @@ import (
 
 const safe = false
 
-var errReadonly = errors.New("attempt to modify a readonly table")
+var (
+	errReadonly = errors.New("attempt to modify a readonly table")
+	errNilIndex = errors.New("table index is nil")
+)
 
 // bit32 extraction
 func extract(n, field, width uint32) uint32 {
@@ -1339,6 +1342,9 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 			if t.Readonly {
 				return nil, errReadonly
 			}
+			if idx == nil {
+				return nil, errNilIndex
+			}
 
 			// fmt.Println("SETTABLE", idx, (*stack)[i.A])
 			t.Set(idx, (*stack)[i.A])
@@ -1357,6 +1363,9 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 			}
 			if t.Readonly {
 				return nil, errReadonly
+			}
+			if idx == nil {
+				return nil, errNilIndex
 			}
 
 			t.Set(idx, (*stack)[i.A])
@@ -1760,20 +1769,9 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 			} else {
 				pc += 2
 			}
-		case 78: //  JUMPXEQKB
-			if kv, ra := i.K.(bool), (*stack)[i.A].(bool); ra == kv != i.KN {
-				pc += i.D + 1
-			} else {
-				pc += 2
-			}
-		case 79: // JUMPXEQKN
-			if kv, ra := i.K.(float64), (*stack)[i.A].(float64); ra == kv != i.KN {
-				pc += i.D + 1
-			} else {
-				pc += 2
-			}
-		case 80: // JUMPXEQKS
-			if kv, ra := i.K.(string), (*stack)[i.A].(string); ra == kv != i.KN {
+		case 78, 79, 80: //  JUMPXEQKB, JUMPXEQKN, JUMPXEQKS
+			// actually the same apart from types (which aren't even correct anyway)
+			if kv, ra := i.K, (*stack)[i.A]; ra == kv != i.KN {
 				pc += i.D + 1
 			} else {
 				pc += 2
