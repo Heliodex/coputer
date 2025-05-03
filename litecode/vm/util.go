@@ -66,14 +66,16 @@ func Compile(c types.Compiler, path string) (p compiled, err error) {
 		return compiled{}, fmt.Errorf("error deserialising bytecode: %w", err)
 	}
 
-	c.Cache[hash] = p.Deserpath
+	dp := internal.Deserpath{
+		Deserialised: d,
+		Dbgpath:      pathext,
+	}
+	c.Cache[hash] = dp
+
 	return compiled{
-		Deserpath: internal.Deserpath{
-			Deserialised: d,
-			Dbgpath:      pathext,
-		},
-		Filepath: path,
-		Compiler: c,
+		Deserpath: dp,
+		Filepath:  path,
+		Compiler:  c,
 	}, nil
 }
 

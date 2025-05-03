@@ -883,9 +883,8 @@ func iterate(c *iterator) {
 }
 
 func moveStack(stack *[]types.Val, src []types.Val, b, t int32) {
-	for t+b >= int32(len(*stack)) { // graah stack expansion
-		*stack = append(*stack, nil)
-	}
+	l := t + b - int32(len(*stack)) + 1 // graah stack expansion
+	*stack = append(*stack, make([]types.Val, max(l, 0))...)
 
 	for i := range b {
 		if i >= int32(len(src)) {
@@ -1218,7 +1217,7 @@ func dupClosure(pc *int32, i internal.Inst, towrap toWrap, p *internal.Proto, st
 	}
 }
 
-func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList []types.Val, vargsLen uint8) (r []types.Val, err error) {
+func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList []types.Val) (r []types.Val, err error) {
 	p, upvals := towrap.proto, towrap.upvals
 	// int32 > uint32 lel
 	pc, top, openUpvals, generalisedIterators := int32(1), int32(-1), []*upval{}, map[internal.Inst]*iterator{}
@@ -1691,7 +1690,7 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 
 			// fmt.Println("MULTRET", b, vargsLen)
 			if b == luau_multret {
-				b = int32(vargsLen)
+				b = int32(len(vargsList))
 				top = A + b - 1
 			}
 
@@ -1828,7 +1827,7 @@ func wrapclosure(towrap toWrap) types.Function {
 		}()
 
 		// fmt.Println("started on", co.Dbg.Line)
-		r, err = execute(towrap, &stack, co, list, max(la-np, 0))
+		r, err = execute(towrap, &stack, co, list)
 		// fmt.Println("ended on", co.Dbg.Line)
 		if !*towrap.alive {
 			return

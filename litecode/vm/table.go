@@ -112,15 +112,15 @@ func table_freeze(args Args) (r []types.Val, err error) {
 	return []types.Val{t}, nil
 }
 
-func bumpelements(t *types.Table, start float64) {
+func bumpelements(t *types.Table, start int) {
 	// fmt.Println("BEFORE", start)
 	// fmt.Println(t)
 	// fmt.Println()
 
-	var keys float64
+	var keys int
 	for i := start; ; i++ {
 		// fmt.Println("starting with", i)
-		if t.Get(i) == nil {
+		if t.Get(float64(i)) == nil {
 			keys = i - 1
 			break
 		}
@@ -130,7 +130,7 @@ func bumpelements(t *types.Table, start float64) {
 
 	for k := keys; k >= start; k-- {
 		// fmt.Println("moving key", k+1, "=", t.Get(k))
-		t.Set(k+1, t.Get(k))
+		t.SetInt(k+1, t.Get(float64(k)))
 	}
 
 	// fmt.Println("AFTER")
@@ -155,14 +155,14 @@ func table_insert(args Args) (r []types.Val, err error) {
 		// fmt.Println("bumping elements up", pos)
 		// move elements up if necessary
 		if pos = int(p); n > 0 && 1 <= pos && pos <= n {
-			bumpelements(t, p)
+			bumpelements(t, pos)
 		}
 	default:
 		return nil, errors.New("wrong number of arguments to 'insert'")
 	}
 
 	v := args.GetAny()
-	t.Set(float64(pos), v)
+	t.SetInt(pos, v)
 
 	return
 }
@@ -207,14 +207,14 @@ func table_maxn(args Args) (r []types.Val, err error) {
 
 func table_move(args Args) (r []types.Val, err error) {
 	src := args.GetTable()
-	a, b, t := args.GetNumber(), args.GetNumber(), args.GetNumber()
+	a, b, t := int(args.GetNumber()), int(args.GetNumber()), int(args.GetNumber())
 	dst := args.GetTable(src)
 	if dst.Readonly {
 		return nil, errors.New("attempt to modify a readonly table")
 	}
 
 	for i := a; i <= b; i++ {
-		dst.Set(t+i-a, src.Get(i))
+		dst.SetInt(t+i-a, src.Get(float64(i)))
 	}
 
 	return []types.Val{dst}, nil
@@ -233,17 +233,17 @@ func table_remove(args Args) (r []types.Val, err error) {
 		return nil, errors.New("attempt to modify a readonly table")
 	}
 
-	l := float64(t.Len())
-	pos := args.GetNumber(l)
+	l := t.Len()
+	pos := args.GetNumber(float64(l))
 
 	p := t.Get(pos)
-	if uint(pos) == uint(l) {
-		t.Set(pos, nil)
-	} else if 0 < pos && pos < l {
-		for i := pos; i < l; i++ {
-			t.Set(i, t.Get(i+1))
+	if ipos := int(pos); ipos == l {
+		t.SetInt(ipos, nil)
+	} else if 0 < ipos && ipos < l {
+		for i := ipos; i < l; i++ {
+			t.SetInt(i, t.Get(float64(i+1)))
 		}
-		t.Set(l, nil)
+		t.SetInt(l, nil)
 	}
 	return []types.Val{p}, nil
 }

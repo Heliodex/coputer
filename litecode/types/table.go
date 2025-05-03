@@ -113,7 +113,7 @@ func (t *Table) SetInt(i int, v Val) {
 			t.moveToList(0)
 			return
 		}
-	} else if l := len(t.List); i < l+1 {
+	} else if l := len(t.List); 0 < i && i < l+1 {
 		if v != nil {
 			// set in the list portion
 			t.List[i-1] = v

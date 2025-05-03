@@ -31,3 +31,9 @@ table.insert(n, 1, 1)
 print(table.unpack(n))
 table.insert(n, 1, 0)
 print(table.unpack(n))
+
+local fi = {}
+table.insert(fi, 1, "whats up")
+table.insert(fi, 6.5, "whats up")
+
+print(fi[1], fi[6.5])
