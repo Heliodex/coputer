@@ -15,7 +15,7 @@ var sampleKeys = [...]string{
 	"cosec:3a1r7x85ki-duan0b0wlk-ate5tun2ag-mdmk5kghrc-3rcpir16w6",
 	"cosec:08al1krxnf-u0kmgplotd-yr7fatryv8-9ktqeba3xz-xmzwviykjc",
 }
-var sampleKeysUsed uint8 = 0
+var sampleKeysUsed uint8
 
 func getSampleKeypair() (kp keys.Keypair) {
 	if skBytes, err := keys.DecodeSK(sampleKeys[sampleKeysUsed]); err != nil {

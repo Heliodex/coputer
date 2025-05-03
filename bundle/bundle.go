@@ -18,7 +18,8 @@ const (
 	// and in the darkness require() them
 	Entrypoint         = "init"
 	EntrypointFilename = Entrypoint + ".luau"
-	ProgramsDir        = "./data/programs"
+	DataDir            = "./data"
+	ProgramsDir        = DataDir + "/programs"
 )
 
 func Bundle(path string) (b []byte, err error) {

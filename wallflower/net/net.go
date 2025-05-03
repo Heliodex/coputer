@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Heliodex/coputer/wallflower/keys"
 	"github.com/Heliodex/coputer/litecode/types"
+	"github.com/Heliodex/coputer/wallflower/keys"
 )
 
 const FindStart = "cofind:"
@@ -48,7 +48,7 @@ func PeerFromFindString(find string) (p *keys.Peer, err error) {
 	return &keys.Peer{Pk: pk, Addresses: addresses}, nil
 }
 
-func (e EncryptedMsg) Decode(kp keys.Keypair) (m AnyMsg, err error) {
+func (e EncryptedMsg) Decode(kp keys.Keypair) (am AnyMsg, err error) {
 	from, body, err := kp.Decrypt(e)
 	if err != nil {
 		return
@@ -136,7 +136,7 @@ func (n *Node) handleMessage(am AnyMsg) {
 	case mStoreResult:
 		n.log("Program storage successful\n", "Hash: ", hex.EncodeToString(m.Hash[:]))
 
-	case mRun:
+	case mRunHash:
 		n.log("Running program\n", "Hash: ", hex.EncodeToString(m.Hash[:]))
 
 		switch tin := m.Input.(type) {
@@ -156,13 +156,14 @@ func (n *Node) handleMessage(am AnyMsg) {
 			}
 
 			// return result
-			res := mRunResult{types.WebProgramType, m.Hash, sha3.Sum256(inputBytes), ret}
+			res := mRunHashResult{types.WebProgramType, m.Hash, sha3.Sum256(inputBytes), ret}
 			n.send(am.From.Pk, res)
+
 		default:
 			n.log("Unknown program type\n", m.Input.Type())
 		}
 
-	case mRunResult:
+	case mRunHashResult:
 		if p, ok := n.resultsWaiting[m.Hash]; ok {
 			if ch, ok := p[m.InputHash]; ok {
 				ch <- m.Result
@@ -187,13 +188,13 @@ func (n *Node) seenPeer(p *keys.Peer) {
 	n.Peers[p.Pk].LastSeen = time.Now()
 }
 
-func (n *Node) StoreProgram(b []byte) (err error) {
+func (n *Node) StoreProgram(name string, b []byte) (err error) {
 	if _, err = StoreProgram(b); err != nil {
 		return
 	}
 
 	for _, peer := range n.Peers {
-		m := mStore{b}
+		m := mStore{name, b}
 
 		if err = n.send(peer.Pk, m); err != nil {
 			return
@@ -216,7 +217,7 @@ func (n *Node) peerRun(hash, inputhash [32]byte, ptype types.ProgramType, input 
 	n.resultsWaiting[hash][inputhash] = ch
 
 	for _, peer := range n.Peers {
-		m := mRun{ptype, hash, input}
+		m := mRunHash{ptype, hash, input}
 
 		if err = n.send(peer.Pk, m); err != nil {
 			return

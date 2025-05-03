@@ -150,7 +150,7 @@ func TestNet(t *testing.T) {
 		b := getBundled(testProgramPath+"/"+test.Name, t)
 		hash := sha3.Sum256(b)
 
-		lnet := LocalNet{}
+		var lnet LocalNet
 
 		n1 := lnet.NewNode()
 		fs1 := n1.FindString()
@@ -158,7 +158,7 @@ func TestNet(t *testing.T) {
 		p1, err := PeerFromFindString(fs1)
 		if err != nil {
 			t.Fatal(err)
-		} else if err = n1.StoreProgram(b); err != nil {
+		} else if err = n1.StoreProgram(test.Name, b); err != nil {
 			t.Fatal(err)
 		}
 
