@@ -10,8 +10,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 
 	"github.com/Heliodex/coputer/litecode/types"
+	"github.com/Heliodex/coputer/wallflower/keys"
 )
 
 const (
@@ -19,7 +21,7 @@ const (
 	storeAddr = addr + "/store"
 )
 
-func StoreProgram(data []byte) (hash [32]byte, err error) {
+func StoreProgram(pk keys.PK, name string, data []byte) (hash [32]byte, err error) {
 	hash = sha3.Sum256(data)
 
 	res, err := http.Get(addr + "/" + hex.EncodeToString(hash[:]))
@@ -27,7 +29,8 @@ func StoreProgram(data []byte) (hash [32]byte, err error) {
 		return
 	}
 
-	req, err := http.NewRequest(http.MethodPut, storeAddr, bytes.NewReader(data))
+	p := storeAddr + "/" + pk.EncodeNoPrefix() + "/" + url.PathEscape(name)
+	req, err := http.NewRequest(http.MethodPut, p, bytes.NewReader(data))
 	if err != nil {
 		return
 	}

@@ -113,7 +113,7 @@ func (m mRunHashResult) Serialise() []byte {
 
 type mRunName struct {
 	Type  types.ProgramType // 1
-	PK    keys.PK           // 29
+	Pk    keys.PK           // 29
 	Name  string            // 1 + length
 	Input types.ProgramArgs
 }
@@ -127,7 +127,7 @@ func (m mRunName) Serialise() []byte {
 
 	b := make([]byte, 1, 1+keys.PKSize+1+len(m.Name)+len(in))
 	b[0] = byte(m.Type)
-	b = append(b, m.PK[:]...)
+	b = append(b, m.Pk[:]...)
 	b = append(b, byte(len(m.Name)))
 	b = append(b, m.Name...)
 	b = append(b, in...)
@@ -137,7 +137,7 @@ func (m mRunName) Serialise() []byte {
 
 type mRunNameResult struct {
 	Type      types.ProgramType // 1
-	PK        keys.PK           // 29
+	Pk        keys.PK           // 29
 	Name      string            // 1 + length
 	InputHash [32]byte
 	Result    types.ProgramRets
@@ -152,7 +152,7 @@ func (m mRunNameResult) Serialise() []byte {
 
 	b := make([]byte, 1, 1+keys.PKSize+1+len(m.Name)+len(res))
 	b[0] = byte(m.Type)
-	b = append(b, m.PK[:]...)
+	b = append(b, m.Pk[:]...)
 	b = append(b, byte(len(m.Name)))
 	b = append(b, m.Name...)
 	b = append(b, m.InputHash[:]...)

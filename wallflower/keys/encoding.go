@@ -48,8 +48,7 @@ const (
 	Secret
 )
 
-// Takes a public key and returns a string representation of it using a custom alphabet
-func (s PK) Encode() string {
+func (s PK) EncodeNoPrefix() string {
 	digits := [pkStringLength]int{}
 	di := 1
 
@@ -74,8 +73,6 @@ func (s PK) Encode() string {
 
 	// 5 sections of 9 characters each
 	var b strings.Builder
-	b.WriteString(PubStart)
-
 	for i := range 5 {
 		b.Write(res[i*9:][:9])
 		if i < 4 {
@@ -84,6 +81,11 @@ func (s PK) Encode() string {
 	}
 
 	return b.String()
+}
+
+// Takes a public key and returns a string representation of it using a custom alphabet
+func (s PK) Encode() string {
+	return PubStart + s.EncodeNoPrefix()
 }
 
 // Takes a secret key and returns a string representation of it using a custom alphabet

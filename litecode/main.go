@@ -146,6 +146,11 @@ func main() {
 			return
 		}
 
+		if err := os.MkdirAll(filepath.Join(NamesDir, pk), 0755); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
 		f, err := os.Create(filepath.Join(NamesDir, pk, name))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest) // status whatever, reeks of ego anyway

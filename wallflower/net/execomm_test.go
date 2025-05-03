@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/Heliodex/coputer/bundle"
+	"github.com/Heliodex/coputer/wallflower/keys"
 )
 
 func TestExec(t *testing.T) {
@@ -15,7 +16,7 @@ func TestExec(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		hash, err := StoreProgram(b)
+		hash, err := StoreProgram(keys.PK{}, test.Name, b) // lel nil pk
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -123,7 +123,7 @@ func (n *Node) handleMessage(am AnyMsg) {
 
 	switch m := dm.(type) {
 	case mStore:
-		hash, err := StoreProgram(m.Bundled)
+		hash, err := StoreProgram(am.From.Pk, m.Name, m.Bundled)
 		if err != nil {
 			n.log("Failed to store program\n", err)
 			break
@@ -188,8 +188,8 @@ func (n *Node) seenPeer(p *keys.Peer) {
 	n.Peers[p.Pk].LastSeen = time.Now()
 }
 
-func (n *Node) StoreProgram(name string, b []byte) (err error) {
-	if _, err = StoreProgram(b); err != nil {
+func (n *Node) StoreProgram(pk keys.PK, name string, b []byte) (err error) {
+	if _, err = StoreProgram(pk, name, b); err != nil {
 		return
 	}
 

@@ -158,7 +158,7 @@ func TestNet(t *testing.T) {
 		p1, err := PeerFromFindString(fs1)
 		if err != nil {
 			t.Fatal(err)
-		} else if err = n1.StoreProgram(test.Name, b); err != nil {
+		} else if err = n1.StoreProgram(n1.Pk, test.Name, b); err != nil {
 			t.Fatal(err)
 		}
 
