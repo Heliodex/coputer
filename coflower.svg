@@ -27,13 +27,13 @@
 <path d="M30.0125 4.84509C36.5234 1.91475 41.5654 5.66167 44.7176 12.6656C47.8698 19.6695 46.2238 40.8651 46.2238 40.8651L30.0125 4.84509Z" fill="#F6339A"/>
 <path d="M50 29.375C61.3909 29.375 70.625 38.6091 70.625 50C70.625 61.3909 61.3909 70.625 50 70.625C38.6091 70.625 29.375 61.3909 29.375 50C29.375 38.6091 38.6091 29.375 50 29.375Z" fill="#FFFF66" stroke="black" stroke-width="1.75"/>
 <g filter="url(#filter0_d_18_21)">
-<ellipse cx="41.75" cy="50" rx="3.75" ry="1" fill="#FFFF66" fill-opacity="0.01"/>
+<ellipse cx="41.75" cy="50" rx="3.75" ry="1" fill="#FFFF66"/>
 </g>
 <circle cx="41.75" cy="50" r="3.75" fill="black"/>
 <ellipse cx="43.3596" cy="51.9641" rx="0.6" ry="0.9" transform="rotate(49.7706 43.3596 51.9641)" fill="white" fill-opacity="0.6"/>
 <ellipse cx="40.3713" cy="48.4586" rx="1" ry="2" transform="rotate(49.7706 40.3713 48.4586)" fill="white"/>
 <g filter="url(#filter1_d_18_21)">
-<ellipse cx="58.25" cy="50" rx="3.75" ry="1" fill="#FFFF66" fill-opacity="0.01"/>
+<ellipse cx="58.25" cy="50" rx="3.75" ry="1" fill="#FFFF66"/>
 </g>
 <circle cx="58.25" cy="50" r="3.75" fill="black"/>
 <ellipse cx="59.8596" cy="51.9641" rx="0.6" ry="0.9" transform="rotate(49.7706 59.8596 51.9641)" fill="white" fill-opacity="0.6"/>
