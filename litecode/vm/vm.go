@@ -2,6 +2,7 @@
 package vm
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math"
@@ -254,13 +255,10 @@ func (s *stream) rBool() bool {
 	return s.rByte() != 0
 }
 
-func (s *stream) rWord() (w uint32) {
+func (s *stream) rUint32() (w uint32) {
 	if safe {
-		w = uint32(s.data[s.pos]) |
-			uint32(s.data[s.pos+1])<<8 |
-			uint32(s.data[s.pos+2])<<16 |
-			uint32(s.data[s.pos+3])<<24
-	} else {
+		w = binary.LittleEndian.Uint32(s.data[s.pos:])
+	} else { // TODO: check if unsafe alternatives are actually faster
 		w = *(*uint32)(unsafe.Pointer(&s.data[s.pos]))
 	}
 	s.pos += 4
@@ -271,11 +269,12 @@ func (s *stream) rWord() (w uint32) {
 func (s *stream) rVector() (r types.Vector) {
 	if safe {
 		for i := range 4 {
-			r[i] = math.Float32frombits(s.rWord())
+			r[i] = math.Float32frombits(s.rUint32())
 		}
 		return
 	}
 
+	// endianness isn't really a concern here as the data is always little endian (and the math.frombits functions will have the same problems anyway...)
 	r = *(*types.Vector)(unsafe.Pointer(&s.data[s.pos]))
 	s.pos += 16
 	return
@@ -283,10 +282,11 @@ func (s *stream) rVector() (r types.Vector) {
 
 func (s *stream) rFloat64() (r float64) {
 	if safe {
-		return math.Float64frombits(uint64(s.rWord()) | uint64(s.rWord())<<32)
+		r = math.Float64frombits(binary.LittleEndian.Uint64(s.data[s.pos:]))
+	} else {
+		r = *(*float64)(unsafe.Pointer(&s.data[s.pos]))
 	}
 
-	r = *(*float64)(unsafe.Pointer(&s.data[s.pos]))
 	s.pos += 8
 	return
 }
@@ -312,16 +312,17 @@ func (s *stream) rVarInt() (r uint32) {
 
 func (s *stream) rString() (str string) {
 	size := s.rVarInt()
-	if size == 0 {
-		return ""
+	if safe {
+		str = string(s.data[s.pos:][:size])
+	} else {
+		str = unsafe.String(&s.data[s.pos], size)
 	}
 
-	str = string(s.data[s.pos:][:size])
 	s.pos += size
 	return
 }
 
-func (s *stream) CheckEnd() error {
+func (s *stream) checkEnd() error {
 	if s.pos != uint32(len(s.data)) {
 		return errors.New("deserialiser position mismatch")
 	}
@@ -329,8 +330,8 @@ func (s *stream) CheckEnd() error {
 }
 
 // reads either 1 or 2 words
-func readInst(codeList *[]*internal.Inst, s *stream) bool {
-	value := s.rWord()
+func (s *stream) readInst(codeList *[]*internal.Inst) bool {
+	value := s.rUint32()
 
 	opcode := uint8(value)
 	opinfo := opList[opcode]
@@ -359,7 +360,7 @@ func readInst(codeList *[]*internal.Inst, s *stream) bool {
 
 	*codeList = append(*codeList, &i)
 	if opinfo.HasAux {
-		i.Aux = s.rWord()
+		i.Aux = s.rUint32()
 
 		*codeList = append(*codeList, &internal.Inst{})
 	}
@@ -367,7 +368,7 @@ func readInst(codeList *[]*internal.Inst, s *stream) bool {
 	return opinfo.HasAux
 }
 
-func readProto(stringList []string, s *stream) (p *internal.Proto, err error) {
+func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 	p = &internal.Proto{
 		MaxStackSize: s.rByte(),
 		NumParams:    s.rByte(),
@@ -386,7 +387,7 @@ func readProto(stringList []string, s *stream) (p *internal.Proto, err error) {
 	sizecode := s.rVarInt()
 
 	for i := uint32(0); i < sizecode; i++ {
-		if readInst(&p.Code, s) {
+		if s.readInst(&p.Code) {
 			i++
 		}
 	}
@@ -411,7 +412,7 @@ func readProto(stringList []string, s *stream) (p *internal.Proto, err error) {
 			p.K[i] = stringList[s.rVarInt()-1]
 		case 4: // Import
 			// see resolveImport"Safe" in ref impl
-			p.K[i] = s.rWord() // ⚠️ strange, TODO need something to test this ⚠️
+			p.K[i] = s.rUint32() // ⚠️ strange, TODO need something to test this ⚠️
 			// fmt.Println("case 4", p.K[i])
 		case 5: // Table
 			// moot, whatever
@@ -466,7 +467,7 @@ func readProto(stringList []string, s *stream) (p *internal.Proto, err error) {
 		abslineinfo := make([]uint32, intervals)
 		var lastline uint32
 		for i := range intervals {
-			lastline += s.rWord()
+			lastline += s.rUint32()
 			// fmt.Println("lastline", lastline)
 			abslineinfo[i] = lastline // overflow babyy (faster than % (1 << 32))
 		}
@@ -531,7 +532,7 @@ func deserialise(b []byte) (des internal.Deserialised, err error) {
 	protoCount := s.rVarInt()
 	protoList := make([]*internal.Proto, protoCount)
 	for i := range protoCount {
-		if protoList[i], err = readProto(stringList, s); err != nil {
+		if protoList[i], err = s.readProto(stringList); err != nil {
 			return
 		}
 	}
@@ -542,7 +543,7 @@ func deserialise(b []byte) (des internal.Deserialised, err error) {
 	return internal.Deserialised{
 		MainProto: mainProto,
 		ProtoList: protoList,
-	}, s.CheckEnd()
+	}, s.checkEnd()
 }
 
 type iterator struct {

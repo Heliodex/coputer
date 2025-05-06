@@ -10,3 +10,5 @@ print(10 ^ 60)
 
 print(2 ^ 2 ^ 2 ^ 2 ^ 2) -- inf
 print(-2 ^ 2 ^ 2 ^ 2 ^ 2) -- -inf
+
+print(0xffffffffffffffffffffffffffffffffffffffffff, 2 ^ 64) -- twenty fffffffffffffffffffffirst century coding

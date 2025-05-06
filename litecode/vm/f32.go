@@ -1,10 +1,6 @@
 package vm
 
-import (
-	"math"
-
-	"github.com/Heliodex/coputer/litecode/types"
-)
+import "math"
 
 // float32-optimised maths, without converting from float32 to float64
 // float32s are only used for vectors at the moment
@@ -119,16 +115,4 @@ func f32Ceil(v float32) float32 {
 
 func f32Abs(v float32) float32 {
 	return float32(math.Abs(float64(v)))
-}
-
-func vector_create(args Args) (r []types.Val, err error) {
-	x := float32(args.GetNumber())
-	y := float32(args.GetNumber())
-	z := float32(args.GetNumber())
-	var w float32
-	if wide4 {
-		w = float32(args.GetNumber())
-	}
-
-	return []types.Val{types.Vector{x, y, z, w}}, nil
 }

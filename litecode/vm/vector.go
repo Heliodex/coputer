@@ -12,6 +12,18 @@ func mag(v types.Vector) float32 {
 	return f32Sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2] + v[3]*v[3])
 }
 
+func vector_create(args Args) (r []types.Val, err error) {
+	x := float32(args.GetNumber())
+	y := float32(args.GetNumber())
+	z := float32(args.GetNumber())
+	var w float32
+	if wide4 {
+		w = float32(args.GetNumber())
+	}
+
+	return []types.Val{types.Vector{x, y, z, w}}, nil
+}
+
 func vector_magnitude(args Args) (r []types.Val, err error) {
 	v := args.GetVector()
 

@@ -212,9 +212,7 @@ func mul128(x, y uint64) (uint64, uint64) {
 	y0, y1 := uint64(uint32(y)), uint64(uint32(y>>32))
 	p11, p01, p10, p00 := x1*y1, x0*y1, x1*y0, x0*y0
 	mid := p10 + p00>>32 + uint64(uint32(p01))
-	r0 := mid<<32 | uint64(uint32(p00))
-	r1 := p11 + mid>>32 + p01>>32
-	return r1, r0
+	return p11 + mid>>32 + p01>>32, mid<<32 | uint64(uint32(p00))
 }
 
 func b2i(b bool) uint64 {
