@@ -1,0 +1,2 @@
+{PATH}/global2.luau:1: function (main)
+attempt to redefine global 'math'

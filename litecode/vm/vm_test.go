@@ -105,7 +105,7 @@ func TestConformance(t *testing.T) {
 		t.Fatal("error reading conformance tests directory:", err)
 	}
 
-	// const onlyTest = "fibsum"
+	// const onlyTest = "logic"
 
 	c0, c1, c2 := NewCompiler(0), NewCompiler(1), NewCompiler(2)
 

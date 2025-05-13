@@ -335,7 +335,7 @@ func add_value(caps *captures, b *strings.Builder, co *types.Coroutine, s string
 		val = n.GetHash(ToString(r)) // we'll tostring here to be safe
 	}
 
-	if !truthy(val) { // nil or false?
+	if falsy(val) { // nil or false?
 		b.WriteString(s[si:ei]) // keep original text
 		return
 	}

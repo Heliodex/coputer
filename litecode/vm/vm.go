@@ -167,7 +167,8 @@ func namecallHandler(co *types.Coroutine, kv string, stack *[]types.Val, c1, c2 
 	return
 }
 
-var exts = types.Env{
+// The only global environment, never mutated (yes, it only stores string keys)
+var exts = map[string]types.Val{
 	"math":      libmath,
 	"table":     libtable,
 	"string":    libstring,
@@ -553,8 +554,8 @@ type upval struct {
 	selfRef bool
 }
 
-func truthy(v types.Val) bool {
-	return v != nil && v != false
+func falsy(v types.Val) bool {
+	return v == nil || v == false
 }
 
 func invalidCompare(op, ta, tb string) error {
@@ -1213,19 +1214,11 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 	// int32 > uint32 lel
 	pc, top, openUpvals, genIters := int32(1), int32(-1), []*upval{}, map[internal.Inst][]types.Val{}
 
-	var handlingBreak bool
-	var i internal.Inst
-	var op uint8
-
 	// a a a a
 	// stayin' alive
 	// fmt.Println("starting with upvals", upvals)
 	for *towrap.alive {
-		if !handlingBreak {
-			i = *p.Code[pc-1]
-			op = i.Opcode
-		}
-		handlingBreak = false
+		i := *p.Code[pc-1]
 
 		co.Dbg.Line = p.InstLineInfo[pc-1]
 		co.Dbg.Name = p.Dbgname
@@ -1235,15 +1228,11 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 		// if len(upvals) > 0 {
 		// 	fmt.Println("upval", upvals[0])
 		// }
-		// fmt.Printf("OP %-2d PC %-3d UV %d\n", op, pc+1, len(upvals))
 
-		switch op {
+		switch op := i.Opcode; op {
 		case 0: // NOP
 			// -- Do nothing
 			pc++
-		case 1: // BREAK
-			op = p.Dbgcode[pc]
-			handlingBreak = true
 		case 2: // LOADNIL
 			stack[i.A] = nil
 			pc++
@@ -1262,7 +1251,7 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 			stack[i.A] = stack[i.B]
 			pc++
 		case 7: // GETGLOBAL
-			kv := i.K
+			kv := i.K.(string)
 
 			if e, ok := exts[kv]; ok {
 				stack[i.A] = e
@@ -1272,12 +1261,12 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 			pc += 2 // -- adjust for aux
 		case 8: // SETGLOBAL
 			// LOL
-			if kv, ok := i.K.(string); ok {
-				if _, ok := exts[kv]; ok {
-					return nil, fmt.Errorf("attempt to redefine global '%s'", kv)
-				}
-				return nil, fmt.Errorf("attempt to set global '%s'", kv)
+			kv := i.K.(string)
+
+			if _, ok := exts[kv]; ok {
+				return nil, fmt.Errorf("attempt to redefine global '%s'", kv)
 			}
+			return nil, fmt.Errorf("attempt to set global '%s'", kv)
 		case 9: // GETUPVAL
 			if uv := upvals[i.B]; uv.selfRef {
 				stack[i.A] = uv.value
@@ -1407,16 +1396,16 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 		case 23, 24: // JUMP, JUMPBACK
 			pc += i.D + 1
 		case 25: // JUMPIF
-			if truthy(stack[i.A]) {
-				pc += i.D + 1
-			} else {
+			if falsy(stack[i.A]) {
 				pc++
+			} else {
+				pc += i.D + 1
 			}
 		case 26: // JUMPIFNOT
-			if truthy(stack[i.A]) {
-				pc++
-			} else {
+			if falsy(stack[i.A]) {
 				pc += i.D + 1
+			} else {
+				pc++
 			}
 		case 27: // jump
 			if stack[i.A] == stack[i.Aux] {
@@ -1532,38 +1521,44 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 				return
 			}
 			pc++
+		case 71: // SUBRK
+			if stack[i.A], err = aSub(i.K, stack[i.C]); err != nil {
+				return nil, err
+			}
+			pc++
+		case 72: // DIVRK
+			if stack[i.A], err = aDiv(i.K, stack[i.C]); err != nil {
+				return nil, err
+			}
+			pc++
 		case 45: // logic AND
-			if a, b := stack[i.B], stack[i.C]; truthy(a) {
-				stack[i.A] = b
-			} else {
+			if a, b := stack[i.B], stack[i.C]; falsy(a) {
 				stack[i.A] = a
+			} else {
+				stack[i.A] = b
 			}
 			pc++
 		case 46: // logic OR
-			if a, b := stack[i.B], stack[i.C]; truthy(a) {
-				stack[i.A] = a
-			} else if truthy(b) {
+			if a, b := stack[i.B], stack[i.C]; falsy(a) {
 				stack[i.A] = b
 			} else {
-				stack[i.A] = false
+				stack[i.A] = a
 			}
 			pc++
 		case 47: // logik AND
 			// fmt.Println("LOGIK")
-			if a, b := stack[i.B], i.K; truthy(a) {
-				stack[i.A] = b
-			} else {
+			if a, b := stack[i.B], i.K; falsy(a) {
 				stack[i.A] = a
+			} else {
+				stack[i.A] = b
 			}
 			pc++
 		case 48: // logik OR
 			// fmt.Println("LOGIK")
-			if a, b := stack[i.B], i.K; truthy(a) {
-				stack[i.A] = a
-			} else if truthy(b) {
+			if a, b := stack[i.B], i.K; falsy(a) {
 				stack[i.A] = b
 			} else {
-				stack[i.A] = false
+				stack[i.A] = a
 			}
 			pc++
 		case 49: // CONCAT
@@ -1580,7 +1575,7 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 			stack[i.A] = b.String()
 			pc++
 		case 50: // NOT
-			stack[i.A] = !truthy(stack[i.B])
+			stack[i.A] = falsy(stack[i.B])
 			pc++
 		case 51: // MINUS
 			if stack[i.A], err = aUnm(stack[i.B]); err != nil {
@@ -1694,31 +1689,11 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 			// Handled by wrapper
 			pc++
 		case 66: // LOADKX
-			// THIS OPCODE NEVER EVEN FUCKING RUNS
 			stack[i.A] = i.K
 			pc += 2 // -- adjust for aux
 		case 67: // JUMPX
 			pc += i.E + 1
-		case 68: // FASTCALL
-			pc++
-			// Skipped
-		case 69: // COVERAGE
-			i.E++
-			pc++
-		case 70: // CAPTURE
-			// Handled by CLOSURE
-			panic("encountered unhandled CAPTURE")
-		case 71: // SUBRK
-			if stack[i.A], err = aSub(i.K, stack[i.C]); err != nil {
-				return nil, err
-			}
-			pc++
-		case 72: // DIVRK
-			if stack[i.A], err = aDiv(i.K, stack[i.C]); err != nil {
-				return nil, err
-			}
-			pc++
-		case 73: // FASTCALL1
+		case 68, 73: // FASTCALL, FASTCALL1
 			// Skipped
 			pc++
 		case 74, 75: // FASTCALL2, FASTCALL2K
