@@ -548,10 +548,8 @@ func deserialise(b []byte) (des internal.Deserialised, err error) {
 }
 
 type upval struct {
-	value   types.Val
-	store   []types.Val
-	index   uint8
-	selfRef bool
+	value types.Val
+	store *types.Val
 }
 
 func falsy(v types.Val) bool {
@@ -890,65 +888,57 @@ func moveStack(stack *[]types.Val, src []types.Val, b, t int32) {
 	}
 }
 
-func getImport(i internal.Inst, towrap toWrap, stack *[]types.Val) (err error) {
-	k0 := i.K0
-	imp := exts[k0]
+func getImport(A, count uint8, K0, K1, K2 string, towrap toWrap, stack *[]types.Val) (err error) {
+	imp := exts[K0]
 	if imp == nil {
-		imp = towrap.env[k0]
+		imp = towrap.env[K0]
 	}
 
-	count := i.KC
-
 	if count < 2 {
-		(*stack)[i.A] = imp
+		(*stack)[A] = imp
 		return
 	}
 
 	t1, ok := imp.(*types.Table)
 	if !ok {
-		return invalidIndex("nil", i.K1)
+		return invalidIndex("nil", K1)
 	}
 
-	imp = t1.GetHash(i.K1)
+	imp = t1.GetHash(K1)
 	// fmt.Println("GETIMPORT2", i.A, (*stack)[i.A])
 
 	if count < 3 {
-		(*stack)[i.A] = imp
+		(*stack)[A] = imp
 		return
 	}
 
 	t2, ok := imp.(*types.Table)
 	if !ok {
-		return invalidIndex(TypeOf(imp), i.K2)
+		return invalidIndex(TypeOf(imp), K2)
 	}
 
-	(*stack)[i.A] = t2.GetHash(i.K2)
+	(*stack)[A] = t2.GetHash(K2)
 	// fmt.Println("GETIMPORT3", i.A, (*stack)[i.A])
 
 	return
 }
 
-func newClosure(pc *int32, i internal.Inst, towrap toWrap, p *internal.Proto, stack *[]types.Val, openUpvals *[]*upval, upvals []*upval) {
-	newProto := towrap.protoList[p.Protos[i.D]-1]
-
-	nups := newProto.Nups
+func newClosure(pc *int32, A uint8, towrap toWrap, code []*internal.Inst, stack *[]types.Val, openUpvals *[]*upval, upvals []*upval) {
+	nups := towrap.proto.Nups
 	towrap.upvals = make([]*upval, nups)
 
-	// wrap is reused for closures
-	towrap.proto = newProto
-
-	(*stack)[i.A] = wrapclosure(towrap)
+	(*stack)[A] = wrapclosure(towrap)
 	// fmt.Println("WRAPPING WITH", uvs)
 
 	// fmt.Println("nups", nups)
 	for n := range nups {
-		switch pseudo := p.Code[*pc]; pseudo.A {
+		switch pseudo := code[*pc]; pseudo.A {
 		case 0: // -- value
 			towrap.upvals[n] = &upval{
-				value:   (*stack)[pseudo.B],
-				selfRef: true,
+				value: (*stack)[pseudo.B],
 			}
 		case 1: // -- reference
+			// -- references dont get handled by DUPCLOSURE
 			idx := pseudo.B
 			// fmt.Println("index", idx, len(openUpvals))
 			// for si, sv := range *stack {
@@ -962,8 +952,7 @@ func newClosure(pc *int32, i internal.Inst, towrap toWrap, p *internal.Proto, st
 
 			if prev == nil {
 				prev = &upval{
-					store: *stack,
-					index: idx,
+					store: &(*stack)[idx],
 				}
 
 				l := int(idx) - len(*openUpvals) + 1
@@ -974,7 +963,6 @@ func newClosure(pc *int32, i internal.Inst, towrap toWrap, p *internal.Proto, st
 			towrap.upvals[n] = prev
 			// fmt.Println("set upvalue", i, "to", prev)
 		case 2: // -- upvalue
-			// fmt.Println("moving", i, pseudo.B)
 			towrap.upvals[n] = upvals[pseudo.B]
 		}
 		*pc++
@@ -1069,19 +1057,19 @@ func handleRequire(towrap toWrap, lc compiled, co *types.Coroutine) ([]types.Val
 	return []types.Val{ret}, nil
 }
 
-func call(top *int32, i internal.Inst, towrap toWrap, stack *[]types.Val, co *types.Coroutine) (err error) {
-	A, B, C := int32(i.A), int32(i.B), i.C
+func call(top *int32, A, B, C uint8, towrap toWrap, stack *[]types.Val, co *types.Coroutine) (err error) {
+	a, b := int32(A), int32(B)
 
 	var params int32
-	if B == 0 {
-		params = *top - A
+	if b == 0 {
+		params = *top - a
 	} else {
-		params = B - 1
+		params = b - 1
 	}
 
 	// fmt.Println(A, B, C, (*stack)[A], params)
 
-	f := (*stack)[A]
+	f := (*stack)[a]
 	fn, ok := f.(types.Function)
 	// fmt.Println("calling with", (*stack)[A+1:][:params])
 	if !ok {
@@ -1089,7 +1077,7 @@ func call(top *int32, i internal.Inst, towrap toWrap, stack *[]types.Val, co *ty
 	}
 
 	// fmt.Println("upvals1", len(upvals))
-	retList, err := (*fn.Run)(co, (*stack)[A+1:][:params]...) // not inclusive
+	retList, err := (*fn.Run)(co, (*stack)[a+1:][:params]...) // not inclusive
 	// fmt.Println("upvals2", len(upvals))
 	if err != nil {
 		return
@@ -1120,12 +1108,12 @@ func call(top *int32, i internal.Inst, towrap toWrap, stack *[]types.Val, co *ty
 	}
 
 	if C == 0 {
-		*top = A + retCount - 1
+		*top = a + retCount - 1
 	} else {
 		retCount = int32(C - 1)
 	}
 
-	moveStack(stack, retList, retCount, A)
+	moveStack(stack, retList, retCount, a)
 	return
 }
 
@@ -1171,7 +1159,6 @@ func forgloop(pc, top *int32, i internal.Inst, stack *[]types.Val, co *types.Cor
 
 		moveStack(stack, it[0:2], res, A+3)
 		genIters[i] = it[2:] // q
-
 	default:
 		return fmt.Errorf("attempt to iterate over a %s value", TypeOf(s))
 	}
@@ -1179,34 +1166,6 @@ func forgloop(pc, top *int32, i internal.Inst, stack *[]types.Val, co *types.Cor
 	(*stack)[A+2] = (*stack)[A+3]
 	*pc += i.D + 1
 	return
-}
-
-func dupClosure(pc *int32, i internal.Inst, towrap toWrap, p *internal.Proto, stack *[]types.Val, upvals []*upval) {
-	newProto := towrap.protoList[i.K.(uint32)] // 6 closure
-
-	nups := newProto.Nups
-	towrap.upvals = make([]*upval, nups)
-
-	// reusing wrapping again bcause we're eco friendly (not like it's a pointer or anything)
-	towrap.proto = newProto
-
-	(*stack)[i.A] = wrapclosure(towrap)
-
-	for n := range nups {
-		switch pseudo := p.Code[*pc]; pseudo.A {
-		case 0: // value
-			towrap.upvals[n] = &upval{
-				value:   (*stack)[pseudo.B],
-				selfRef: true,
-			}
-
-		// -- references dont get handled by DUPCLOSURE
-		case 2: // upvalue
-			towrap.upvals[n] = upvals[pseudo.B]
-		}
-
-		*pc++
-	}
 }
 
 func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (r []types.Val, err error) {
@@ -1268,39 +1227,36 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 			}
 			return nil, fmt.Errorf("attempt to set global '%s'", kv)
 		case 9: // GETUPVAL
-			if uv := upvals[i.B]; uv.selfRef {
+			if uv := upvals[i.B]; uv.store == nil {
 				stack[i.A] = uv.value
 			} else {
 				// fmt.Println("GETTING UPVAL", uv)
 				// fmt.Println("Setting stacka to", uv.store[uv.index])
 
-				stack[i.A] = uv.store[uv.index]
+				stack[i.A] = *uv.store
 			}
 			pc++
 		case 10: // SETUPVAL
-			if uv := upvals[i.B]; !uv.selfRef {
-				uv.store[uv.index] = stack[i.A]
-			} else {
+			if uv := upvals[i.B]; uv.store == nil {
 				uv.value = stack[i.A]
+			} else {
+				*uv.store = stack[i.A]
 			}
 			pc++
 		case 11: // CLOSEUPVALS
-			A := i.A
-
 			for n, uv := range openUpvals {
-				if uv == nil || uv.selfRef || uv.index < A {
+				if uv == nil {
 					continue
 				}
 				// fmt.Println("closing upvalue", uv)
-				uv.value = uv.store[uv.index]
+				uv.value = *uv.store
 				uv.store = nil
-				uv.selfRef = true
 				openUpvals[n] = nil
 				// fmt.Println("closed", uv)
 			}
 			pc++
 		case 12: // GETIMPORT
-			if err := getImport(i, towrap, &stack); err != nil {
+			if err := getImport(i.A, i.KC, i.K0, i.K1, i.K2, towrap, &stack); err != nil {
 				return nil, err
 			}
 			pc += 2 // -- adjust for aux
@@ -1371,7 +1327,8 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 			t.SetInt(idx, stack[i.A])
 			pc++
 		case 19: // NEWCLOSURE
-			newClosure(&pc, i, towrap, p, &stack, &openUpvals, upvals)
+			towrap.proto = towrap.protoList[p.Protos[i.D]-1]
+			newClosure(&pc, i.A, towrap, p.Code, &stack, &openUpvals, upvals)
 			pc++
 		case 20: // NAMECALL
 			pc++
@@ -1379,7 +1336,7 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 				return
 			}
 		case 21: // CALL
-			if err = call(&top, i, towrap, &stack, co); err != nil {
+			if err = call(&top, i.A, i.B, i.C, towrap, &stack, co); err != nil {
 				return
 			}
 			pc++
@@ -1392,6 +1349,7 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 				b = top - A + 1
 			}
 
+			// execute() should pretty much always exit through here
 			return stack[A:max(A+b, 0)], nil
 		case 23, 24: // JUMP, JUMPBACK
 			pc += i.D + 1
@@ -1683,7 +1641,9 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 			moveStack(&stack, vargsList, b, A)
 			pc++
 		case 64: // DUPCLOSURE
-			dupClosure(&pc, i, towrap, p, &stack, upvals)
+			// wrap is reused for closures
+			towrap.proto = towrap.protoList[i.K.(uint32)] // 6 closure
+			newClosure(&pc, i.A, towrap, p.Code, &stack, nil, upvals)
 			pc++
 		case 65: // PREPVARARGS
 			// Handled by wrapper
@@ -1719,20 +1679,7 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 		}
 	}
 
-	for _, uv := range openUpvals {
-		if uv.selfRef {
-			continue
-		}
-		uv.value = uv.store[uv.index]
-		uv.store = nil
-		uv.selfRef = true
-	}
-
-	if !*towrap.alive {
-		// program was killed
-		return nil, errors.New("program execution cancelled: timeout")
-	}
-	return
+	return nil, errors.New("program execution cancelled")
 }
 
 func wrapclosure(towrap toWrap) types.Function {
