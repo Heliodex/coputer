@@ -1626,7 +1626,7 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 		case 56: // FORNPREP
 			A := i.A
 
-			idx, ok := stack[A+2].(float64)
+			init, ok := stack[A+2].(float64)
 			if !ok {
 				return nil, invalidFor("initial value", TypeOf(stack[A+2]))
 			}
@@ -1641,30 +1641,26 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 				return nil, invalidFor("step", TypeOf(stack[A+1]))
 			}
 
-			if step > 0 {
-				if idx > limit {
-					pc += i.D
-				}
-			} else if idx < limit {
-				pc += i.D
+			if s := step > 0; s && init > limit || !s && init < limit {
+				pc += i.D + 1
+			} else {
+				pc++
 			}
-			pc++
 		case 57: // FORNLOOP
 			A := i.A
+			// all checked in FORNPREP
+			init := stack[A+2].(float64)
 			limit := stack[A].(float64)
 			step := stack[A+1].(float64)
-			init := stack[A+2].(float64) + step
 
+			init += step
 			stack[A+2] = init
 
-			if step > 0 {
-				if limit >= init {
-					pc += i.D
-				}
-			} else if limit <= init {
-				pc += i.D
+			if s := step > 0; s && init <= limit || !s && init >= limit {
+				pc += i.D + 1
+			} else {
+				pc++
 			}
-			pc++
 		case 58: // FORGLOOP
 			if err := forgloop(&pc, &top, i, &stack, co, genIters); err != nil {
 				return nil, err

@@ -1,0 +1,2 @@
+{PATH}/badforn3.luau:3: function (main)
+invalid 'for' step (number expected, got string)
