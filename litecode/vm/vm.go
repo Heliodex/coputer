@@ -965,9 +965,8 @@ func newClosure(pc *int32, i internal.Inst, towrap toWrap, p *internal.Proto, st
 					index: idx,
 				}
 
-				for idx >= uint8(len(*openUpvals)) {
-					*openUpvals = append(*openUpvals, nil)
-				}
+				l := int(idx) - len(*openUpvals) + 1
+				*openUpvals = append(*openUpvals, make([]*upval, max(l, 0))...)
 				(*openUpvals)[idx] = prev
 			}
 
@@ -1209,7 +1208,7 @@ func dupClosure(pc *int32, i internal.Inst, towrap toWrap, p *internal.Proto, st
 	}
 }
 
-func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList []types.Val) (r []types.Val, err error) {
+func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (r []types.Val, err error) {
 	p, upvals := towrap.proto, towrap.upvals
 	// int32 > uint32 lel
 	pc, top, openUpvals, genIters := int32(1), int32(-1), []*upval{}, map[internal.Inst][]types.Val{}
@@ -1246,31 +1245,30 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 			op = p.Dbgcode[pc]
 			handlingBreak = true
 		case 2: // LOADNIL
-			(*stack)[i.A] = nil
+			stack[i.A] = nil
 			pc++
 		case 3: // LOADB
-			(*stack)[i.A] = i.B == 1
+			stack[i.A] = i.B == 1
 			pc += int32(i.C) + 1
 		case 4: // LOADN
-			(*stack)[i.A] = float64(i.D) // never put an int on the stack
+			stack[i.A] = float64(i.D) // never put an int on the stack
 			pc++
 		case 5: // LOADK
 			// fmt.Println("LOADK", i.A, i.K)
-			(*stack)[i.A] = i.K
+			stack[i.A] = i.K
 			pc++
 		case 6: // MOVE
 			// we should (ALMOST) never have to change the size of the stack (p.maxstacksize)
-			(*stack)[i.A] = (*stack)[i.B]
+			stack[i.A] = stack[i.B]
 			pc++
 		case 7: // GETGLOBAL
 			kv := i.K
 
 			if e, ok := exts[kv]; ok {
-				(*stack)[i.A] = e
+				stack[i.A] = e
 			} else {
-				(*stack)[i.A] = towrap.env[kv]
+				stack[i.A] = towrap.env[kv]
 			}
-
 			pc += 2 // -- adjust for aux
 		case 8: // SETGLOBAL
 			// LOL
@@ -1282,19 +1280,19 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 			}
 		case 9: // GETUPVAL
 			if uv := upvals[i.B]; uv.selfRef {
-				(*stack)[i.A] = uv.value
+				stack[i.A] = uv.value
 			} else {
 				// fmt.Println("GETTING UPVAL", uv)
 				// fmt.Println("Setting stacka to", uv.store[uv.index])
 
-				(*stack)[i.A] = uv.store[uv.index]
+				stack[i.A] = uv.store[uv.index]
 			}
 			pc++
 		case 10: // SETUPVAL
 			if uv := upvals[i.B]; !uv.selfRef {
-				uv.store[uv.index] = (*stack)[i.A]
+				uv.store[uv.index] = stack[i.A]
 			} else {
-				uv.value = (*stack)[i.A]
+				uv.value = stack[i.A]
 			}
 			pc++
 		case 11: // CLOSEUPVALS
@@ -1313,20 +1311,20 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 			}
 			pc++
 		case 12: // GETIMPORT
-			if err := getImport(i, towrap, stack); err != nil {
+			if err := getImport(i, towrap, &stack); err != nil {
 				return nil, err
 			}
 			pc += 2 // -- adjust for aux
 		case 13: // GETTABLE
-			if (*stack)[i.A], err = gettable((*stack)[i.C], (*stack)[i.B]); err != nil {
+			if stack[i.A], err = gettable(stack[i.C], stack[i.B]); err != nil {
 				return nil, err
 			}
 			pc++
 		case 14: // SETTABLE
-			idx := (*stack)[i.C]
-			t, ok := (*stack)[i.B].(*types.Table) // SETTABLE or SETTABLEKS on a types.Vector actually does return "attempt to index vector with 'whatever'"
+			idx := stack[i.C]
+			t, ok := stack[i.B].(*types.Table) // SETTABLE or SETTABLEKS on a types.Vector actually does return "attempt to index vector with 'whatever'"
 			if !ok {
-				return nil, invalidIndex(TypeOf((*stack)[i.B]), idx)
+				return nil, invalidIndex(TypeOf(stack[i.B]), idx)
 			}
 			if t.Readonly {
 				return nil, errReadonly
@@ -1335,20 +1333,20 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 				return nil, errNilIndex
 			}
 
-			// fmt.Println("SETTABLE", idx, (*stack)[i.A])
-			t.Set(idx, (*stack)[i.A])
+			// fmt.Println("SETTABLE", idx, stack[i.A])
+			t.Set(idx, stack[i.A])
 			pc++
 		case 15: // GETTABLEKS
-			if (*stack)[i.A], err = gettable(i.K, (*stack)[i.B]); err != nil {
+			if stack[i.A], err = gettable(i.K, stack[i.B]); err != nil {
 				return nil, err
 			}
 			pc += 2 // -- adjust for aux
 		case 16: // SETTABLEKS
 			idx := i.K
-			t, ok := (*stack)[i.B].(*types.Table)
+			t, ok := stack[i.B].(*types.Table)
 			if !ok {
-				// fmt.Println("indexing", typeOf((*stack)[i.B]), "with", idx)
-				return nil, invalidIndex(TypeOf((*stack)[i.B]), idx)
+				// fmt.Println("indexing", typeOf(stack[i.B]), "with", idx)
+				return nil, invalidIndex(TypeOf(stack[i.B]), idx)
 			}
 			if t.Readonly {
 				return nil, errReadonly
@@ -1357,42 +1355,42 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 				return nil, errNilIndex
 			}
 
-			t.Set(idx, (*stack)[i.A])
+			t.Set(idx, stack[i.A])
 			pc += 2 // -- adjust for aux
 		case 17: // GETTABLEN
 			idx := float64(i.C + 1)
-			t, ok := (*stack)[i.B].(*types.Table)
+			t, ok := stack[i.B].(*types.Table)
 			if !ok {
 				// fmt.Println("gettableninvalidindex")
-				return nil, invalidIndex(TypeOf((*stack)[i.B]), idx)
+				return nil, invalidIndex(TypeOf(stack[i.B]), idx)
 			}
 
-			(*stack)[i.A] = t.Get(idx)
+			stack[i.A] = t.Get(idx)
 			pc++
 		case 18: // SETTABLEN
 			idx := int(i.C) + 1
-			t, ok := (*stack)[i.B].(*types.Table)
+			t, ok := stack[i.B].(*types.Table)
 			if !ok {
 				// fmt.Println("gettableninvalidindex")
-				return nil, invalidIndex(TypeOf((*stack)[i.B]), float64(idx))
+				return nil, invalidIndex(TypeOf(stack[i.B]), float64(idx))
 			}
 			if t.Readonly {
 				return nil, errReadonly
 			}
 
-			// fmt.Println("SETTABLEN", i.C+1, (*stack)[i.A])
-			t.SetInt(idx, (*stack)[i.A])
+			// fmt.Println("SETTABLEN", i.C+1, stack[i.A])
+			t.SetInt(idx, stack[i.A])
 			pc++
 		case 19: // NEWCLOSURE
-			newClosure(&pc, i, towrap, p, stack, &openUpvals, upvals)
+			newClosure(&pc, i, towrap, p, &stack, &openUpvals, upvals)
 			pc++
 		case 20: // NAMECALL
 			pc++
-			if err = namecall(&pc, &top, &i, p, stack, co, &op); err != nil {
+			if err = namecall(&pc, &top, &i, p, &stack, co, &op); err != nil {
 				return
 			}
 		case 21: // CALL
-			if err = call(&top, i, towrap, stack, co); err != nil {
+			if err = call(&top, i, towrap, &stack, co); err != nil {
 				return
 			}
 			pc++
@@ -1405,29 +1403,29 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 				b = top - A + 1
 			}
 
-			return (*stack)[A:max(A+b, 0)], nil
+			return stack[A:max(A+b, 0)], nil
 		case 23, 24: // JUMP, JUMPBACK
 			pc += i.D + 1
 		case 25: // JUMPIF
-			if truthy((*stack)[i.A]) {
+			if truthy(stack[i.A]) {
 				pc += i.D + 1
 			} else {
 				pc++
 			}
 		case 26: // JUMPIFNOT
-			if truthy((*stack)[i.A]) {
+			if truthy(stack[i.A]) {
 				pc++
 			} else {
 				pc += i.D + 1
 			}
 		case 27: // jump
-			if (*stack)[i.A] == (*stack)[i.Aux] {
+			if stack[i.A] == stack[i.Aux] {
 				pc += i.D + 1
 			} else {
 				pc += 2
 			}
 		case 28:
-			if j, err := jumpLe((*stack)[i.A], (*stack)[i.Aux]); err != nil {
+			if j, err := jumpLe(stack[i.A], stack[i.Aux]); err != nil {
 				return nil, err
 			} else if j {
 				pc += i.D + 1
@@ -1435,7 +1433,7 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 				pc += 2
 			}
 		case 29:
-			if j, err := jumpLt((*stack)[i.A], (*stack)[i.Aux]); err != nil {
+			if j, err := jumpLt(stack[i.A], stack[i.Aux]); err != nil {
 				return nil, err
 			} else if j {
 				pc += i.D + 1
@@ -1443,13 +1441,13 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 				pc += 2
 			}
 		case 30:
-			if (*stack)[i.A] != (*stack)[i.Aux] {
+			if stack[i.A] != stack[i.Aux] {
 				pc += i.D + 1
 			} else {
 				pc += 2
 			}
 		case 31:
-			if j, err := jumpGt((*stack)[i.A], (*stack)[i.Aux]); err != nil {
+			if j, err := jumpGt(stack[i.A], stack[i.Aux]); err != nil {
 				return nil, err
 			} else if j {
 				pc += i.D + 1
@@ -1457,7 +1455,7 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 				pc += 2
 			}
 		case 32:
-			if j, err := jumpGe((*stack)[i.A], (*stack)[i.Aux]); err != nil {
+			if j, err := jumpGe(stack[i.A], stack[i.Aux]); err != nil {
 				return nil, err
 			} else if j {
 				pc += i.D + 1
@@ -1465,182 +1463,182 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 				pc += 2
 			}
 		case 33: // arithmetic
-			if (*stack)[i.A], err = aAdd((*stack)[i.B], (*stack)[i.C]); err != nil {
+			if stack[i.A], err = aAdd(stack[i.B], stack[i.C]); err != nil {
 				return
 			}
 			pc++
 		case 34:
-			if (*stack)[i.A], err = aSub((*stack)[i.B], (*stack)[i.C]); err != nil {
+			if stack[i.A], err = aSub(stack[i.B], stack[i.C]); err != nil {
 				return
 			}
 			pc++
 		case 35:
-			if (*stack)[i.A], err = aMul((*stack)[i.B], (*stack)[i.C]); err != nil {
+			if stack[i.A], err = aMul(stack[i.B], stack[i.C]); err != nil {
 				return
 			}
 			pc++
 		case 36:
-			if (*stack)[i.A], err = aDiv((*stack)[i.B], (*stack)[i.C]); err != nil {
+			if stack[i.A], err = aDiv(stack[i.B], stack[i.C]); err != nil {
 				return
 			}
 			pc++
 		case 37:
-			if (*stack)[i.A], err = aMod((*stack)[i.B], (*stack)[i.C]); err != nil {
+			if stack[i.A], err = aMod(stack[i.B], stack[i.C]); err != nil {
 				return
 			}
 			pc++
 		case 38:
-			if (*stack)[i.A], err = aPow((*stack)[i.B], (*stack)[i.C]); err != nil {
+			if stack[i.A], err = aPow(stack[i.B], stack[i.C]); err != nil {
 				return
 			}
 			pc++
 		case 81:
-			if (*stack)[i.A], err = aIdiv((*stack)[i.B], (*stack)[i.C]); err != nil {
+			if stack[i.A], err = aIdiv(stack[i.B], stack[i.C]); err != nil {
 				return
 			}
 			pc++
 		case 39: // arithmetik
-			if (*stack)[i.A], err = aAdd((*stack)[i.B], i.K); err != nil {
+			if stack[i.A], err = aAdd(stack[i.B], i.K); err != nil {
 				return
 			}
 			pc++
 		case 40:
-			if (*stack)[i.A], err = aSub((*stack)[i.B], i.K); err != nil {
+			if stack[i.A], err = aSub(stack[i.B], i.K); err != nil {
 				return
 			}
 			pc++
 		case 41:
-			if (*stack)[i.A], err = aMul((*stack)[i.B], i.K); err != nil {
+			if stack[i.A], err = aMul(stack[i.B], i.K); err != nil {
 				return
 			}
 			pc++
 		case 42:
-			if (*stack)[i.A], err = aDiv((*stack)[i.B], i.K); err != nil {
+			if stack[i.A], err = aDiv(stack[i.B], i.K); err != nil {
 				return
 			}
 			pc++
 		case 43:
-			if (*stack)[i.A], err = aMod((*stack)[i.B], i.K); err != nil {
+			if stack[i.A], err = aMod(stack[i.B], i.K); err != nil {
 				return
 			}
 			pc++
 		case 44:
-			if (*stack)[i.A], err = aPow((*stack)[i.B], i.K); err != nil {
+			if stack[i.A], err = aPow(stack[i.B], i.K); err != nil {
 				return
 			}
 			pc++
 		case 82:
-			if (*stack)[i.A], err = aIdiv((*stack)[i.B], i.K); err != nil {
+			if stack[i.A], err = aIdiv(stack[i.B], i.K); err != nil {
 				return
 			}
 			pc++
 		case 45: // logic AND
-			if a, b := (*stack)[i.B], (*stack)[i.C]; truthy(a) {
-				(*stack)[i.A] = b
+			if a, b := stack[i.B], stack[i.C]; truthy(a) {
+				stack[i.A] = b
 			} else {
-				(*stack)[i.A] = a
+				stack[i.A] = a
 			}
 			pc++
 		case 46: // logic OR
-			if a, b := (*stack)[i.B], (*stack)[i.C]; truthy(a) {
-				(*stack)[i.A] = a
+			if a, b := stack[i.B], stack[i.C]; truthy(a) {
+				stack[i.A] = a
 			} else if truthy(b) {
-				(*stack)[i.A] = b
+				stack[i.A] = b
 			} else {
-				(*stack)[i.A] = false
+				stack[i.A] = false
 			}
 			pc++
 		case 47: // logik AND
 			// fmt.Println("LOGIK")
-			if a, b := (*stack)[i.B], i.K; truthy(a) {
-				(*stack)[i.A] = b
+			if a, b := stack[i.B], i.K; truthy(a) {
+				stack[i.A] = b
 			} else {
-				(*stack)[i.A] = a
+				stack[i.A] = a
 			}
 			pc++
 		case 48: // logik OR
 			// fmt.Println("LOGIK")
-			if a, b := (*stack)[i.B], i.K; truthy(a) {
-				(*stack)[i.A] = a
+			if a, b := stack[i.B], i.K; truthy(a) {
+				stack[i.A] = a
 			} else if truthy(b) {
-				(*stack)[i.A] = b
+				stack[i.A] = b
 			} else {
-				(*stack)[i.A] = false
+				stack[i.A] = false
 			}
 			pc++
 		case 49: // CONCAT
 			var b strings.Builder
 			for first, n := uint8(0), i.B; n <= i.C; n++ {
-				toWrite, ok := (*stack)[n].(string)
+				toWrite, ok := stack[n].(string)
 				if !ok {
 					// ensure correct order of operands in error message
-					return nil, invalidConcat(TypeOf((*stack)[n-first]), TypeOf((*stack)[n+1-first]))
+					return nil, invalidConcat(TypeOf(stack[n-first]), TypeOf(stack[n+1-first]))
 				}
 				b.WriteString(toWrite)
 				first = 1
 			}
-			(*stack)[i.A] = b.String()
+			stack[i.A] = b.String()
 			pc++
 		case 50: // NOT
-			(*stack)[i.A] = !truthy((*stack)[i.B])
+			stack[i.A] = !truthy(stack[i.B])
 			pc++
 		case 51: // MINUS
-			if (*stack)[i.A], err = aUnm((*stack)[i.B]); err != nil {
+			if stack[i.A], err = aUnm(stack[i.B]); err != nil {
 				return
 			}
 			pc++
 		case 52: // LENGTH
-			switch t := (*stack)[i.B].(type) {
+			switch t := stack[i.B].(type) {
 			case *types.Table:
-				(*stack)[i.A] = float64(t.Len())
+				stack[i.A] = float64(t.Len())
 			case string:
-				(*stack)[i.A] = float64(len(t))
+				stack[i.A] = float64(len(t))
 			default:
 				return nil, invalidLength(TypeOf(t))
 			}
 			pc++
 		case 53: // NEWTABLE
-			(*stack)[i.A] = &types.Table{}
+			stack[i.A] = &types.Table{}
 			pc += 2 // -- adjust for aux
 		case 54: // DUPTABLE
-			(*stack)[i.A] = &types.Table{} // doesn't really apply here...
+			stack[i.A] = &types.Table{} // doesn't really apply here...
 			pc++
 		case 55: // SETLIST
-			A, B := i.A, int32(i.B)
+			B := int32(i.B)
 			c := int32(i.C) - 1
 
 			if c == luau_multret {
 				c = top - B + 1
 			}
 
-			s := (*stack)[A].(*types.Table)
+			s := stack[i.A].(*types.Table)
 			if s.Readonly {
 				return nil, errReadonly
 			}
 
 			// one-indexed lol
-			for n, v := range (*stack)[B:min(B+c, int32(len(*stack)))] {
+			for n, v := range stack[B:min(B+c, int32(len(stack)))] {
 				s.SetInt(n+int(i.Aux), v)
 			}
-			// (*stack)[A] = s // in-place
+			// stack[A] = s // in-place
 
 			pc += 2 // -- adjust for aux
 		case 56: // FORNPREP
 			A := i.A
 
-			idx, ok := (*stack)[A+2].(float64)
+			idx, ok := stack[A+2].(float64)
 			if !ok {
-				return nil, invalidFor("initial value", TypeOf((*stack)[A+2]))
+				return nil, invalidFor("initial value", TypeOf(stack[A+2]))
 			}
 
-			limit, ok := (*stack)[A].(float64)
+			limit, ok := stack[A].(float64)
 			if !ok {
-				return nil, invalidFor("limit", TypeOf((*stack)[A]))
+				return nil, invalidFor("limit", TypeOf(stack[A]))
 			}
 
-			step, ok := (*stack)[A+1].(float64)
+			step, ok := stack[A+1].(float64)
 			if !ok {
-				return nil, invalidFor("step", TypeOf((*stack)[A+1]))
+				return nil, invalidFor("step", TypeOf(stack[A+1]))
 			}
 
 			if step > 0 {
@@ -1653,11 +1651,11 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 			pc++
 		case 57: // FORNLOOP
 			A := i.A
-			limit := (*stack)[A].(float64)
-			step := (*stack)[A+1].(float64)
-			init := (*stack)[A+2].(float64) + step
+			limit := stack[A].(float64)
+			step := stack[A+1].(float64)
+			init := stack[A+2].(float64) + step
 
-			(*stack)[A+2] = init
+			stack[A+2] = init
 
 			if step > 0 {
 				if limit >= init {
@@ -1668,12 +1666,12 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 			}
 			pc++
 		case 58: // FORGLOOP
-			if err := forgloop(&pc, &top, i, stack, co, genIters); err != nil {
+			if err := forgloop(&pc, &top, i, &stack, co, genIters); err != nil {
 				return nil, err
 			}
 		case 59, 61: // FORGPREP_INEXT, FORGPREP_NEXT
-			if _, ok := (*stack)[i.A].(types.Function); !ok {
-				return nil, fmt.Errorf("attempt to iterate over a %s value", TypeOf((*stack)[i.A])) // -- encountered non-function value
+			if _, ok := stack[i.A].(types.Function); !ok {
+				return nil, fmt.Errorf("attempt to iterate over a %s value", TypeOf(stack[i.A])) // -- encountered non-function value
 			}
 			pc += i.D + 1
 		case 60: // FASTCALL3
@@ -1691,18 +1689,17 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 
 			// stack may get expanded here
 			// (MAX STACK SIZE IS A LIE!!!!!!!!!!!!!!!!!!!!!!!)
-			moveStack(stack, vargsList, b, A)
+			moveStack(&stack, vargsList, b, A)
 			pc++
 		case 64: // DUPCLOSURE
-			dupClosure(&pc, i, towrap, p, stack, upvals)
+			dupClosure(&pc, i, towrap, p, &stack, upvals)
 			pc++
 		case 65: // PREPVARARGS
 			// Handled by wrapper
 			pc++
 		case 66: // LOADKX
 			// THIS OPCODE NEVER EVEN FUCKING RUNS
-			(*stack)[i.A] = i.K
-
+			stack[i.A] = i.K
 			pc += 2 // -- adjust for aux
 		case 67: // JUMPX
 			pc += i.E + 1
@@ -1716,12 +1713,12 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 			// Handled by CLOSURE
 			panic("encountered unhandled CAPTURE")
 		case 71: // SUBRK
-			if (*stack)[i.A], err = aSub(i.K, (*stack)[i.C]); err != nil {
+			if stack[i.A], err = aSub(i.K, stack[i.C]); err != nil {
 				return nil, err
 			}
 			pc++
 		case 72: // DIVRK
-			if (*stack)[i.A], err = aDiv(i.K, (*stack)[i.C]); err != nil {
+			if stack[i.A], err = aDiv(i.K, stack[i.C]); err != nil {
 				return nil, err
 			}
 			pc++
@@ -1734,14 +1731,14 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 		case 76: // FORGPREP
 			pc += i.D + 1 // what are we even supposed to do here, there's nothing to prepare
 		case 77: // JUMPXEQKNIL
-			if ra := (*stack)[i.A]; ra == nil != i.KN {
+			if ra := stack[i.A]; ra == nil != i.KN {
 				pc += i.D + 1
 			} else {
 				pc += 2
 			}
-		case 78, 79, 80: //  JUMPXEQKB, JUMPXEQKN, JUMPXEQKS
+		case 78, 79, 80: // JUMPXEQKB, JUMPXEQKN, JUMPXEQKS
 			// actually the same apart from types (which aren't even correct anyway)
-			if kv, ra := i.K, (*stack)[i.A]; ra == kv != i.KN {
+			if kv, ra := i.K, stack[i.A]; ra == kv != i.KN {
 				pc += i.D + 1
 			} else {
 				pc += 2
@@ -1791,7 +1788,7 @@ func wrapclosure(towrap toWrap) types.Function {
 		}()
 
 		// fmt.Println("started on", co.Dbg.Line)
-		r, err = execute(towrap, &stack, co, list)
+		r, err = execute(towrap, stack, list, co)
 		// fmt.Println("ended on", co.Dbg.Line)
 		if !*towrap.alive {
 			return
