@@ -546,12 +546,6 @@ func deserialise(b []byte) (des internal.Deserialised, err error) {
 	}, s.checkEnd()
 }
 
-type iterator struct {
-	args    chan *types.Table
-	resume  chan *[]types.Val
-	running bool
-}
-
 type upval struct {
 	value   types.Val
 	store   []types.Val
@@ -868,24 +862,6 @@ type toWrap struct {
 	requireCache map[string]types.Val
 }
 
-func iterate(c *iterator) {
-	args := *<-c.args
-	c.args = nil // we're done here
-	c.running = true
-	// fmt.Println("-2- generating iterator", args)
-
-	for i, v := range args.Iter() {
-		if !c.running {
-			return
-		}
-		// fmt.Println("-2- yielding", i, v)
-		c.resume <- &[]types.Val{i, v}
-		// fmt.Println("-2- yielded!")
-	}
-
-	c.resume <- nil
-}
-
 func moveStack(stack *[]types.Val, src []types.Val, b, t int32) {
 	l := t + b - int32(len(*stack)) + 1 // graah stack expansion
 	*stack = append(*stack, make([]types.Val, max(l, 0))...)
@@ -1140,16 +1116,16 @@ func call(top *int32, i internal.Inst, towrap toWrap, stack *[]types.Val, co *ty
 }
 
 // for gloop lel
-func forgloop(pc, top *int32, i internal.Inst, stack *[]types.Val, co *types.Coroutine, generalisedIterators *map[internal.Inst]*iterator) (err error) {
+func forgloop(pc, top *int32, i internal.Inst, stack *[]types.Val, co *types.Coroutine, genIters map[internal.Inst][]types.Val) (err error) {
 	A := int32(i.A)
 	res := int32(i.K.(uint32))
 
 	*top = A + 6
 
-	switch it := (*stack)[A].(type) {
+	switch s := (*stack)[A].(type) {
 	case types.Function:
 		// fmt.Println("IT func", fn, (*stack)[A+1], (*stack)[A+2])
-		vals, err := (*it.Run)(co, (*stack)[A+1], (*stack)[A+2])
+		vals, err := (*s.Run)(co, (*stack)[A+1], (*stack)[A+2])
 		if err != nil {
 			return err
 		}
@@ -1161,34 +1137,32 @@ func forgloop(pc, top *int32, i internal.Inst, stack *[]types.Val, co *types.Cor
 			*pc += 2
 			return nil
 		}
-
-		(*stack)[A+2] = (*stack)[A+3]
 	case *types.Table:
 		// fmt.Println("GETTING GENITER", typeOf(it))
-		iter := *(*generalisedIterators)[i]
+		it := genIters[i]
 
-		if !iter.running {
-			// fmt.Println("-1- sending thru the wire")
+		if it == nil {
 			// fmt.Println((*stack)[A+1], (*stack)[A+2]) // <nil> <nil>
-			iter.args <- it
-			// fmt.Println("-1- sent")
+			for i, v := range s.Iter() {
+				// fmt.Println("yielding", i, v)
+				it = append(it, i, v) // always in pairs
+			}
 		}
 
-		vals := <-iter.resume
-		// fmt.Println("-1- received!", vals)
-
-		if vals == nil {
-			delete((*generalisedIterators), i)
+		if len(it) == 0 {
+			delete(genIters, i) // don't touch my geniters
 			*pc += 2
 			return
 		}
 
-		moveStack(stack, *vals, res, A+3)
+		moveStack(stack, it[0:2], res, A+3)
+		genIters[i] = it[2:] // q
 
-		(*stack)[A+2] = (*stack)[A+3]
 	default:
-		return fmt.Errorf("attempt to iterate over a %s value", TypeOf(it))
+		return fmt.Errorf("attempt to iterate over a %s value", TypeOf(s))
 	}
+
+	(*stack)[A+2] = (*stack)[A+3]
 	*pc += i.D + 1
 	return
 }
@@ -1199,7 +1173,7 @@ func dupClosure(pc *int32, i internal.Inst, towrap toWrap, p *internal.Proto, st
 	nups := newProto.Nups
 	towrap.upvals = make([]*upval, nups)
 
-	// reusing wrapping again bcause we're eco friendly
+	// reusing wrapping again bcause we're eco friendly (not like it's a pointer or anything)
 	towrap.proto = newProto
 
 	(*stack)[i.A] = wrapclosure(towrap)
@@ -1224,7 +1198,7 @@ func dupClosure(pc *int32, i internal.Inst, towrap toWrap, p *internal.Proto, st
 func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList []types.Val) (r []types.Val, err error) {
 	p, upvals := towrap.proto, towrap.upvals
 	// int32 > uint32 lel
-	pc, top, openUpvals, generalisedIterators := int32(1), int32(-1), []*upval{}, map[internal.Inst]*iterator{}
+	pc, top, openUpvals, genIters := int32(1), int32(-1), []*upval{}, map[internal.Inst][]types.Val{}
 
 	var handlingBreak bool
 	var i internal.Inst
@@ -1683,7 +1657,7 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 			}
 			pc++
 		case 58: // FORGLOOP
-			if err := forgloop(&pc, &top, i, stack, co, &generalisedIterators); err != nil {
+			if err := forgloop(&pc, &top, i, stack, co, genIters); err != nil {
 				return nil, err
 			}
 		case 59, 61: // FORGPREP_INEXT, FORGPREP_NEXT
@@ -1747,23 +1721,7 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 			// Skipped
 			pc += 2 // adjust for aux
 		case 76: // FORGPREP
-			pc += i.D + 1
-			if _, ok := (*stack)[i.A].(types.Function); ok {
-				break
-			}
-
-			loopInst := *p.Code[pc-1]
-			if generalisedIterators[loopInst] != nil {
-				break
-			}
-
-			c := &iterator{
-				args:   make(chan *types.Table),
-				resume: make(chan *[]types.Val),
-			}
-			go iterate(c)
-			// fmt.Println("SETTING GENITER", loopInst)
-			generalisedIterators[loopInst] = c
+			pc += i.D + 1 // what are we even supposed to do here, there's nothing to prepare
 		case 77: // JUMPXEQKNIL
 			if ra := (*stack)[i.A]; ra == nil != i.KN {
 				pc += i.D + 1
@@ -1789,10 +1747,6 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 		uv.value = uv.store[uv.index]
 		uv.store = nil
 		uv.selfRef = true
-	}
-
-	for _, v := range generalisedIterators {
-		v.running = false
 	}
 
 	if !*towrap.alive {
