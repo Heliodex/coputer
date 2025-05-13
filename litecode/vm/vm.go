@@ -181,7 +181,7 @@ var exts = types.Env{
 
 	// globals
 	"type": MakeFn("type", global_type),
-	// "typeof":   MakeFn("typeof", global_type)[1], // same because no metatables
+	// "typeof":   MakeFn("typeof", global_type), // same because no metatables
 	"ipairs":   MakeFn("ipairs", global_ipairs),
 	"pairs":    MakeFn("pairs", global_pairs),
 	"next":     MakeFn("next", global_next),
@@ -765,6 +765,20 @@ func aIdiv(a, b types.Val) (types.Val, error) {
 	}
 
 	return nil, invalidArithmetic("idiv", TypeOf(a), TypeOf(b))
+}
+
+func aUnm(a types.Val) (types.Val, error) {
+	fa, ok1 := a.(float64)
+	if ok1 {
+		return -fa, nil
+	}
+
+	va, ok2 := a.(types.Vector)
+	if ok2 {
+		return types.Vector{-va[0], -va[1], -va[2], -va[3]}, nil
+	}
+
+	return nil, invalidUnm(TypeOf(a))
 }
 
 // vectors dont have these comparisons
@@ -1401,10 +1415,10 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 				pc++
 			}
 		case 26: // JUMPIFNOT
-			if !truthy((*stack)[i.A]) {
-				pc += i.D + 1
-			} else {
+			if truthy((*stack)[i.A]) {
 				pc++
+			} else {
+				pc += i.D + 1
 			}
 		case 27: // jump
 			if (*stack)[i.A] == (*stack)[i.Aux] {
@@ -1571,12 +1585,9 @@ func execute(towrap toWrap, stack *[]types.Val, co *types.Coroutine, vargsList [
 			(*stack)[i.A] = !truthy((*stack)[i.B])
 			pc++
 		case 51: // MINUS
-			a, ok := (*stack)[i.B].(float64)
-			if !ok {
-				return nil, invalidUnm(TypeOf((*stack)[i.B]))
+			if (*stack)[i.A], err = aUnm((*stack)[i.B]); err != nil {
+				return
 			}
-
-			(*stack)[i.A] = -a
 			pc++
 		case 52: // LENGTH
 			switch t := (*stack)[i.B].(type) {

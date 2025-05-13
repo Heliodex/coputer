@@ -1,0 +1,2 @@
+local v = {}
+print(-v)
