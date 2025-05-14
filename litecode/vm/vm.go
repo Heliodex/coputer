@@ -1054,18 +1054,18 @@ func handleRequire(towrap toWrap, lc compiled, co *types.Coroutine) ([]types.Val
 }
 
 func call(top *int32, A, B, C uint8, towrap toWrap, stack *[]types.Val, co *types.Coroutine) (err error) {
-	a, b := int32(A), int32(B)
+	a := int32(A)
 
 	var params int32
-	if b == 0 {
+	if B == 0 {
 		params = *top - a
 	} else {
-		params = b - 1
+		params = int32(B) - 1
 	}
 
 	// fmt.Println(A, B, C, (*stack)[A], params)
 
-	f := (*stack)[a]
+	f := (*stack)[A]
 	fn, ok := f.(types.Function)
 	// fmt.Println("calling with", (*stack)[A+1:][:params])
 	if !ok {
@@ -1073,7 +1073,7 @@ func call(top *int32, A, B, C uint8, towrap toWrap, stack *[]types.Val, co *type
 	}
 
 	// fmt.Println("upvals1", len(upvals))
-	retList, err := (*fn.Run)(co, (*stack)[a+1:][:params]...) // not inclusive
+	retList, err := (*fn.Run)(co, (*stack)[A+1:][:params]...) // not inclusive
 	// fmt.Println("upvals2", len(upvals))
 	if err != nil {
 		return
@@ -1093,16 +1093,6 @@ func call(top *int32, A, B, C uint8, towrap toWrap, stack *[]types.Val, co *type
 		}
 	}
 
-	// development checking lelell
-	for _, v := range retList {
-		switch v.(type) {
-		case int, uint, int8, uint8, int16, uint16, int32, uint32, int64, uint64:
-			panic(fmt.Sprintf("Hey idiot YOU RETURNED AN INTEGER INSTEAD OFA  FLOAT FROM YUR FUNCTION O MY GOD %v", v))
-		case float32:
-			panic(fmt.Sprintf("u  dun fukt up %v", v))
-		}
-	}
-
 	if C == 0 {
 		*top = a + retCount - 1
 	} else {
@@ -1117,8 +1107,6 @@ func call(top *int32, A, B, C uint8, towrap toWrap, stack *[]types.Val, co *type
 func forgloop(pc, top *int32, i internal.Inst, stack *[]types.Val, co *types.Coroutine, genIters map[internal.Inst][]types.Val) (err error) {
 	A := int32(i.A)
 	res := i.K.(int32)
-
-	*top = A + 6
 
 	switch s := (*stack)[A].(type) {
 	case types.Function:
@@ -1159,6 +1147,7 @@ func forgloop(pc, top *int32, i internal.Inst, stack *[]types.Val, co *types.Cor
 		return fmt.Errorf("attempt to iterate over a %s value", TypeOf(s))
 	}
 
+	*top = A + 6
 	(*stack)[A+2] = (*stack)[A+3]
 	*pc += i.D + 1
 	return

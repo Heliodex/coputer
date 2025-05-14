@@ -37,6 +37,8 @@ func (co *Coroutine) Error(err error) {
 			Sub:     err,
 		},
 	}
+
+	select {} // yeah, we still need this because async things
 }
 
 func startCoroutine(co *Coroutine, args []Val) {

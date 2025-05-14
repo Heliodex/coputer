@@ -38,7 +38,6 @@ func getArg[T types.Val](a *Args, optV []T, tx string) (g T) {
 	if a.pos > len(a.List) {
 		if len(optV) == 0 {
 			a.Co.Error(invalidNumArgs(a.name, a.pos, tx))
-			return
 		}
 		return optV[0]
 	}
@@ -47,7 +46,6 @@ func getArg[T types.Val](a *Args, optV []T, tx string) (g T) {
 	arg, ok := possibleArg.(T)
 	if !ok {
 		a.Co.Error(invalidArgType(a.pos, a.name, TypeOf(arg), TypeOf(possibleArg)))
-		return
 	}
 	return arg
 }
@@ -105,7 +103,6 @@ func (a *Args) GetAny(optV ...types.Val) (arg types.Val) {
 	if a.pos > len(a.List) {
 		if len(optV) == 0 {
 			a.Co.Error(invalidNumArgs(a.name, a.pos))
-			return
 		}
 		return optV[0]
 	}

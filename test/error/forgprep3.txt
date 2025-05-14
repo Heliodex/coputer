@@ -1,0 +1,2 @@
+{PATH}/forgprep3.luau:3: function (main)
+invalid argument #1 to 'ipairs' (table expected, got number)
