@@ -237,7 +237,7 @@ func checkkmode(i *internal.Inst, k []types.Val) {
 	case 7: // B
 		i.K = k[i.B]
 	case 8: // AUX number low 16 bits
-		i.K = i.Aux & 0xf
+		i.K = int32(i.Aux & 0xf) // forgloop
 	}
 }
 
@@ -266,6 +266,10 @@ func (s *stream) rUint32() (w uint32) {
 	return
 }
 
+func (s *stream) skipUint32() {
+	s.pos += 4
+}
+
 // this is the only thing float32s are ever used for anyway
 func (s *stream) rVector() (r types.Vector) {
 	if safe {
@@ -292,14 +296,6 @@ func (s *stream) rFloat64() (r float64) {
 	return
 }
 
-func (s *stream) skipVarInt() {
-	for range 4 {
-		if s.rByte()&0b1000_0000 == 0 {
-			return
-		}
-	}
-}
-
 func (s *stream) rVarInt() (r uint32) {
 	for i := range 4 {
 		v := uint32(s.rByte())
@@ -309,6 +305,14 @@ func (s *stream) rVarInt() (r uint32) {
 		}
 	}
 	return
+}
+
+func (s *stream) skipVarInt() {
+	for range 4 {
+		if s.rByte()&0b1000_0000 == 0 {
+			return
+		}
+	}
 }
 
 func (s *stream) rString() (str string) {
@@ -331,7 +335,7 @@ func (s *stream) checkEnd() error {
 }
 
 // reads either 1 or 2 words
-func (s *stream) readInst(codeList *[]*internal.Inst) bool {
+func (s *stream) readInst(code *[]*internal.Inst) bool {
 	value := s.rUint32()
 
 	opcode := uint8(value)
@@ -359,11 +363,11 @@ func (s *stream) readInst(codeList *[]*internal.Inst) bool {
 		}
 	}
 
-	*codeList = append(*codeList, &i)
+	*code = append(*code, &i)
 	if opinfo.HasAux {
 		i.Aux = s.rUint32()
 
-		*codeList = append(*codeList, &internal.Inst{})
+		*code = append(*code, &internal.Inst{})
 	}
 
 	return opinfo.HasAux
@@ -393,41 +397,33 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 		}
 	}
 
-	p.Dbgcode = make([]uint8, sizecode)
-	for i := range sizecode {
-		p.Dbgcode[i] = p.Code[i].Opcode
-	}
-
 	sizek := s.rVarInt()
-	p.K = make([]types.Val, sizek) // crazy
+	K := make([]types.Val, sizek) // krazy
 
 	for i := range sizek {
 		switch kt := s.rByte(); kt {
 		case 0: // Nil
-		// yeah
+			// yeah
 		case 1: // Bool
-			p.K[i] = s.rBool()
+			K[i] = s.rBool()
 		case 2: // Number
-			p.K[i] = s.rFloat64()
+			K[i] = s.rFloat64()
 		case 3: // String
-			p.K[i] = stringList[s.rVarInt()-1]
+			K[i] = stringList[s.rVarInt()-1]
 		case 4: // Import
-			// see resolveImport"Safe" in ref impl
-			p.K[i] = s.rUint32() // ⚠️ strange, TODO need something to test this ⚠️
-			// fmt.Println("case 4", p.K[i])
+			// only used with useImportConstants
+			s.skipUint32()
 		case 5: // Table
 			// moot, whatever
 			for range s.rVarInt() {
 				s.skipVarInt()
 			}
-
-			// fmt.Println("case 5", p.K[i])
 		case 6: // Closure
 			// pain in the cranium
-			p.K[i] = s.rVarInt() // ⚠️ not a val ⚠️
+			K[i] = s.rVarInt() // ⚠️ not a val ⚠️
 			// fmt.Println("case 6", p.K[i])
 		case 7: // types.Vector
-			p.K[i] = s.rVector()
+			K[i] = s.rVector()
 		default:
 			return nil, fmt.Errorf("unknown ktype %d", kt)
 		}
@@ -435,16 +431,16 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 
 	// -- 2nd pass to replace constant references in the instruction
 	for i := range sizecode {
-		checkkmode(p.Code[i], p.K)
+		checkkmode(p.Code[i], K)
 	}
 
 	sizep := s.rVarInt()
 	p.Protos = make([]uint32, sizep)
 	for i := range sizep {
-		p.Protos[i] = s.rVarInt() + 1
+		p.Protos[i] = s.rVarInt()
 	}
 
-	// p.linedefined = s.rVarInt()
+	// p.LineDefined = s.rVarInt()
 	s.skipVarInt()
 
 	if dbgnamei := s.rVarInt(); dbgnamei == 0 {
@@ -453,8 +449,8 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 		p.Dbgname = stringList[dbgnamei-1]
 	}
 
-	// -- lineinfo
-	if p.LineInfoEnabled = s.rBool(); p.LineInfoEnabled {
+	// LineInfoEnabled
+	if s.rBool() {
 		linegaplog2 := s.rByte()
 		intervals := uint32((sizecode-1)>>linegaplog2) + 1
 
@@ -1120,7 +1116,7 @@ func call(top *int32, A, B, C uint8, towrap toWrap, stack *[]types.Val, co *type
 // for gloop lel
 func forgloop(pc, top *int32, i internal.Inst, stack *[]types.Val, co *types.Coroutine, genIters map[internal.Inst][]types.Val) (err error) {
 	A := int32(i.A)
-	res := int32(i.K.(uint32))
+	res := i.K.(int32)
 
 	*top = A + 6
 
@@ -1327,7 +1323,7 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 			t.SetInt(idx, stack[i.A])
 			pc++
 		case 19: // NEWCLOSURE
-			towrap.proto = towrap.protoList[p.Protos[i.D]-1]
+			towrap.proto = towrap.protoList[p.Protos[i.D]]
 			newClosure(&pc, i.A, towrap, p.Code, &stack, &openUpvals, upvals)
 			pc++
 		case 20: // NAMECALL
@@ -1684,10 +1680,9 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 
 func wrapclosure(towrap toWrap) types.Function {
 	proto := towrap.proto
+	maxs, np := proto.MaxStackSize, proto.NumParams // maxs 2 lel
 
 	return fn("", func(co *types.Coroutine, args ...types.Val) (r []types.Val, err error) {
-		maxs, np := proto.MaxStackSize, proto.NumParams // maxs 2 lel
-
 		la := uint8(len(args)) // we can't have more than 255 args anyway right?
 
 		var list []types.Val

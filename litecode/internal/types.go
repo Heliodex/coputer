@@ -27,14 +27,10 @@ type Inst struct {
 
 type Proto struct {
 	Dbgname              string
-	K                    []Val
 	Code                 []*Inst
 	InstLineInfo, Protos []uint32
-	Dbgcode              []uint8
 
-	// LineDefined uint32
 	MaxStackSize, NumParams, Nups uint8
-	LineInfoEnabled               bool
 }
 
 // simpler compilation, deserialisation, and loading API
