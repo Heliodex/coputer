@@ -19,19 +19,14 @@ type (
 	SK [SKSize]byte
 )
 
-var alphabet = [36]byte{
-	'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b',
-	'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
-	'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
-}
+var alphabet = [36]byte([]byte("0123456789abcdefghijklmnopqrstuvwxyz"))
+var byteMap = make(map[byte]int, 36)
 
-var byteMap = func() (m map[byte]int) {
-	m = make(map[byte]int, 36)
+func init() {
 	for i, v := range alphabet {
-		m[v] = i
+		byteMap[v] = i
 	}
-	return
-}()
+}
 
 const (
 	base           = len(alphabet)

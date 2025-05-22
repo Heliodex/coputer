@@ -66,7 +66,7 @@ func StartWebProgram(hash [32]byte, args types.WebArgs) (output types.WebRets, e
 	// we need the body either way
 	b, err := io.ReadAll(res.Body)
 	if err != nil {
-		return types.WebRets{}, err
+		return
 	} else if res.StatusCode != http.StatusOK {
 		return types.WebRets{}, fmt.Errorf("bad status from execution server while starting web program: %s, %s", res.Status, b)
 	}
