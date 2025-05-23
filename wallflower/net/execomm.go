@@ -21,8 +21,8 @@ const (
 	storeAddr = addr + "/store"
 )
 
-func StoreProgram(pk keys.PK, name string, data []byte) (hash [32]byte, err error) {
-	hash = sha3.Sum256(data)
+func StoreProgram(pk keys.PK, name string, b []byte) (hash [32]byte, err error) {
+	hash = sha3.Sum256(b)
 
 	res, err := http.Get(addr + "/" + hex.EncodeToString(hash[:]))
 	if err != nil || res.StatusCode == http.StatusOK {
@@ -30,7 +30,7 @@ func StoreProgram(pk keys.PK, name string, data []byte) (hash [32]byte, err erro
 	}
 
 	p := storeAddr + "/" + pk.EncodeNoPrefix() + "/" + url.PathEscape(name)
-	req, err := http.NewRequest(http.MethodPut, p, bytes.NewReader(data))
+	req, err := http.NewRequest(http.MethodPut, p, bytes.NewReader(b))
 	if err != nil {
 		return
 	}

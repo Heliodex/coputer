@@ -61,17 +61,25 @@ func (e EncryptedMsg) Decode(kp keys.Keypair) (am AnyMsg, err error) {
 	}, nil
 }
 
+// struct keys > nested maps
+type InputHash struct {
+	Hash, InputHash [32]byte
+}
+
+type InputName struct {
+	Pk        keys.PK
+	Name      string
+	InputHash [32]byte
+}
+
 type Node struct {
 	keys.ThisPeer
 
-	Peers      map[keys.PK]*keys.Peer // known peers
-	SendRaw    func(peer *keys.Peer, msg []byte) (err error)
-	ReceiveRaw chan EncryptedMsg
-
-	// TODO: Move to struct keys instead of nested maps
-	// (debatable whether it's better, but it wouldn't require nested initialisations)
-	resultsWaitingHash map[[32]byte]map[[32]byte]chan types.ProgramRets           // [program hash][input hash]
-	resultsWaitingName map[keys.PK]map[string]map[[32]byte]chan types.ProgramRets // [pk][program name][input hash]
+	Peers              map[keys.PK]*keys.Peer // known peers
+	SendRaw            func(peer *keys.Peer, msg []byte) (err error)
+	ReceiveRaw         chan EncryptedMsg
+	resultsWaitingHash map[InputHash]chan types.ProgramRets
+	resultsWaitingName map[InputName]chan types.ProgramRets
 	running            bool
 }
 
@@ -112,7 +120,7 @@ func (n Node) FindString() string {
 // unoptimised; debug
 func (n Node) log(msg ...any) {
 	pke := n.Kp.Pk.Encode()
-	logId := pke[6:8]
+	logId := pke[6:][:2]
 
 	m := strings.ReplaceAll(fmt.Sprint(msg...), "\n", "\n     ")
 	fmt.Printf("[%s]\n     %s\n", logId, m)
@@ -168,15 +176,12 @@ func (n *Node) handleMessage(am AnyMsg) {
 		}
 
 	case mRunHashResult:
-		if p, ok := n.resultsWaitingHash[m.Hash]; ok {
-			if ch, ok := p[m.InputHash]; ok {
-				ch <- m.Result
-				delete(p, m.InputHash)
-			} else {
-				n.log("Received result for unknown input\n", m.Result)
-			}
+		h := InputHash{m.Hash, m.InputHash}
+		if ch, ok := n.resultsWaitingHash[h]; ok {
+			ch <- m.Result
+			delete(n.resultsWaitingHash, h)
 		} else {
-			n.log("Received result for unexpected program\n", m.Result)
+			n.log("Received hash result for unexpected program\n", m.Result)
 		}
 
 	case mRunName:
@@ -207,20 +212,12 @@ func (n *Node) handleMessage(am AnyMsg) {
 		}
 
 	case mRunNameResult:
-		// uurugh 01:40 coding lel
-		if p1, ok := n.resultsWaitingName[m.Pk]; ok {
-			if p2, ok := p1[m.Name]; ok {
-				if ch, ok := p2[m.InputHash]; ok {
-					ch <- m.Result
-					delete(p2, m.InputHash)
-				} else {
-					n.log("Received result for unknown input\n", m.Result)
-				}
-			} else {
-				n.log("Received result for unknown program name\n", m.Result)
-			}
+		h := InputName{m.Pk, m.Name, m.InputHash}
+		if ch, ok := n.resultsWaitingName[h]; ok {
+			ch <- m.Result
+			delete(n.resultsWaitingName, h)
 		} else {
-			n.log("Received result for unexpected program\n", m.Result)
+			n.log("Received name result for unexpected program\n", m.Result)
 		}
 
 	default:
@@ -258,11 +255,9 @@ func (n *Node) peerRunHash(hash, inputhash [32]byte, ptype types.ProgramType, in
 		return nil, errors.New("no peers to run program")
 	}
 
+	h := InputHash{hash, inputhash}
 	ch := make(chan types.ProgramRets)
-	if _, ok := n.resultsWaitingHash[hash]; !ok {
-		n.resultsWaitingHash[hash] = make(map[[32]byte]chan types.ProgramRets)
-	}
-	n.resultsWaitingHash[hash][inputhash] = ch
+	n.resultsWaitingHash[h] = ch
 
 	for _, peer := range n.Peers {
 		m := mRunHash{ptype, hash, input}
@@ -273,7 +268,7 @@ func (n *Node) peerRunHash(hash, inputhash [32]byte, ptype types.ProgramType, in
 	}
 
 	res = <-ch
-	delete(n.resultsWaitingHash[hash], inputhash)
+	delete(n.resultsWaitingHash, h)
 	close(ch)
 
 	return
@@ -284,14 +279,9 @@ func (n *Node) peerRunName(pk keys.PK, name string, inputhash [32]byte, ptype ty
 		return nil, errors.New("no peers to run program")
 	}
 
+	h := InputName{pk, name, inputhash}
 	ch := make(chan types.ProgramRets)
-	if _, ok := n.resultsWaitingName[pk]; !ok {
-		n.resultsWaitingName[pk] = make(map[string]map[[32]byte]chan types.ProgramRets)
-	}
-	if _, ok := n.resultsWaitingName[pk][name]; !ok {
-		n.resultsWaitingName[pk][name] = make(map[[32]byte]chan types.ProgramRets)
-	}
-	n.resultsWaitingName[pk][name][inputhash] = ch
+	n.resultsWaitingName[h] = ch
 
 	for _, peer := range n.Peers {
 		m := mRunName{ptype, pk, name, input}
@@ -302,7 +292,7 @@ func (n *Node) peerRunName(pk keys.PK, name string, inputhash [32]byte, ptype ty
 	}
 
 	res = <-ch
-	delete(n.resultsWaitingName[pk][name], inputhash)
+	delete(n.resultsWaitingName, h)
 	close(ch)
 
 	return
