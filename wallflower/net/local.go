@@ -67,10 +67,10 @@ func (n *LocalNet) NewNode() (node *Node) {
 			Peer: peer,
 			Kp:   kp,
 		},
-		Peers:          make(map[keys.PK]*keys.Peer),
-		SendRaw:        n.SendRaw,
-		ReceiveRaw:     recv,
-		resultsWaiting: make(map[[32]byte]map[[32]byte]chan types.ProgramRets),
+		Peers:              make(map[keys.PK]*keys.Peer),
+		SendRaw:            n.SendRaw,
+		ReceiveRaw:         recv,
+		resultsWaitingHash: make(map[[32]byte]map[[32]byte]chan types.ProgramRets),
 	}
 
 	go node.Start()

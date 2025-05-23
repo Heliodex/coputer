@@ -165,7 +165,7 @@ func TestNet(t *testing.T) {
 		n2 := lnet.NewNode()
 		n2.AddPeer(p1) // tell it about n1
 
-		res, err := n2.RunWebProgram(hash, test.Args, false)
+		res, err := n2.RunWebProgramHash(hash, test.Args, false)
 		if err != nil {
 			t.Fatal(err)
 		} else if err := test.Rets.Equal(res); err != nil {

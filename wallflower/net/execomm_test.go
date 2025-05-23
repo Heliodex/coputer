@@ -21,7 +21,7 @@ func TestExec(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		res, err := StartWebProgram(hash, test.Args)
+		res, err := StartWebProgramHash(hash, test.Args)
 		if err != nil {
 			t.Fatal(err)
 		} else if err := test.Rets.Equal(res); err != nil {

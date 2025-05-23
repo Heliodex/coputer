@@ -105,9 +105,8 @@ const (
 // encrypted [16] with recipient pk
 
 // then the chunks (split message into 60-or-so kb parts)
-// length of chunk [2] (uint16)
-// --- Actual message [...]
-// encrypted [16] with recipient pk
+// --- Actual message [up to 65519 (chunkSize)]
+// encrypted [16] with recipient pk [total up to 65535 (chunkEnc)]
 
 func encryptKey(p ThisPeer, addrCount int, pk *[32]byte) ([]byte, error) {
 	c := make([]byte, keySize)
@@ -248,7 +247,7 @@ func (kp Keypair) Decrypt(emsg []byte) (from Peer, msg []byte, err error) {
 
 	var chunk []byte
 	for len(ct) > 0 {
-		clen := min(chunkEnc, len(ct))
+		clen := min(chunkEnc, len(ct)) // we don't actually need to know the chunk size
 		chunk, ct = ct[:clen], ct[clen:]
 		dec, ok := box.Open(nil, chunk, ZeroNonce, peerpk, &sk)
 

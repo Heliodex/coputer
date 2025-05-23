@@ -51,7 +51,7 @@ func StoreProgram(pk keys.PK, name string, data []byte) (hash [32]byte, err erro
 	return
 }
 
-func StartWebProgram(hash [32]byte, args types.WebArgs) (output types.WebRets, err error) {
+func StartWebProgramHash(hash [32]byte, args types.WebArgs) (output types.WebRets, err error) {
 	// encode to json
 	jsonargs, err := json.Marshal(args)
 	if err != nil {
@@ -59,6 +59,30 @@ func StartWebProgram(hash [32]byte, args types.WebArgs) (output types.WebRets, e
 	}
 
 	res, err := http.Post(addr+"/web/"+hex.EncodeToString(hash[:]), "", bytes.NewReader(jsonargs))
+	if err != nil {
+		return
+	}
+
+	// we need the body either way
+	b, err := io.ReadAll(res.Body)
+	if err != nil {
+		return
+	} else if res.StatusCode != http.StatusOK {
+		return types.WebRets{}, fmt.Errorf("bad status from execution server while starting web program: %s, %s", res.Status, b)
+	}
+
+	// deserialise it
+	return output, json.Unmarshal(b, &output)
+}
+
+func StartWebProgramName(pk keys.PK, name string, args types.WebArgs) (output types.WebRets, err error) {
+	// encode to json
+	jsonargs, err := json.Marshal(args)
+	if err != nil {
+		return
+	}
+
+	res, err := http.Post(addr+"/web/"+pk.EncodeNoPrefix()+"/"+url.PathEscape(name), "", bytes.NewReader(jsonargs))
 	if err != nil {
 		return
 	}

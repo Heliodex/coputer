@@ -64,11 +64,15 @@ func (e EncryptedMsg) Decode(kp keys.Keypair) (am AnyMsg, err error) {
 type Node struct {
 	keys.ThisPeer
 
-	Peers          map[keys.PK]*keys.Peer // known peers
-	SendRaw        func(peer *keys.Peer, msg []byte) (err error)
-	ReceiveRaw     chan EncryptedMsg
-	resultsWaiting map[[32]byte]map[[32]byte]chan types.ProgramRets // [program hash][input hash]
-	running        bool
+	Peers      map[keys.PK]*keys.Peer // known peers
+	SendRaw    func(peer *keys.Peer, msg []byte) (err error)
+	ReceiveRaw chan EncryptedMsg
+
+	// TODO: Move to struct keys instead of nested maps
+	// (debatable whether it's better, but it wouldn't require nested initialisations)
+	resultsWaitingHash map[[32]byte]map[[32]byte]chan types.ProgramRets           // [program hash][input hash]
+	resultsWaitingName map[keys.PK]map[string]map[[32]byte]chan types.ProgramRets // [pk][program name][input hash]
+	running            bool
 }
 
 func (n *Node) AddPeer(p *keys.Peer) {
@@ -141,7 +145,7 @@ func (n *Node) handleMessage(am AnyMsg) {
 
 		switch tin := m.Input.(type) {
 		case types.WebArgs:
-			ret, err := StartWebProgram(m.Hash, tin)
+			ret, err := StartWebProgramHash(m.Hash, tin)
 			if err != nil {
 				n.log("Failed to run program\n", err)
 				break
@@ -164,12 +168,56 @@ func (n *Node) handleMessage(am AnyMsg) {
 		}
 
 	case mRunHashResult:
-		if p, ok := n.resultsWaiting[m.Hash]; ok {
+		if p, ok := n.resultsWaitingHash[m.Hash]; ok {
 			if ch, ok := p[m.InputHash]; ok {
 				ch <- m.Result
 				delete(p, m.InputHash)
 			} else {
 				n.log("Received result for unknown input\n", m.Result)
+			}
+		} else {
+			n.log("Received result for unexpected program\n", m.Result)
+		}
+
+	case mRunName:
+		n.log("Running program\n", "PK: ", m.Pk.Encode(), "\n", "Name: ", m.Name)
+
+		switch tin := m.Input.(type) {
+		case types.WebArgs:
+			ret, err := StartWebProgramName(m.Pk, m.Name, tin)
+			if err != nil {
+				n.log("Failed to run program\n", err)
+				break
+			}
+
+			// serialise as json
+			// TODO: i think we're serialising this twice??? figure out how to get it from somewhere else
+			inputBytes, err := json.Marshal(tin)
+			if err != nil {
+				n.log("Failed to serialise input for hashing\n", err)
+				break
+			}
+
+			// return result
+			res := mRunNameResult{types.WebProgramType, m.Pk, m.Name, sha3.Sum256(inputBytes), ret}
+			n.send(am.From.Pk, res)
+
+		default:
+			n.log("Unknown program type\n", m.Input.Type())
+		}
+
+	case mRunNameResult:
+		// uurugh 01:40 coding lel
+		if p1, ok := n.resultsWaitingName[m.Pk]; ok {
+			if p2, ok := p1[m.Name]; ok {
+				if ch, ok := p2[m.InputHash]; ok {
+					ch <- m.Result
+					delete(p2, m.InputHash)
+				} else {
+					n.log("Received result for unknown input\n", m.Result)
+				}
+			} else {
+				n.log("Received result for unknown program name\n", m.Result)
 			}
 		} else {
 			n.log("Received result for unexpected program\n", m.Result)
@@ -205,16 +253,16 @@ func (n *Node) StoreProgram(pk keys.PK, name string, b []byte) (err error) {
 }
 
 // we don't have the program; ask peers for it
-func (n *Node) peerRun(hash, inputhash [32]byte, ptype types.ProgramType, input types.ProgramArgs) (res types.ProgramArgs, err error) {
+func (n *Node) peerRunHash(hash, inputhash [32]byte, ptype types.ProgramType, input types.ProgramArgs) (res types.ProgramArgs, err error) {
 	if len(n.Peers) == 0 {
 		return nil, errors.New("no peers to run program")
 	}
 
 	ch := make(chan types.ProgramRets)
-	if _, ok := n.resultsWaiting[hash]; !ok {
-		n.resultsWaiting[hash] = make(map[[32]byte]chan types.ProgramRets)
+	if _, ok := n.resultsWaitingHash[hash]; !ok {
+		n.resultsWaitingHash[hash] = make(map[[32]byte]chan types.ProgramRets)
 	}
-	n.resultsWaiting[hash][inputhash] = ch
+	n.resultsWaitingHash[hash][inputhash] = ch
 
 	for _, peer := range n.Peers {
 		m := mRunHash{ptype, hash, input}
@@ -225,15 +273,44 @@ func (n *Node) peerRun(hash, inputhash [32]byte, ptype types.ProgramType, input 
 	}
 
 	res = <-ch
-	delete(n.resultsWaiting[hash], inputhash)
+	delete(n.resultsWaitingHash[hash], inputhash)
 	close(ch)
 
 	return
 }
 
-func (n *Node) RunWebProgram(hash [32]byte, input types.WebArgs, useLocal bool) (res types.WebRets, err error) {
-	if useLocal { // testing; to prevent 2 communication servers using the same execution server
-		if res, err = StartWebProgram(hash, input); err == nil {
+func (n *Node) peerRunName(pk keys.PK, name string, inputhash [32]byte, ptype types.ProgramType, input types.ProgramArgs) (res types.ProgramArgs, err error) {
+	if len(n.Peers) == 0 {
+		return nil, errors.New("no peers to run program")
+	}
+
+	ch := make(chan types.ProgramRets)
+	if _, ok := n.resultsWaitingName[pk]; !ok {
+		n.resultsWaitingName[pk] = make(map[string]map[[32]byte]chan types.ProgramRets)
+	}
+	if _, ok := n.resultsWaitingName[pk][name]; !ok {
+		n.resultsWaitingName[pk][name] = make(map[[32]byte]chan types.ProgramRets)
+	}
+	n.resultsWaitingName[pk][name][inputhash] = ch
+
+	for _, peer := range n.Peers {
+		m := mRunName{ptype, pk, name, input}
+
+		if err = n.send(peer.Pk, m); err != nil {
+			return
+		}
+	}
+
+	res = <-ch
+	delete(n.resultsWaitingName[pk][name], inputhash)
+	close(ch)
+
+	return
+}
+
+func (n *Node) RunWebProgramHash(hash [32]byte, input types.WebArgs, useLocal bool) (res types.WebRets, err error) {
+	if useLocal { // testing; to prevent 2 communication servers (from realising they're) using the same execution server
+		if res, err = StartWebProgramHash(hash, input); err == nil {
 			return // we have the program!
 		}
 	}
@@ -244,7 +321,30 @@ func (n *Node) RunWebProgram(hash [32]byte, input types.WebArgs, useLocal bool) 
 		return types.WebRets{}, err
 	}
 
-	r, err := n.peerRun(hash, sha3.Sum256(inputBytes), types.WebProgramType, input)
+	r, err := n.peerRunHash(hash, sha3.Sum256(inputBytes), types.WebProgramType, input)
+	if err != nil {
+		return
+	} else if r.Type() != types.WebProgramType {
+		return types.WebRets{}, errors.New("invalid program type")
+	}
+
+	return r.(types.WebRets), nil
+}
+
+func (n *Node) RunWebProgramName(pk keys.PK, name string, input types.WebArgs, useLocal bool) (res types.WebRets, err error) {
+	if useLocal { // testing; to prevent 2 communication servers (from realising they're) using the same execution server
+		if res, err = StartWebProgramName(pk, name, input); err == nil {
+			return // we have the program!
+		}
+	}
+
+	// serialise as json
+	inputBytes, err := json.Marshal(input)
+	if err != nil {
+		return types.WebRets{}, err
+	}
+
+	r, err := n.peerRunName(pk, name, sha3.Sum256(inputBytes), types.WebProgramType, input)
 	if err != nil {
 		return
 	} else if r.Type() != types.WebProgramType {
