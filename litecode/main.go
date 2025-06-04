@@ -130,6 +130,7 @@ func main() {
 
 	// store program (bundled version)
 	http.HandleFunc("PUT /store/{pk}/{name}", func(w http.ResponseWriter, r *http.Request) {
+		// fmt.Println("put time")
 		pk, name := r.PathValue("pk"), r.PathValue("name")
 		if !checkPK(w, pk) {
 			return
@@ -139,18 +140,13 @@ func main() {
 		r.Body.Read(data)
 
 		hash := sha3.Sum256(data)
-		if hexhash := hex.EncodeToString(hash[:]); bundle.BundleStored(hexhash) {
-			return
-		} else if _, err := bundle.UnbundleToDir(data); err != nil {
+
+		if err := os.MkdirAll(filepath.Join(NamesDir, pk), 0o755); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		if err := os.MkdirAll(filepath.Join(NamesDir, pk), 0755); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
+		// fmt.Println("CREATING", filepath.Join(NamesDir, pk, name))
 		f, err := os.Create(filepath.Join(NamesDir, pk, name))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest) // status whatever, reeks of ego anyway
@@ -159,6 +155,15 @@ func main() {
 		defer f.Close()
 
 		if _, err := f.Write(hash[:]); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		// Write to file after creating names paths
+		if hexhash := hex.EncodeToString(hash[:]); bundle.BundleStored(hexhash) {
+			http.Error(w, "Program already exists", http.StatusConflict)
+			return
+		} else if _, err := bundle.UnbundleToDir(data); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -182,6 +187,7 @@ func main() {
 			return
 		}
 
+		// fmt.Println("FINDING", filepath.Join(NamesDir, pk, name))
 		hash, err := os.ReadFile(filepath.Join(NamesDir, pk, name))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
@@ -209,6 +215,7 @@ func main() {
 			return
 		}
 
+		// fmt.Println("READING", filepath.Join(NamesDir, pk, name))
 		hash, err := os.ReadFile(filepath.Join(NamesDir, pk, name))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)

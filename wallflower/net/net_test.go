@@ -165,17 +165,24 @@ func TestNet(t *testing.T) {
 		n2 := lnet.NewNode()
 		n2.AddPeer(p1) // tell it about n1
 
-		res, err := n2.RunWebProgramHash(hash, test.Args, false)
+		resh, err := n2.RunWebProgramHash(hash, test.Args, false)
 		if err != nil {
 			t.Fatal(err)
-		} else if err := test.Rets.Equal(res); err != nil {
-			t.Fatal("return value not equal:", err)
+		} else if err := test.Rets.Equal(resh); err != nil {
+			t.Fatal("hash return value not equal:", err)
+		}
+
+		resn, err := n2.RunWebProgramName(n1.Pk, test.Name, test.Args, false)
+		if err != nil {
+			t.Fatal(err)
+		} else if err := test.Rets.Equal(resn); err != nil {
+			t.Fatal("hash return value not equal:", err)
 		}
 
 		n1.Stop()
 		n2.Stop()
 
-		t.Log(string(res.Body))
+		t.Log(string(resn.Body))
 		t.Log("Passed!\n")
 	}
 }

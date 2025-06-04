@@ -22,23 +22,35 @@ const (
 )
 
 func StoreProgram(pk keys.PK, name string, b []byte) (hash [32]byte, err error) {
+	// fmt.Println("Storing program", pk.Encode(), name)
 	hash = sha3.Sum256(b)
 
-	res, err := http.Get(addr + "/" + hex.EncodeToString(hash[:]))
-	if err != nil || res.StatusCode == http.StatusOK {
-		return
-	}
-
-	p := storeAddr + "/" + pk.EncodeNoPrefix() + "/" + url.PathEscape(name)
-	req, err := http.NewRequest(http.MethodPut, p, bytes.NewReader(b))
+	hashPath := "/" + hex.EncodeToString(hash[:])
+	res1, err := http.Get(addr + hashPath)
 	if err != nil {
 		return
 	}
 
-	res, err = http.DefaultClient.Do(req)
+	namePath := "/" + pk.EncodeNoPrefix() + "/" + url.PathEscape(name)
+	res2, err := http.Get(addr + namePath)
 	if err != nil {
 		return
-	} else if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
+	}
+
+	// Make sure that the program is accessible by both hash and pk/name
+	if res1.StatusCode == http.StatusOK && res2.StatusCode == http.StatusOK {
+		return
+	}
+
+	req, err := http.NewRequest(http.MethodPut, storeAddr+namePath, bytes.NewReader(b))
+	if err != nil {
+		return
+	}
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return
+	} else if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated && res.StatusCode != http.StatusConflict {
 		// read body into byte arr
 		b, err := io.ReadAll(res.Body)
 		if err != nil {
