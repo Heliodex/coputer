@@ -20,10 +20,6 @@ var (
 	errNilIndex = errors.New("table index is nil")
 )
 
-// bit32 extraction
-func extract(n, field, width uint32) uint32 {
-	return n >> field & (1<<width - 1)
-}
 
 // opList contains information about the instruction, each instruction is defined in this format:
 // { Name, Mode, KMode, HasAux }
@@ -229,15 +225,15 @@ func checkkmode(i *internal.Inst, k []types.Val) {
 		id2 := extend & 0x3ff
 		i.K2 = k[id2].(string)
 	case 5: // AUX boolean low 1 bit
-		i.K = extract(i.Aux, 0, 1) == 1
-		i.KN = extract(i.Aux, 31, 1) == 1
+		i.K = i.Aux&1 == 1
+		i.KN = i.Aux>>31 == 1
 	case 6: // AUX number low 24 bits
-		i.K = k[extract(i.Aux, 0, 24)]
-		i.KN = extract(i.Aux, 31, 1) == 1
+		i.K = k[i.Aux&(1<<24-1)]
+		i.KN = i.Aux>>31 == 1
 	case 7: // B
 		i.K = k[i.B]
-	case 8: // AUX number low 16 bits
-		i.K = int32(i.Aux & 0xf) // forgloop
+	case 8: // AUX number low 16 bits ig
+		i.K = uint8(i.Aux & 0xf) // forgloop
 	}
 }
 
@@ -348,12 +344,12 @@ func (s *stream) readInst(code *[]*internal.Inst) bool {
 
 	// value >>= 8 // uint24 I guess
 	switch opinfo.Mode {
-	case 5: // AE
-		if i.E = int32(value >> 8); i.E >= 0x800000 { // why no arbitrary width integers, go
-			i.E -= 0x1000000
+	case 5: // AE lol
+		if i.A = int32(value >> 8); i.A >= 0x800000 { // why no arbitrary width integers, go
+			i.A -= 0x1000000
 		}
 	case 4: // AD
-		i.A = uint8(value >> 8)
+		i.A = int32(uint8(value >> 8))
 		i.D = int32(int16(value >> 16))
 	case 3: // ABC
 		i.C = uint8(value >> 24)
@@ -362,7 +358,7 @@ func (s *stream) readInst(code *[]*internal.Inst) bool {
 		i.B = uint8(value >> 16)
 		fallthrough
 	case 1: // A
-		i.A = uint8(value >> 8) // 8 bit
+		i.A = int32(uint8(value >> 8)) // 8 bit
 	}
 
 	*code = append(*code, &i)
@@ -980,7 +976,7 @@ func namecall(pc, top *int32, i *internal.Inst, p *internal.Proto, stack *[]type
 	callOp := callInst.Opcode
 
 	// -- Copied from the CALL handler
-	callA, callB, callC := int32(callInst.A), int32(callInst.B), callInst.C
+	callA, callB, callC := callInst.A, int32(callInst.B), callInst.C
 
 	var params int32
 	if callB == 0 {
@@ -1056,12 +1052,10 @@ func handleRequire(towrap toWrap, lc compiled, co *types.Coroutine) ([]types.Val
 	return []types.Val{ret}, nil
 }
 
-func call(top *int32, A, B, C uint8, towrap toWrap, stack *[]types.Val, co *types.Coroutine) (err error) {
-	a := int32(A)
-
+func call(top *int32, A int32, B, C uint8, towrap toWrap, stack *[]types.Val, co *types.Coroutine) (err error) {
 	var params int32
 	if B == 0 {
-		params = *top - a
+		params = *top - A
 	} else {
 		params = int32(B) - 1
 	}
@@ -1097,32 +1091,31 @@ func call(top *int32, A, B, C uint8, towrap toWrap, stack *[]types.Val, co *type
 	}
 
 	if C == 0 {
-		*top = a + retCount - 1
+		*top = A + retCount - 1
 	} else {
 		retCount = int32(C - 1)
 	}
 
-	moveStack(stack, retList, retCount, a)
+	moveStack(stack, retList, retCount, A)
 	return
 }
 
 // for gloop lel
 func forgloop(pc, top *int32, i internal.Inst, stack *[]types.Val, co *types.Coroutine, genIters map[internal.Inst][]types.Val) (err error) {
-	A := int32(i.A)
-	res := i.K.(int32)
+	res := int32(i.K.(uint8)) // aux number low 16 bits
 
-	switch s := (*stack)[A].(type) {
+	switch s := (*stack)[i.A].(type) {
 	case types.Function:
 		// fmt.Println("IT func", fn, (*stack)[A+1], (*stack)[A+2])
-		vals, err := (*s.Run)(co, (*stack)[A+1], (*stack)[A+2])
+		vals, err := (*s.Run)(co, (*stack)[i.A+1], (*stack)[i.A+2])
 		if err != nil {
 			return err
 		}
 
-		moveStack(stack, vals, res, A+3)
+		moveStack(stack, vals, res, i.A+3)
 		// fmt.Println(A+3, (*stack)[A+3])
 
-		if (*stack)[A+3] == nil {
+		if (*stack)[i.A+3] == nil {
 			*pc += 2
 			return nil
 		}
@@ -1144,14 +1137,14 @@ func forgloop(pc, top *int32, i internal.Inst, stack *[]types.Val, co *types.Cor
 			return
 		}
 
-		moveStack(stack, it[0:2], res, A+3)
+		moveStack(stack, it[:2], res, i.A+3)
 		genIters[i] = it[2:] // q
 	default:
 		return fmt.Errorf("attempt to iterate over a %s value", TypeOf(s))
 	}
 
-	*top = A + 6
-	(*stack)[A+2] = (*stack)[A+3]
+	*top = i.A + 6
+	(*stack)[i.A+2] = (*stack)[i.A+3]
 	*pc += i.D + 1
 	return
 }
@@ -1244,7 +1237,7 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 			}
 			pc++
 		case 12: // GETIMPORT
-			if err := getImport(i.A, i.KC, i.K0, i.K1, i.K2, towrap, &stack); err != nil {
+			if err := getImport(uint8(i.A), i.KC, i.K0, i.K1, i.K2, towrap, &stack); err != nil {
 				return nil, err
 			}
 			pc += 2 // -- adjust for aux
@@ -1316,7 +1309,7 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 			pc++
 		case 19: // NEWCLOSURE
 			towrap.proto = towrap.protoList[p.Protos[i.D]]
-			newClosure(&pc, i.A, towrap, p.Code, &stack, &openUpvals, upvals)
+			newClosure(&pc, uint8(i.A), towrap, p.Code, &stack, &openUpvals, upvals)
 			pc++
 		case 20: // NAMECALL
 			pc++
@@ -1329,16 +1322,15 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 			}
 			pc++
 		case 22: // RETURN
-			A := int32(i.A)
 			b := int32(i.B) - 1
 
 			// nresults
 			if b == luau_multret {
-				b = top - A + 1
+				b = top - i.A + 1
 			}
 
 			// execute() should pretty much always exit through here
-			return stack[A:max(A+b, 0)], nil
+			return stack[i.A:max(i.A+b, 0)], nil
 		case 23, 24: // JUMP, JUMPBACK
 			pc += i.D + 1
 		case 25: // JUMPIF
@@ -1615,23 +1607,22 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 			// Skipped
 			pc += 2 // adjust for aux
 		case 63: // GETVARARGS
-			A := int32(i.A)
 			b := int32(i.B) - 1
 
 			// fmt.Println("MULTRET", b, vargsLen)
 			if b == luau_multret {
 				b = int32(len(vargsList))
-				top = A + b - 1
+				top = i.A + b - 1
 			}
 
 			// stack may get expanded here
 			// (MAX STACK SIZE IS A LIE!!!!!!!!!!!!!!!!!!!!!!!)
-			moveStack(&stack, vargsList, b, A)
+			moveStack(&stack, vargsList, b, i.A)
 			pc++
 		case 64: // DUPCLOSURE
 			// wrap is reused for closures
 			towrap.proto = towrap.protoList[i.K.(uint32)] // 6 closure
-			newClosure(&pc, i.A, towrap, p.Code, &stack, nil, upvals)
+			newClosure(&pc, uint8(i.A), towrap, p.Code, &stack, nil, upvals)
 			pc++
 		case 65: // PREPVARARGS
 			// Handled by wrapper
@@ -1640,7 +1631,7 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 			stack[i.A] = i.K
 			pc += 2 // -- adjust for aux
 		case 67: // JUMPX
-			pc += i.E + 1
+			pc += i.A + 1 // lmfao
 		case 68, 73: // FASTCALL, FASTCALL1
 			// Skipped
 			pc++

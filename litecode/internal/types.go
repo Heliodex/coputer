@@ -16,11 +16,11 @@ type OpInfo struct {
 type Inst struct {
 	K Val
 	// K0, K1, K2 for imports (up to 3 lay.ers.deep)
-	K0, K1, K2          string
-	KC, Opcode, KMode, A, B, C uint8
-	D, E                int32
-	Aux                 uint32
-	KN                  bool
+	K0, K1, K2              string
+	KC, Opcode, KMode, B, C uint8
+	A, D                    int32
+	Aux                     uint32
+	KN                      bool
 }
 
 type Proto struct {
