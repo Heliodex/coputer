@@ -19,8 +19,10 @@ type (
 	SK [SKSize]byte
 )
 
-var alphabet = [36]byte([]byte("0123456789abcdefghijklmnopqrstuvwxyz"))
-var byteMap = make(map[byte]int, 36)
+var (
+	alphabet = [36]byte([]byte("0123456789abcdefghijklmnopqrstuvwxyz"))
+	byteMap  = make(map[byte]int, 36)
+)
 
 func init() {
 	for i, v := range alphabet {
@@ -44,7 +46,7 @@ const (
 )
 
 func (s PK) EncodeNoPrefix() string {
-	digits := [pkStringLength]int{}
+	var digits [pkStringLength]int
 	di := 1
 
 	for i := range s {
@@ -61,7 +63,7 @@ func (s PK) EncodeNoPrefix() string {
 		}
 	}
 
-	res := [pkStringLength]byte{}
+	var res [pkStringLength]byte
 	for i, v := range digits {
 		res[len(res)-i-1] = alphabet[v]
 	}
@@ -85,7 +87,7 @@ func (s PK) Encode() string {
 
 // Takes a secret key and returns a string representation of it using a custom alphabet
 func (s SK) Encode() string {
-	digits := [skStringLength]int{}
+	var digits [skStringLength]int
 	di := 1
 
 	for i := range s {
@@ -102,7 +104,7 @@ func (s SK) Encode() string {
 		}
 	}
 
-	res := [skStringLength]byte{}
+	var res [skStringLength]byte
 	for i, v := range digits {
 		res[len(res)-i-1] = alphabet[v]
 	}

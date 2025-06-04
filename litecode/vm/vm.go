@@ -342,25 +342,27 @@ func (s *stream) readInst(code *[]*internal.Inst) bool {
 	opinfo := opList[opcode]
 
 	i := internal.Inst{
-		OpInfo: opinfo,
 		Opcode: opcode,
+		KMode:  opinfo.KMode,
 	}
 
-	value >>= 8
+	// value >>= 8 // uint24 I guess
 	switch opinfo.Mode {
-	case 1: // A
-		i.A = uint8(value) // 8 bit
-	case 2: // AB
-		i.A, i.B = uint8(value), uint8(value>>8)
-	case 3: // ABC
-		i.A, i.B, i.C = uint8(value), uint8(value>>8), uint8(value>>16)
-	case 4: // AD
-		i.A = uint8(value)
-		i.D = int32(int16(value >> 8))
 	case 5: // AE
-		if i.E = int32(value); i.E >= 0x800000 { // why no arbitrary width integers, go
+		if i.E = int32(value >> 8); i.E >= 0x800000 { // why no arbitrary width integers, go
 			i.E -= 0x1000000
 		}
+	case 4: // AD
+		i.A = uint8(value >> 8)
+		i.D = int32(int16(value >> 16))
+	case 3: // ABC
+		i.C = uint8(value >> 24)
+		fallthrough
+	case 2: // AB
+		i.B = uint8(value >> 16)
+		fallthrough
+	case 1: // A
+		i.A = uint8(value >> 8) // 8 bit
 	}
 
 	*code = append(*code, &i)
@@ -368,9 +370,10 @@ func (s *stream) readInst(code *[]*internal.Inst) bool {
 		i.Aux = s.rUint32()
 
 		*code = append(*code, &internal.Inst{})
+		return true
 	}
 
-	return opinfo.HasAux
+	return false
 }
 
 func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
