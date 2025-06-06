@@ -20,7 +20,6 @@ var (
 	errNilIndex = errors.New("table index is nil")
 )
 
-
 // opList contains information about the instruction, each instruction is defined in this format:
 // { Name, Mode, KMode, HasAux }
 // Mode specifies what type of registers the instruction uses if any
@@ -344,7 +343,7 @@ func (s *stream) readInst(code *[]*internal.Inst) bool {
 
 	// value >>= 8 // uint24 I guess
 	switch opinfo.Mode {
-	case 5: // AE lol
+	case 5: // other A lol
 		if i.A = int32(value >> 8); i.A >= 0x800000 { // why no arbitrary width integers, go
 			i.A -= 0x1000000
 		}
@@ -372,6 +371,45 @@ func (s *stream) readInst(code *[]*internal.Inst) bool {
 	return false
 }
 
+func (s *stream) readLineInfo(sizecode uint32) (instLineInfo []uint32) {
+	linegaplog2 := s.rByte()
+
+	lineinfo := make([]uint8, sizecode)
+	var lastoffset uint8
+	for i := range sizecode {
+		lastoffset += s.rByte() // yeah this is how the reference implementation does it, whatever hpppens happens
+		lineinfo[i] = lastoffset
+	}
+
+	intervals := (sizecode-1)>>linegaplog2 + 1
+	abslineinfo := make([]uint32, intervals)
+	var lastline uint32
+	for i := range intervals {
+		lastline += s.rUint32()
+		// fmt.Println("lastline", lastline)
+		abslineinfo[i] = lastline // overflow babyy (faster than % (1 << 32))
+	}
+
+	instLineInfo = make([]uint32, sizecode)
+	for i, v := range lineinfo {
+		// -- p->abslineinfo[pc >> p->linegaplog2] + p->lineinfo[pc];
+		instLineInfo[i] = abslineinfo[i>>linegaplog2] + uint32(v)
+	}
+	return
+}
+
+func (s *stream) readDebugInfo() {
+	for range s.rVarInt() { // sizel
+		s.skipVarInt()
+		s.skipVarInt()
+		s.skipVarInt()
+		s.pos++
+	}
+	for range s.rVarInt() { // sizeupvalues
+		s.skipVarInt()
+	}
+}
+
 func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 	p = &internal.Proto{
 		MaxStackSize: s.rByte(),
@@ -389,7 +427,6 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 	s.pos += s.rVarInt() // typesize
 
 	sizecode := s.rVarInt()
-
 	for i := uint32(0); i < sizecode; i++ {
 		if s.readInst(&p.Code) {
 			i++
@@ -450,49 +487,17 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 
 	// LineInfoEnabled
 	if s.rBool() {
-		linegaplog2 := s.rByte()
-		intervals := uint32((sizecode-1)>>linegaplog2) + 1
-
-		lineinfo := make([]uint8, sizecode)
-		var lastoffset uint8
-		for j := range sizecode {
-			lastoffset += s.rByte() // yeah this is how the reference implementation does it, whatever hpppens happens
-			lineinfo[j] = lastoffset
-		}
-
-		abslineinfo := make([]uint32, intervals)
-		var lastline uint32
-		for i := range intervals {
-			lastline += s.rUint32()
-			// fmt.Println("lastline", lastline)
-			abslineinfo[i] = lastline // overflow babyy (faster than % (1 << 32))
-		}
-
-		p.InstLineInfo = make([]uint32, sizecode)
-		for i := range sizecode {
-			// -- p->abslineinfo[pc >> p->linegaplog2] + p->lineinfo[pc];
-			p.InstLineInfo[i] = abslineinfo[i>>linegaplog2] + uint32(lineinfo[i])
-		}
+		p.InstLineInfo = s.readLineInfo(sizecode)
 	}
 
-	// -- debuginfo
 	if s.rBool() {
-		// fmt.Println("DEBUGINFO")
-		for range s.rVarInt() { // sizel
-			s.skipVarInt()
-			s.skipVarInt()
-			s.skipVarInt()
-			s.pos++
-		}
-		for range s.rVarInt() { // sizeupvalues
-			s.skipVarInt()
-		}
+		s.readDebugInfo()
 	}
 
 	return
 }
 
-func deserialise(b []byte) (des internal.Deserialised, err error) {
+func deserialise(b []byte) (d internal.Deserialised, err error) {
 	s := &stream{data: b}
 
 	if luauVersion := s.rByte(); luauVersion == 0 {
@@ -586,6 +591,10 @@ func invalidIndex(ta string, v types.Val) error {
 	}
 
 	return fmt.Errorf("attempt to index %v with %v", ta, tb)
+}
+
+func invalidIter(t string) error {
+	return fmt.Errorf("attempt to iterate over a %s value", t)
 }
 
 func missingMethod(ta string, v types.Val) error {
@@ -964,15 +973,14 @@ func newClosure(pc *int32, A uint8, towrap toWrap, code []*internal.Inst, stack 
 	}
 }
 
-func namecall(pc, top *int32, i *internal.Inst, p *internal.Proto, stack *[]types.Val, co *types.Coroutine, op *uint8) (err error) {
-	A, B := i.A, i.B
+func namecall(pc, top *int32, i *internal.Inst, code []*internal.Inst, instLineInfo []uint32, stack *[]types.Val, co *types.Coroutine, op *uint8) (err error) {
 	kv := i.K.(string)
 	// fmt.Println("kv", kv)
 
-	(*stack)[A+1] = (*stack)[B]
+	(*stack)[i.A+1] = (*stack)[i.B]
 
 	// -- Special handling for native namecall behaviour
-	callInst := p.Code[*pc]
+	callInst := code[*pc]
 	callOp := callInst.Opcode
 
 	// -- Copied from the CALL handler
@@ -991,30 +999,30 @@ func namecall(pc, top *int32, i *internal.Inst, p *internal.Proto, stack *[]type
 	}
 	if !ok {
 		// fmt.Println("namecall", kv, "not found")
-		switch t := (*stack)[B].(type) {
+		switch t := (*stack)[i.B].(type) {
 		case *types.Table:
 			call := t.GetHash(kv)
 			if call == nil {
 				return missingMethod(TypeOf(t), kv)
 			}
 
-			(*stack)[A] = call
-			return
+			(*stack)[i.A] = call
 		case string:
 			return missingMethod(TypeOf(t), kv)
 		default:
 			return invalidIndex(TypeOf(t), kv)
 		}
+		return
 	}
 
 	*i = *callInst
 	*op = callOp
 
-	co.Dbg.Line = p.InstLineInfo[*pc+1]
+	co.Dbg.Line = instLineInfo[*pc+1]
 
-	retCount := int32(len(retList))
-
+	var retCount int32
 	if callC == 0 {
+		retCount = int32(len(retList))
 		*top = callA + retCount - 1
 	} else {
 		retCount = int32(callC - 1)
@@ -1025,7 +1033,7 @@ func namecall(pc, top *int32, i *internal.Inst, p *internal.Proto, stack *[]type
 	return
 }
 
-func handleRequire(towrap toWrap, lc compiled, co *types.Coroutine) ([]types.Val, error) {
+func handleRequire(towrap toWrap, lc compiled, co *types.Coroutine) (rets []types.Val, err error) {
 	if c, ok := towrap.requireCache[lc.Filepath]; ok {
 		return []types.Val{c}, nil
 	}
@@ -1034,7 +1042,7 @@ func handleRequire(towrap toWrap, lc compiled, co *types.Coroutine) ([]types.Val
 	c2, _ := loadmodule(lc, co.Env, towrap.requireCache, co.ProgramArgs)
 	reqrets, err := c2.Resume()
 	if err != nil {
-		return nil, err
+		return
 	}
 	if len(reqrets) == 0 { // i have no reqrets
 		return nil, errors.New("module must return a value")
@@ -1140,7 +1148,7 @@ func forgloop(pc, top *int32, i internal.Inst, stack *[]types.Val, co *types.Cor
 		moveStack(stack, it[:2], res, i.A+3)
 		genIters[i] = it[2:] // q
 	default:
-		return fmt.Errorf("attempt to iterate over a %s value", TypeOf(s))
+		return invalidIter(TypeOf(s))
 	}
 
 	*top = i.A + 6
@@ -1157,11 +1165,11 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 	// a a a a
 	// stayin' alive
 	// fmt.Println("starting with upvals", upvals)
-	for *towrap.alive {
-		i := *p.Code[pc-1]
+	code, lineInfo, protos := p.Code, p.InstLineInfo, p.Protos
+	co.Dbg.Name = p.Dbgname
 
-		co.Dbg.Line = p.InstLineInfo[pc-1]
-		co.Dbg.Name = p.Dbgname
+	for *towrap.alive {
+		co.Dbg.Line = lineInfo[pc-1]
 
 		// fmt.Println(top)
 
@@ -1169,6 +1177,7 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 		// 	fmt.Println("upval", upvals[0])
 		// }
 
+		i := *code[pc-1]
 		switch op := i.Opcode; op {
 		case 0: // NOP
 			// -- Do nothing
@@ -1237,13 +1246,13 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 			}
 			pc++
 		case 12: // GETIMPORT
-			if err := getImport(uint8(i.A), i.KC, i.K0, i.K1, i.K2, towrap, &stack); err != nil {
-				return nil, err
+			if err = getImport(uint8(i.A), i.KC, i.K0, i.K1, i.K2, towrap, &stack); err != nil {
+				return
 			}
 			pc += 2 // -- adjust for aux
 		case 13: // GETTABLE
 			if stack[i.A], err = gettable(stack[i.C], stack[i.B]); err != nil {
-				return nil, err
+				return
 			}
 			pc++
 		case 14: // SETTABLE
@@ -1264,7 +1273,7 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 			pc++
 		case 15: // GETTABLEKS
 			if stack[i.A], err = gettable(i.K, stack[i.B]); err != nil {
-				return nil, err
+				return
 			}
 			pc += 2 // -- adjust for aux
 		case 16: // SETTABLEKS
@@ -1284,17 +1293,17 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 			t.Set(idx, stack[i.A])
 			pc += 2 // -- adjust for aux
 		case 17: // GETTABLEN
-			idx := float64(i.C + 1)
+			idx := i.C + 1
 			t, ok := stack[i.B].(*types.Table)
 			if !ok {
 				// fmt.Println("gettableninvalidindex")
-				return nil, invalidIndex(TypeOf(stack[i.B]), idx)
+				return nil, invalidIndex(TypeOf(stack[i.B]), float64(idx))
 			}
 
-			stack[i.A] = t.Get(idx)
+			stack[i.A] = t.GetInt(int(idx))
 			pc++
 		case 18: // SETTABLEN
-			idx := int(i.C) + 1
+			idx := i.C + 1
 			t, ok := stack[i.B].(*types.Table)
 			if !ok {
 				// fmt.Println("gettableninvalidindex")
@@ -1305,15 +1314,15 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 			}
 
 			// fmt.Println("SETTABLEN", i.C+1, stack[i.A])
-			t.SetInt(idx, stack[i.A])
+			t.SetInt(int(idx), stack[i.A])
 			pc++
 		case 19: // NEWCLOSURE
-			towrap.proto = towrap.protoList[p.Protos[i.D]]
-			newClosure(&pc, uint8(i.A), towrap, p.Code, &stack, &openUpvals, upvals)
+			towrap.proto = towrap.protoList[protos[i.D]]
+			newClosure(&pc, uint8(i.A), towrap, code, &stack, &openUpvals, upvals)
 			pc++
 		case 20: // NAMECALL
 			pc++
-			if err = namecall(&pc, &top, &i, p, &stack, co, &op); err != nil {
+			if err = namecall(&pc, &top, &i, code, lineInfo, &stack, co, &op); err != nil {
 				return
 			}
 		case 21: // CALL
@@ -1461,12 +1470,12 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 			pc++
 		case 71: // SUBRK
 			if stack[i.A], err = aSub(i.K, stack[i.C]); err != nil {
-				return nil, err
+				return
 			}
 			pc++
 		case 72: // DIVRK
 			if stack[i.A], err = aDiv(i.K, stack[i.C]); err != nil {
-				return nil, err
+				return
 			}
 			pc++
 		case 45: // logic AND
@@ -1550,28 +1559,26 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 			}
 
 			// one-indexed lol
-			for n, v := range stack[B:min(B+c, int32(len(stack)))] {
+			for n, v := range stack[i.B:min(B+c, int32(len(stack)))] {
 				s.SetInt(n+int(i.Aux), v)
 			}
 			// stack[A] = s // in-place
 
 			pc += 2 // -- adjust for aux
 		case 56: // FORNPREP
-			A := i.A
-
-			init, ok := stack[A+2].(float64)
+			init, ok := stack[i.A+2].(float64)
 			if !ok {
-				return nil, invalidFor("initial value", TypeOf(stack[A+2]))
+				return nil, invalidFor("initial value", TypeOf(stack[i.A+2]))
 			}
 
-			limit, ok := stack[A].(float64)
+			limit, ok := stack[i.A].(float64)
 			if !ok {
-				return nil, invalidFor("limit", TypeOf(stack[A]))
+				return nil, invalidFor("limit", TypeOf(stack[i.A]))
 			}
 
-			step, ok := stack[A+1].(float64)
+			step, ok := stack[i.A+1].(float64)
 			if !ok {
-				return nil, invalidFor("step", TypeOf(stack[A+1]))
+				return nil, invalidFor("step", TypeOf(stack[i.A+1]))
 			}
 
 			if s := step > 0; s && init > limit || !s && init < limit {
@@ -1580,14 +1587,13 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 				pc++
 			}
 		case 57: // FORNLOOP
-			A := i.A
 			// all checked in FORNPREP
-			init := stack[A+2].(float64)
-			limit := stack[A].(float64)
-			step := stack[A+1].(float64)
+			init := stack[i.A+2].(float64)
+			limit := stack[i.A].(float64)
+			step := stack[i.A+1].(float64)
 
 			init += step
-			stack[A+2] = init
+			stack[i.A+2] = init
 
 			if s := step > 0; s && init <= limit || !s && init >= limit {
 				pc += i.D + 1
@@ -1595,12 +1601,12 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 				pc++
 			}
 		case 58: // FORGLOOP
-			if err := forgloop(&pc, &top, i, &stack, co, genIters); err != nil {
-				return nil, err
+			if err = forgloop(&pc, &top, i, &stack, co, genIters); err != nil {
+				return
 			}
 		case 59, 61: // FORGPREP_INEXT, FORGPREP_NEXT
 			if _, ok := stack[i.A].(types.Function); !ok {
-				return nil, fmt.Errorf("attempt to iterate over a %s value", TypeOf(stack[i.A])) // -- encountered non-function value
+				return nil, invalidIter(TypeOf(stack[i.A])) // -- encountered non-function value
 			}
 			pc += i.D + 1
 		case 60: // FASTCALL3
@@ -1622,7 +1628,7 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 		case 64: // DUPCLOSURE
 			// wrap is reused for closures
 			towrap.proto = towrap.protoList[i.K.(uint32)] // 6 closure
-			newClosure(&pc, uint8(i.A), towrap, p.Code, &stack, nil, upvals)
+			newClosure(&pc, uint8(i.A), towrap, code, &stack, nil, upvals)
 			pc++
 		case 65: // PREPVARARGS
 			// Handled by wrapper

@@ -40,7 +40,7 @@ func table_concat(args Args) (r []types.Val, err error) {
 
 	var b strings.Builder
 	for ; i <= j; i++ {
-		v, ok := t.Get(i).(string)
+		v, ok := t.GetFloat(i).(string)
 		if !ok {
 			return nil, errors.New("attempt to concatenate non-string value")
 		}
@@ -120,7 +120,7 @@ func bumpelements(t *types.Table, start int) {
 	var keys int
 	for i := start; ; i++ {
 		// fmt.Println("starting with", i)
-		if t.Get(float64(i)) == nil {
+		if t.GetInt(i) == nil {
 			keys = i - 1
 			break
 		}
@@ -130,7 +130,7 @@ func bumpelements(t *types.Table, start int) {
 
 	for k := keys; k >= start; k-- {
 		// fmt.Println("moving key", k+1, "=", t.Get(k))
-		t.SetInt(k+1, t.Get(float64(k)))
+		t.SetInt(k+1, t.GetInt(k))
 	}
 
 	// fmt.Println("AFTER")
@@ -214,7 +214,7 @@ func table_move(args Args) (r []types.Val, err error) {
 	}
 
 	for i := a; i <= b; i++ {
-		dst.SetInt(t+i-a, src.Get(float64(i)))
+		dst.SetInt(t+i-a, src.GetInt(i))
 	}
 
 	return []types.Val{dst}, nil
@@ -236,12 +236,12 @@ func table_remove(args Args) (r []types.Val, err error) {
 	l := t.Len()
 	pos := args.GetNumber(float64(l))
 
-	p := t.Get(pos)
+	p := t.GetFloat(pos)
 	if ipos := int(pos); ipos == l {
 		t.SetInt(ipos, nil)
 	} else if 0 < ipos && ipos < l {
 		for i := ipos; i < l; i++ {
-			t.SetInt(i, t.Get(float64(i+1)))
+			t.SetInt(i, t.GetInt(i+1))
 		}
 		t.SetInt(l, nil)
 	}
@@ -473,7 +473,7 @@ func table_unpack(args Args) (r []types.Val, err error) {
 
 	r = make([]types.Val, uj-ui+1)
 	for k := ui; k <= uj; k++ {
-		r[k-ui] = list.Get(float64(k))
+		r[k-ui] = list.GetInt(k)
 	}
 
 	return

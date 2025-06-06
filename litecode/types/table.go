@@ -7,14 +7,18 @@ import (
 	"strings"
 )
 
-func listKey(k Val) (int, bool) {
-	fk, ok := k.(float64)
-	if !ok {
-		return 0, false
-	}
-
+func listKeyFloat(fk float64) (int, bool) {
 	ik := int(fk)
 	return ik, 1 <= ik && float64(ik) == fk
+}
+
+func listKey(k Val) (ik int, ok bool) {
+	fk, ok := k.(float64)
+	if !ok {
+		return
+	}
+
+	return listKeyFloat(fk)
 }
 
 func mapKeySort(a, b Val) int {
@@ -164,6 +168,22 @@ func (t *Table) Get(k Val) Val {
 		return t.List[ak-1]
 	}
 	return t.GetHash(k)
+}
+
+// GetFloat returns a value at a float key in the table.
+func (t *Table) GetFloat(k float64) Val {
+	if ak, ok := listKeyFloat(k); ok && ak <= t.Len() {
+		return t.List[ak-1]
+	}
+	return t.GetHash(k)
+}
+
+// GetFloat returns a value at a float key in the table.
+func (t *Table) GetInt(k int) Val {
+	if ok := 1 <= k; ok && k <= t.Len() {
+		return t.List[k-1]
+	}
+	return t.GetHash(float64(k))
 }
 
 // Iter returns an iterator over the table, yielding key-value pairs in a deterministic order.
