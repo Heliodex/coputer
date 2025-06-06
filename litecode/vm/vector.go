@@ -63,9 +63,9 @@ func vector_angle(args Args) (r []types.Val, err error) {
 
 	c := cross(a, b)
 
-	sinA := math.Sqrt(float64(c[0]*c[0] + c[1]*c[1] + c[2]*c[2]))
-	cosA := float64(a[0]*b[0] + a[1]*b[1] + a[2]*b[2])
-	angle := math.Atan2(sinA, cosA)
+	sinA := f32Sqrt(c[0]*c[0] + c[1]*c[1] + c[2]*c[2])
+	cosA := a[0]*b[0] + a[1]*b[1] + a[2]*b[2]
+	angle := math.Atan2(float64(sinA), float64(cosA))
 
 	if c[0]*axis[0]+c[1]*axis[1]+c[2]*axis[2] < 0 {
 		return []types.Val{-angle}, nil

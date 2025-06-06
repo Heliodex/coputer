@@ -42,6 +42,8 @@ print(vector.normalize(v), vector.normalize(u), vector.normalize(t))
 print(vector.sign(v), vector.sign(u), vector.sign(t))
 print(vector.one)
 print(vector.zero)
+print(vector.angle(u, t, u))
+print(vector.angle(u, t, t))
 
 local function fma(a: vector, b: vector, c: vector) return a * b + c end
 

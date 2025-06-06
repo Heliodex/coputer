@@ -1,0 +1,2 @@
+{PATH}/patternfrontier.luau:1: function (main)
+missing '[' after '%f' in pattern

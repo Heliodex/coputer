@@ -1,0 +1,2 @@
+{PATH}/patternindex.luau:1: function (main)
+invalid capture index %4

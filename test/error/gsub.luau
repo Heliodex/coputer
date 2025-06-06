@@ -1,0 +1,1 @@
+string.gsub("test", "test2", buffer.create(5))

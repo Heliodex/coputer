@@ -1,0 +1,1 @@
+table.clear(math)

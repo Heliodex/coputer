@@ -1,0 +1,2 @@
+{PATH}/formatwildcardform2.luau:1: function (main)
+invalid option '%.' to 'format'

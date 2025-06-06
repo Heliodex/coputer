@@ -1,0 +1,2 @@
+{PATH}/gsub.luau:1: function (main)
+invalid argument #3 to 'gsub' (string/function/table expected, got buffer)

@@ -488,7 +488,7 @@ func matchPos(s, p string, si, pi int, caps *captures) (si2 int, err error) {
 				// dlog("the final frontier", si)
 
 				pi += 2
-				if p[pi] != '[' {
+				if pi == len(p) || p[pi] != '[' {
 					return 0, errors.New("missing '[' after '%f' in pattern")
 				}
 

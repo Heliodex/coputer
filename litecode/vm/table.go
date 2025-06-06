@@ -12,7 +12,7 @@ import (
 func table_clear(args Args) (r []types.Val, err error) {
 	t := args.GetTable()
 	if t.Readonly {
-		return nil, errors.New("attempt to modify a readonly table")
+		return nil, errReadonly
 	}
 
 	*t = types.Table{}
@@ -87,18 +87,13 @@ func table_find(args Args) (r []types.Val, err error) {
 		return nil, errors.New("index out of range")
 	}
 
-	if haystack.List != nil {
-		for i := int(init) - 1; i < len(haystack.List); i++ {
-			if needle == haystack.List[i] {
-				return []types.Val{float64(i + 1)}, nil
-			}
-		}
+	if haystack.List == nil { // it doesn't even search the hash? Lame
+		return []types.Val{nil}, nil
 	}
-	if haystack.Hash != nil {
-		for k, v := range haystack.Hash {
-			if needle == v {
-				return []types.Val{k}, nil
-			}
+
+	for i := int(init) - 1; i < len(haystack.List); i++ {
+		if needle == haystack.List[i] {
+			return []types.Val{float64(i + 1)}, nil
 		}
 	}
 
@@ -141,7 +136,7 @@ func bumpelements(t *types.Table, start int) {
 func table_insert(args Args) (r []types.Val, err error) {
 	t := args.GetTable()
 	if t.Readonly {
-		return nil, errors.New("attempt to modify a readonly table")
+		return nil, errReadonly
 	}
 
 	var pos int
@@ -210,7 +205,7 @@ func table_move(args Args) (r []types.Val, err error) {
 	a, b, t := int(args.GetNumber()), int(args.GetNumber()), int(args.GetNumber())
 	dst := args.GetTable(src)
 	if dst.Readonly {
-		return nil, errors.New("attempt to modify a readonly table")
+		return nil, errReadonly
 	}
 
 	for i := a; i <= b; i++ {
@@ -230,7 +225,7 @@ func table_pack(args Args) (r []types.Val, err error) {
 func table_remove(args Args) (r []types.Val, err error) {
 	t := args.GetTable()
 	if t.Readonly {
-		return nil, errors.New("attempt to modify a readonly table")
+		return nil, errReadonly
 	}
 
 	l := t.Len()
@@ -431,7 +426,7 @@ func sort_rec(t *types.Table, l, u, limit int, c comp) (err error) {
 func table_sort(args Args) (r []types.Val, err error) {
 	t := args.GetTable()
 	if t.Readonly {
-		return nil, errors.New("attempt to modify a readonly table")
+		return nil, errReadonly
 	}
 
 	var c comp

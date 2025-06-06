@@ -1,0 +1,2 @@
+{PATH}/readonlymove.luau:1: function (main)
+attempt to modify a readonly table

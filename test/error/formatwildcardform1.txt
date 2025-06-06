@@ -1,0 +1,2 @@
+{PATH}/formatwildcardform1.luau:1: function (main)
+%* does not take a form
