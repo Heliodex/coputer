@@ -148,6 +148,7 @@ for _, func in { stringfind, stringmatch } do
 	print(func("%j", "%j"))
 	print(func("%j", "%%j"))
 	print(func("12345712301-helloworld8yeah", "([0-7%l%-]+)"))
+	print(func("12345712301-HELLOWORLD8YEAH", "([0-7%u%-]+)"))
 
 	print(func("no meaning no", "[%a-z]+"))
 	print(func("no meaning no", "[^%a-z]+"))
@@ -166,10 +167,13 @@ for _, func in { stringfind, stringmatch } do
 	print(func("a", "%f[a]"))
 	print(func("a", "%f[^%z]"))
 	print(func("a", "%f[^%l]"))
+	print(func("A", "%f[^%u]"))
 	print(func("aba", "%f[a%z]"))
 	print(func("aba", "%f[%z]"))
 	print(func("aba", "%f[%l%z]"))
 	print(func("aba", "%f[^%l%z]"))
+	print(func("ABA", "%f[%u%z]"))
+	print(func("ABA", "%f[^%u%z]"))
 
 	print(func(" alo aalo allo", "%f[%S].-%f[%s].-%f[%S]"))
 
@@ -218,6 +222,7 @@ local function f(s, p)
 end
 
 f("aloALO", "%l*")
+f("aloALO", "%u*")
 f("aLo_ALO", "%a*")
 
 f("  \n\r*&\n\r   xuxu  \n\n", "%g%g%g+")

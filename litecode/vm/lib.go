@@ -17,10 +17,6 @@ func invalidArgType(i int, fn, tx, tg string) error {
 	return fmt.Errorf("invalid argument #%d to '%s' (%s expected, got %s)", i, fn, tx, tg)
 }
 
-func invalidArg(i int, fn, msg string) error {
-	return fmt.Errorf("invalid argument #%d to '%s' (%s)", i, fn, msg)
-}
-
 // Args represents the arguments passed to a user-defined native function.
 //
 // A number of helper functions are provided to extract arguments from the list. If these functions fail to extract the argument, the coroutine yields an invalid/missing argument error.

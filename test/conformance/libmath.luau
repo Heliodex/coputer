@@ -13,6 +13,9 @@ print(math.pi, math.pi / math.pi)
 print(math.sin(math.pi / 2))
 print(math.cos(math.pi))
 -- print(math.tan(1)) -- uhh
+print(math.sinh(math.pi / 2))
+print(math.cosh(math.pi))
+print(math.tanh(1)) -- uhh
 print(math.asin(1))
 print(math.acos(1))
 print(math.atan(1))

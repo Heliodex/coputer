@@ -1,0 +1,2 @@
+{PATH}/globalrequire.luau:1: function (main)
+require path must start with a valid prefix: ./ or ../

@@ -19,6 +19,11 @@ import (
 // 	fmt.Println(a...)
 // }
 
+var (
+	errMalformedEsc     = fmt.Errorf("malformed pattern (ends with '%c')", l_esc)
+	errMalformedBracket = errors.New("malformed pattern (missing ']')")
+)
+
 func classend(p string, pi int) (int, error) {
 	// dlog("CLASSEND", p, pi, string(p[pi]))
 
@@ -30,10 +35,14 @@ func classend(p string, pi int) (int, error) {
 		pi++
 
 		if pi == len(p) {
-			return 0, fmt.Errorf("malformed pattern (ends with '%c')", l_esc)
+			return 0, errMalformedEsc
 		}
 	case '[':
 		pi++
+
+		if pi == len(p) {
+			return 0, errMalformedBracket
+		}
 
 		if p[pi] == '^' {
 			pi++
@@ -42,7 +51,7 @@ func classend(p string, pi int) (int, error) {
 		for {
 			// look for a ']'
 			if pi == len(p) {
-				return 0, errors.New("malformed pattern (missing ']')")
+				return 0, errMalformedBracket
 			}
 			if p[pi] == l_esc && pi+1 < len(p) {
 				pi++ // skip escapes (eg. '%]')
@@ -460,6 +469,10 @@ func matchPos(s, p string, si, pi int, caps *captures) (si2 int, err error) {
 				return -1, nil
 			}
 		case l_esc: // escaped sequences not in the format class[*+?-]?
+			if pi+1 == len(p) {
+				return 0, errMalformedEsc
+			}
+
 			switch p[pi+1] {
 			case 'b': // balanced string?
 				if si, err = matchbalance(s, p, si, pi+2); err != nil {

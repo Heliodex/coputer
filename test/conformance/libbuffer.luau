@@ -10,6 +10,8 @@ buffer.writei8(b, 2, 114)
 buffer.writei8(b, 3, 108)
 buffer.writei8(b, 4, 100)
 buffer.writei8(b, 4, 356)
+buffer.writei16(b, 2, 22222)
+buffer.writei32(b, 0, 99887766)
 
 local function p(s)
 	print(s) -- prevents return of more than one value

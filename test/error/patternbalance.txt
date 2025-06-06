@@ -1,0 +1,2 @@
+{PATH}/patternbalance.luau:1: function (main)
+malformed pattern (missing arguments to '%b')

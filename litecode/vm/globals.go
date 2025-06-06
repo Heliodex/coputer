@@ -106,9 +106,11 @@ func global_tonumber(args Args) (r []types.Val, err error) {
 
 	var negative bool
 	if strings.HasPrefix(str, "-") {
+		str = str[1:]
 		negative = true
 	}
 
+	ogRadix := radix
 	switch radix {
 	case 10, 16:
 		if strings.HasPrefix(str, "0x") {
@@ -136,6 +138,10 @@ func global_tonumber(args Args) (r []types.Val, err error) {
 	}
 
 	if negative {
+		if ogRadix == 10 {
+			// this is wild Luau, fix yo shit
+			return []types.Val{-float64(n)}, nil
+		}
 		return []types.Val{float64(-n)}, nil
 	}
 	return []types.Val{float64(n)}, nil
@@ -533,7 +539,7 @@ func ToString(a types.Val) string {
 	case string:
 		return strings.ReplaceAll(v, "\n", "\r\n") // bruh
 	}
-	return fmt.Sprint(a)
+	return "userdata"
 }
 
 func global_tostring(args Args) (r []types.Val, err error) {
@@ -548,20 +554,12 @@ func global_type(args Args) (r []types.Val, err error) {
 	return []types.Val{TypeOf(obj)}, nil
 }
 
-func isAbsolutePath(p string) bool {
-	return len(p) >= 3 && isalpha(p[0]) && p[1] == ':' && (p[2] == '/' || p[2] == '\\') ||
-		len(p) >= 1 && (p[0] == '/' || p[0] == '\\')
-}
-
 func hasValidPrefix(path string) bool {
 	return path[:2] == "./" || path[:3] == "../"
 }
 
 func global_require(args Args) (r []types.Val, err error) {
 	name := args.GetString()
-	if isAbsolutePath(name) {
-		return nil, invalidArg(1, "require", "cannot require an absolute path")
-	}
 
 	name = strings.ReplaceAll(name, "\\", "/")
 	if !hasValidPrefix(name) {

@@ -7,13 +7,11 @@ import (
 	"fmt"
 	"math"
 	"strings"
-	"unsafe"
+	// unsafe code paths removed... for now
 
 	"github.com/Heliodex/coputer/litecode/internal"
 	"github.com/Heliodex/coputer/litecode/types"
 )
-
-const safe = false
 
 var (
 	errReadonly = errors.New("attempt to modify a readonly table")
@@ -252,11 +250,7 @@ func (s *stream) rBool() bool {
 }
 
 func (s *stream) rUint32() (w uint32) {
-	if safe {
-		w = binary.LittleEndian.Uint32(s.data[s.pos:])
-	} else { // TODO: check if unsafe alternatives are actually faster
-		w = *(*uint32)(unsafe.Pointer(&s.data[s.pos]))
-	}
+	w = binary.LittleEndian.Uint32(s.data[s.pos:])
 	s.pos += 4
 	return
 }
@@ -267,25 +261,14 @@ func (s *stream) skipUint32() {
 
 // this is the only thing float32s are ever used for anyway
 func (s *stream) rVector() (r types.Vector) {
-	if safe {
-		for i := range 4 {
-			r[i] = math.Float32frombits(s.rUint32())
-		}
-		return
+	for i := range 4 {
+		r[i] = math.Float32frombits(s.rUint32())
 	}
-
-	// endianness isn't really a concern here as the data is always little endian (and the math.frombits functions will have the same problems anyway...)
-	r = *(*types.Vector)(unsafe.Pointer(&s.data[s.pos]))
-	s.pos += 16
 	return
 }
 
 func (s *stream) rFloat64() (r float64) {
-	if safe {
-		r = math.Float64frombits(binary.LittleEndian.Uint64(s.data[s.pos:]))
-	} else {
-		r = *(*float64)(unsafe.Pointer(&s.data[s.pos]))
-	}
+	r = math.Float64frombits(binary.LittleEndian.Uint64(s.data[s.pos:]))
 
 	s.pos += 8
 	return
@@ -312,11 +295,7 @@ func (s *stream) skipVarInt() {
 
 func (s *stream) rString() (str string) {
 	size := s.rVarInt()
-	if safe {
-		str = string(s.data[s.pos:][:size])
-	} else {
-		str = unsafe.String(&s.data[s.pos], size)
-	}
+	str = string(s.data[s.pos:][:size])
 
 	s.pos += size
 	return
