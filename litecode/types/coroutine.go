@@ -4,7 +4,6 @@ import "github.com/Heliodex/coputer/litecode/internal"
 
 // debugging stores debugging information for a coroutine.
 type debugging struct {
-	// top,
 	Line uint32
 	// enabled bool
 	// opcode  uint8

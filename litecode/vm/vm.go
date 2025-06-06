@@ -151,7 +151,7 @@ func namecallHandler(co *types.Coroutine, kv string, stack *[]types.Val, c1, c2 
 	switch kv {
 	case "format":
 		str := (*stack)[c1].(string)
-		args := (*stack)[c1+1 : c2+1]
+		args := (*stack)[1:][c1:c2]
 
 		f, err := fmtstring(str, Args{Co: co, List: args, name: "format"})
 		if err != nil {
@@ -936,7 +936,7 @@ func newClosure(pc *int32, A uint8, towrap toWrap, code []*internal.Inst, stack 
 
 	// fmt.Println("nups", nups)
 	for n := range nups {
-		switch pseudo := code[*pc]; pseudo.A {
+		switch pseudo := code[*pc+1]; pseudo.A {
 		case 0: // -- value
 			towrap.upvals[n] = &upval{
 				value: (*stack)[pseudo.B],
@@ -973,15 +973,14 @@ func newClosure(pc *int32, A uint8, towrap toWrap, code []*internal.Inst, stack 
 	}
 }
 
-func namecall(pc, top *int32, i *internal.Inst, code []*internal.Inst, instLineInfo []uint32, stack *[]types.Val, co *types.Coroutine, op *uint8) (err error) {
+func namecall(pc, top *int32, i *internal.Inst, code []*internal.Inst, lineInfo []uint32, stack *[]types.Val, co *types.Coroutine, op *uint8) (err error) {
 	kv := i.K.(string)
 	// fmt.Println("kv", kv)
 
 	(*stack)[i.A+1] = (*stack)[i.B]
 
 	// -- Special handling for native namecall behaviour
-	callInst := code[*pc]
-	callOp := callInst.Opcode
+	callInst := code[*pc+1]
 
 	// -- Copied from the CALL handler
 	callA, callB, callC := callInst.A, int32(callInst.B), callInst.C
@@ -990,10 +989,10 @@ func namecall(pc, top *int32, i *internal.Inst, code []*internal.Inst, instLineI
 	if callB == 0 {
 		params = *top - callA
 	} else {
-		params = callB - 1
+		params = callB
 	}
 
-	ok, retList, err := namecallHandler(co, kv, stack, callA+1, callA+params)
+	ok, retList, err := namecallHandler(co, kv, stack, callA+1, callA+params-1)
 	if err != nil {
 		return
 	}
@@ -1016,20 +1015,19 @@ func namecall(pc, top *int32, i *internal.Inst, code []*internal.Inst, instLineI
 	}
 
 	*i = *callInst
-	*op = callOp
-
-	co.Dbg.Line = instLineInfo[*pc+1]
+	*op = i.Opcode
 
 	var retCount int32
-	if callC == 0 {
+	if callC == 0 { // todo: never runs
 		retCount = int32(len(retList))
-		*top = callA + retCount - 1
+		*top = callA + retCount
 	} else {
 		retCount = int32(callC - 1)
 	}
 
 	moveStack(stack, retList, retCount, callA)
 	*pc += 2 // -- adjust for aux, Skip next CALL instruction
+	co.Dbg.Line = lineInfo[*pc]
 	return
 }
 
@@ -1061,13 +1059,6 @@ func handleRequire(towrap toWrap, lc compiled, co *types.Coroutine) (rets []type
 }
 
 func call(top *int32, A int32, B, C uint8, towrap toWrap, stack *[]types.Val, co *types.Coroutine) (err error) {
-	var params int32
-	if B == 0 {
-		params = *top - A
-	} else {
-		params = int32(B) - 1
-	}
-
 	// fmt.Println(A, B, C, (*stack)[A], params)
 
 	f := (*stack)[A]
@@ -1077,8 +1068,15 @@ func call(top *int32, A int32, B, C uint8, towrap toWrap, stack *[]types.Val, co
 		return uncallableType(TypeOf(f))
 	}
 
+	var params int32
+	if B == 0 {
+		params = *top - A
+	} else {
+		params = int32(B)
+	}
+
 	// fmt.Println("upvals1", len(upvals))
-	retList, err := (*fn.Run)(co, (*stack)[A+1:][:params]...) // not inclusive
+	retList, err := (*fn.Run)(co, (*stack)[A+1:][:params-1]...) // not inclusive
 	// fmt.Println("upvals2", len(upvals))
 	if err != nil {
 		return
@@ -1099,7 +1097,7 @@ func call(top *int32, A int32, B, C uint8, towrap toWrap, stack *[]types.Val, co
 	}
 
 	if C == 0 {
-		*top = A + retCount - 1
+		*top = A + retCount
 	} else {
 		retCount = int32(C - 1)
 	}
@@ -1151,7 +1149,7 @@ func forgloop(pc, top *int32, i internal.Inst, stack *[]types.Val, co *types.Cor
 		return invalidIter(TypeOf(s))
 	}
 
-	*top = i.A + 6
+	*top = i.A + 7
 	(*stack)[i.A+2] = (*stack)[i.A+3]
 	*pc += i.D + 1
 	return
@@ -1160,7 +1158,9 @@ func forgloop(pc, top *int32, i internal.Inst, stack *[]types.Val, co *types.Cor
 func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (r []types.Val, err error) {
 	p, upvals := towrap.proto, towrap.upvals
 	// int32 > uint32 lel
-	pc, top, openUpvals, genIters := int32(1), int32(-1), []*upval{}, map[internal.Inst][]types.Val{}
+	var pc, top int32
+	var openUpvals []*upval
+	var genIters map[internal.Inst][]types.Val
 
 	// a a a a
 	// stayin' alive
@@ -1168,16 +1168,14 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 	code, lineInfo, protos := p.Code, p.InstLineInfo, p.Protos
 	co.Dbg.Name = p.Dbgname
 
-	for *towrap.alive {
-		co.Dbg.Line = lineInfo[pc-1]
-
+	for ; *towrap.alive; co.Dbg.Line = lineInfo[pc] {
 		// fmt.Println(top)
 
 		// if len(upvals) > 0 {
 		// 	fmt.Println("upval", upvals[0])
 		// }
 
-		i := *code[pc-1]
+		i := *code[pc]
 		switch op := i.Opcode; op {
 		case 0: // NOP
 			// -- Do nothing
@@ -1187,7 +1185,7 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 			pc++
 		case 3: // LOADB
 			stack[i.A] = i.B == 1
-			pc += int32(i.C) + 1
+			pc += int32(i.C + 1)
 		case 4: // LOADN
 			stack[i.A] = float64(i.D) // never put an int on the stack
 			pc++
@@ -1335,7 +1333,7 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 
 			// nresults
 			if b == luau_multret {
-				b = top - i.A + 1
+				b = top - i.A
 			}
 
 			// execute() should pretty much always exit through here
@@ -1510,14 +1508,13 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 			pc++
 		case 49: // CONCAT
 			var b strings.Builder
-			for first, n := uint8(0), i.B; n <= i.C; n++ {
+			for first, n := uint8(0), i.B; n <= i.C; n, first = n+1, 1 {
 				toWrite, ok := stack[n].(string)
 				if !ok {
 					// ensure correct order of operands in error message
 					return nil, invalidConcat(TypeOf(stack[n-first]), TypeOf(stack[n+1-first]))
 				}
 				b.WriteString(toWrite)
-				first = 1
 			}
 			stack[i.A] = b.String()
 			pc++
@@ -1550,7 +1547,7 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 			c := int32(i.C) - 1
 
 			if c == luau_multret {
-				c = top - B + 1
+				c = top - B
 			}
 
 			s := stack[i.A].(*types.Table)
@@ -1601,6 +1598,9 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 				pc++
 			}
 		case 58: // FORGLOOP
+			if genIters == nil {
+				genIters = map[internal.Inst][]types.Val{}
+			}
 			if err = forgloop(&pc, &top, i, &stack, co, genIters); err != nil {
 				return
 			}
@@ -1618,7 +1618,7 @@ func execute(towrap toWrap, stack, vargsList []types.Val, co *types.Coroutine) (
 			// fmt.Println("MULTRET", b, vargsLen)
 			if b == luau_multret {
 				b = int32(len(vargsList))
-				top = i.A + b - 1
+				top = i.A + b
 			}
 
 			// stack may get expanded here
