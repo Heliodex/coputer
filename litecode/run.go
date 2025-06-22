@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/Heliodex/coputer/bundle"
-
 	. "github.com/Heliodex/coputer/litecode/types"
 	"github.com/Heliodex/coputer/litecode/vm"
 )
