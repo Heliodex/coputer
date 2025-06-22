@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/Heliodex/coputer/litecode/types"
+	. "github.com/Heliodex/coputer/litecode/types"
 	"github.com/Heliodex/coputer/wallflower/keys"
 )
 
@@ -63,7 +63,7 @@ func StoreProgram(pk keys.PK, name string, b []byte) (hash [32]byte, err error) 
 	return
 }
 
-func StartWebProgramHash(hash [32]byte, args types.WebArgs) (output types.WebRets, err error) {
+func StartWebProgramHash(hash [32]byte, args WebArgs) (output WebRets, err error) {
 	// encode to json
 	jsonargs, err := json.Marshal(args)
 	if err != nil {
@@ -80,14 +80,14 @@ func StartWebProgramHash(hash [32]byte, args types.WebArgs) (output types.WebRet
 	if err != nil {
 		return
 	} else if res.StatusCode != http.StatusOK {
-		return types.WebRets{}, fmt.Errorf("bad status from execution server while starting web program: %s, %s", res.Status, b)
+		return WebRets{}, fmt.Errorf("bad status from execution server while starting web program: %s, %s", res.Status, b)
 	}
 
 	// deserialise it
 	return output, json.Unmarshal(b, &output)
 }
 
-func StartWebProgramName(pk keys.PK, name string, args types.WebArgs) (output types.WebRets, err error) {
+func StartWebProgramName(pk keys.PK, name string, args WebArgs) (output WebRets, err error) {
 	// encode to json
 	jsonargs, err := json.Marshal(args)
 	if err != nil {
@@ -104,7 +104,7 @@ func StartWebProgramName(pk keys.PK, name string, args types.WebArgs) (output ty
 	if err != nil {
 		return
 	} else if res.StatusCode != http.StatusOK {
-		return types.WebRets{}, fmt.Errorf("bad status from execution server while starting web program: %s, %s", res.Status, b)
+		return WebRets{}, fmt.Errorf("bad status from execution server while starting web program: %s, %s", res.Status, b)
 	}
 
 	// deserialise it

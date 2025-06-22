@@ -30,7 +30,7 @@ type (
 )
 
 // Env represents a global Luau environment.
-type Env map[Val]Val
+type Env map[string]Val
 
 // AddFn adds a function to the environment.
 func (e *Env) AddFn(f Function) {

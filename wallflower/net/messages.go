@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Heliodex/coputer/litecode/types"
+	. "github.com/Heliodex/coputer/litecode/types"
 	"github.com/Heliodex/coputer/wallflower/keys"
 )
 
@@ -68,9 +68,9 @@ func (m mStoreResult) Serialise() []byte {
 }
 
 type mRunHash struct {
-	Type  types.ProgramType // 1
+	Type  ProgramType // 1
 	Hash  [32]byte
-	Input types.ProgramArgs
+	Input ProgramArgs
 }
 
 func (m mRunHash) Serialise() []byte {
@@ -89,10 +89,10 @@ func (m mRunHash) Serialise() []byte {
 }
 
 type mRunHashResult struct {
-	Type      types.ProgramType // 1
+	Type      ProgramType // 1
 	Hash      [32]byte
 	InputHash [32]byte
-	Result    types.ProgramRets
+	Result    ProgramRets
 }
 
 func (m mRunHashResult) Serialise() []byte {
@@ -112,10 +112,10 @@ func (m mRunHashResult) Serialise() []byte {
 }
 
 type mRunName struct {
-	Type  types.ProgramType // 1
-	Pk    keys.PK           // 29
-	Name  string            // 1 + length
-	Input types.ProgramArgs
+	Type  ProgramType // 1
+	Pk    keys.PK     // 29
+	Name  string      // 1 + length
+	Input ProgramArgs
 }
 
 func (m mRunName) Serialise() []byte {
@@ -136,11 +136,11 @@ func (m mRunName) Serialise() []byte {
 }
 
 type mRunNameResult struct {
-	Type      types.ProgramType // 1
-	Pk        keys.PK           // 29
-	Name      string            // 1 + length
+	Type      ProgramType // 1
+	Pk        keys.PK     // 29
+	Name      string      // 1 + length
 	InputHash [32]byte
-	Result    types.ProgramRets
+	Result    ProgramRets
 }
 
 func (m mRunNameResult) Serialise() []byte {
@@ -167,10 +167,10 @@ type AnyMsg struct {
 	Body []byte
 }
 
-func unmarshalInput(ptype types.ProgramType, rest []byte) (types.ProgramArgs, error) {
+func unmarshalInput(ptype ProgramType, rest []byte) (ProgramArgs, error) {
 	switch ptype {
-	case types.WebProgramType:
-		var tin types.WebArgs
+	case WebProgramType:
+		var tin WebArgs
 		if err := json.Unmarshal(rest, &tin); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal web args: %w", err)
 		}
@@ -179,10 +179,10 @@ func unmarshalInput(ptype types.ProgramType, rest []byte) (types.ProgramArgs, er
 	return nil, errors.New("unknown program args type")
 }
 
-func unmarshalResult(ptype types.ProgramType, rest []byte) (types.ProgramRets, error) {
+func unmarshalResult(ptype ProgramType, rest []byte) (ProgramRets, error) {
 	switch ptype {
-	case types.WebProgramType:
-		var tres types.WebRets
+	case WebProgramType:
+		var tres WebRets
 		if err := json.Unmarshal(rest, &tres); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal web result: %w", err)
 		}
@@ -207,7 +207,7 @@ func (m AnyMsg) Deserialise() (SentMsg, error) {
 		copy(hash[:], m.Body)
 		return mStoreResult{hash}, nil
 	case tRunHash:
-		ptype := types.ProgramType(m.Body[0])
+		ptype := ProgramType(m.Body[0])
 
 		var hash [32]byte
 		copy(hash[:], m.Body[1:][:32])
@@ -220,7 +220,7 @@ func (m AnyMsg) Deserialise() (SentMsg, error) {
 
 		return mRunHash{ptype, hash, in}, nil
 	case tRunHashResult:
-		ptype := types.ProgramType(m.Body[0])
+		ptype := ProgramType(m.Body[0])
 
 		var hash, inputhash [32]byte
 		copy(hash[:], m.Body[1:][:32])
@@ -234,7 +234,7 @@ func (m AnyMsg) Deserialise() (SentMsg, error) {
 
 		return mRunHashResult{ptype, hash, inputhash, res}, nil
 	case tRunName:
-		ptype := types.ProgramType(m.Body[0])
+		ptype := ProgramType(m.Body[0])
 
 		var pk keys.PK
 		copy(pk[:], m.Body[1:][:29])
@@ -251,7 +251,7 @@ func (m AnyMsg) Deserialise() (SentMsg, error) {
 
 		return mRunName{ptype, pk, name, in}, nil
 	case tRunNameResult:
-		ptype := types.ProgramType(m.Body[0])
+		ptype := ProgramType(m.Body[0])
 
 		var pk keys.PK
 		copy(pk[:], m.Body[1:][:29])

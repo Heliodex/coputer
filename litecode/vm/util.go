@@ -8,7 +8,7 @@ import (
 	"os/exec"
 
 	"github.com/Heliodex/coputer/litecode/internal"
-	"github.com/Heliodex/coputer/litecode/types"
+	. "github.com/Heliodex/coputer/litecode/types"
 )
 
 const Ext = ".luau"
@@ -21,20 +21,20 @@ func luauCompile(path string, o uint8) (bytecode []byte, err error) {
 type compiled struct {
 	internal.Deserpath
 	Filepath       string
-	Compiler       types.Compiler
+	Compiler       Compiler
 	RequireHistory []string
 }
 
 // NewCompiler creates a new compiler with the given optimisation level.
-func NewCompiler(o uint8) types.Compiler {
-	return types.Compiler{
+func NewCompiler(o uint8) Compiler {
+	return Compiler{
 		Cache: make(map[[32]byte]internal.Deserpath),
 		O:     o,
 	}
 }
 
 // Compile compiles a program at a specific path to bytecode and returns its deserialised form.
-func Compile(c types.Compiler, path string) (p compiled, err error) {
+func Compile(c Compiler, path string) (p compiled, err error) {
 	// hash path instead of bytecode
 	hash := sha3.Sum256([]byte(path))
 	if dp, ok := c.Cache[hash]; ok {
@@ -79,6 +79,6 @@ func Compile(c types.Compiler, path string) (p compiled, err error) {
 	}, nil
 }
 
-func (p compiled) Load(env types.Env, args types.ProgramArgs) (co types.Coroutine, cancel func()) {
-	return loadmodule(p, env, map[string]types.Val{}, args)
+func (p compiled) Load(env Env, args ProgramArgs) (co Coroutine, cancel func()) {
+	return loadmodule(p, env, map[string]Val{}, args)
 }

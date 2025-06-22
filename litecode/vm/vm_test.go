@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Heliodex/coputer/litecode/types"
+	. "github.com/Heliodex/coputer/litecode/types"
 )
 
 const (
@@ -24,14 +24,14 @@ func trimext(s string) string {
 	return strings.TrimSuffix(s, Ext)
 }
 
-func litecode(t *testing.T, f string, c types.Compiler) (string, time.Duration) {
+func litecode(t *testing.T, f string, c Compiler) (string, time.Duration) {
 	p, err := Compile(c, f)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	var b strings.Builder
-	luau_print := MakeFn("print", func(args Args) (r []types.Val, err error) {
+	luau_print := MakeFn("print", func(args Args) (r []Val, err error) {
 		// b.WriteString(fmt.Sprint(args...))
 		for i, arg := range args.List {
 			b.WriteString(ToString(arg))
@@ -44,10 +44,10 @@ func litecode(t *testing.T, f string, c types.Compiler) (string, time.Duration) 
 		return
 	})
 
-	var env types.Env
+	var env Env
 	env.AddFn(luau_print)
 
-	co, _ := p.Load(env, types.TestArgs{})
+	co, _ := p.Load(env, TestArgs{})
 
 	startTime := time.Now()
 	_, err = co.Resume()
@@ -59,14 +59,14 @@ func litecode(t *testing.T, f string, c types.Compiler) (string, time.Duration) 
 	return strings.ReplaceAll(b.String(), "\r\n", "\n"), endTime.Sub(startTime)
 }
 
-func litecodeE(t *testing.T, f string, c types.Compiler) (string, error) {
+func litecodeE(t *testing.T, f string, c Compiler) (string, error) {
 	p, err := Compile(c, f)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	var b strings.Builder
-	luau_print := MakeFn("print", func(args Args) (r []types.Val, err error) {
+	luau_print := MakeFn("print", func(args Args) (r []Val, err error) {
 		// b.WriteString(fmt.Sprint(args...))
 		for i, arg := range args.List {
 			b.WriteString(ToString(arg))
@@ -79,10 +79,10 @@ func litecodeE(t *testing.T, f string, c types.Compiler) (string, error) {
 		return
 	})
 
-	var env types.Env
+	var env Env
 	env.AddFn(luau_print)
 
-	co, _ := p.Load(env, types.TestArgs{})
+	co, _ := p.Load(env, TestArgs{})
 
 	_, err = co.Resume()
 
@@ -221,7 +221,7 @@ func TestBenchmark(t *testing.T) {
 
 	// const onlyBench = "luauception"
 
-	compilers := []types.Compiler{NewCompiler(0), NewCompiler(1), NewCompiler(2)}
+	compilers := []Compiler{NewCompiler(0), NewCompiler(1), NewCompiler(2)}
 
 	for _, f := range files {
 		name := trimext(f.Name())

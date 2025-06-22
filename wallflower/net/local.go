@@ -1,7 +1,7 @@
 package net
 
 import (
-	"github.com/Heliodex/coputer/litecode/types"
+	. "github.com/Heliodex/coputer/litecode/types"
 	"github.com/Heliodex/coputer/wallflower/keys"
 )
 
@@ -70,8 +70,8 @@ func (n *LocalNet) NewNode() (node *Node) {
 		Peers:              make(map[keys.PK]*keys.Peer),
 		SendRaw:            n.SendRaw,
 		ReceiveRaw:         recv,
-		resultsWaitingHash: make(map[InputHash]chan types.ProgramRets),
-		resultsWaitingName: make(map[InputName]chan types.ProgramRets),
+		resultsWaitingHash: make(map[InputHash]chan ProgramRets),
+		resultsWaitingName: make(map[InputName]chan ProgramRets),
 	}
 
 	go node.Start()

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Heliodex/coputer/litecode/types"
+	. "github.com/Heliodex/coputer/litecode/types"
 	"github.com/Heliodex/coputer/wallflower/keys"
 )
 
@@ -78,8 +78,8 @@ type Node struct {
 	Peers              map[keys.PK]*keys.Peer // known peers
 	SendRaw            func(peer *keys.Peer, msg []byte) (err error)
 	ReceiveRaw         chan EncryptedMsg
-	resultsWaitingHash map[InputHash]chan types.ProgramRets
-	resultsWaitingName map[InputName]chan types.ProgramRets
+	resultsWaitingHash map[InputHash]chan ProgramRets
+	resultsWaitingName map[InputName]chan ProgramRets
 	running            bool
 }
 
@@ -152,7 +152,7 @@ func (n *Node) handleMessage(am AnyMsg) {
 		n.log("Running program\n", "Hash: ", hex.EncodeToString(m.Hash[:]))
 
 		switch tin := m.Input.(type) {
-		case types.WebArgs:
+		case WebArgs:
 			ret, err := StartWebProgramHash(m.Hash, tin)
 			if err != nil {
 				n.log("Failed to run program\n", err)
@@ -168,7 +168,7 @@ func (n *Node) handleMessage(am AnyMsg) {
 			}
 
 			// return result
-			res := mRunHashResult{types.WebProgramType, m.Hash, sha3.Sum256(inputBytes), ret}
+			res := mRunHashResult{WebProgramType, m.Hash, sha3.Sum256(inputBytes), ret}
 			n.send(am.From.Pk, res)
 
 		default:
@@ -188,7 +188,7 @@ func (n *Node) handleMessage(am AnyMsg) {
 		n.log("Running program\n", "PK: ", m.Pk.Encode(), "\n", "Name: ", m.Name)
 
 		switch tin := m.Input.(type) {
-		case types.WebArgs:
+		case WebArgs:
 			ret, err := StartWebProgramName(m.Pk, m.Name, tin)
 			if err != nil {
 				n.log("Failed to run program\n", err)
@@ -204,7 +204,7 @@ func (n *Node) handleMessage(am AnyMsg) {
 			}
 
 			// return result
-			res := mRunNameResult{types.WebProgramType, m.Pk, m.Name, sha3.Sum256(inputBytes), ret}
+			res := mRunNameResult{WebProgramType, m.Pk, m.Name, sha3.Sum256(inputBytes), ret}
 			n.send(am.From.Pk, res)
 
 		default:
@@ -250,13 +250,13 @@ func (n *Node) StoreProgram(pk keys.PK, name string, b []byte) (err error) {
 }
 
 // we don't have the program; ask peers for it
-func (n *Node) peerRunHash(hash, inputhash [32]byte, ptype types.ProgramType, input types.ProgramArgs) (res types.ProgramArgs, err error) {
+func (n *Node) peerRunHash(hash, inputhash [32]byte, ptype ProgramType, input ProgramArgs) (res ProgramArgs, err error) {
 	if len(n.Peers) == 0 {
 		return nil, errors.New("no peers to run program")
 	}
 
 	h := InputHash{hash, inputhash}
-	ch := make(chan types.ProgramRets)
+	ch := make(chan ProgramRets)
 	n.resultsWaitingHash[h] = ch
 
 	for _, peer := range n.Peers {
@@ -274,13 +274,13 @@ func (n *Node) peerRunHash(hash, inputhash [32]byte, ptype types.ProgramType, in
 	return
 }
 
-func (n *Node) peerRunName(pk keys.PK, name string, inputhash [32]byte, ptype types.ProgramType, input types.ProgramArgs) (res types.ProgramArgs, err error) {
+func (n *Node) peerRunName(pk keys.PK, name string, inputhash [32]byte, ptype ProgramType, input ProgramArgs) (res ProgramArgs, err error) {
 	if len(n.Peers) == 0 {
 		return nil, errors.New("no peers to run program")
 	}
 
 	h := InputName{pk, name, inputhash}
-	ch := make(chan types.ProgramRets)
+	ch := make(chan ProgramRets)
 	n.resultsWaitingName[h] = ch
 
 	for _, peer := range n.Peers {
@@ -298,7 +298,7 @@ func (n *Node) peerRunName(pk keys.PK, name string, inputhash [32]byte, ptype ty
 	return
 }
 
-func (n *Node) RunWebProgramHash(hash [32]byte, input types.WebArgs, useLocal bool) (res types.WebRets, err error) {
+func (n *Node) RunWebProgramHash(hash [32]byte, input WebArgs, useLocal bool) (res WebRets, err error) {
 	if useLocal { // testing; to prevent 2 communication servers (from realising they're) using the same execution server
 		if res, err = StartWebProgramHash(hash, input); err == nil {
 			return // we have the program!
@@ -308,20 +308,20 @@ func (n *Node) RunWebProgramHash(hash [32]byte, input types.WebArgs, useLocal bo
 	// serialise as json
 	inputBytes, err := json.Marshal(input)
 	if err != nil {
-		return types.WebRets{}, err
+		return WebRets{}, err
 	}
 
-	r, err := n.peerRunHash(hash, sha3.Sum256(inputBytes), types.WebProgramType, input)
+	r, err := n.peerRunHash(hash, sha3.Sum256(inputBytes), WebProgramType, input)
 	if err != nil {
 		return
-	} else if r.Type() != types.WebProgramType {
-		return types.WebRets{}, errors.New("invalid program type")
+	} else if r.Type() != WebProgramType {
+		return WebRets{}, errors.New("invalid program type")
 	}
 
-	return r.(types.WebRets), nil
+	return r.(WebRets), nil
 }
 
-func (n *Node) RunWebProgramName(pk keys.PK, name string, input types.WebArgs, useLocal bool) (res types.WebRets, err error) {
+func (n *Node) RunWebProgramName(pk keys.PK, name string, input WebArgs, useLocal bool) (res WebRets, err error) {
 	if useLocal { // testing; to prevent 2 communication servers (from realising they're) using the same execution server
 		if res, err = StartWebProgramName(pk, name, input); err == nil {
 			return // we have the program!
@@ -331,17 +331,17 @@ func (n *Node) RunWebProgramName(pk keys.PK, name string, input types.WebArgs, u
 	// serialise as json
 	inputBytes, err := json.Marshal(input)
 	if err != nil {
-		return types.WebRets{}, err
+		return WebRets{}, err
 	}
 
-	r, err := n.peerRunName(pk, name, sha3.Sum256(inputBytes), types.WebProgramType, input)
+	r, err := n.peerRunName(pk, name, sha3.Sum256(inputBytes), WebProgramType, input)
 	if err != nil {
 		return
-	} else if r.Type() != types.WebProgramType {
-		return types.WebRets{}, errors.New("invalid program type")
+	} else if r.Type() != WebProgramType {
+		return WebRets{}, errors.New("invalid program type")
 	}
 
-	return r.(types.WebRets), nil
+	return r.(WebRets), nil
 }
 
 func (n *Node) Start() {

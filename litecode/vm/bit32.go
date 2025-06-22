@@ -3,7 +3,7 @@ package vm
 import (
 	"math/bits"
 
-	"github.com/Heliodex/coputer/litecode/types"
+	. "github.com/Heliodex/coputer/litecode/types"
 )
 
 const (
@@ -45,66 +45,66 @@ func b_shift(r uint32, i int) uint32 {
 	return trim(r << i)
 }
 
-func bit32_arshift(args Args) (r []types.Val, err error) {
+func bit32_arshift(args Args) (r []Val, err error) {
 	x := uint32(args.GetNumber())
 	i := int(args.GetNumber())
 
 	if i < 0 || x&(1<<(nbits-1)) == 0 {
-		return []types.Val{float64(b_shift(x, -i))}, nil
+		return []Val{float64(b_shift(x, -i))}, nil
 	}
 	if i >= nbits {
 		// arithmetic shift for 'negative' number
-		return []types.Val{float64(allones)}, nil
+		return []Val{float64(allones)}, nil
 	}
-	return []types.Val{float64(trim(x>>i | ^(allones >> i)))}, nil
+	return []Val{float64(trim(x>>i | ^(allones >> i)))}, nil
 }
 
-func bit32_band(args Args) (r []types.Val, err error) {
-	return []types.Val{float64(andaux(args))}, nil
+func bit32_band(args Args) (r []Val, err error) {
+	return []Val{float64(andaux(args))}, nil
 }
 
-func bit32_bnot(args Args) (r []types.Val, err error) {
+func bit32_bnot(args Args) (r []Val, err error) {
 	x := ^uint32(args.GetNumber())
 
-	return []types.Val{float64(trim(x))}, nil
+	return []Val{float64(trim(x))}, nil
 }
 
-func bit32_bor(args Args) (r []types.Val, err error) {
+func bit32_bor(args Args) (r []Val, err error) {
 	var x uint32
 	for range args.List {
 		x |= uint32(args.GetNumber())
 	}
-	return []types.Val{float64(trim(x))}, nil
+	return []Val{float64(trim(x))}, nil
 }
 
-func bit32_btest(args Args) (r []types.Val, err error) {
-	return []types.Val{andaux(args) != 0}, nil
+func bit32_btest(args Args) (r []Val, err error) {
+	return []Val{andaux(args) != 0}, nil
 }
 
-func bit32_bxor(args Args) (r []types.Val, err error) {
+func bit32_bxor(args Args) (r []Val, err error) {
 	var x uint32
 	for range args.List {
 		x ^= uint32(args.GetNumber())
 	}
-	return []types.Val{float64(trim(x))}, nil
+	return []Val{float64(trim(x))}, nil
 }
 
-func bit32_byteswap(args Args) (r []types.Val, err error) {
+func bit32_byteswap(args Args) (r []Val, err error) {
 	n := uint32(args.GetNumber())
 
-	return []types.Val{float64(bits.ReverseBytes32(n))}, nil
+	return []Val{float64(bits.ReverseBytes32(n))}, nil
 }
 
-func bit32_countlz(args Args) (r []types.Val, err error) {
+func bit32_countlz(args Args) (r []Val, err error) {
 	v := uint32(args.GetNumber())
 
-	return []types.Val{float64(bits.LeadingZeros32(v))}, nil
+	return []Val{float64(bits.LeadingZeros32(v))}, nil
 }
 
-func bit32_countrz(args Args) (r []types.Val, err error) {
+func bit32_countrz(args Args) (r []Val, err error) {
 	v := uint32(args.GetNumber())
 
-	return []types.Val{float64(bits.TrailingZeros32(v))}, nil
+	return []Val{float64(bits.TrailingZeros32(v))}, nil
 }
 
 /*
@@ -127,58 +127,58 @@ func fieldargs(args Args) (f, w int, msg string, ok bool) {
 	return f, w, "", true
 }
 
-func bit32_extract(args Args) (r []types.Val, err error) {
+func bit32_extract(args Args) (r []Val, err error) {
 	x := uint32(args.GetNumber())
 
 	f, w, msg, ok := fieldargs(args)
 	if !ok {
-		return []types.Val{msg, false}, nil
+		return []Val{msg, false}, nil
 	}
-	return []types.Val{float64(x >> f & bitmask(w)), true}, nil
+	return []Val{float64(x >> f & bitmask(w)), true}, nil
 }
 
-func bit32_replace(args Args) (r []types.Val, err error) {
+func bit32_replace(args Args) (r []Val, err error) {
 	x := uint32(args.GetNumber())
 	v := uint32(args.GetNumber())
 
 	f, w, msg, ok := fieldargs(args)
 	if !ok {
-		return []types.Val{msg, false}, nil
+		return []Val{msg, false}, nil
 	}
 	m := bitmask(w)
 	v &= m // erase bits outside given width
-	return []types.Val{float64(x & ^(m<<f) | v<<f), true}, nil
+	return []Val{float64(x & ^(m<<f) | v<<f), true}, nil
 }
 
-func bit32_lrotate(args Args) (r []types.Val, err error) {
+func bit32_lrotate(args Args) (r []Val, err error) {
 	x := uint32(args.GetNumber())
 	i := int(args.GetNumber())
 
-	return []types.Val{float64(bits.RotateLeft32(x, i))}, nil
+	return []Val{float64(bits.RotateLeft32(x, i))}, nil
 }
 
-func bit32_lshift(args Args) (r []types.Val, err error) {
+func bit32_lshift(args Args) (r []Val, err error) {
 	x := uint32(args.GetNumber())
 	disp := int(args.GetNumber())
 
-	return []types.Val{float64(b_shift(x, disp))}, nil
+	return []Val{float64(b_shift(x, disp))}, nil
 }
 
-func bit32_rrotate(args Args) (r []types.Val, err error) {
+func bit32_rrotate(args Args) (r []Val, err error) {
 	x := uint32(args.GetNumber())
 	i := int(args.GetNumber())
 
-	return []types.Val{float64(bits.RotateLeft32(x, -i))}, nil
+	return []Val{float64(bits.RotateLeft32(x, -i))}, nil
 }
 
-func bit32_rshift(args Args) (r []types.Val, err error) {
+func bit32_rshift(args Args) (r []Val, err error) {
 	x := uint32(args.GetNumber())
 	disp := int(args.GetNumber())
 
-	return []types.Val{float64(b_shift(x, -disp))}, nil
+	return []Val{float64(b_shift(x, -disp))}, nil
 }
 
-var libbit32 = NewLib([]types.Function{
+var libbit32 = NewLib([]Function{
 	MakeFn("arshift", bit32_arshift),
 	MakeFn("band", bit32_band),
 	MakeFn("bnot", bit32_bnot),

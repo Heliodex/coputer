@@ -3,16 +3,16 @@ package vm
 import (
 	"math"
 
-	"github.com/Heliodex/coputer/litecode/types"
+	. "github.com/Heliodex/coputer/litecode/types"
 )
 
 const wide4 = false
 
-func mag(v types.Vector) float32 {
+func mag(v Vector) float32 {
 	return f32Sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2] + v[3]*v[3])
 }
 
-func vector_create(args Args) (r []types.Val, err error) {
+func vector_create(args Args) (r []Val, err error) {
 	x := float32(args.GetNumber())
 	y := float32(args.GetNumber())
 	z := float32(args.GetNumber())
@@ -21,45 +21,45 @@ func vector_create(args Args) (r []types.Val, err error) {
 		w = float32(args.GetNumber())
 	}
 
-	return []types.Val{types.Vector{x, y, z, w}}, nil
+	return []Val{Vector{x, y, z, w}}, nil
 }
 
-func vector_magnitude(args Args) (r []types.Val, err error) {
+func vector_magnitude(args Args) (r []Val, err error) {
 	v := args.GetVector()
 
-	return []types.Val{float64(mag(v))}, nil
+	return []Val{float64(mag(v))}, nil
 }
 
-func vector_normalize(args Args) (r []types.Val, err error) {
+func vector_normalize(args Args) (r []Val, err error) {
 	v := args.GetVector()
 
 	invSqrt := 1 / mag(v)
-	return []types.Val{types.Vector{v[0] * invSqrt, v[1] * invSqrt, v[2] * invSqrt, v[3] * invSqrt}}, nil
+	return []Val{Vector{v[0] * invSqrt, v[1] * invSqrt, v[2] * invSqrt, v[3] * invSqrt}}, nil
 }
 
-func cross(a, b types.Vector) types.Vector {
-	return types.Vector{
+func cross(a, b Vector) Vector {
+	return Vector{
 		a[1]*b[2] - a[2]*b[1],
 		a[2]*b[0] - a[0]*b[2],
 		a[0]*b[1] - a[1]*b[0],
 	}
 }
 
-func vector_cross(args Args) (r []types.Val, err error) {
+func vector_cross(args Args) (r []Val, err error) {
 	a, b := args.GetVector(), args.GetVector()
 
-	return []types.Val{cross(a, b)}, nil
+	return []Val{cross(a, b)}, nil
 }
 
-func vector_dot(args Args) (r []types.Val, err error) {
+func vector_dot(args Args) (r []Val, err error) {
 	a, b := args.GetVector(), args.GetVector()
 
-	return []types.Val{float64(a[0]*b[0] + a[1]*b[1] + a[2]*b[2] + a[3]*b[3])}, nil
+	return []Val{float64(a[0]*b[0] + a[1]*b[1] + a[2]*b[2] + a[3]*b[3])}, nil
 }
 
-func vector_angle(args Args) (r []types.Val, err error) {
+func vector_angle(args Args) (r []Val, err error) {
 	a, b := args.GetVector(), args.GetVector()
-	axis := args.GetVector(types.Vector{})
+	axis := args.GetVector(Vector{})
 
 	c := cross(a, b)
 
@@ -68,27 +68,27 @@ func vector_angle(args Args) (r []types.Val, err error) {
 	angle := math.Atan2(float64(sinA), float64(cosA))
 
 	if c[0]*axis[0]+c[1]*axis[1]+c[2]*axis[2] < 0 {
-		return []types.Val{-angle}, nil
+		return []Val{-angle}, nil
 	}
-	return []types.Val{angle}, nil
+	return []Val{angle}, nil
 }
 
-func vector_floor(args Args) (r []types.Val, err error) {
+func vector_floor(args Args) (r []Val, err error) {
 	v := args.GetVector()
 
-	return []types.Val{types.Vector{f32Floor(v[0]), f32Floor(v[1]), f32Floor(v[2]), f32Floor(v[3])}}, nil
+	return []Val{Vector{f32Floor(v[0]), f32Floor(v[1]), f32Floor(v[2]), f32Floor(v[3])}}, nil
 }
 
-func vector_ceil(args Args) (r []types.Val, err error) {
+func vector_ceil(args Args) (r []Val, err error) {
 	v := args.GetVector()
 
-	return []types.Val{types.Vector{f32Ceil(v[0]), f32Ceil(v[1]), f32Ceil(v[2]), f32Ceil(v[3])}}, nil
+	return []Val{Vector{f32Ceil(v[0]), f32Ceil(v[1]), f32Ceil(v[2]), f32Ceil(v[3])}}, nil
 }
 
-func vector_abs(args Args) (r []types.Val, err error) {
+func vector_abs(args Args) (r []Val, err error) {
 	v := args.GetVector()
 
-	return []types.Val{types.Vector{f32Abs(v[0]), f32Abs(v[1]), f32Abs(v[2]), f32Abs(v[3])}}, nil
+	return []Val{Vector{f32Abs(v[0]), f32Abs(v[1]), f32Abs(v[2]), f32Abs(v[3])}}, nil
 }
 
 func sign(v float32) float32 {
@@ -101,10 +101,10 @@ func sign(v float32) float32 {
 	return 0
 }
 
-func vector_sign(args Args) (r []types.Val, err error) {
+func vector_sign(args Args) (r []Val, err error) {
 	v := args.GetVector()
 
-	return []types.Val{types.Vector{sign(v[0]), sign(v[1]), sign(v[2]), sign(v[3])}}, nil
+	return []Val{Vector{sign(v[0]), sign(v[1]), sign(v[2]), sign(v[3])}}, nil
 }
 
 func clamp(v, min, max float32) float32 {
@@ -117,7 +117,7 @@ func clamp(v, min, max float32) float32 {
 	return v
 }
 
-func vector_clamp(args Args) (r []types.Val, err error) {
+func vector_clamp(args Args) (r []Val, err error) {
 	v := args.GetVector()
 	vmin, vmax := args.GetVector(), args.GetVector()
 
@@ -132,7 +132,7 @@ func vector_clamp(args Args) (r []types.Val, err error) {
 		vmin[2], vmax[2] = vmax[2], vmin[2]
 	}
 
-	return []types.Val{types.Vector{
+	return []Val{Vector{
 		clamp(v[0], vmin[0], vmax[0]),
 		clamp(v[1], vmin[1], vmax[1]),
 		clamp(v[2], vmin[2], vmax[2]),
@@ -140,10 +140,10 @@ func vector_clamp(args Args) (r []types.Val, err error) {
 	}}, nil
 }
 
-func vector_max(args Args) (r []types.Val, err error) {
+func vector_max(args Args) (r []Val, err error) {
 	first := args.GetVector()
 
-	result := types.Vector{first[0], first[1], first[2], first[3]}
+	result := Vector{first[0], first[1], first[2], first[3]}
 
 	for range len(args.List) - 1 {
 		b := args.GetVector()
@@ -153,13 +153,13 @@ func vector_max(args Args) (r []types.Val, err error) {
 		}
 	}
 
-	return []types.Val{result}, nil
+	return []Val{result}, nil
 }
 
-func vector_min(args Args) (r []types.Val, err error) {
+func vector_min(args Args) (r []Val, err error) {
 	first := args.GetVector()
 
-	result := types.Vector{first[0], first[1], first[2], first[3]}
+	result := Vector{first[0], first[1], first[2], first[3]}
 
 	for range len(args.List) - 1 {
 		b := args.GetVector()
@@ -169,10 +169,10 @@ func vector_min(args Args) (r []types.Val, err error) {
 		}
 	}
 
-	return []types.Val{result}, nil
+	return []Val{result}, nil
 }
 
-var libvector = NewLib([]types.Function{
+var libvector = NewLib([]Function{
 	MakeFn("create", vector_create),
 	MakeFn("magnitude", vector_magnitude),
 	MakeFn("normalize", vector_normalize),
@@ -186,7 +186,7 @@ var libvector = NewLib([]types.Function{
 	MakeFn("clamp", vector_clamp),
 	MakeFn("max", vector_max),
 	MakeFn("min", vector_min),
-}, map[string]types.Val{
-	"one":  types.Vector{1, 1, 1, 0}, // 3-wide otherwise it breaks
-	"zero": types.Vector{0, 0, 0, 0},
+}, map[string]Val{
+	"one":  Vector{1, 1, 1, 0}, // 3-wide otherwise it breaks
+	"zero": Vector{0, 0, 0, 0},
 })

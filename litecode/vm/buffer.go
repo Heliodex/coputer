@@ -4,128 +4,128 @@ import (
 	"encoding/binary"
 	"math"
 
-	"github.com/Heliodex/coputer/litecode/types"
+	. "github.com/Heliodex/coputer/litecode/types"
 )
 
-func buffer_create(args Args) (r []types.Val, err error) {
+func buffer_create(args Args) (r []Val, err error) {
 	size := int(args.GetNumber())
 
-	b := make(types.Buffer, size)
-	return []types.Val{&b}, nil
+	b := make(Buffer, size)
+	return []Val{&b}, nil
 }
 
-func buffer_fromstring(args Args) (r []types.Val, err error) {
+func buffer_fromstring(args Args) (r []Val, err error) {
 	str := args.GetString()
 
-	b := types.Buffer(str)
-	return []types.Val{&b}, nil
+	b := Buffer(str)
+	return []Val{&b}, nil
 }
 
-func buffer_tostring(args Args) (r []types.Val, err error) {
+func buffer_tostring(args Args) (r []Val, err error) {
 	b := *args.GetBuffer()
 
-	return []types.Val{string(b)}, nil
+	return []Val{string(b)}, nil
 }
 
-func buffer_len(args Args) (r []types.Val, err error) {
+func buffer_len(args Args) (r []Val, err error) {
 	b := *args.GetBuffer()
 
-	return []types.Val{float64(len(b))}, nil
+	return []Val{float64(len(b))}, nil
 }
 
-func readValues(args *Args) (b types.Buffer, offset int) {
+func readValues(args *Args) (b Buffer, offset int) {
 	b = *args.GetBuffer()
 	offset = int(args.GetNumber())
 	return
 }
 
-func buffer_readi8(args Args) (r []types.Val, err error) {
+func buffer_readi8(args Args) (r []Val, err error) {
 	b, offset := readValues(&args)
 
-	return []types.Val{float64(int8(b[offset]))}, nil
+	return []Val{float64(int8(b[offset]))}, nil
 }
 
-func buffer_readu8(args Args) (r []types.Val, err error) {
+func buffer_readu8(args Args) (r []Val, err error) {
 	b, offset := readValues(&args)
 
-	return []types.Val{float64(uint8(b[offset]))}, nil
+	return []Val{float64(uint8(b[offset]))}, nil
 }
 
-func buffer_readi16(args Args) (r []types.Val, err error) {
-	b, offset := readValues(&args)
-
-	b2 := b[offset:][:2]
-	return []types.Val{float64(int16(binary.LittleEndian.Uint16(b2)))}, nil
-}
-
-func buffer_readu16(args Args) (r []types.Val, err error) {
+func buffer_readi16(args Args) (r []Val, err error) {
 	b, offset := readValues(&args)
 
 	b2 := b[offset:][:2]
-	return []types.Val{float64(binary.LittleEndian.Uint16(b2))}, nil
+	return []Val{float64(int16(binary.LittleEndian.Uint16(b2)))}, nil
 }
 
-func buffer_readi32(args Args) (r []types.Val, err error) {
+func buffer_readu16(args Args) (r []Val, err error) {
+	b, offset := readValues(&args)
+
+	b2 := b[offset:][:2]
+	return []Val{float64(binary.LittleEndian.Uint16(b2))}, nil
+}
+
+func buffer_readi32(args Args) (r []Val, err error) {
 	b, offset := readValues(&args)
 
 	b4 := b[offset:][:4] // we are inb4
-	return []types.Val{float64(int32(binary.LittleEndian.Uint32(b4)))}, nil
+	return []Val{float64(int32(binary.LittleEndian.Uint32(b4)))}, nil
 }
 
-func buffer_readu32(args Args) (r []types.Val, err error) {
+func buffer_readu32(args Args) (r []Val, err error) {
 	b, offset := readValues(&args)
 
 	b4 := b[offset:][:4]
-	return []types.Val{float64(binary.LittleEndian.Uint32(b4))}, nil
+	return []Val{float64(binary.LittleEndian.Uint32(b4))}, nil
 }
 
-func buffer_readf32(args Args) (r []types.Val, err error) {
+func buffer_readf32(args Args) (r []Val, err error) {
 	b, offset := readValues(&args)
 
 	b4 := b[offset:][:4]
-	return []types.Val{float64(math.Float32frombits(binary.LittleEndian.Uint32(b4)))}, nil
+	return []Val{float64(math.Float32frombits(binary.LittleEndian.Uint32(b4)))}, nil
 }
 
-func buffer_readf64(args Args) (r []types.Val, err error) {
+func buffer_readf64(args Args) (r []Val, err error) {
 	b, offset := readValues(&args)
 
 	b8 := b[offset:][:8]
-	return []types.Val{float64(math.Float64frombits(binary.LittleEndian.Uint64(b8)))}, nil
+	return []Val{float64(math.Float64frombits(binary.LittleEndian.Uint64(b8)))}, nil
 }
 
 type num interface {
 	int8 | int16 | int32 | int64 | uint8 | uint16 | uint32 | uint64 | float32 | float64
 }
 
-var oob = []types.Val{"buffer access out of bounds", false}
+var oob = []Val{"buffer access out of bounds", false}
 
-func writeValues[V num](args *Args) (b types.Buffer, offset int, value V) {
+func writeValues[V num](args *Args) (b Buffer, offset int, value V) {
 	b, offset = readValues(args)
 	value = V(args.GetNumber())
 	return
 }
 
-func buffer_writei8(args Args) (r []types.Val, err error) {
+func buffer_writei8(args Args) (r []Val, err error) {
 	b, offset, value := writeValues[int8](&args)
 	if offset+1 > len(b) || offset < 0 {
 		return oob, nil
 	}
 
 	b[offset] = byte(value)
-	return []types.Val{nil, true}, nil
+	return []Val{nil, true}, nil
 }
 
-func buffer_writeu8(args Args) (r []types.Val, err error) {
+func buffer_writeu8(args Args) (r []Val, err error) {
 	b, offset, value := writeValues[uint8](&args)
 	if offset+1 > len(b) || offset < 0 {
 		return oob, nil
 	}
 
 	b[offset] = byte(value)
-	return []types.Val{nil, true}, nil
+	return []Val{nil, true}, nil
 }
 
-func buffer_writei16(args Args) (r []types.Val, err error) {
+func buffer_writei16(args Args) (r []Val, err error) {
 	b, offset, value := writeValues[int16](&args)
 	if offset+2 > len(b) || offset < 0 {
 		return oob, nil
@@ -133,10 +133,10 @@ func buffer_writei16(args Args) (r []types.Val, err error) {
 
 	b2 := b[offset:][:2]
 	binary.LittleEndian.PutUint16(b2, uint16(value))
-	return []types.Val{nil, true}, nil
+	return []Val{nil, true}, nil
 }
 
-func buffer_writeu16(args Args) (r []types.Val, err error) {
+func buffer_writeu16(args Args) (r []Val, err error) {
 	b, offset, value := writeValues[uint16](&args)
 	if offset+2 > len(b) || offset < 0 {
 		return oob, nil
@@ -144,10 +144,10 @@ func buffer_writeu16(args Args) (r []types.Val, err error) {
 
 	b2 := b[offset:][:2]
 	binary.LittleEndian.PutUint16(b2, value)
-	return []types.Val{nil, true}, nil
+	return []Val{nil, true}, nil
 }
 
-func buffer_writei32(args Args) (r []types.Val, err error) {
+func buffer_writei32(args Args) (r []Val, err error) {
 	b, offset, value := writeValues[int32](&args)
 	if offset+4 > len(b) || offset < 0 {
 		return oob, nil
@@ -155,10 +155,10 @@ func buffer_writei32(args Args) (r []types.Val, err error) {
 
 	b4 := b[offset:][:4]
 	binary.LittleEndian.PutUint32(b4, uint32(value))
-	return []types.Val{nil, true}, nil
+	return []Val{nil, true}, nil
 }
 
-func buffer_writeu32(args Args) (r []types.Val, err error) {
+func buffer_writeu32(args Args) (r []Val, err error) {
 	b, offset, value := writeValues[uint32](&args)
 	if offset+4 > len(b) || offset < 0 {
 		return oob, nil
@@ -166,10 +166,10 @@ func buffer_writeu32(args Args) (r []types.Val, err error) {
 
 	b4 := b[offset:][:4]
 	binary.LittleEndian.PutUint32(b4, value)
-	return []types.Val{nil, true}, nil
+	return []Val{nil, true}, nil
 }
 
-func buffer_writef32(args Args) (r []types.Val, err error) {
+func buffer_writef32(args Args) (r []Val, err error) {
 	b, offset, value := writeValues[float32](&args)
 	if offset+4 > len(b) || offset < 0 {
 		return oob, nil
@@ -177,10 +177,10 @@ func buffer_writef32(args Args) (r []types.Val, err error) {
 
 	b4 := b[offset:][:4]
 	binary.LittleEndian.PutUint32(b4, math.Float32bits(value))
-	return []types.Val{nil, true}, nil
+	return []Val{nil, true}, nil
 }
 
-func buffer_writef64(args Args) (r []types.Val, err error) {
+func buffer_writef64(args Args) (r []Val, err error) {
 	b, offset, value := writeValues[float64](&args)
 	if offset+8 > len(b) || offset < 0 {
 		return oob, nil
@@ -188,10 +188,10 @@ func buffer_writef64(args Args) (r []types.Val, err error) {
 
 	b8 := b[offset:][:8]
 	binary.LittleEndian.PutUint64(b8, math.Float64bits(value))
-	return []types.Val{nil, true}, nil
+	return []Val{nil, true}, nil
 }
 
-func buffer_readbits(args Args) (r []types.Val, err error) {
+func buffer_readbits(args Args) (r []Val, err error) {
 	b, bitoffset := readValues(&args)
 	bitcount := int(args.GetNumber())
 
@@ -199,7 +199,7 @@ func buffer_readbits(args Args) (r []types.Val, err error) {
 		return oob, nil
 	}
 	if uint32(bitcount) > 32 {
-		return []types.Val{"bit count is out of range of [0; 32]", false}, nil
+		return []Val{"bit count is out of range of [0; 32]", false}, nil
 	}
 	if uint64(bitoffset+bitcount) > uint64(len(b)*8) {
 		return oob, nil
@@ -217,10 +217,10 @@ func buffer_readbits(args Args) (r []types.Val, err error) {
 	subbyteoffset := uint64(bitoffset & 7)
 	mask := uint64(1<<bitcount - 1)
 
-	return []types.Val{float64(data >> subbyteoffset & mask), true}, nil
+	return []Val{float64(data >> subbyteoffset & mask), true}, nil
 }
 
-func buffer_writebits(args Args) (r []types.Val, err error) {
+func buffer_writebits(args Args) (r []Val, err error) {
 	b, bitoffset := readValues(&args)
 	bitcount := int(args.GetNumber())
 	value := uint64(args.GetNumber())
@@ -229,7 +229,7 @@ func buffer_writebits(args Args) (r []types.Val, err error) {
 		return oob, nil
 	}
 	if uint32(bitcount) > 32 {
-		return []types.Val{"bit count is out of range of [0; 32]", false}, nil
+		return []Val{"bit count is out of range of [0; 32]", false}, nil
 	}
 	if uint64(bitoffset+bitcount) > uint64(len(b)*8) {
 		return oob, nil
@@ -254,10 +254,10 @@ func buffer_writebits(args Args) (r []types.Val, err error) {
 	binary.LittleEndian.PutUint64(dataa2[:], data)
 	copy(bs, dataa2[:])
 
-	return []types.Val{nil, true}, nil
+	return []Val{nil, true}, nil
 }
 
-func buffer_readstring(args Args) (r []types.Val, err error) {
+func buffer_readstring(args Args) (r []Val, err error) {
 	b, offset := readValues(&args)
 	count := int(args.GetNumber())
 	if offset+count > len(b) || offset < 0 {
@@ -265,10 +265,10 @@ func buffer_readstring(args Args) (r []types.Val, err error) {
 	}
 
 	bl := b[offset:][:count]
-	return []types.Val{string(bl), true}, nil
+	return []Val{string(bl), true}, nil
 }
 
-func buffer_writestring(args Args) (r []types.Val, err error) {
+func buffer_writestring(args Args) (r []Val, err error) {
 	b, offset := readValues(&args)
 	value := args.GetString()
 	count := int(args.GetNumber(float64(len(value))))
@@ -277,10 +277,10 @@ func buffer_writestring(args Args) (r []types.Val, err error) {
 	}
 
 	copy(b[offset:][:count], value)
-	return []types.Val{nil, true}, nil
+	return []Val{nil, true}, nil
 }
 
-func buffer_copy(args Args) (r []types.Val, err error) {
+func buffer_copy(args Args) (r []Val, err error) {
 	target, targetOffset := readValues(&args)
 	source := *args.GetBuffer()
 	sourceOffset := int(args.GetNumber(0))
@@ -291,10 +291,10 @@ func buffer_copy(args Args) (r []types.Val, err error) {
 	}
 
 	copy(target[targetOffset:][:count], source[sourceOffset:][:count])
-	return []types.Val{nil, true}, nil
+	return []Val{nil, true}, nil
 }
 
-func buffer_fill(args Args) (r []types.Val, err error) {
+func buffer_fill(args Args) (r []Val, err error) {
 	b, offset, value := writeValues[byte](&args)
 	count := int(args.GetNumber(float64(len(b))))
 	if offset+count > len(b) || offset < 0 {
@@ -304,10 +304,10 @@ func buffer_fill(args Args) (r []types.Val, err error) {
 	for i := range count {
 		b[offset+i] = value
 	}
-	return []types.Val{nil, true}, nil
+	return []Val{nil, true}, nil
 }
 
-var libbuffer = NewLib([]types.Function{
+var libbuffer = NewLib([]Function{
 	MakeFn("create", buffer_create),
 	MakeFn("fromstring", buffer_fromstring),
 	MakeFn("tostring", buffer_tostring),

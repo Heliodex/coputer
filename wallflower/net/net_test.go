@@ -8,10 +8,10 @@ import (
 	"testing"
 
 	"github.com/Heliodex/coputer/bundle"
-	"github.com/Heliodex/coputer/litecode/types"
+	. "github.com/Heliodex/coputer/litecode/types"
 )
 
-type ProgramTest[A types.ProgramArgs, R types.ProgramRets] struct {
+type ProgramTest[A ProgramArgs, R ProgramRets] struct {
 	Name string
 	Args A
 	Rets R
@@ -26,13 +26,13 @@ func queryToMap(q url.Values) (m map[string]string) {
 	return
 }
 
-func wurl(s string) (w types.WebArgsUrl) {
+func wurl(s string) (w WebArgsUrl) {
 	url, err := url.Parse(s)
 	if err != nil {
 		panic(err)
 	}
 
-	return types.WebArgsUrl{
+	return WebArgsUrl{
 		Rawpath:  s,
 		Path:     url.Path,
 		Rawquery: url.RawQuery,
@@ -42,14 +42,14 @@ func wurl(s string) (w types.WebArgsUrl) {
 
 const testProgramPath = "../../test/programs"
 
-var webTests = [...]ProgramTest[types.WebArgs, types.WebRets]{
+var webTests = [...]ProgramTest[WebArgs, WebRets]{
 	{
 		"web1",
-		types.WebArgs{
+		WebArgs{
 			Url:    wurl("/"),
 			Method: "GET",
 		},
-		types.WebRets{
+		WebRets{
 			StatusCode:    200,
 			StatusMessage: http.StatusText(200),
 			Headers: map[string]string{
@@ -60,11 +60,11 @@ var webTests = [...]ProgramTest[types.WebArgs, types.WebRets]{
 	},
 	{
 		"web1",
-		types.WebArgs{
+		WebArgs{
 			Url:    wurl("/submit?"),
 			Method: "POST",
 		},
-		types.WebRets{
+		WebRets{
 			StatusCode:    200,
 			StatusMessage: http.StatusText(200),
 			Headers: map[string]string{
@@ -75,11 +75,11 @@ var webTests = [...]ProgramTest[types.WebArgs, types.WebRets]{
 	},
 	{
 		"web2",
-		types.WebArgs{
+		WebArgs{
 			Url:    wurl("/"),
 			Method: "POST",
 		},
-		types.WebRets{
+		WebRets{
 			StatusCode:    405,
 			StatusMessage: http.StatusText(405),
 			Headers: map[string]string{
@@ -90,11 +90,11 @@ var webTests = [...]ProgramTest[types.WebArgs, types.WebRets]{
 	},
 	{
 		"web2",
-		types.WebArgs{
+		WebArgs{
 			Url:    wurl("/"),
 			Method: "GET",
 		},
-		types.WebRets{
+		WebRets{
 			StatusCode:    200,
 			StatusMessage: http.StatusText(200),
 			Headers: map[string]string{
@@ -105,11 +105,11 @@ var webTests = [...]ProgramTest[types.WebArgs, types.WebRets]{
 	},
 	{
 		"web2",
-		types.WebArgs{
+		WebArgs{
 			Url:    wurl("/hello"),
 			Method: "GET",
 		},
-		types.WebRets{
+		WebRets{
 			StatusCode:    200,
 			StatusMessage: http.StatusText(200),
 			Headers: map[string]string{
@@ -120,11 +120,11 @@ var webTests = [...]ProgramTest[types.WebArgs, types.WebRets]{
 	},
 	{
 		"web2",
-		types.WebArgs{
+		WebArgs{
 			Url:    wurl("/error"),
 			Method: "GET",
 		},
-		types.WebRets{
+		WebRets{
 			StatusCode:    454,
 			StatusMessage: "Error 454",
 			Headers: map[string]string{

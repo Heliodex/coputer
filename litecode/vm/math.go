@@ -3,123 +3,123 @@ package vm
 import (
 	"math"
 
-	"github.com/Heliodex/coputer/litecode/types"
+	. "github.com/Heliodex/coputer/litecode/types"
 )
 
-func math_abs(args Args) (r []types.Val, err error) {
+func math_abs(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []types.Val{math.Abs(x)}, nil
+	return []Val{math.Abs(x)}, nil
 }
 
-func math_acos(args Args) (r []types.Val, err error) {
+func math_acos(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []types.Val{math.Acos(x)}, nil
+	return []Val{math.Acos(x)}, nil
 }
 
-func math_asin(args Args) (r []types.Val, err error) {
+func math_asin(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []types.Val{math.Asin(x)}, nil
+	return []Val{math.Asin(x)}, nil
 }
 
-func math_atan(args Args) (r []types.Val, err error) {
+func math_atan(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []types.Val{math.Atan(x)}, nil
+	return []Val{math.Atan(x)}, nil
 }
 
-func math_atan2(args Args) (r []types.Val, err error) {
+func math_atan2(args Args) (r []Val, err error) {
 	y, x := args.GetNumber(), args.GetNumber()
 
-	return []types.Val{math.Atan2(y, x)}, nil
+	return []Val{math.Atan2(y, x)}, nil
 }
 
-func math_ceil(args Args) (r []types.Val, err error) {
+func math_ceil(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []types.Val{math.Ceil(x)}, nil
+	return []Val{math.Ceil(x)}, nil
 }
 
-func math_clamp(args Args) (r []types.Val, err error) {
+func math_clamp(args Args) (r []Val, err error) {
 	x, min, max := args.GetNumber(), args.GetNumber(), args.GetNumber()
 
 	if x < min {
-		return []types.Val{min}, nil
+		return []Val{min}, nil
 	}
 	if x > max {
-		return []types.Val{max}, nil
+		return []Val{max}, nil
 	}
-	return []types.Val{x}, nil
+	return []Val{x}, nil
 }
 
-func math_cos(args Args) (r []types.Val, err error) {
+func math_cos(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []types.Val{math.Cos(x)}, nil
+	return []Val{math.Cos(x)}, nil
 }
 
-func math_cosh(args Args) (r []types.Val, err error) {
+func math_cosh(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []types.Val{math.Cosh(x)}, nil
+	return []Val{math.Cosh(x)}, nil
 }
 
-func math_deg(args Args) (r []types.Val, err error) {
+func math_deg(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []types.Val{x * 180 / math.Pi}, nil
+	return []Val{x * 180 / math.Pi}, nil
 }
 
-func math_exp(args Args) (r []types.Val, err error) {
+func math_exp(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []types.Val{math.Exp(x)}, nil
+	return []Val{math.Exp(x)}, nil
 }
 
-func math_floor(args Args) (r []types.Val, err error) {
+func math_floor(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []types.Val{math.Floor(x)}, nil
+	return []Val{math.Floor(x)}, nil
 }
 
-func math_fmod(args Args) (r []types.Val, err error) {
+func math_fmod(args Args) (r []Val, err error) {
 	x, y := args.GetNumber(), args.GetNumber()
 
-	return []types.Val{math.Mod(x, y)}, nil
+	return []Val{math.Mod(x, y)}, nil
 }
 
-func math_frexp(args Args) (r []types.Val, err error) {
+func math_frexp(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
 	frac, exp := math.Frexp(x)
-	return []types.Val{frac, float64(exp)}, nil
+	return []Val{frac, float64(exp)}, nil
 }
 
-func math_ldexp(args Args) (r []types.Val, err error) {
+func math_ldexp(args Args) (r []Val, err error) {
 	x, e := args.GetNumber(), args.GetNumber()
 
-	return []types.Val{math.Ldexp(x, int(e))}, nil
+	return []Val{math.Ldexp(x, int(e))}, nil
 }
 
-func math_lerp(args Args) (r []types.Val, err error) {
+func math_lerp(args Args) (r []Val, err error) {
 	a, b, t := args.GetNumber(), args.GetNumber(), args.GetNumber()
 
 	if t == 1 {
-		return []types.Val{b}, nil
+		return []Val{b}, nil
 	}
-	return []types.Val{a + (b-a)*t}, nil
+	return []Val{a + (b-a)*t}, nil
 }
 
-func math_log(args Args) (r []types.Val, err error) {
+func math_log(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
 	if len(args.List) > 1 {
 		base := args.GetNumber()
-		return []types.Val{math.Log(x) / math.Log(base)}, nil
+		return []Val{math.Log(x) / math.Log(base)}, nil
 	}
-	return []types.Val{math.Log(x)}, nil
+	return []Val{math.Log(x)}, nil
 }
 
 // Deprecated
@@ -129,14 +129,14 @@ func math_log(args Args) (r []types.Val, err error) {
 // 	return Rets{math.Log10(x)}, nil
 // }
 
-func math_map(args Args) (r []types.Val, err error) {
+func math_map(args Args) (r []Val, err error) {
 	x, inmin, inmax, outmin, outmax := args.GetNumber(), args.GetNumber(), args.GetNumber(), args.GetNumber(), args.GetNumber()
 
-	return []types.Val{outmin + (x-inmin)*(outmax-outmin)/(inmax-inmin)}, nil
+	return []Val{outmin + (x-inmin)*(outmax-outmin)/(inmax-inmin)}, nil
 }
 
 // Go builtin math.Min and math.Max funciions don't handle nans and infs the same way
-func math_max(args Args) (r []types.Val, err error) {
+func math_max(args Args) (r []Val, err error) {
 	first := args.GetNumber()
 
 	for range len(args.List) - 1 {
@@ -144,10 +144,10 @@ func math_max(args Args) (r []types.Val, err error) {
 			first = n
 		}
 	}
-	return []types.Val{first}, nil
+	return []Val{first}, nil
 }
 
-func math_min(args Args) (r []types.Val, err error) {
+func math_min(args Args) (r []Val, err error) {
 	first := args.GetNumber()
 
 	for range len(args.List) - 1 {
@@ -155,14 +155,14 @@ func math_min(args Args) (r []types.Val, err error) {
 			first = n
 		}
 	}
-	return []types.Val{first}, nil
+	return []Val{first}, nil
 }
 
-func math_modf(args Args) (r []types.Val, err error) {
+func math_modf(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
 	i, frac := math.Modf(x)
-	return []types.Val{i, frac}, nil
+	return []Val{i, frac}, nil
 }
 
 // lmathlib.cpp
@@ -232,73 +232,73 @@ func perlin(x, y, z float32) float64 {
 	return float64(lerp(w, lerp(v, la, lb), lerp(v, la1, lb1)))
 }
 
-func math_noise(args Args) (r []types.Val, err error) {
+func math_noise(args Args) (r []Val, err error) {
 	x, y, z := args.GetNumber(), args.GetNumber(0), args.GetNumber(0)
 
-	return []types.Val{perlin(float32(x), float32(y), float32(z))}, nil
+	return []Val{perlin(float32(x), float32(y), float32(z))}, nil
 }
 
-func math_pow(args Args) (r []types.Val, err error) {
+func math_pow(args Args) (r []Val, err error) {
 	x, y := args.GetNumber(), args.GetNumber()
 
-	return []types.Val{math.Pow(x, y)}, nil
+	return []Val{math.Pow(x, y)}, nil
 }
 
-func math_rad(args Args) (r []types.Val, err error) {
+func math_rad(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []types.Val{x * math.Pi / 180}, nil
+	return []Val{x * math.Pi / 180}, nil
 }
 
-func math_round(args Args) (r []types.Val, err error) {
+func math_round(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []types.Val{math.Round(x)}, nil
+	return []Val{math.Round(x)}, nil
 }
 
-func math_sign(args Args) (r []types.Val, err error) {
+func math_sign(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
 	if x > 0 {
-		return []types.Val{float64(1)}, nil
+		return []Val{float64(1)}, nil
 	}
 	if x < 0 {
-		return []types.Val{float64(-1)}, nil
+		return []Val{float64(-1)}, nil
 	}
-	return []types.Val{float64(0)}, nil
+	return []Val{float64(0)}, nil
 }
 
-func math_sin(args Args) (r []types.Val, err error) {
+func math_sin(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []types.Val{math.Sin(x)}, nil
+	return []Val{math.Sin(x)}, nil
 }
 
-func math_sinh(args Args) (r []types.Val, err error) {
+func math_sinh(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []types.Val{math.Sinh(x)}, nil
+	return []Val{math.Sinh(x)}, nil
 }
 
-func math_sqrt(args Args) (r []types.Val, err error) {
+func math_sqrt(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []types.Val{math.Sqrt(x)}, nil
+	return []Val{math.Sqrt(x)}, nil
 }
 
-func math_tan(args Args) (r []types.Val, err error) {
+func math_tan(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []types.Val{math.Tan(x)}, nil
+	return []Val{math.Tan(x)}, nil
 }
 
-func math_tanh(args Args) (r []types.Val, err error) {
+func math_tanh(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []types.Val{math.Tanh(x)}, nil
+	return []Val{math.Tanh(x)}, nil
 }
 
-var libmath = NewLib([]types.Function{
+var libmath = NewLib([]Function{
 	MakeFn("abs", math_abs),
 	MakeFn("acos", math_acos),
 	MakeFn("asin", math_asin),
@@ -332,7 +332,7 @@ var libmath = NewLib([]types.Function{
 	MakeFn("sqrt", math_sqrt),
 	MakeFn("tan", math_tan),
 	MakeFn("tanh", math_tanh),
-}, map[string]types.Val{
+}, map[string]Val{
 	"huge": math.Inf(1),
 	"pi":   math.Pi,
 })

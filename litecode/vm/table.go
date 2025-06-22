@@ -6,36 +6,36 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/Heliodex/coputer/litecode/types"
+	. "github.com/Heliodex/coputer/litecode/types"
 )
 
-func table_clear(args Args) (r []types.Val, err error) {
+func table_clear(args Args) (r []Val, err error) {
 	t := args.GetTable()
 	if t.Readonly {
 		return nil, errReadonly
 	}
 
-	*t = types.Table{}
+	*t = Table{}
 	return
 }
 
-func table_clone(args Args) (r []types.Val, err error) {
+func table_clone(args Args) (r []Val, err error) {
 	t := args.GetTable()
 
-	return []types.Val{&types.Table{
+	return []Val{&Table{
 		List: slices.Clone(t.List),
 		Hash: maps.Clone(t.Hash),
 	}}, nil
 }
 
-func table_concat(args Args) (r []types.Val, err error) {
+func table_concat(args Args) (r []Val, err error) {
 	t := args.GetTable()
 	sep := args.GetString("")
 	i := args.GetNumber(1)
 	j := args.GetNumber(float64(t.Len()))
 
 	if i > j {
-		return []types.Val{""}, nil
+		return []Val{""}, nil
 	}
 
 	var b strings.Builder
@@ -51,35 +51,35 @@ func table_concat(args Args) (r []types.Val, err error) {
 		}
 	}
 
-	return []types.Val{b.String()}, nil
+	return []Val{b.String()}, nil
 }
 
-func table_create(args Args) (r []types.Val, err error) {
+func table_create(args Args) (r []Val, err error) {
 	s := int(args.GetNumber())
 	if s < 0 {
 		return nil, errors.New("index out of range")
 	}
 
-	var val types.Val
+	var val Val
 	if len(args.List) > 1 {
 		val = args.GetAny()
 	}
 
 	if val == nil {
 		// no value fill or fill with nil (tests/niltable.luau)
-		a := make([]types.Val, 0, s)
-		return []types.Val{&types.Table{List: a}}, nil
+		a := make([]Val, 0, s)
+		return []Val{&Table{List: a}}, nil
 	}
 
-	a := make([]types.Val, s)
+	a := make([]Val, s)
 	for i := range a {
 		a[i] = val
 	}
 
-	return []types.Val{&types.Table{List: a}}, nil
+	return []Val{&Table{List: a}}, nil
 }
 
-func table_find(args Args) (r []types.Val, err error) {
+func table_find(args Args) (r []Val, err error) {
 	haystack := args.GetTable()
 	needle := args.GetAny()
 	init := args.GetNumber(1)
@@ -88,26 +88,26 @@ func table_find(args Args) (r []types.Val, err error) {
 	}
 
 	if haystack.List == nil { // it doesn't even search the hash? Lame
-		return []types.Val{nil}, nil
+		return []Val{nil}, nil
 	}
 
 	for i := int(init) - 1; i < len(haystack.List); i++ {
 		if needle == haystack.List[i] {
-			return []types.Val{float64(i + 1)}, nil
+			return []Val{float64(i + 1)}, nil
 		}
 	}
 
-	return []types.Val{nil}, nil
+	return []Val{nil}, nil
 }
 
-func table_freeze(args Args) (r []types.Val, err error) {
+func table_freeze(args Args) (r []Val, err error) {
 	t := args.GetTable()
 
 	t.Readonly = true
-	return []types.Val{t}, nil
+	return []Val{t}, nil
 }
 
-func bumpelements(t *types.Table, start int) {
+func bumpelements(t *Table, start int) {
 	// fmt.Println("BEFORE", start)
 	// fmt.Println(t)
 	// fmt.Println()
@@ -133,7 +133,7 @@ func bumpelements(t *types.Table, start int) {
 	// fmt.Println()
 }
 
-func table_insert(args Args) (r []types.Val, err error) {
+func table_insert(args Args) (r []Val, err error) {
 	t := args.GetTable()
 	if t.Readonly {
 		return nil, errReadonly
@@ -162,13 +162,13 @@ func table_insert(args Args) (r []types.Val, err error) {
 	return
 }
 
-func table_isfrozen(args Args) (r []types.Val, err error) {
+func table_isfrozen(args Args) (r []Val, err error) {
 	t := args.GetTable()
 
-	return []types.Val{t.Readonly}, nil
+	return []Val{t.Readonly}, nil
 }
 
-func table_maxn(args Args) (r []types.Val, err error) {
+func table_maxn(args Args) (r []Val, err error) {
 	t := args.GetTable()
 
 	var maxn float64
@@ -197,10 +197,10 @@ func table_maxn(args Args) (r []types.Val, err error) {
 		}
 	}
 
-	return []types.Val{maxn}, nil
+	return []Val{maxn}, nil
 }
 
-func table_move(args Args) (r []types.Val, err error) {
+func table_move(args Args) (r []Val, err error) {
 	src := args.GetTable()
 	a, b, t := int(args.GetNumber()), int(args.GetNumber()), int(args.GetNumber())
 	dst := args.GetTable(src)
@@ -212,17 +212,17 @@ func table_move(args Args) (r []types.Val, err error) {
 		dst.SetInt(t+i-a, src.GetInt(i))
 	}
 
-	return []types.Val{dst}, nil
+	return []Val{dst}, nil
 }
 
-func table_pack(args Args) (r []types.Val, err error) {
-	return []types.Val{&types.Table{
-		Hash: map[types.Val]types.Val{"n": float64(len(args.List))},
+func table_pack(args Args) (r []Val, err error) {
+	return []Val{&Table{
+		Hash: map[Val]Val{"n": float64(len(args.List))},
 		List: slices.Clone(args.List),
 	}}, nil
 }
 
-func table_remove(args Args) (r []types.Val, err error) {
+func table_remove(args Args) (r []Val, err error) {
 	t := args.GetTable()
 	if t.Readonly {
 		return nil, errReadonly
@@ -240,13 +240,13 @@ func table_remove(args Args) (r []types.Val, err error) {
 		}
 		t.SetInt(l, nil)
 	}
-	return []types.Val{p}, nil
+	return []Val{p}, nil
 }
 
 // ltablib.cpp
-type comp func(a, b types.Val) (bool, error) // ton, compton, aint no city quite like miiine
+type comp func(a, b Val) (bool, error) // ton, compton, aint no city quite like miiine
 
-func sort_swap(t *types.Table, i, j int) {
+func sort_swap(t *Table, i, j int) {
 	a := t.List
 	// LUAU_ASSERT(unsigned(i) < unsigned(n) && unsigned(j) < unsigned(n)) // contract maintained in sort_less after predicate call
 
@@ -254,7 +254,7 @@ func sort_swap(t *types.Table, i, j int) {
 	a[i], a[j] = a[j], a[i]
 }
 
-func sort_less(t *types.Table, i, j int, c comp) (res bool, err error) {
+func sort_less(t *Table, i, j int, c comp) (res bool, err error) {
 	a, n := t.List, len(t.List)
 	// LUAU_ASSERT(unsigned(i) < unsigned(n) && unsigned(j) < unsigned(n)) // contract maintained in sort_less after predicate call
 
@@ -267,7 +267,7 @@ func sort_less(t *types.Table, i, j int, c comp) (res bool, err error) {
 	return
 }
 
-func sort_siftheap(t *types.Table, l, u int, c comp, root int) (err error) {
+func sort_siftheap(t *Table, l, u int, c comp, root int) (err error) {
 	// LUAU_ASSERT(l <= u)
 	count := u - l + 1
 
@@ -310,7 +310,7 @@ func sort_siftheap(t *types.Table, l, u int, c comp, root int) (err error) {
 	return
 }
 
-func sort_heap(t *types.Table, l, u int, c comp) {
+func sort_heap(t *Table, l, u int, c comp) {
 	// LUAU_ASSERT(l <= u)
 	count := u - l + 1
 
@@ -324,7 +324,7 @@ func sort_heap(t *types.Table, l, u int, c comp) {
 	}
 }
 
-func sort_rec(t *types.Table, l, u, limit int, c comp) (err error) {
+func sort_rec(t *Table, l, u, limit int, c comp) (err error) {
 	// sort range [l..u] (inclusive, 0-based)
 	for l < u {
 		// if the limit has been reached, quick sort is going over the permitted nlogn complexity, so we fall back to heap sort
@@ -423,7 +423,7 @@ func sort_rec(t *types.Table, l, u, limit int, c comp) (err error) {
 	return
 }
 
-func table_sort(args Args) (r []types.Val, err error) {
+func table_sort(args Args) (r []Val, err error) {
 	t := args.GetTable()
 	if t.Readonly {
 		return nil, errReadonly
@@ -434,7 +434,7 @@ func table_sort(args Args) (r []types.Val, err error) {
 		c = jumpLt
 	} else {
 		f := args.GetFunction()
-		c = func(a, b types.Val) (bool, error) {
+		c = func(a, b Val) (bool, error) {
 			res, err := (*f.Run)(args.Co, a, b)
 			if err != nil {
 				return false, err
@@ -449,7 +449,7 @@ func table_sort(args Args) (r []types.Val, err error) {
 	return
 }
 
-func table_unpack(args Args) (r []types.Val, err error) {
+func table_unpack(args Args) (r []Val, err error) {
 	list := args.GetTable()
 	i := args.GetNumber(1)
 	e := args.GetNumber(float64(list.Len()))
@@ -466,7 +466,7 @@ func table_unpack(args Args) (r []types.Val, err error) {
 		return list.List[ui-1 : uj], nil
 	}
 
-	r = make([]types.Val, uj-ui+1)
+	r = make([]Val, uj-ui+1)
 	for k := ui; k <= uj; k++ {
 		r[k-ui] = list.GetInt(k)
 	}
@@ -474,7 +474,7 @@ func table_unpack(args Args) (r []types.Val, err error) {
 	return
 }
 
-var libtable = NewLib([]types.Function{
+var libtable = NewLib([]Function{
 	MakeFn("clear", table_clear),
 	MakeFn("clone", table_clone),
 	MakeFn("concat", table_concat),

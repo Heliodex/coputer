@@ -3,24 +3,24 @@ package vm
 import (
 	"errors"
 
-	"github.com/Heliodex/coputer/litecode/types"
+	. "github.com/Heliodex/coputer/litecode/types"
 )
 
-func args_web(args Args) (r []types.Val, err error) {
-	pargs, ok := args.Co.ProgramArgs.(types.WebArgs)
+func args_web(args Args) (r []Val, err error) {
+	pargs, ok := args.Co.ProgramArgs.(WebArgs)
 	if !ok {
 		return nil, errors.New("web args only available in web mode")
 	}
 
-	headers := make(map[types.Val]types.Val, len(pargs.Headers))
+	headers := make(map[Val]Val, len(pargs.Headers))
 	for k, v := range pargs.Headers {
 		headers[k] = v
 	}
 
-	webargs := &types.Table{
-		Hash: map[types.Val]types.Val{
-			"url": &types.Table{
-				Hash: map[types.Val]types.Val{
+	webargs := &Table{
+		Hash: map[Val]Val{
+			"url": &Table{
+				Hash: map[Val]Val{
 					"rawpath":  pargs.Url.Rawpath,
 					"path":     pargs.Url.Path,
 					"rawquery": pargs.Url.Rawquery,
@@ -29,18 +29,18 @@ func args_web(args Args) (r []types.Val, err error) {
 				Readonly: true,
 			},
 			"method": pargs.Method,
-			"headers": &types.Table{
+			"headers": &Table{
 				Hash:     headers,
 				Readonly: true,
 			},
-			"body": types.Buffer(pargs.Body),
+			"body": Buffer(pargs.Body),
 		},
 		Readonly: true,
 	}
 
-	return []types.Val{webargs}, nil
+	return []Val{webargs}, nil
 }
 
-var libargs = NewLib([]types.Function{
+var libargs = NewLib([]Function{
 	MakeFn("web", args_web),
 })

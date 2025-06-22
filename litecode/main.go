@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/Heliodex/coputer/bundle"
-	"github.com/Heliodex/coputer/litecode/types"
+	. "github.com/Heliodex/coputer/litecode/types"
 	"github.com/Heliodex/coputer/litecode/vm"
 )
 
@@ -59,7 +59,7 @@ func findExists(w http.ResponseWriter, hexhash string) (b bool) {
 	return true
 }
 
-func runWebHash(w http.ResponseWriter, r *http.Request, hexhash string, c types.Compiler, errCache map[[32]byte]map[[32]byte]error, runCache map[[32]byte]map[[32]byte]types.ProgramRets) {
+func runWebHash(w http.ResponseWriter, r *http.Request, hexhash string, c Compiler, errCache map[[32]byte]map[[32]byte]error, runCache map[[32]byte]map[[32]byte]ProgramRets) {
 	hash, ok := checkHash(w, hexhash)
 	if !ok {
 		return
@@ -73,7 +73,7 @@ func runWebHash(w http.ResponseWriter, r *http.Request, hexhash string, c types.
 	inputhash := sha3.Sum256(input) // let's hope it's canonical
 
 	// decode input as json
-	var args types.WebArgs
+	var args WebArgs
 	if err := json.Unmarshal(input, &args); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -107,7 +107,7 @@ func runWebHash(w http.ResponseWriter, r *http.Request, hexhash string, c types.
 	}
 
 	if runCache[hash] == nil {
-		runCache[hash] = make(map[[32]byte]types.ProgramRets, 1)
+		runCache[hash] = make(map[[32]byte]ProgramRets, 1)
 	}
 	runCache[hash][inputhash] = output
 
@@ -126,7 +126,7 @@ func main() {
 	// just 1 error cache, as different inputs may result in errors/not
 	// (we don't want one error to bring down the whole program for every user)
 	errCache := make(map[[32]byte]map[[32]byte]error)
-	runCache := make(map[[32]byte]map[[32]byte]types.ProgramRets)
+	runCache := make(map[[32]byte]map[[32]byte]ProgramRets)
 
 	// store program (bundled version)
 	http.HandleFunc("PUT /store/{pk}/{name}", func(w http.ResponseWriter, r *http.Request) {

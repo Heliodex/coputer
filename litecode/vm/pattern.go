@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Heliodex/coputer/litecode/types"
+	. "github.com/Heliodex/coputer/litecode/types"
 )
 
 // loggin shit for login' shit
@@ -179,7 +179,7 @@ func matchbalance(s, p string, si, pi int) (int, error) {
 	return -1, nil // string ends out of balance
 }
 
-func pushCapture(caps *captures, s string, start, end, i int) (types.Val, error) {
+func pushCapture(caps *captures, s string, start, end, i int) (Val, error) {
 	// fmt.Println("    push", start, end, i, caps)
 
 	if i >= caps.level {
@@ -207,7 +207,7 @@ func pushCapture(caps *captures, s string, start, end, i int) (types.Val, error)
 	return s[i:][:l], nil
 }
 
-func pushCaptures(caps *captures, s string, start, end int, find bool) (r []types.Val, err error) {
+func pushCaptures(caps *captures, s string, start, end int, find bool) (r []Val, err error) {
 	// fmt.Println("  PUSHING CAPS", start, end, caps)
 
 	nlevels := caps.level
@@ -221,7 +221,7 @@ func pushCaptures(caps *captures, s string, start, end int, find bool) (r []type
 
 	// fmt.Println("  nlevels", nlevels)
 
-	r = make([]types.Val, nlevels)
+	r = make([]Val, nlevels)
 	for i := range nlevels {
 		if r[i], err = pushCapture(caps, s, start, end, i); err != nil {
 			return
@@ -573,12 +573,12 @@ func match(s, p string, caps *captures) (start, end int, err error) {
 	return -1, -1, nil
 }
 
-func stringFindAux(s, p string, i int, plain, find bool) (r []types.Val, err error) {
+func stringFindAux(s, p string, i int, plain, find bool) (r []Val, err error) {
 	ls := len(s)
 
 	init := max(1, string_posrelat(i, ls))
 	if init > ls+1 { // start after string's end?
-		return []types.Val{nil}, nil // cannot find anything
+		return []Val{nil}, nil // cannot find anything
 	}
 
 	// explicit request or no special characters?
@@ -587,9 +587,9 @@ func stringFindAux(s, p string, i int, plain, find bool) (r []types.Val, err err
 		// do a plain search, good-style
 		pos := strings.Index(is, p)
 		if pos == -1 {
-			return []types.Val{nil}, nil // one nil
+			return []Val{nil}, nil // one nil
 		}
-		return []types.Val{
+		return []Val{
 			float64(pos + init),
 			float64(pos + init + len(p) - 1),
 		}, nil
@@ -603,7 +603,7 @@ func stringFindAux(s, p string, i int, plain, find bool) (r []types.Val, err err
 		return
 	}
 	if start == -1 {
-		return []types.Val{nil}, nil // not found
+		return []Val{nil}, nil // not found
 	}
 
 	// fmt.Println("DONE!", caps)
@@ -613,7 +613,7 @@ func stringFindAux(s, p string, i int, plain, find bool) (r []types.Val, err err
 
 	// fmt.Println("pushed", rs)
 
-	return append([]types.Val{
+	return append([]Val{
 		float64(start + init),
 		float64(end + init - 1),
 	}, r...), nil
