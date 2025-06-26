@@ -20,14 +20,10 @@ const (
 	tStore MessageType = iota
 	// Program was stored successfully
 	tStoreResult
-	// Input to a program, indexed by hash
-	tRunHash
-	// A result of a program execution, indexed by hash
-	tRunHashResult
 	// Input to a program, indexed by name and pubkey
-	tRunName
+	tRun
 	// A result of a program execution, indexed by name and pubkey
-	tRunNameResult
+	tRunResult
 )
 
 // sent messages
@@ -67,58 +63,14 @@ func (m mStoreResult) Serialise() []byte {
 	return addType(tStoreResult, m.Hash[:])
 }
 
-type mRunHash struct {
-	Type  ProgramType // 1
-	Hash  [32]byte
-	Input ProgramArgs
-}
-
-func (m mRunHash) Serialise() []byte {
-	in, err := json.Marshal(m.Input)
-	// TODO
-	if err != nil {
-		panic(err)
-	}
-
-	b := make([]byte, 1, 1+32+len(in))
-	b[0] = byte(m.Type)
-	b = append(b, m.Hash[:]...)
-	b = append(b, in...)
-
-	return addType(tRunHash, b)
-}
-
-type mRunHashResult struct {
-	Type      ProgramType // 1
-	Hash      [32]byte
-	InputHash [32]byte
-	Result    ProgramRets
-}
-
-func (m mRunHashResult) Serialise() []byte {
-	res, err := json.Marshal(m.Result)
-	// TODO
-	if err != nil {
-		panic(err)
-	}
-
-	b := make([]byte, 1, 1+64+len(res))
-	b[0] = byte(m.Type)
-	b = append(b, m.Hash[:]...)
-	b = append(b, m.InputHash[:]...)
-	b = append(b, res...)
-
-	return addType(tRunHashResult, b)
-}
-
-type mRunName struct {
+type mRun struct {
 	Type  ProgramType // 1
 	Pk    keys.PK     // 29
 	Name  string      // 1 + length
 	Input ProgramArgs
 }
 
-func (m mRunName) Serialise() []byte {
+func (m mRun) Serialise() []byte {
 	in, err := json.Marshal(m.Input)
 	// TODO
 	if err != nil {
@@ -132,10 +84,10 @@ func (m mRunName) Serialise() []byte {
 	b = append(b, m.Name...)
 	b = append(b, in...)
 
-	return addType(tRunName, b)
+	return addType(tRun, b)
 }
 
-type mRunNameResult struct {
+type mRunResult struct {
 	Type      ProgramType // 1
 	Pk        keys.PK     // 29
 	Name      string      // 1 + length
@@ -143,7 +95,7 @@ type mRunNameResult struct {
 	Result    ProgramRets
 }
 
-func (m mRunNameResult) Serialise() []byte {
+func (m mRunResult) Serialise() []byte {
 	res, err := json.Marshal(m.Result)
 	// TODO
 	if err != nil {
@@ -158,7 +110,7 @@ func (m mRunNameResult) Serialise() []byte {
 	b = append(b, m.InputHash[:]...)
 	b = append(b, res...)
 
-	return addType(tRunNameResult, b)
+	return addType(tRunResult, b)
 }
 
 type AnyMsg struct {
@@ -206,34 +158,7 @@ func (m AnyMsg) Deserialise() (SentMsg, error) {
 		var hash [32]byte
 		copy(hash[:], m.Body)
 		return mStoreResult{hash}, nil
-	case tRunHash:
-		ptype := ProgramType(m.Body[0])
-
-		var hash [32]byte
-		copy(hash[:], m.Body[1:][:32])
-		rest := m.Body[33:]
-
-		in, err := unmarshalInput(ptype, rest)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal program args: %w", err)
-		}
-
-		return mRunHash{ptype, hash, in}, nil
-	case tRunHashResult:
-		ptype := ProgramType(m.Body[0])
-
-		var hash, inputhash [32]byte
-		copy(hash[:], m.Body[1:][:32])
-		copy(inputhash[:], m.Body[33:][:32])
-		rest := m.Body[65:]
-
-		res, err := unmarshalResult(ptype, rest)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal program result: %w", err)
-		}
-
-		return mRunHashResult{ptype, hash, inputhash, res}, nil
-	case tRunName:
+	case tRun:
 		ptype := ProgramType(m.Body[0])
 
 		var pk keys.PK
@@ -249,8 +174,8 @@ func (m AnyMsg) Deserialise() (SentMsg, error) {
 			return nil, fmt.Errorf("failed to unmarshal program args: %w", err)
 		}
 
-		return mRunName{ptype, pk, name, in}, nil
-	case tRunNameResult:
+		return mRun{ptype, pk, name, in}, nil
+	case tRunResult:
 		ptype := ProgramType(m.Body[0])
 
 		var pk keys.PK
@@ -270,7 +195,7 @@ func (m AnyMsg) Deserialise() (SentMsg, error) {
 			return nil, fmt.Errorf("failed to unmarshal program result: %w", err)
 		}
 
-		return mRunNameResult{ptype, pk, name, inputhash, res}, nil
+		return mRunResult{ptype, pk, name, inputhash, res}, nil
 	}
 
 	return nil, errors.New("unknown message type")

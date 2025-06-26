@@ -1,7 +1,6 @@
 package net
 
 import (
-	"crypto/sha3"
 	"net/http"
 	"net/url"
 	"strings"
@@ -148,7 +147,6 @@ func getBundled(p string, t *testing.T) (b []byte) {
 func TestNet(t *testing.T) {
 	for _, test := range webTests {
 		b := getBundled(testProgramPath+"/"+test.Name, t)
-		hash := sha3.Sum256(b)
 
 		var lnet LocalNet
 
@@ -165,14 +163,7 @@ func TestNet(t *testing.T) {
 		n2 := lnet.NewNode()
 		n2.AddPeer(p1) // tell it about n1
 
-		resh, err := n2.RunWebProgramHash(hash, test.Args, false)
-		if err != nil {
-			t.Fatal(err)
-		} else if err := test.Rets.Equal(resh); err != nil {
-			t.Fatal("hash return value not equal:", err)
-		}
-
-		resn, err := n2.RunWebProgramName(n1.Pk, test.Name, test.Args, false)
+		resn, err := n2.RunWebProgram(n1.Pk, test.Name, test.Args, false)
 		if err != nil {
 			t.Fatal(err)
 		} else if err := test.Rets.Equal(resn); err != nil {

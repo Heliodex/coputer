@@ -171,16 +171,6 @@ func main() {
 		w.WriteHeader(http.StatusCreated)
 	})
 
-	// find if program exists
-	http.HandleFunc("GET /{hash}", func(w http.ResponseWriter, r *http.Request) {
-		hexhash := r.PathValue("hash")
-		if _, ok := checkHash(w, hexhash); !ok {
-			return
-		}
-
-		findExists(w, hexhash)
-	})
-
 	http.HandleFunc("GET /{pk}/{name}", func(w http.ResponseWriter, r *http.Request) {
 		pk, name := r.PathValue("pk"), r.PathValue("name")
 		if !checkPK(w, pk) {
@@ -200,13 +190,6 @@ func main() {
 		}
 
 		findExists(w, hexhash)
-	})
-
-	// run program
-	http.HandleFunc("POST /web/{hash}", func(w http.ResponseWriter, r *http.Request) {
-		hexhash := r.PathValue("hash")
-
-		runWebHash(w, r, hexhash, c, errCache, runCache)
 	})
 
 	http.HandleFunc("POST /web/{pk}/{name}", func(w http.ResponseWriter, r *http.Request) {

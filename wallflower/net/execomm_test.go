@@ -16,12 +16,12 @@ func TestExec(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		hash, err := StoreProgram(keys.PK{}, test.Name, b) // lel nil pk
-		if err != nil {
+		// lel nil pk
+		if _, err = StoreProgram(keys.PK{}, test.Name, b); err != nil {
 			t.Fatal(err)
 		}
 
-		res, err := StartWebProgramHash(hash, test.Args)
+		res, err := StartWebProgram(keys.PK{}, test.Name, test.Args)
 		if err != nil {
 			t.Fatal(err)
 		} else if err := test.Rets.Equal(res); err != nil {
