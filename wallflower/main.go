@@ -9,5 +9,5 @@ import (
 func main() {
 	fmt.Println("Sup world")
 
-	var net net.LocalNet
+	net := net.NewTestNet()
 }

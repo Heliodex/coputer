@@ -16,7 +16,7 @@ import (
 
 const FindStart = "cofind:"
 
-func PeerFromFindString(find string) (p *keys.Peer, err error) {
+func PeerFromFindString(find string) (p *Peer, err error) {
 	if !strings.HasPrefix(find, FindStart) || find[56] != '.' {
 		return nil, errors.New("not a valid find string")
 	}
@@ -45,11 +45,11 @@ func PeerFromFindString(find string) (p *keys.Peer, err error) {
 		copy(addresses[i][:], addrs[i*keys.AddressLen:][:keys.AddressLen])
 	}
 
-	return &keys.Peer{Pk: pk, Addresses: addresses}, nil
+	return &Peer{Pk: pk, Addresses: addresses}, nil
 }
 
 func (e EncryptedMsg) Decode(kp keys.Keypair) (am AnyMsg, err error) {
-	from, body, err := kp.Decrypt(e)
+	from, body, err := keys.Decrypt[Transfer](kp, e)
 	if err != nil {
 		return
 	}
@@ -73,17 +73,16 @@ type InputName struct {
 }
 
 type Node struct {
-	keys.ThisPeer
+	ThisPeer
 
-	Peers              map[keys.PK]*keys.Peer // known peers
-	SendRaw            func(peer *keys.Peer, msg []byte) (err error)
-	ReceiveRaw         chan EncryptedMsg
+	Peers              map[keys.PK]*Peer // known peers
+	SendRaw            func(peer *Peer, msg []byte) (err error)
 	resultsWaitingHash map[InputHash]chan ProgramRets
 	resultsWaitingName map[InputName]chan ProgramRets
 	running            bool
 }
 
-func (n *Node) AddPeer(p *keys.Peer) {
+func (n *Node) AddPeer(p *Peer) {
 	if _, ok := n.Peers[p.Pk]; !ok {
 		n.Peers[p.Pk] = p
 	}
@@ -190,7 +189,7 @@ func (n *Node) handleMessage(am AnyMsg) {
 	}
 }
 
-func (n *Node) seenPeer(p *keys.Peer) {
+func (n *Node) seenPeer(p *Peer) {
 	if _, ok := n.Peers[p.Pk]; !ok {
 		n.Peers[p.Pk] = p
 	}
@@ -273,7 +272,7 @@ func (n *Node) Start() {
 
 	// Receiver
 	for {
-		rec := <-n.ReceiveRaw
+		rec := <-n.Transfer
 		if !n.running {
 			break
 		}
@@ -298,5 +297,5 @@ func (n *Node) Start() {
 func (n *Node) Stop() {
 	n.log("Stopping")
 	n.running = false
-	close(n.ReceiveRaw)
+	close(n.Transfer)
 }

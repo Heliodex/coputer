@@ -114,7 +114,7 @@ func (m mRunResult) Serialise() []byte {
 }
 
 type AnyMsg struct {
-	From *keys.Peer
+	From *Peer
 	Type MessageType
 	Body []byte
 }
