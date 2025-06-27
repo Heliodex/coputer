@@ -84,19 +84,7 @@ func Start(c Compiler, hash string, args ProgramArgs) (output ProgramRets, err e
 		return
 	}
 
-	luau_print := vm.MakeFn("print", func(args vm.Args) (r []Val, err error) {
-		for _, arg := range args.List {
-			fmt.Print("\t")
-			fmt.Print(vm.ToString(arg))
-		}
-		fmt.Println() // yeah
-		return
-	})
-
-	var env Env
-	env.AddFn(luau_print)
-
-	co, cancel := p.Load(env, args)
+	co, cancel := p.Load(nil, args)
 
 	go func() {
 		time.Sleep(5 * time.Second)
@@ -115,7 +103,6 @@ func Start(c Compiler, hash string, args ProgramArgs) (output ProgramRets, err e
 		return nil, errors.New("test program type not supported in this context")
 	case WebProgramType:
 		return startWeb(ret)
-	default:
-		return nil, errors.New("unknown program type")
 	}
+	return nil, errors.New("unknown program type")
 }

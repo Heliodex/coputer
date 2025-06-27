@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+
 	// unsafe code paths removed... for now
 
 	"github.com/Heliodex/coputer/litecode/internal"
@@ -527,7 +528,7 @@ func deserialise(b []byte) (d internal.Deserialised, err error) {
 }
 
 type upval struct {
-	value Val
+	Val
 	store *Val
 }
 
@@ -918,7 +919,7 @@ func newClosure(pc *int32, A uint8, towrap toWrap, code []*internal.Inst, stack 
 		switch pseudo := code[*pc+1]; pseudo.A {
 		case 0: // -- value
 			towrap.upvals[n] = &upval{
-				value: (*stack)[pseudo.B],
+				Val: (*stack)[pseudo.B],
 			}
 		case 1: // -- reference
 			// -- references dont get handled by DUPCLOSURE
@@ -1195,7 +1196,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			return nil, fmt.Errorf("attempt to set global '%s'", kv)
 		case 9: // GETUPVAL
 			if uv := upvals[i.B]; uv.store == nil {
-				stack[i.A] = uv.value
+				stack[i.A] = uv.Val
 			} else {
 				// fmt.Println("GETTING UPVAL", uv)
 				// fmt.Println("Setting stacka to", uv.store[uv.index])
@@ -1205,7 +1206,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			pc++
 		case 10: // SETUPVAL
 			if uv := upvals[i.B]; uv.store == nil {
-				uv.value = stack[i.A]
+				uv.Val = stack[i.A]
 			} else {
 				*uv.store = stack[i.A]
 			}
@@ -1216,7 +1217,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 					continue
 				}
 				// fmt.Println("closing upvalue", uv)
-				uv.value = *uv.store
+				uv.Val = *uv.store
 				uv.store = nil
 				openUpvals[n] = nil
 				// fmt.Println("closed", uv)

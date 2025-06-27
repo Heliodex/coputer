@@ -16,7 +16,7 @@ type WebArgsUrl struct {
 
 // WebArgs stores the arguments passed to a web program.
 type WebArgs struct {
-	Url     WebArgsUrl            `json:"url"`
+	Url     WebArgsUrl        `json:"url"`
 	Method  string            `json:"method"`
 	Headers map[string]string `json:"headers"`
 	Body    []byte            `json:"body"`

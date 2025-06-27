@@ -38,11 +38,11 @@ func checkHash(w http.ResponseWriter, hash string) (decoded [32]byte, b bool) {
 }
 
 // public key doesn't really need to be decoded so
-func checkPK(w http.ResponseWriter, hash string) (b bool) {
-	if len(hash) != 49 {
+func checkPK(w http.ResponseWriter, pk string) (b bool) {
+	if len(pk) != 49 { // 9-9-9-9-9
 		http.Error(w, "Invalid public key length", http.StatusBadRequest)
 		return
-	} else if strings.ToLower(hash) != hash {
+	} else if strings.ToLower(pk) != pk {
 		http.Error(w, "Invalid public key case", http.StatusBadRequest)
 		return
 	}
@@ -59,7 +59,7 @@ func findExists(w http.ResponseWriter, hexhash string) (b bool) {
 	return true
 }
 
-func runWebHash(w http.ResponseWriter, r *http.Request, hexhash string, c Compiler, errCache map[[32]byte]map[[32]byte]error, runCache map[[32]byte]map[[32]byte]ProgramRets) {
+func runWeb(w http.ResponseWriter, r *http.Request, hexhash string, c Compiler /* lel c */, errCache map[[32]byte]map[[32]byte]error, runCache map[[32]byte]map[[32]byte]ProgramRets) {
 	hash, ok := checkHash(w, hexhash)
 	if !ok {
 		return
@@ -210,7 +210,7 @@ func main() {
 			return
 		}
 
-		runWebHash(w, r, hexhash, c, errCache, runCache)
+		runWeb(w, r, hexhash, c, errCache, runCache)
 	})
 
 	fmt.Println("Listening on :2505")
