@@ -24,14 +24,15 @@ func (n *TestNet) SendRaw(p *Peer, m []byte) (err error) {
 		}
 	}
 
-	return errors.New("unknown peer")
+	return errors.New("sendraw: unknown peer")
 }
 
-func (n *TestNet) NewNode(kp keys.Keypair, addrs ...keys.Address) (node *Node) {
+func (n *TestNet) NewNode(kp keys.Keypair, mainAddr keys.Address, altAddrs ...keys.Address) (node *Node) {
 	peer := Peer{
-		Pk:        kp.Pk,
-		Addresses: addrs,
-		Transfer:  make(chan EncryptedMsg),
+		Pk:       kp.Pk,
+		MainAddr: mainAddr,
+		AltAddrs: altAddrs,
+		Transfer: make(chan EncryptedMsg),
 	}
 
 	n.ExistingPeers = append(n.ExistingPeers, peer)

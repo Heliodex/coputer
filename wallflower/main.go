@@ -75,6 +75,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	if len(ips) == 0 {
+		fmt.Println("No public IP addresses found.")
+		os.Exit(1)
+	}
+
 	fmt.Println(len(ips), "public IP addresses found")
 
 	addrs := make([]keys.Address, len(ips))
@@ -91,7 +96,7 @@ func main() {
 	}
 
 	net := net.NewTestNet()
-	n := net.NewNode(kp, addrs...)
+	n := net.NewNode(kp, addrs[0], addrs[1:]...)
 
 	fmt.Println("Find string", n.FindString())
 

@@ -36,16 +36,23 @@ func PeerFromFindString(find string) (p *Peer, err error) {
 	addrs, ok := pk.Verify(decodedAddrs)
 	if !ok {
 		return nil, errors.New("invalid addresses signature")
-	} else if len(addrs)%keys.AddressLen != 0 {
+	}
+
+	addrsSize := len(addrs)
+	if addrsSize%keys.AddressLen != 0 {
 		return nil, errors.New("invalid addresses part length")
 	}
+	addrsCount := addrsSize / keys.AddressLen
 
-	addresses := make([]keys.Address, len(addrs)/keys.AddressLen)
-	for i := range addresses {
-		copy(addresses[i][:], addrs[i*keys.AddressLen:][:keys.AddressLen])
+	mainAddr := keys.Address{}
+	copy(mainAddr[:], addrs[:keys.AddressLen]) // first address is always the main
+
+	altAddrs := make([]keys.Address, addrsCount-1)
+	for i := range altAddrs {
+		copy(altAddrs[i][:], addrs[(i+1)*keys.AddressLen:][:keys.AddressLen])
 	}
 
-	return &Peer{Pk: pk, Addresses: addresses}, nil
+	return &Peer{Pk: pk, MainAddr: mainAddr, AltAddrs: altAddrs}, nil
 }
 
 func (e EncryptedMsg) Decode(kp keys.Keypair) (am AnyMsg, err error) {
@@ -91,7 +98,7 @@ func (n *Node) AddPeer(p *Peer) {
 func (n *Node) send(pk keys.PK, sm SentMsg) (err error) {
 	peer, ok := n.Peers[pk]
 	if !ok {
-		return errors.New("unknown peer")
+		return errors.New("send: unknown peer")
 	}
 
 	ct, err := n.Encrypt(sm.Serialise(), pk)
@@ -106,9 +113,10 @@ func (n *Node) send(pk keys.PK, sm SentMsg) (err error) {
 func (n Node) FindString() string {
 	pk := n.Kp.Pk.Encode()[6:]
 
-	addrs := make([]byte, len(n.Addresses)*keys.AddressLen)
-	for i, addr := range n.Addresses {
-		copy(addrs[i*keys.AddressLen:], addr[:])
+	addrs := make([]byte, (len(n.AltAddrs)+1)*keys.AddressLen)
+	copy(addrs[:keys.AddressLen], n.MainAddr[:]) // main address is always first
+	for i, addr := range n.AltAddrs {
+		copy(addrs[(i+1)*keys.AddressLen:], addr[:])
 	}
 
 	signedAddrs := n.Kp.Sk.Sign(addrs)                                // yes, actually works now
@@ -267,7 +275,7 @@ func (n *Node) Start() {
 	n.log(
 		"Starting\n",
 		"I'm ", pke, "\n",
-		"My primary address is ", n.Addresses[0], "\n",
+		"My primary address is ", n.MainAddr, "\n",
 		"I know ", len(n.Peers), " peers")
 
 	// Receiver
@@ -288,7 +296,7 @@ func (n *Node) Start() {
 		n.log(
 			"Received ", len(msg.Body), "\n",
 			"From ", msg.From.Pk.Encode(), "\n",
-			"@ ", msg.From.Addresses[0], "\n")
+			"@ ", msg.From.MainAddr, "\n")
 
 		n.handleMessage(msg)
 	}

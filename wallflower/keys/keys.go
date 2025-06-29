@@ -21,10 +21,11 @@ const AddressLen = 16
 type Address [AddressLen]byte // can be whatever (probably an ipv6 lel)
 
 type Peer[T any] struct {
-	Pk        PK
-	Addresses []Address
-	LastSeen  time.Time
-	Transfer  T
+	Pk       PK
+	MainAddr Address
+	AltAddrs []Address
+	LastSeen time.Time
+	Transfer T
 }
 
 type ThisPeer[T any] struct {
@@ -33,7 +34,7 @@ type ThisPeer[T any] struct {
 }
 
 func (p Peer[T]) Equals(p2 Peer[T]) bool {
-	return p.Pk == p2.Pk && slices.Equal(p.Addresses, p2.Addresses)
+	return p.Pk == p2.Pk && p.MainAddr == p2.MainAddr && slices.Equal(p.AltAddrs, p2.AltAddrs)
 }
 
 func KeyWorker(found chan<- Keypair, stop <-chan struct{}) {
@@ -109,22 +110,22 @@ const (
 // --- Actual message [up to 65519 (chunkSize)]
 // encrypted [16] with recipient pk [total up to 65535 (chunkEnc)]
 
-func encryptKey[T any](p ThisPeer[T], addrCount int, pk *[32]byte) ([]byte, error) {
+func encryptKey[T any](p ThisPeer[T], pk *[32]byte) ([]byte, error) {
 	c := make([]byte, keySize)
 
 	// Sender pk [29] + Address count [1]
 	copy(c, p.Kp.Pk[:])
-	c[len(c)-1] = byte(addrCount)
+	c[len(c)-1] = byte(len(p.AltAddrs))
 
 	// anonymously encrypted [48] with recipient pk
 	return box.SealAnonymous(nil, c, pk, nil)
 }
 
-func encryptAddresses[T any](addrsSize int, p ThisPeer[T], pk *[32]byte, sk [32]byte) []byte {
-	c := make([]byte, 0, addrsSize)
+func encryptAddresses[T any](p ThisPeer[T], pk *[32]byte, sk [32]byte) []byte {
+	c := p.MainAddr[:] // main address is always first
 
 	// Addresses [16]...
-	for _, addr := range p.Addresses {
+	for _, addr := range p.AltAddrs {
 		c = append(c, addr[:]...)
 	}
 
@@ -139,13 +140,13 @@ func (p ThisPeer[T]) Encrypt(msg []byte, to PK) (out []byte, err error) {
 	copy(pk[3:], to[:])
 	sk := [32]byte(p.Kp.Sk)
 
-	// Address count [1]
-	addrCount := len(p.Addresses)
+	// Address count [1] (alternates only)
+	addrCount := len(p.AltAddrs)
 	if addrCount > 255 {
 		return nil, errors.New("too many addresses")
 	}
 
-	addrsSize := 16 * addrCount
+	addrsSize := AddressLen * addrCount
 	addrsEnc := addrsSize + box.Overhead
 
 	l := len(msg)
@@ -159,12 +160,12 @@ func (p ThisPeer[T]) Encrypt(msg []byte, to PK) (out []byte, err error) {
 	out = make([]byte, 0, keyEnc+addrsEnc+chunksEnc)
 
 	// encryption
-	enc, err := encryptKey(p, addrCount, pk)
+	enc, err := encryptKey(p, pk)
 	if err != nil {
 		return nil, err
 	}
 	out = append(out, enc...)
-	out = append(out, encryptAddresses(addrsSize, p, pk, sk)...)
+	out = append(out, encryptAddresses(p, pk, sk)...)
 
 	// chunking time
 	for i := range chunkCount {
@@ -226,7 +227,7 @@ func Decrypt[T any](kp Keypair, emsg []byte) (from Peer[T], msg []byte, err erro
 	peerpk := new([32]byte)
 	copy(peerpk[3:], ppk[:])
 
-	addrsSize := 16 * addrCount
+	addrsSize := 16 * (addrCount + 1)
 	addrsEnc := addrsSize + box.Overhead
 
 	// Addresses [16]...
@@ -236,7 +237,11 @@ func Decrypt[T any](kp Keypair, emsg []byte) (from Peer[T], msg []byte, err erro
 		return Peer[T]{}, nil, errors.New("addresses decryption failed")
 	}
 
-	from.Addresses = addrs
+	if len(addrs) == 0 {
+		return Peer[T]{}, nil, errors.New("no addresses found")
+	}
+
+	from.MainAddr, from.AltAddrs = addrs[0], addrs[1:]
 
 	// chunking time
 	chunksCount := len(ct) / chunkEnc

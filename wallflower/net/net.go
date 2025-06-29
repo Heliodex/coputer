@@ -11,5 +11,5 @@ type (
 
 type Net interface {
 	SendRaw(p *keys.Peer[Transfer], m []byte) (err error)
-	NewNode(kp keys.Keypair, addrs ...keys.Address) (node *Node)
+	NewNode(kp keys.Keypair, mainAddr keys.Address, altAddrs ...keys.Address) (node *Node)
 }
