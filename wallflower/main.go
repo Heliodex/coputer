@@ -3,6 +3,9 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
+	"time"
+	"flag"
 
 	gnet "net"
 
@@ -13,11 +16,11 @@ import (
 // Execution System communicates on port 2505
 // Communication System communicates on port 2506 with peers
 // Gateway communicates on port 2507
-// client applications (future) communicate on port 2508
+// client/management applications (future) communicate on port 2508
 
 func gatewayServer() {}
 
-func clientServer() {}
+func managementServer() {}
 
 // IPv6 supremacy
 func getPublicIPs() (ips []gnet.IP, err error) {
@@ -48,6 +51,7 @@ func getKeypair() (kp keys.Keypair) {
 
 	if sk, ok := os.LookupEnv(skEnv); !ok {
 		fmt.Printf("Environment variable %s not set.\n", skEnv)
+		fmt.Println("If you don't have a secret key, you can generate one with the `genkeys` command.")
 		os.Exit(1)
 	} else if skBytes, err := keys.DecodeSK(sk); err != nil {
 		fmt.Println("Invalid secret key provided.")
@@ -59,13 +63,9 @@ func getKeypair() (kp keys.Keypair) {
 	return
 }
 
-func main() {
-	fmt.Println()
-
+func start() {
 	// read secret key from environment variable
 	kp := getKeypair()
-
-	fmt.Println("Public key", kp.Pk.Encode())
 
 	// find current IP address
 
@@ -77,15 +77,13 @@ func main() {
 
 	if len(ips) == 0 {
 		fmt.Println("No public IP addresses found.")
+		fmt.Println("Make sure you are connected to an IPv6 network.")
 		os.Exit(1)
 	}
-
-	fmt.Println(len(ips), "public IP addresses found")
 
 	addrs := make([]keys.Address, len(ips))
 	for i, ip := range ips {
 		addrs[i] = keys.Address([]byte(ip)) // that or [keys.AddressLen]byte(ip)
-		fmt.Println("-", ip)
 	}
 
 	// generate local IP address
@@ -98,8 +96,6 @@ func main() {
 	net := net.NewTestNet()
 	n := net.NewNode(kp, addrs[0], addrs[1:]...)
 
-	fmt.Println("Find string", n.FindString())
-
 	// start udp server
 	server, err := gnet.ListenUDP("udp6", &gnet.UDPAddr{
 		IP:   lip.IP,
@@ -109,6 +105,9 @@ func main() {
 		panic(fmt.Sprintf("failed to start UDP server: %v", err))
 	}
 
+	fmt.Println("Public key", kp.Pk.Encode())
+	fmt.Println(len(ips), "public IP addresses found")
+	fmt.Println("Find string", n.FindString())
 	fmt.Println("UDP server listening on", server.LocalAddr())
 
 	for {
@@ -125,4 +124,60 @@ func main() {
 	// go clientServer()
 
 	// fmt.Println(server, n)
+}
+
+func main() {
+	if len(os.Args) <= 1 {
+		fmt.Println("Usage: <command>")
+		fmt.Println("Available commands: genkeys, start")
+		os.Exit(1)
+	}
+
+	switch os.Args[1] {
+	case "genkeys":
+		fmultiple := flag.Bool("m", false, "Generate multiple keypairs")
+		fthreads := flag.Int("t", runtime.NumCPU(), "Number of threads to use for key generation") 
+		
+		flag.CommandLine.Parse(os.Args[2:])
+		multiple, threads := *fmultiple, *fthreads
+
+		fmt.Println(multiple, threads)
+
+		// get cpu cores
+		fmt.Printf("Using %d-threaded key generation.\n", threads)
+
+		if multiple {
+			fmt.Println("Generating keypairs...")
+			start := time.Now()
+			found := keys.GenerateKeys(threads)
+			
+			
+			for k := range found {
+				fmt.Println("Keypair generated in", time.Since(start))
+				start = time.Now()
+				
+				fmt.Println("Public key:", k.Pk.Encode())
+				fmt.Println("Secret key:", k.Sk.Encode())
+			}
+			} else {
+				fmt.Println("Generating keypair...")
+				start := time.Now()
+			found := keys.GenerateKeys(threads)
+
+			kp := <-found
+			fmt.Println("Keypair generated in", time.Since(start))
+			fmt.Println("Public key:", kp.Pk.Encode())
+			fmt.Println("Secret key:", kp.Sk.Encode())
+
+			fmt.Println("Share your public key or find string with others to connect to your node.")
+			fmt.Println("DO NOT SHARE YOUR SECRET KEY WITH ANYONE!")
+		}
+
+	case "start":
+		fmt.Println("Starting Wallflower...")
+		start()
+	default:
+		fmt.Printf("Unknown command: %s\n", os.Args[1])
+		os.Exit(1)
+	}
 }

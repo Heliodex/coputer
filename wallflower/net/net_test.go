@@ -154,6 +154,16 @@ var sampleKeys = [...]string{
 	"cosec:1nikowcxso-yaxz7ewktj-n4cj0bklsd-xbdsl2ipaw-91vww4cex4",
 	"cosec:3a1r7x85ki-duan0b0wlk-ate5tun2ag-mdmk5kghrc-3rcpir16w6",
 	"cosec:08al1krxnf-u0kmgplotd-yr7fatryv8-9ktqeba3xz-xmzwviykjc",
+	"cosec:6c6agugf3g-vs0sq9g3cz-8pgwka0ukw-la26ik86q4-meib6pl634",
+	"cosec:0347fqcnc7-zw2o8zslpk-tgddlt5f0z-8yq2lm9rcc-vjczoocdwu",
+	"cosec:5v1uy4hyyr-hu0p1lm64j-3hxcm54xtx-amlipibg5i-5ygtw9suve",
+	"cosec:0109c65giz-5zj6im75aj-qp2kvcy6f6-dzg3akk10r-y4oruplziw",
+	"cosec:10f83ngd0p-axezx8t56i-y8h0klu6ed-85qkof6z7a-66mnch39r7",
+	"cosec:0dlwd7uctr-qli9cgp2wh-z4zdukjcso-zwtnieatlq-xkn5fdvxbp",
+	"cosec:0bsep2586t-y4wsd552kz-svsgs5cvm0-qny598wmi0-hp9r1i658y",
+	"cosec:6cg6g52fgh-qk14xzpzbd-6giuh9wlu3-cy3yeulrpv-dukyvye0y3",
+	"cosec:5ki3i1p8ey-v3atgco6qj-eqttki3ad8-blj4arxb5b-wuaakmn0ib",
+	"cosec:5vb3gg5slk-jklp9qufn7-gviwuysl26-ht0e8ik23g-xyno6ki2xj",
 }
 var sampleKeysUsed uint8
 

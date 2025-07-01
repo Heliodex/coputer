@@ -37,7 +37,7 @@ func (p Peer[T]) Equals(p2 Peer[T]) bool {
 	return p.Pk == p2.Pk && p.MainAddr == p2.MainAddr && slices.Equal(p.AltAddrs, p2.AltAddrs)
 }
 
-func KeyWorker(found chan<- Keypair, stop <-chan struct{}) {
+func KeyWorker(found chan<- Keypair) {
 	for {
 		// 🔥🔥 HOT PATH 🔥🔥
 		// ~21000 hashes/core/s on my machine, about 12 minutes (2 rap gods) to find a keypair with 1 thread
@@ -51,21 +51,18 @@ func KeyWorker(found chan<- Keypair, stop <-chan struct{}) {
 			continue
 		}
 
-		select {
-		case found <- kp:
-		case <-stop:
-			return
-		}
+		found <- kp
 	}
 }
 
-func GenerateKeys(threads uint8, stop <-chan struct{}) Keypair {
-	found := make(chan Keypair)
+func GenerateKeys(threads int) (found chan Keypair) {
+	found = make(chan Keypair)
+
 	for range threads {
-		go KeyWorker(found, stop)
+		go KeyWorker(found)
 	}
 
-	return <-found
+	return 
 }
 
 func keypair(pk, sk [32]byte) (kp Keypair, err error) {
