@@ -1,17 +1,20 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"runtime"
 	"time"
-	"flag"
 
 	gnet "net"
 
 	"github.com/Heliodex/coputer/wallflower/keys"
 	"github.com/Heliodex/coputer/wallflower/net"
 )
+// Maximum UDP payload size
+// The fact that this is almost the encrypted chunk size is purely coincidental
+const maxPayloadSize = 1<<16 - 8 - 1
 
 // Execution System communicates on port 2505
 // Communication System communicates on port 2506 with peers
@@ -97,10 +100,11 @@ func start() {
 	n := net.NewNode(kp, addrs[0], addrs[1:]...)
 
 	// start udp server
-	server, err := gnet.ListenUDP("udp6", &gnet.UDPAddr{
+	ua := &gnet.UDPAddr{
 		IP:   lip.IP,
 		Port: 2506,
-	})
+	}
+	server, err := gnet.ListenUDP("udp6", ua)
 	if err != nil {
 		panic(fmt.Sprintf("failed to start UDP server: %v", err))
 	}
@@ -110,18 +114,46 @@ func start() {
 	fmt.Println("Find string", n.FindString())
 	fmt.Println("UDP server listening on", server.LocalAddr())
 
-	for {
-		buf := make([]byte, 1024)
-		n, addr, err := server.ReadFromUDP(buf)
-		if err != nil {
-			fmt.Println("Error reading from UDP:", err)
-			continue
-		}
-		fmt.Printf("Received %d bytes from %s: %s\n", n, addr, buf[:n])
-	}
+	go gatewayServer()
+	go managementServer()
 
-	// go gatewayServer()
-	// go clientServer()
+	go func() {
+		for {
+			time.Sleep(time.Second)
+			// send messages to the server
+			msg := make([]byte, 0)
+			conn, err := gnet.DialUDP("udp6", nil, ua)
+
+			if err != nil {
+				fmt.Println("Error dialing UDP:", err)
+				continue
+			}
+
+			_, err = conn.Write(msg)
+			if err != nil {
+				fmt.Println("Error writing to UDP:", err)
+				continue
+			}
+
+			fmt.Println("Sent message to", conn.RemoteAddr())
+		}
+	}()
+
+	for {
+		// read messages from the server
+		// var bb []byte
+
+		for {
+			b := make([]byte, maxPayloadSize)
+			nb, addr, err := server.ReadFromUDP(b)
+			if err != nil {
+				fmt.Println("Error reading from UDP:", err)
+				continue
+			}
+
+			fmt.Println("Received", nb, "bytes from", addr)
+		}
+	}
 
 	// fmt.Println(server, n)
 }
@@ -136,8 +168,8 @@ func main() {
 	switch os.Args[1] {
 	case "genkeys":
 		fmultiple := flag.Bool("m", false, "Generate multiple keypairs")
-		fthreads := flag.Int("t", runtime.NumCPU(), "Number of threads to use for key generation") 
-		
+		fthreads := flag.Int("t", runtime.NumCPU(), "Number of threads to use for key generation")
+
 		flag.CommandLine.Parse(os.Args[2:])
 		multiple, threads := *fmultiple, *fthreads
 
@@ -150,18 +182,17 @@ func main() {
 			fmt.Println("Generating keypairs...")
 			start := time.Now()
 			found := keys.GenerateKeys(threads)
-			
-			
+
 			for k := range found {
 				fmt.Println("Keypair generated in", time.Since(start))
 				start = time.Now()
-				
+
 				fmt.Println("Public key:", k.Pk.Encode())
 				fmt.Println("Secret key:", k.Sk.Encode())
 			}
-			} else {
-				fmt.Println("Generating keypair...")
-				start := time.Now()
+		} else {
+			fmt.Println("Generating keypair...")
+			start := time.Now()
 			found := keys.GenerateKeys(threads)
 
 			kp := <-found

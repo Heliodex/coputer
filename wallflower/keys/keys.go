@@ -62,7 +62,7 @@ func GenerateKeys(threads int) (found chan Keypair) {
 		go KeyWorker(found)
 	}
 
-	return 
+	return
 }
 
 func keypair(pk, sk [32]byte) (kp Keypair, err error) {
