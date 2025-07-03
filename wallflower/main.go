@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"os"
@@ -11,10 +13,8 @@ import (
 
 	"github.com/Heliodex/coputer/wallflower/keys"
 	"github.com/Heliodex/coputer/wallflower/net"
+	"github.com/quic-go/quic-go"
 )
-// Maximum UDP payload size
-// The fact that this is almost the encrypted chunk size is purely coincidental
-const maxPayloadSize = 1<<16 - 8 - 1
 
 // Execution System communicates on port 2505
 // Communication System communicates on port 2506 with peers
@@ -106,56 +106,110 @@ func start() {
 	}
 	server, err := gnet.ListenUDP("udp6", ua)
 	if err != nil {
-		panic(fmt.Sprintf("failed to start UDP server: %v", err))
+		fmt.Println("Failed to start UDP server:", err)
+		os.Exit(1)
+	}
+
+	tlsCert, err := kp.Sk.TLS()
+	if err != nil {
+		fmt.Println("Failed to create TLS certificate:", err)
+		os.Exit(1)
+	}
+
+	// make a self-signed TLS certificate
+	tlsConf := &tls.Config{
+		Certificates:       []tls.Certificate{tlsCert},
+		NextProtos:         []string{"quic"},
+		MinVersion:         tls.VersionTLS13,
+		InsecureSkipVerify: true, // "tls: failed to verify certificate: x509: certificate signed by unknown authority"
+		// i've been in TLS hell for long enough today
+	}
+
+	quicConf := &quic.Config{
+		EnableDatagrams: true,
+	}
+
+	// set environment variable
+	if err = os.Setenv("QUIC_GO_DISABLE_RECEIVE_BUFFER_WARNING", "true"); err != nil {
+		fmt.Println("Failed to set OS environment variable.")
+	}
+
+	tr := &quic.Transport{Conn: server}
+	ln, err := tr.Listen(tlsConf, quicConf)
+	if err != nil {
+		panic(fmt.Sprintf("failed to start QUIC server: %v", err))
 	}
 
 	fmt.Println("Public key", kp.Pk.Encode())
 	fmt.Println(len(ips), "public IP addresses found")
 	fmt.Println("Find string", n.FindString())
-	fmt.Println("UDP server listening on", server.LocalAddr())
+	fmt.Println("Communication system listening on", server.LocalAddr())
 
 	go gatewayServer()
 	go managementServer()
 
 	go func() {
+		qc, err := tr.Dial(context.TODO(), ua, tlsConf, quicConf)
+		if err != nil {
+			fmt.Println("Error dialing QUIC:", err)
+			return
+		}
+
+		stream, err := qc.OpenStream()
+		if err != nil {
+			fmt.Println("Error opening stream:", err)
+			return
+		}
+
 		for {
 			time.Sleep(time.Second)
 			// send messages to the server
-			msg := make([]byte, 0)
-			conn, err := gnet.DialUDP("udp6", nil, ua)
 
-			if err != nil {
-				fmt.Println("Error dialing UDP:", err)
-				continue
+			msg := make([]byte, 1400)
+			// if err = qc.SendDatagram(msg); err != nil {
+			// 	fmt.Println("Error sending QUIC datagram:", err)
+			// 	continue
+			// }
+			if _, err = stream.Write(msg); err != nil {
+				fmt.Println("Error writing to stream:", err)
+				return
 			}
 
-			_, err = conn.Write(msg)
-			if err != nil {
-				fmt.Println("Error writing to UDP:", err)
-				continue
-			}
-
-			fmt.Println("Sent message to", conn.RemoteAddr())
+			fmt.Println("Sent message to", qc.RemoteAddr())
 		}
 	}()
 
 	for {
-		// read messages from the server
-		// var bb []byte
-
-		for {
-			b := make([]byte, maxPayloadSize)
-			nb, addr, err := server.ReadFromUDP(b)
-			if err != nil {
-				fmt.Println("Error reading from UDP:", err)
-				continue
-			}
-
-			fmt.Println("Received", nb, "bytes from", addr)
+		qc, err := ln.Accept(context.TODO())
+		if err != nil {
+			fmt.Println("Error accepting connection:", err)
+			continue
 		}
-	}
 
-	// fmt.Println(server, n)
+		fmt.Println("Accepted connection from", qc.RemoteAddr())
+
+		stream, err := qc.AcceptStream(context.TODO())
+		if err != nil {
+			fmt.Println("Error accepting stream:", err)
+			continue
+		}
+
+		// read message
+		go func() {
+			for {
+				p := make([]byte, 1024)
+
+				n, err := stream.Read(p)
+				if err != nil {
+					fmt.Println("Error receiving datagram:", err)
+					continue
+				}
+
+				fmt.Println("Received datagram:", n)
+			}
+		}()
+
+	}
 }
 
 func main() {
