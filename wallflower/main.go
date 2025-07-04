@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"encoding/binary"
 	"flag"
 	"fmt"
 	"os"
@@ -24,6 +25,8 @@ import (
 func gatewayServer() {}
 
 func managementServer() {}
+
+const msgChunk = 2 << 19
 
 // IPv6 supremacy
 func getPublicIPs() (ips []gnet.IP, err error) {
@@ -64,6 +67,50 @@ func getKeypair() (kp keys.Keypair) {
 		os.Exit(1)
 	}
 	return
+}
+
+func readChunks(stream *quic.Stream, chunkChan chan<- []byte) {
+	for {
+		b := make([]byte, msgChunk)
+
+		n, err := stream.Read(b)
+		if err != nil || n == 0 {
+			continue
+		}
+
+		chunkChan <- b[:n]
+	}
+}
+
+func readMsgs(chunkChan <-chan []byte, msgChan chan<- []byte) {
+	const minChunkSize = 4 // well not really, as a message can't be just a length and 0 bytes, but whatever
+
+	msg := make([]byte, 0, minChunkSize)
+
+	for {
+		// get enough chunk to read the size
+		for len(msg) < minChunkSize {
+			msg = append(msg, <-chunkChan...)
+			fmt.Println("Read start chunk:", len(msg))
+		}
+
+		l := binary.BigEndian.Uint32(msg[:4])
+		msg = msg[4:] // remove the length bytes
+		if l == 0 {
+			continue
+		}
+		fmt.Println("Read message length:", l)
+
+		// we are not, I repeat, NOT, preallocating the memory for the message here, in case some yobo decides to send loads of messages with 4GiB length
+		il := int(l)
+		for len(msg) < il { // now time for the real message
+			msg = append(msg, <-chunkChan...)
+			fmt.Println("Read message chunk:", len(msg))
+		}
+
+		msgChan <- msg[:il] // send it off!!!!!!!
+		msg = msg[il:]      // remaining bytes are for the next message
+	}
 }
 
 func start() {
@@ -161,23 +208,42 @@ func start() {
 			return
 		}
 
+		send := func(msg []byte) (err error) {
+			if len(msg) == 0 {
+				return
+			}
+
+			msgl := make([]byte, 4+len(msg))
+			binary.BigEndian.PutUint32(msgl[:4], uint32(len(msg)))
+			copy(msgl[4:], msg)
+
+			fmt.Println("Sending message to", qc.RemoteAddr())
+
+			_, err = stream.Write(msgl)
+			return
+		}
+
 		for {
 			time.Sleep(time.Second)
 			// send messages to the server
 
-			msg := make([]byte, 1400)
-			// if err = qc.SendDatagram(msg); err != nil {
-			// 	fmt.Println("Error sending QUIC datagram:", err)
-			// 	continue
-			// }
-			if _, err = stream.Write(msg); err != nil {
-				fmt.Println("Error writing to stream:", err)
-				return
+			msg := make([]byte, 2000000)
+			// fill with random data
+			for i := range msg {
+				msg[i] = byte(i % 256)
 			}
 
-			fmt.Println("Sent message to", qc.RemoteAddr())
+			if err = send(msg); err != nil {
+				fmt.Println("Error sending message:", err)
+				continue
+			}
+
 		}
 	}()
+
+	receive := func(msg []byte) {
+		fmt.Println("Received message:", len(msg))
+	}
 
 	for {
 		qc, err := ln.Accept(context.TODO())
@@ -196,16 +262,13 @@ func start() {
 
 		// read message
 		go func() {
-			for {
-				p := make([]byte, 1024)
+			chunkChan, msgChan := make(chan []byte), make(chan []byte)
 
-				n, err := stream.Read(p)
-				if err != nil {
-					fmt.Println("Error receiving datagram:", err)
-					continue
-				}
+			go readChunks(stream, chunkChan)
+			go readMsgs(chunkChan, msgChan)
 
-				fmt.Println("Received datagram:", n)
+			for msg := range msgChan {
+				receive(msg)
 			}
 		}()
 
