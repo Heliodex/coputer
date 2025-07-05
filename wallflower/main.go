@@ -69,6 +69,64 @@ func getKeypair() (kp keys.Keypair) {
 	return
 }
 
+func dialPeer(tr *quic.Transport, addr *gnet.UDPAddr, tlsConf *tls.Config, quicConf *quic.Config) {
+	qc, err := tr.Dial(context.TODO(), addr, tlsConf, quicConf)
+	if err != nil {
+		fmt.Println("Error dialing QUIC:", err)
+		return
+	}
+	defer qc.CloseWithError(0, "done")
+
+	stream, err := qc.OpenStream()
+	if err != nil {
+		fmt.Println("Error opening stream:", err)
+		return
+	}
+	defer stream.Close()
+
+	for {
+		time.Sleep(time.Second)
+		// send messages to the server
+
+		msg := make([]byte, 1<<20)
+		// fill with random data
+		for i := range msg {
+			msg[i] = byte(i % 256)
+		}
+
+		if err = sendMsg(stream, msg); err != nil {
+			fmt.Println("Error sending message:", err)
+		}
+	}
+}
+
+func parseStream(stream *quic.Stream) {
+	chunkChan, recvChan := make(chan []byte), make(chan []byte)
+	go readChunks(stream, chunkChan)
+	go readMsgs(chunkChan, recvChan)
+
+	for msg := range recvChan {
+		receiveMsg(msg)
+	}
+}
+
+func sendMsg(stream *quic.Stream, msg []byte) (err error) {
+	if len(msg) == 0 {
+		return
+	}
+
+	msgl := make([]byte, 4+len(msg))
+	binary.BigEndian.PutUint32(msgl[:4], uint32(len(msg)))
+	copy(msgl[4:], msg)
+
+	_, err = stream.Write(msgl)
+	return
+}
+
+func receiveMsg(msg []byte) {
+	fmt.Println("Received message:", len(msg))
+}
+
 func readChunks(stream *quic.Stream, chunkChan chan<- []byte) {
 	for {
 		b := make([]byte, msgChunk)
@@ -85,31 +143,48 @@ func readChunks(stream *quic.Stream, chunkChan chan<- []byte) {
 func readMsgs(chunkChan <-chan []byte, msgChan chan<- []byte) {
 	const minChunkSize = 4 // well not really, as a message can't be just a length and 0 bytes, but whatever
 
-	msg := make([]byte, 0, minChunkSize)
+	b := make([]byte, 0, minChunkSize)
 
 	for {
 		// get enough chunk to read the size
-		for len(msg) < minChunkSize {
-			msg = append(msg, <-chunkChan...)
-			fmt.Println("Read start chunk:", len(msg))
+		for len(b) < minChunkSize {
+			b = append(b, <-chunkChan...)
 		}
 
-		l := binary.BigEndian.Uint32(msg[:4])
-		msg = msg[4:] // remove the length bytes
+		l := binary.BigEndian.Uint32(b[:4])
+		b = b[4:] // remove the length bytes
 		if l == 0 {
 			continue
 		}
-		fmt.Println("Read message length:", l)
 
 		// we are not, I repeat, NOT, preallocating the memory for the message here, in case some yobo decides to send loads of messages with 4GiB length
 		il := int(l)
-		for len(msg) < il { // now time for the real message
-			msg = append(msg, <-chunkChan...)
-			fmt.Println("Read message chunk:", len(msg))
+		for len(b) < il { // now time for the real message
+			b = append(b, <-chunkChan...)
 		}
 
-		msgChan <- msg[:il] // send it off!!!!!!!
-		msg = msg[il:]      // remaining bytes are for the next message
+		msgChan <- b[:il] // send it off!!!!!!!
+		b = b[il:]      // remaining bytes are for the next message
+	}
+}
+
+func communicationServer(ln *quic.Listener) {
+	for {
+		qc, err := ln.Accept(context.TODO())
+		if err != nil {
+			fmt.Println("Error accepting connection:", err)
+			continue
+		}
+
+		fmt.Println("Accepted connection from", qc.RemoteAddr())
+
+		stream, err := qc.AcceptStream(context.TODO())
+		if err != nil {
+			fmt.Println("Error accepting stream:", err)
+			continue
+		}
+
+		go parseStream(stream)
 	}
 }
 
@@ -173,7 +248,8 @@ func start() {
 	}
 
 	quicConf := &quic.Config{
-		EnableDatagrams: true,
+		Versions:  []quic.Version{quic.Version2},
+		Allow0RTT: true,
 	}
 
 	// set environment variable
@@ -194,85 +270,9 @@ func start() {
 
 	go gatewayServer()
 	go managementServer()
+	go communicationServer(ln)
 
-	go func() {
-		qc, err := tr.Dial(context.TODO(), ua, tlsConf, quicConf)
-		if err != nil {
-			fmt.Println("Error dialing QUIC:", err)
-			return
-		}
-
-		stream, err := qc.OpenStream()
-		if err != nil {
-			fmt.Println("Error opening stream:", err)
-			return
-		}
-
-		send := func(msg []byte) (err error) {
-			if len(msg) == 0 {
-				return
-			}
-
-			msgl := make([]byte, 4+len(msg))
-			binary.BigEndian.PutUint32(msgl[:4], uint32(len(msg)))
-			copy(msgl[4:], msg)
-
-			fmt.Println("Sending message to", qc.RemoteAddr())
-
-			_, err = stream.Write(msgl)
-			return
-		}
-
-		for {
-			time.Sleep(time.Second)
-			// send messages to the server
-
-			msg := make([]byte, 2000000)
-			// fill with random data
-			for i := range msg {
-				msg[i] = byte(i % 256)
-			}
-
-			if err = send(msg); err != nil {
-				fmt.Println("Error sending message:", err)
-				continue
-			}
-
-		}
-	}()
-
-	receive := func(msg []byte) {
-		fmt.Println("Received message:", len(msg))
-	}
-
-	for {
-		qc, err := ln.Accept(context.TODO())
-		if err != nil {
-			fmt.Println("Error accepting connection:", err)
-			continue
-		}
-
-		fmt.Println("Accepted connection from", qc.RemoteAddr())
-
-		stream, err := qc.AcceptStream(context.TODO())
-		if err != nil {
-			fmt.Println("Error accepting stream:", err)
-			continue
-		}
-
-		// read message
-		go func() {
-			chunkChan, msgChan := make(chan []byte), make(chan []byte)
-
-			go readChunks(stream, chunkChan)
-			go readMsgs(chunkChan, msgChan)
-
-			for msg := range msgChan {
-				receive(msg)
-			}
-		}()
-
-	}
+	dialPeer(tr, ua, tlsConf, quicConf)
 }
 
 func main() {
