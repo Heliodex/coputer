@@ -63,7 +63,7 @@ func (e EncryptedMsg) Decode(kp keys.Keypair) (am AnyMsg, err error) {
 
 	return AnyMsg{
 		From: &from,
-		Type: MessageType(body[0]),
+		Type: body[0],
 		Body: body[1:],
 	}, nil
 }

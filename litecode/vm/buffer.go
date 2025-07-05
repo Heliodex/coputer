@@ -48,7 +48,7 @@ func buffer_readi8(args Args) (r []Val, err error) {
 func buffer_readu8(args Args) (r []Val, err error) {
 	b, offset := readValues(&args)
 
-	return []Val{float64(uint8(b[offset]))}, nil
+	return []Val{float64(b[offset])}, nil
 }
 
 func buffer_readi16(args Args) (r []Val, err error) {
@@ -121,7 +121,7 @@ func buffer_writeu8(args Args) (r []Val, err error) {
 		return oob, nil
 	}
 
-	b[offset] = byte(value)
+	b[offset] = value
 	return []Val{nil, true}, nil
 }
 
