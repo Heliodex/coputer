@@ -4,8 +4,10 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"runtime"
+	"strings"
 	"time"
 
 	gnet "net"
@@ -73,12 +75,7 @@ func getKeypair() (kp keys.Keypair) {
 	return
 }
 
-func start() {
-	// read secret key from environment variable
-	kp := getKeypair()
-
-	// find current IP address
-
+func getAddrs() (addrs []keys.Address) {
 	ips, err := getPublicIPs()
 	if err != nil {
 		fmt.Println("Failed to get public IP addresses:", err)
@@ -91,25 +88,63 @@ func start() {
 		os.Exit(1)
 	}
 
-	addrs := make([]keys.Address, len(ips))
+	addrs = make([]keys.Address, len(ips))
 	for i, ip := range ips {
 		addrs[i] = keys.Address([]byte(ip)) // that or [keys.AddressLen]byte(ip)
 	}
+	return
+}
 
-	// generate local IP address
-	lip, err := gnet.ResolveIPAddr("ip6", "::1")
+func getPeers() (peers []*keys.Peer) {
+	// open the peers file
+	const peersFile = "peers"
+	file, err := os.Open(peersFile)
 	if err != nil {
-		fmt.Println("Failed to resolve local IP address:", err)
+		fmt.Printf("Failed to open peers file %s: %v\n", peersFile, err)
+		os.Exit(1)
+	}
+	defer file.Close()
+
+	b, err := io.ReadAll(file)
+	if err != nil {
+		fmt.Printf("Failed to read peers file %s: %v\n", peersFile, err)
 		os.Exit(1)
 	}
 
+	lines := strings.Split(strings.TrimSpace(string(b)), "\n")
+	peers = make([]*keys.Peer, len(lines))
+	for i, line := range lines {
+		peer, err := net.PeerFromFindString(line)
+		if err != nil {
+			fmt.Printf(`Failed to parse peer from line "%s": %v\n`, line, err)
+			continue
+		}
+
+		fmt.Println("Found peer", peer.Pk.Encode())
+		peers[i] = peer
+	}
+	return
+}
+
+func start() {
+	kp := getKeypair()
+	addrs := getAddrs()
+	peers := getPeers()
+
+	// generate local IP address
+	// lip, err := gnet.ResolveIPAddr("ip6", "::1")
+	// if err != nil {
+	// 	fmt.Println("Failed to resolve local IP address:", err)
+	// 	os.Exit(1)
+	// }
+
+	// make a self-signed TLS certificate
 	tlsCert, err := kp.Sk.TLS()
 	if err != nil {
 		fmt.Println("Failed to create TLS certificate:", err)
 		os.Exit(1)
 	}
 
-	// make a self-signed TLS certificate
 	tlsConf := &tls.Config{
 		Certificates:       []tls.Certificate{tlsCert},
 		NextProtos:         []string{"quic"},
@@ -123,7 +158,7 @@ func start() {
 		Allow0RTT: true,
 	}
 
-	qnet, err := NewQuicNet(lip.IP, tlsConf, quicConf)
+	qnet, err := NewQuicNet(gnet.IPv6loopback, tlsConf, quicConf)
 	if err != nil {
 		fmt.Println("Failed to create QUIC network:", err)
 		os.Exit(1)
@@ -131,8 +166,12 @@ func start() {
 
 	n := net.NewNode(kp, addrs[0], addrs[1:]...)
 
+	for _, peer := range peers {
+		n.AddPeer(peer)
+	}
+
 	fmt.Println("Public key", kp.Pk.Encode())
-	fmt.Println(len(ips), "public IP addresses found")
+	fmt.Println(len(addrs), "public network addresses found")
 	fmt.Println("Find string", n.FindString())
 	fmt.Println("Communication system listening on port", PortCommunication)
 
