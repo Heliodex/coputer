@@ -161,6 +161,9 @@ func (n *Node) handleMessage(am AnyMsg) {
 	}
 
 	switch m := dm.(type) {
+	case mHi:
+		n.log("Received hi message from peer\n", am.From.Pk.Encode(), "\n", am.From.MainAddr)
+
 	case mStore:
 		hash, err := StoreProgram(am.From.Pk, m.Name, m.Bundled)
 		if err != nil {
@@ -265,6 +268,30 @@ func (n *Node) peerRunName(pk keys.PK, name string, inputhash [32]byte, ptype Pr
 	return
 }
 
+func (n *Node) receive() {
+	for {
+		rec := <-n.ReceiveRaw
+		if !n.running {
+			break
+		}
+
+		msg, err := rec.Decode(n.Kp)
+		if err != nil {
+			n.log("Failed to decode message\n", err)
+			continue
+		}
+
+		n.seenPeer(msg.From)
+
+		n.log(
+			"Received ", len(msg.Body), "\n",
+			"From ", msg.From.Pk.Encode(), "\n",
+			"@ ", msg.From.MainAddr, "\n")
+
+		n.handleMessage(msg)
+	}
+}
+
 func (n *Node) RunWebProgram(pk keys.PK, name string, input WebArgs, useLocal bool) (res WebRets, err error) {
 	if useLocal { // testing; to prevent 2 communication servers (from realising they're) using the same execution server
 		if res, err = StartWebProgram(pk, name, input); err == nil {
@@ -299,26 +326,13 @@ func (n *Node) Start() {
 		"I know ", len(n.Peers), " peers")
 
 	// Receiver
-	for {
-		rec := <-n.ReceiveRaw
-		if !n.running {
-			break
+	go n.receive()
+
+	for _, peer := range n.Peers {
+		n.log("Sending hi message to peer\n", peer.Pk.Encode(), "\n", peer.MainAddr)
+		if err := n.send(peer, mHi{}); err != nil {
+			n.log("Failed to send hi message to peer\n", err)
 		}
-
-		msg, err := rec.Decode(n.Kp)
-		if err != nil {
-			n.log("Failed to decode message\n", err)
-			continue
-		}
-
-		n.seenPeer(msg.From)
-
-		n.log(
-			"Received ", len(msg.Body), "\n",
-			"From ", msg.From.Pk.Encode(), "\n",
-			"@ ", msg.From.MainAddr, "\n")
-
-		n.handleMessage(msg)
 	}
 }
 

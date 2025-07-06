@@ -13,13 +13,17 @@ import (
 	"github.com/quic-go/quic-go"
 )
 
-func addrToUDP(addr keys.Address) (udpAddr *gnet.UDPAddr) {
+func addrToUdp(addr keys.Address) (udpAddr *gnet.UDPAddr) {
 	// Convert keys.Address to net.UDPAddr
 	udpAddr = &gnet.UDPAddr{
 		IP:   gnet.IP(addr[:]),
 		Port: PortCommunication,
 	}
 	return
+}
+
+func addrToReadable(addr keys.Address) (readable string) {
+	return gnet.IP(addr[:]).String()
 }
 
 type QuicNet struct {
@@ -73,11 +77,13 @@ func sendMsg(stream *quic.Stream, msg []byte) (ok bool) {
 }
 
 func (n *QuicNet) sendTo(addr keys.Address, msg net.EncryptedMsg) (ok bool) {
-	// return true
 	stream, ok := n.streams[addr]
 	if !ok {
+		fmt.Println("No stream for   ", addrToReadable(addr))
 		return // no stream for this address
 	}
+
+	fmt.Println("Sending message ", addrToReadable(addr), "(existing)  length", len(msg))
 
 	// send message on existing stream
 	if !sendMsg(stream, msg) {
@@ -88,11 +94,11 @@ func (n *QuicNet) sendTo(addr keys.Address, msg net.EncryptedMsg) (ok bool) {
 }
 
 func (n *QuicNet) dialStream(addr keys.Address) (ok bool) {
-	qc, err := n.tr.DialEarly(context.TODO(), addrToUDP(addr), n.tlsConf, n.quicConf)
+	fmt.Println("Dialing         ", addrToReadable(addr))
+	qc, err := n.tr.DialEarly(context.TODO(), addrToUdp(addr), n.tlsConf, n.quicConf)
 	if err != nil {
 		return
 	}
-	defer qc.CloseWithError(0, "done")
 
 	stream, err := qc.OpenStream()
 	if err != nil {
@@ -106,6 +112,7 @@ func (n *QuicNet) dialStream(addr keys.Address) (ok bool) {
 func (n *QuicNet) transportFromSender(s net.Sender) {
 mainloop:
 	for msg := range s {
+		fmt.Println("Received message to send:", len(msg.EncryptedMsg))
 		addrs := append([]keys.Address{msg.MainAddr}, msg.AltAddrs...)
 
 		for _, addr := range addrs {
@@ -116,6 +123,7 @@ mainloop:
 
 		for _, addr := range addrs {
 			if !n.dialStream(addr) {
+				fmt.Println("Dialing failed  ", addrToReadable(addr))
 				continue // failed to dial stream
 			}
 			n.sendTo(addr, msg.EncryptedMsg) // send on newly created stream

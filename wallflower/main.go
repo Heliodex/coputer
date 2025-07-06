@@ -176,9 +176,11 @@ func start() {
 	fmt.Println("Communication system listening on port", PortCommunication)
 
 	qnet.AddNode(n)
+	n.Start()
 	go gatewayServer()
 	go managementServer()
-	n.Start()
+
+	select {}
 }
 
 func main() {

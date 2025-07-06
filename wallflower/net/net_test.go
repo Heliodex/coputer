@@ -193,7 +193,7 @@ func TestWeb(t *testing.T) {
 
 		n1 := NewNode(getSampleKeypair(), getSampleAddress())
 		net.AddNode(n1)
-		go n1.Start()
+		n1.Start()
 
 		fs1 := n1.FindString()
 
@@ -207,7 +207,7 @@ func TestWeb(t *testing.T) {
 		n2 := NewNode(getSampleKeypair(), getSampleAddress())
 		n2.AddPeer(p1) // tell it about n1
 		net.AddNode(n2)
-		go n2.Start()
+		n2.Start()
 
 		resn, err := n2.RunWebProgram(n1.Pk, test.Name, test.Args, false)
 		if err != nil {

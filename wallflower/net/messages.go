@@ -15,8 +15,10 @@ type (
 )
 
 const (
+	// A message sent on startup, without any other information
+	tHi MessageType = iota
 	// A program to store
-	tStore MessageType = iota
+	tStore
 	// Program was stored successfully
 	tStoreResult
 	// Input to a program, indexed by name and pubkey
@@ -32,6 +34,12 @@ type SentMsg interface {
 
 func addType(t MessageType, m []byte) []byte {
 	return append([]byte{t}, m...)
+}
+
+type mHi struct{}
+
+func (m mHi) Serialise() []byte {
+	return []byte{tHi}
 }
 
 type mStore struct {
@@ -144,6 +152,8 @@ func unmarshalResult(ptype ProgramType, rest []byte) (ProgramRets, error) {
 
 func (m AnyMsg) Deserialise() (SentMsg, error) {
 	switch m.Type {
+	case tHi:
+		return mHi{}, nil
 	case tStore:
 		nl := m.Body[0]
 		if int(nl) > len(m.Body) || nl == 0 {
