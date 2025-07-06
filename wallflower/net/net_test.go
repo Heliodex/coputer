@@ -164,6 +164,7 @@ var sampleKeys = [...]string{
 	"cosec:6cg6g52fgh-qk14xzpzbd-6giuh9wlu3-cy3yeulrpv-dukyvye0y3",
 	"cosec:5ki3i1p8ey-v3atgco6qj-eqttki3ad8-blj4arxb5b-wuaakmn0ib",
 	"cosec:5vb3gg5slk-jklp9qufn7-gviwuysl26-ht0e8ik23g-xyno6ki2xj",
+	"cosec:00bckkuo81-xu6fnu7nnp-sg2dyhnpel-tduilo1r46-ssoxisbyq4",
 }
 var sampleKeysUsed uint8
 
@@ -190,7 +191,10 @@ func TestWeb(t *testing.T) {
 
 		net := NewTestNet()
 
-		n1 := net.NewNode(getSampleKeypair(), getSampleAddress())
+		n1 := NewNode(getSampleKeypair(), getSampleAddress())
+		net.AddNode(n1)
+		go n1.Start()
+
 		fs1 := n1.FindString()
 
 		p1, err := PeerFromFindString(fs1)
@@ -200,8 +204,10 @@ func TestWeb(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		n2 := net.NewNode(getSampleKeypair(), getSampleAddress())
+		n2 := NewNode(getSampleKeypair(), getSampleAddress())
 		n2.AddPeer(p1) // tell it about n1
+		net.AddNode(n2)
+		go n2.Start()
 
 		resn, err := n2.RunWebProgram(n1.Pk, test.Name, test.Args, false)
 		if err != nil {

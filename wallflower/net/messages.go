@@ -14,7 +14,6 @@ type (
 	MessageType  = byte
 )
 
-// more than 1 type per message someday?
 const (
 	// A program to store
 	tStore MessageType = iota
@@ -114,7 +113,7 @@ func (m mRunResult) Serialise() []byte {
 }
 
 type AnyMsg struct {
-	From *Peer
+	From *keys.Peer
 	Type MessageType
 	Body []byte
 }

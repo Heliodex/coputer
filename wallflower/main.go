@@ -1,9 +1,7 @@
 package main
 
 import (
-	"context"
 	"crypto/tls"
-	"encoding/binary"
 	"flag"
 	"fmt"
 	"os"
@@ -21,6 +19,12 @@ import (
 // Communication System communicates on port 2506 with peers
 // Gateway communicates on port 2507
 // client/management applications (future) communicate on port 2508
+const (
+	PortExecution = iota + 2505
+	PortCommunication
+	PortGateway
+	PortManagement
+)
 
 func gatewayServer() {}
 
@@ -69,125 +73,6 @@ func getKeypair() (kp keys.Keypair) {
 	return
 }
 
-func dialPeer(tr *quic.Transport, addr *gnet.UDPAddr, tlsConf *tls.Config, quicConf *quic.Config) {
-	qc, err := tr.Dial(context.TODO(), addr, tlsConf, quicConf)
-	if err != nil {
-		fmt.Println("Error dialing QUIC:", err)
-		return
-	}
-	defer qc.CloseWithError(0, "done")
-
-	stream, err := qc.OpenStream()
-	if err != nil {
-		fmt.Println("Error opening stream:", err)
-		return
-	}
-	defer stream.Close()
-
-	for {
-		time.Sleep(time.Second)
-		// send messages to the server
-
-		msg := make([]byte, 1<<20)
-		// fill with random data
-		for i := range msg {
-			msg[i] = byte(i % 256)
-		}
-
-		if err = sendMsg(stream, msg); err != nil {
-			fmt.Println("Error sending message:", err)
-		}
-	}
-}
-
-func parseStream(stream *quic.Stream) {
-	chunkChan, recvChan := make(chan []byte), make(chan []byte)
-	go readChunks(stream, chunkChan)
-	go readMsgs(chunkChan, recvChan)
-
-	for msg := range recvChan {
-		receiveMsg(msg)
-	}
-}
-
-func sendMsg(stream *quic.Stream, msg []byte) (err error) {
-	if len(msg) == 0 {
-		return
-	}
-
-	msgl := make([]byte, 4+len(msg))
-	binary.BigEndian.PutUint32(msgl[:4], uint32(len(msg)))
-	copy(msgl[4:], msg)
-
-	_, err = stream.Write(msgl)
-	return
-}
-
-func receiveMsg(msg []byte) {
-	fmt.Println("Received message:", len(msg))
-}
-
-func readChunks(stream *quic.Stream, chunkChan chan<- []byte) {
-	for {
-		b := make([]byte, msgChunk)
-
-		n, err := stream.Read(b)
-		if err != nil || n == 0 {
-			continue
-		}
-
-		chunkChan <- b[:n]
-	}
-}
-
-func readMsgs(chunkChan <-chan []byte, msgChan chan<- []byte) {
-	const minChunkSize = 4 // well not really, as a message can't be just a length and 0 bytes, but whatever
-
-	b := make([]byte, 0, minChunkSize)
-
-	for {
-		// get enough chunk to read the size
-		for len(b) < minChunkSize {
-			b = append(b, <-chunkChan...)
-		}
-
-		l := binary.BigEndian.Uint32(b[:4])
-		b = b[4:] // remove the length bytes
-		if l == 0 {
-			continue
-		}
-
-		// we are not, I repeat, NOT, preallocating the memory for the message here, in case some yobo decides to send loads of messages with 4GiB length
-		il := int(l)
-		for len(b) < il { // now time for the real message
-			b = append(b, <-chunkChan...)
-		}
-
-		msgChan <- b[:il] // send it off!!!!!!!
-		b = b[il:]      // remaining bytes are for the next message
-	}
-}
-
-func communicationServer(ln *quic.Listener) {
-	for {
-		qc, err := ln.Accept(context.TODO())
-		if err != nil {
-			fmt.Println("Error accepting connection:", err)
-			continue
-		}
-
-		fmt.Println("Accepted connection from", qc.RemoteAddr())
-
-		stream, err := qc.AcceptStream(context.TODO())
-		if err != nil {
-			fmt.Println("Error accepting stream:", err)
-			continue
-		}
-
-		go parseStream(stream)
-	}
-}
-
 func start() {
 	// read secret key from environment variable
 	kp := getKeypair()
@@ -218,20 +103,6 @@ func start() {
 		os.Exit(1)
 	}
 
-	net := net.NewTestNet()
-	n := net.NewNode(kp, addrs[0], addrs[1:]...)
-
-	// start udp server
-	ua := &gnet.UDPAddr{
-		IP:   lip.IP,
-		Port: 2506,
-	}
-	server, err := gnet.ListenUDP("udp6", ua)
-	if err != nil {
-		fmt.Println("Failed to start UDP server:", err)
-		os.Exit(1)
-	}
-
 	tlsCert, err := kp.Sk.TLS()
 	if err != nil {
 		fmt.Println("Failed to create TLS certificate:", err)
@@ -252,27 +123,23 @@ func start() {
 		Allow0RTT: true,
 	}
 
-	// set environment variable
-	if err = os.Setenv("QUIC_GO_DISABLE_RECEIVE_BUFFER_WARNING", "true"); err != nil {
-		fmt.Println("Failed to set OS environment variable.")
+	qnet, err := NewQuicNet(lip.IP, tlsConf, quicConf)
+	if err != nil {
+		fmt.Println("Failed to create QUIC network:", err)
+		os.Exit(1)
 	}
 
-	tr := &quic.Transport{Conn: server}
-	ln, err := tr.Listen(tlsConf, quicConf)
-	if err != nil {
-		panic(fmt.Sprintf("failed to start QUIC server: %v", err))
-	}
+	n := net.NewNode(kp, addrs[0], addrs[1:]...)
 
 	fmt.Println("Public key", kp.Pk.Encode())
 	fmt.Println(len(ips), "public IP addresses found")
 	fmt.Println("Find string", n.FindString())
-	fmt.Println("Communication system listening on", server.LocalAddr())
+	fmt.Println("Communication system listening on port", PortCommunication)
 
+	qnet.AddNode(n)
 	go gatewayServer()
 	go managementServer()
-	go communicationServer(ln)
-
-	dialPeer(tr, ua, tlsConf, quicConf)
+	n.Start()
 }
 
 func main() {
@@ -289,8 +156,6 @@ func main() {
 
 		flag.CommandLine.Parse(os.Args[2:])
 		multiple, threads := *fmultiple, *fthreads
-
-		fmt.Println(multiple, threads)
 
 		// get cpu cores
 		fmt.Printf("Using %d-threaded key generation.\n", threads)

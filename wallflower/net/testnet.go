@@ -1,53 +1,35 @@
 package net
 
-import (
-	"errors"
-
-	. "github.com/Heliodex/coputer/litecode/types"
-	"github.com/Heliodex/coputer/wallflower/keys"
-)
+import "github.com/Heliodex/coputer/wallflower/keys"
 
 type TestNet struct {
-	ExistingPeers []Peer
+	peers map[keys.Address]*Node // known peers
 }
 
 func NewTestNet() Net {
-	return &TestNet{}
+	return &TestNet{
+		peers: make(map[keys.Address]*Node),
+	}
 }
 
-func (n *TestNet) SendRaw(p *Peer, m []byte) (err error) {
-	for _, ep := range n.ExistingPeers {
-		if p.Equals(ep) {
-			ep.Transfer <- m
-			// if we know we can reach the peer some other way then we should do that
-			return
-		}
+func (n *TestNet) sendToReceiver(addr keys.Address, msg EncryptedMsg) {
+	if node, ok := n.peers[addr]; ok {
+		node.ReceiveRaw <- msg
 	}
-
-	return errors.New("sendraw: unknown peer")
 }
 
-func (n *TestNet) NewNode(kp keys.Keypair, mainAddr keys.Address, altAddrs ...keys.Address) (node *Node) {
-	peer := Peer{
-		Pk:       kp.Pk,
-		MainAddr: mainAddr,
-		AltAddrs: altAddrs,
-		Transfer: make(chan EncryptedMsg),
+func (n *TestNet) receiveFromSender(s Sender) {
+	for msg := range s {
+		addr := msg.Peer.MainAddr // TestNet only uses main addresses
+		n.sendToReceiver(addr, msg.EncryptedMsg)
+	}
+}
+
+func (n *TestNet) AddNode(node *Node) {
+	n.peers[node.MainAddr] = node
+	for _, addr := range node.AltAddrs {
+		n.peers[addr] = node
 	}
 
-	n.ExistingPeers = append(n.ExistingPeers, peer)
-
-	node = &Node{
-		ThisPeer: ThisPeer{
-			Peer: peer,
-			Kp:   kp,
-		},
-		Peers:              make(map[keys.PK]*Peer),
-		SendRaw:            n.SendRaw,
-		resultsWaitingHash: make(map[InputHash]chan ProgramRets),
-		resultsWaitingName: make(map[InputName]chan ProgramRets),
-	}
-
-	go node.Start()
-	return
+	go n.receiveFromSender(node.SendRaw)
 }

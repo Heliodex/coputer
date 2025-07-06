@@ -20,20 +20,19 @@ const AddressLen = 16
 
 type Address [AddressLen]byte // can be whatever (probably an ipv6 lel)
 
-type Peer[T any] struct {
+type Peer struct {
 	Pk       PK
 	MainAddr Address
 	AltAddrs []Address
 	LastSeen time.Time
-	Transfer T
 }
 
-type ThisPeer[T any] struct {
-	Peer[T]
+type ThisPeer struct {
+	Peer
 	Kp Keypair
 }
 
-func (p Peer[T]) Equals(p2 Peer[T]) bool {
+func (p Peer) Equals(p2 Peer) bool {
 	return p.Pk == p2.Pk && p.MainAddr == p2.MainAddr && slices.Equal(p.AltAddrs, p2.AltAddrs)
 }
 
@@ -107,7 +106,7 @@ const (
 // --- Actual message [up to 65519 (chunkSize)]
 // encrypted [16] with recipient pk [total up to 65535 (chunkEnc)]
 
-func encryptKey[T any](p ThisPeer[T], pk *[32]byte) ([]byte, error) {
+func encryptKey(p ThisPeer, pk *[32]byte) ([]byte, error) {
 	c := make([]byte, keySize)
 
 	// Sender pk [29] + Address count [1]
@@ -118,7 +117,7 @@ func encryptKey[T any](p ThisPeer[T], pk *[32]byte) ([]byte, error) {
 	return box.SealAnonymous(nil, c, pk, nil)
 }
 
-func encryptAddresses[T any](p ThisPeer[T], pk *[32]byte, sk [32]byte) []byte {
+func encryptAddresses(p ThisPeer, pk *[32]byte, sk [32]byte) []byte {
 	c := p.MainAddr[:] // main address is always first
 
 	// Addresses [16]...
@@ -132,7 +131,7 @@ func encryptAddresses[T any](p ThisPeer[T], pk *[32]byte, sk [32]byte) []byte {
 
 // chunks are chunked because not having to hold the whole thing in memory at the same time (?)
 // we cold do larger chunks but messages larger than 64k will probably be rare (apart from file transfers? large responses? I'll get to tis when I do gateway implementation soon)
-func (p ThisPeer[T]) Encrypt(msg []byte, to PK) (out []byte, err error) {
+func (p ThisPeer) Encrypt(msg []byte, to PK) (out []byte, err error) {
 	pk := new([32]byte)
 	copy(pk[3:], to[:])
 	sk := [32]byte(p.Kp.Sk)
@@ -203,20 +202,20 @@ func decryptAddrs(encryptedAddrs []byte, peerpk *[32]byte, sk [32]byte) (addrs [
 }
 
 // todo: version cyphertexts
-func Decrypt[T any](kp Keypair, emsg []byte) (from Peer[T], msg []byte, err error) {
+func Decrypt(kp Keypair, emsg []byte) (from Peer, msg []byte, err error) {
 	pk := new([32]byte)
 	copy(pk[3:], kp.Pk[:])
 	sk := [32]byte(kp.Sk)
 
 	// Sender pk [29] + Address count [1]
 	if len(emsg) < keyEnc+1 {
-		return Peer[T]{}, nil, fmt.Errorf("message too short (%d)", len(emsg))
+		return Peer{}, nil, fmt.Errorf("message too short (%d)", len(emsg))
 	}
 
 	encryptedKey, ct := emsg[:keyEnc], emsg[keyEnc:]
 	ppk, addrCount, ok := decryptKey(encryptedKey, pk, sk)
 	if !ok {
-		return Peer[T]{}, nil, errors.New("key decryption failed")
+		return Peer{}, nil, errors.New("key decryption failed")
 	}
 
 	from.Pk = ppk
@@ -231,11 +230,11 @@ func Decrypt[T any](kp Keypair, emsg []byte) (from Peer[T], msg []byte, err erro
 	encryptedAddrs, ct := ct[:addrsEnc], ct[addrsEnc:]
 	addrs, ok := decryptAddrs(encryptedAddrs, peerpk, sk)
 	if !ok {
-		return Peer[T]{}, nil, errors.New("addresses decryption failed")
+		return Peer{}, nil, errors.New("addresses decryption failed")
 	}
 
 	if len(addrs) == 0 {
-		return Peer[T]{}, nil, errors.New("no addresses found")
+		return Peer{}, nil, errors.New("no addresses found")
 	}
 
 	from.MainAddr, from.AltAddrs = addrs[0], addrs[1:]
@@ -255,7 +254,7 @@ func Decrypt[T any](kp Keypair, emsg []byte) (from Peer[T], msg []byte, err erro
 		dec, ok := box.Open(nil, chunk, ZeroNonce, peerpk, &sk)
 
 		if !ok {
-			return Peer[T]{}, nil, errors.New("chunk decryption failed")
+			return Peer{}, nil, errors.New("chunk decryption failed")
 		}
 
 		msg = append(msg, dec...)

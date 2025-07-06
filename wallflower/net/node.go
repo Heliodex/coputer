@@ -16,7 +16,7 @@ import (
 
 const FindStart = "cofind:"
 
-func PeerFromFindString(find string) (p *Peer, err error) {
+func PeerFromFindString(find string) (p *keys.Peer, err error) {
 	if !strings.HasPrefix(find, FindStart) || find[56] != '.' {
 		return nil, errors.New("not a valid find string")
 	}
@@ -52,11 +52,11 @@ func PeerFromFindString(find string) (p *Peer, err error) {
 		copy(altAddrs[i][:], addrs[(i+1)*keys.AddressLen:][:keys.AddressLen])
 	}
 
-	return &Peer{Pk: pk, MainAddr: mainAddr, AltAddrs: altAddrs}, nil
+	return &keys.Peer{Pk: pk, MainAddr: mainAddr, AltAddrs: altAddrs}, nil
 }
 
 func (e EncryptedMsg) Decode(kp keys.Keypair) (am AnyMsg, err error) {
-	from, body, err := keys.Decrypt[Transfer](kp, e)
+	from, body, err := keys.Decrypt(kp, e)
 	if err != nil {
 		return
 	}
@@ -80,33 +80,53 @@ type InputName struct {
 }
 
 type Node struct {
-	ThisPeer
+	keys.ThisPeer
 
-	Peers              map[keys.PK]*Peer // known peers
-	SendRaw            func(peer *Peer, msg []byte) (err error)
+	Peers              map[keys.PK]*keys.Peer // known peers
+	SendRaw            Sender
+	ReceiveRaw         Receiver
 	resultsWaitingHash map[InputHash]chan ProgramRets
 	resultsWaitingName map[InputName]chan ProgramRets
 	running            bool
 }
 
-func (n *Node) AddPeer(p *Peer) {
+func NewNode(kp keys.Keypair, mainAddr keys.Address, altAddrs ...keys.Address) (node *Node) {
+	peer := keys.Peer{
+		Pk:       kp.Pk,
+		MainAddr: mainAddr,
+		AltAddrs: altAddrs,
+	}
+
+	return &Node{
+		ThisPeer: keys.ThisPeer{
+			Peer: peer,
+			Kp:   kp,
+		},
+		Peers:              make(map[keys.PK]*keys.Peer),
+		SendRaw:            make(Sender),
+		ReceiveRaw:         make(Receiver),
+		resultsWaitingHash: make(map[InputHash]chan ProgramRets),
+		resultsWaitingName: make(map[InputName]chan ProgramRets),
+	}
+}
+
+func (n *Node) AddPeer(p *keys.Peer) {
 	if _, ok := n.Peers[p.Pk]; !ok {
 		n.Peers[p.Pk] = p
 	}
 }
 
-func (n *Node) send(pk keys.PK, sm SentMsg) (err error) {
-	peer, ok := n.Peers[pk]
-	if !ok {
-		return errors.New("send: unknown peer")
-	}
-
-	ct, err := n.Encrypt(sm.Serialise(), pk)
+func (n *Node) send(p *keys.Peer, sm SentMsg) (err error) {
+	ct, err := n.Encrypt(sm.Serialise(), p.Pk)
 	if err != nil {
 		return
 	}
 
-	return n.SendRaw(peer, ct)
+	n.SendRaw <- AddressedMsg{
+		EncryptedMsg: ct,
+		Peer:         p,
+	}
+	return
 }
 
 // A find string encodes the pk and addresses
@@ -150,7 +170,7 @@ func (n *Node) handleMessage(am AnyMsg) {
 
 		// show result was successful
 		res := mStoreResult{hash}
-		n.send(am.From.Pk, res)
+		n.send(am.From, res)
 
 	case mStoreResult:
 		n.log("Program storage successful\n", "Hash: ", hex.EncodeToString(m.Hash[:]))
@@ -176,7 +196,7 @@ func (n *Node) handleMessage(am AnyMsg) {
 
 			// return result
 			res := mRunResult{WebProgramType, m.Pk, m.Name, sha3.Sum256(inputBytes), ret}
-			n.send(am.From.Pk, res)
+			n.send(am.From, res)
 
 		default:
 			n.log("Unknown program type\n", m.Input.Type())
@@ -197,7 +217,7 @@ func (n *Node) handleMessage(am AnyMsg) {
 	}
 }
 
-func (n *Node) seenPeer(p *Peer) {
+func (n *Node) seenPeer(p *keys.Peer) {
 	if _, ok := n.Peers[p.Pk]; !ok {
 		n.Peers[p.Pk] = p
 	}
@@ -212,7 +232,7 @@ func (n *Node) StoreProgram(pk keys.PK, name string, b []byte) (err error) {
 	for _, peer := range n.Peers {
 		m := mStore{name, b}
 
-		if err = n.send(peer.Pk, m); err != nil {
+		if err = n.send(peer, m); err != nil {
 			return
 		}
 	}
@@ -233,7 +253,7 @@ func (n *Node) peerRunName(pk keys.PK, name string, inputhash [32]byte, ptype Pr
 	for _, peer := range n.Peers {
 		m := mRun{ptype, pk, name, input}
 
-		if err = n.send(peer.Pk, m); err != nil {
+		if err = n.send(peer, m); err != nil {
 			return
 		}
 	}
@@ -280,7 +300,7 @@ func (n *Node) Start() {
 
 	// Receiver
 	for {
-		rec := <-n.Transfer
+		rec := <-n.ReceiveRaw
 		if !n.running {
 			break
 		}
@@ -305,5 +325,6 @@ func (n *Node) Start() {
 func (n *Node) Stop() {
 	n.log("Stopping")
 	n.running = false
-	close(n.Transfer)
+	close(n.SendRaw)
+	close(n.ReceiveRaw)
 }
