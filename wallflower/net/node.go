@@ -111,6 +111,10 @@ func NewNode(kp keys.Keypair, mainAddr keys.Address, altAddrs ...keys.Address) (
 }
 
 func (n *Node) AddPeer(p *keys.Peer) {
+	if p == nil {
+		return
+	}
+
 	if _, ok := n.Peers[p.Pk]; !ok {
 		n.Peers[p.Pk] = p
 	}

@@ -99,9 +99,12 @@ func getPeers() (peers []*keys.Peer) {
 	// open the peers file
 	const peersFile = "peers"
 	file, err := os.Open(peersFile)
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		fmt.Printf("Failed to open peers file %s: %v\n", peersFile, err)
 		os.Exit(1)
+	} else if os.IsNotExist(err) {
+		fmt.Printf("Peers file %s does not exist. No peers will be loaded.\n", peersFile)
+		return
 	}
 	defer file.Close()
 
@@ -111,9 +114,12 @@ func getPeers() (peers []*keys.Peer) {
 		os.Exit(1)
 	}
 
-	lines := strings.Split(strings.TrimSpace(string(b)), "\n")
-	peers = make([]*keys.Peer, len(lines))
-	for i, line := range lines {
+	if len(b) == 0 {
+		fmt.Printf("Peers file %s is empty. No peers will be loaded.\n", peersFile)
+		return
+	}
+
+	for line := range strings.SplitSeq(strings.TrimSpace(string(b)), "\n") {
 		peer, err := net.PeerFromFindString(line)
 		if err != nil {
 			fmt.Printf(`Failed to parse peer from line "%s": %v\n`, line, err)
@@ -121,7 +127,7 @@ func getPeers() (peers []*keys.Peer) {
 		}
 
 		fmt.Println("Found peer", peer.Pk.Encode())
-		peers[i] = peer
+		peers = append(peers, peer)
 	}
 	return
 }
