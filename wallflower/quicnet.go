@@ -111,7 +111,7 @@ func (n *QuicNet) dialStream(addr keys.Address) (err error) {
 func (n *QuicNet) transportFromSender(s net.Sender) {
 mainloop:
 	for msg := range s {
-		fmt.Println("Received message to send:", len(msg.EncryptedMsg))
+		fmt.Println("Transporting message", len(msg.EncryptedMsg))
 		addrs := append([]keys.Address{msg.MainAddr}, msg.AltAddrs...)
 
 		for _, addr := range addrs {
@@ -123,9 +123,9 @@ mainloop:
 		for _, addr := range addrs {
 			if err := n.dialStream(addr); err != nil {
 				fmt.Println("Dialing failed  ", addrToReadable(addr), ":", err)
-				continue // failed to dial stream
+			} else if n.sendTo(addr, msg.EncryptedMsg) {
+				break // sent message on newly created stream
 			}
-			n.sendTo(addr, msg.EncryptedMsg) // send on newly created stream
 		}
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"net"
 	"slices"
 	"time"
 
@@ -19,6 +20,10 @@ type Keypair struct {
 const AddressLen = 16
 
 type Address [AddressLen]byte // can be whatever (probably an ipv6 lel)
+
+func (a Address) String() string {
+	return net.IP(a[:]).String()
+}
 
 type Peer struct {
 	Pk       PK

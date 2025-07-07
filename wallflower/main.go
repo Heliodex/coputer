@@ -180,6 +180,9 @@ func start() {
 
 	fmt.Println("Public key", kp.Pk.Encode())
 	fmt.Println(len(addrs), "public network addresses found")
+	for _, addr := range addrs {
+		fmt.Println("    ", gnet.IP(addr[:]).String())
+	}
 	fmt.Println("Find string", n.FindString())
 	fmt.Println("Communication system listening on port", PortCommunication)
 
