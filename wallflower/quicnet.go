@@ -31,7 +31,7 @@ type QuicNet struct {
 	tlsConf  *tls.Config
 	quicConf *quic.Config
 	listener *quic.Listener
-	streams  map[keys.Address]*quic.Stream
+	streams  map[keys.Address]*quic.SendStream
 }
 
 func NewQuicNet(lip gnet.IP, tlsConf *tls.Config, quicConf *quic.Config) (n net.Net, err error) {
@@ -59,11 +59,11 @@ func NewQuicNet(lip gnet.IP, tlsConf *tls.Config, quicConf *quic.Config) (n net.
 		tlsConf:  tlsConf,
 		quicConf: quicConf,
 		listener: ln,
-		streams:  make(map[keys.Address]*quic.Stream),
+		streams:  make(map[keys.Address]*quic.SendStream),
 	}, nil
 }
 
-func sendMsg(stream *quic.Stream, msg []byte) (ok bool) {
+func sendMsg(stream *quic.SendStream, msg []byte) (ok bool) {
 	if len(msg) == 0 {
 		return true
 	}
@@ -93,20 +93,20 @@ func (n *QuicNet) sendTo(addr keys.Address, msg net.EncryptedMsg) (ok bool) {
 	return true
 }
 
-func (n *QuicNet) dialStream(addr keys.Address) (ok bool) {
+func (n *QuicNet) dialStream(addr keys.Address) (err error) {
 	fmt.Println("Dialing         ", addrToReadable(addr))
 	qc, err := n.tr.DialEarly(context.TODO(), addrToUdp(addr), n.tlsConf, n.quicConf)
 	if err != nil {
-		return
+		return fmt.Errorf("failed to dial QUIC connection: %w", err)
 	}
 
-	stream, err := qc.OpenStream()
+	stream, err := qc.OpenUniStream()
 	if err != nil {
-		return
+		return fmt.Errorf("failed to open QUIC stream: %w", err)
 	}
 
 	n.streams[addr] = stream
-	return true
+	return
 }
 
 func (n *QuicNet) transportFromSender(s net.Sender) {
@@ -122,8 +122,8 @@ mainloop:
 		}
 
 		for _, addr := range addrs {
-			if !n.dialStream(addr) {
-				fmt.Println("Dialing failed  ", addrToReadable(addr))
+			if err := n.dialStream(addr); err != nil {
+				fmt.Println("Dialing failed  ", addrToReadable(addr), ":", err)
 				continue // failed to dial stream
 			}
 			n.sendTo(addr, msg.EncryptedMsg) // send on newly created stream
@@ -131,7 +131,7 @@ mainloop:
 	}
 }
 
-func readChunks(stream *quic.Stream, chunkChan chan<- []byte) {
+func readChunks(stream *quic.ReceiveStream, chunkChan chan<- []byte) {
 	for {
 		b := make([]byte, msgChunk)
 
@@ -172,7 +172,7 @@ func readMsgs(chunkChan <-chan []byte, msgChan chan<- net.EncryptedMsg) {
 	}
 }
 
-func parseStream(stream *quic.Stream, r net.Receiver) {
+func parseStream(stream *quic.ReceiveStream, r net.Receiver) {
 	chunkChan := make(chan []byte)
 	go readChunks(stream, chunkChan)
 	go readMsgs(chunkChan, r)
@@ -188,7 +188,7 @@ func (n *QuicNet) serveToReceiver(ln *quic.Listener, r net.Receiver) {
 
 		fmt.Println("Accepted connection from", qc.RemoteAddr())
 
-		stream, err := qc.AcceptStream(context.TODO())
+		stream, err := qc.AcceptUniStream(context.TODO())
 		if err != nil {
 			fmt.Println("Error accepting stream:", err)
 			continue

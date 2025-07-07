@@ -333,7 +333,7 @@ func (n *Node) Start() {
 	go n.receive()
 
 	for _, peer := range n.Peers {
-		n.log("Sending hi message to peer\n", peer.Pk.Encode(), "\n", peer.MainAddr)
+		n.log("Sending hi message to peer\n", peer.Pk.Encode())
 		if err := n.send(peer, mHi{}); err != nil {
 			n.log("Failed to send hi message to peer\n", err)
 		}
