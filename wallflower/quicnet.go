@@ -46,9 +46,6 @@ func NewQuicNet(tlsConf *tls.Config, quicConf *quic.Config) (n net.Net, err erro
 	if err = os.Setenv("QUIC_GO_DISABLE_RECEIVE_BUFFER_WARNING", "true"); err != nil {
 		fmt.Println("Failed to set OS environment variable.")
 	}
-	if err = os.Setenv("QUIC_GO_LOG_LEVEL", "debug"); err != nil {
-		fmt.Println("Failed to set OS environment variable.")
-	}
 
 	tr := &quic.Transport{Conn: server}
 	ln, err := tr.Listen(tlsConf, quicConf)

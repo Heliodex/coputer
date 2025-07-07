@@ -286,12 +286,6 @@ func (n *Node) receive() {
 		}
 
 		n.seenPeer(msg.From)
-
-		n.log(
-			"Received ", len(msg.Body), "\n",
-			"From ", msg.From.Pk.Encode(), "\n",
-			"@ ", msg.From.MainAddr, "\n")
-
 		n.handleMessage(msg)
 	}
 }
