@@ -34,9 +34,8 @@ type QuicNet struct {
 	streams  map[keys.Address]*quic.SendStream
 }
 
-func NewQuicNet(lip gnet.IP, tlsConf *tls.Config, quicConf *quic.Config) (n net.Net, err error) {
+func NewQuicNet(tlsConf *tls.Config, quicConf *quic.Config) (n net.Net, err error) {
 	server, err := gnet.ListenUDP("udp6", &gnet.UDPAddr{
-		IP:   lip,
 		Port: PortCommunication,
 	})
 	if err != nil {
@@ -45,6 +44,9 @@ func NewQuicNet(lip gnet.IP, tlsConf *tls.Config, quicConf *quic.Config) (n net.
 
 	// set environment variable
 	if err = os.Setenv("QUIC_GO_DISABLE_RECEIVE_BUFFER_WARNING", "true"); err != nil {
+		fmt.Println("Failed to set OS environment variable.")
+	}
+	if err = os.Setenv("QUIC_GO_LOG_LEVEL", "debug"); err != nil {
 		fmt.Println("Failed to set OS environment variable.")
 	}
 

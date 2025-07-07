@@ -164,7 +164,7 @@ func start() {
 		Allow0RTT: true,
 	}
 
-	qnet, err := NewQuicNet(gnet.IPv6loopback, tlsConf, quicConf)
+	qnet, err := NewQuicNet(tlsConf, quicConf)
 	if err != nil {
 		fmt.Println("Failed to create QUIC network:", err)
 		os.Exit(1)
