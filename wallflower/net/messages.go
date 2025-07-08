@@ -29,7 +29,7 @@ const (
 
 // sent messages
 type SentMsg interface {
-	Serialise() []byte
+	Serialise() ([]byte, error)
 }
 
 func addType(t MessageType, m []byte) []byte {
@@ -38,8 +38,8 @@ func addType(t MessageType, m []byte) []byte {
 
 type mHi struct{}
 
-func (m mHi) Serialise() []byte {
-	return []byte{tHi}
+func (m mHi) Serialise() ([]byte, error) {
+	return []byte{tHi}, nil
 }
 
 type mStore struct {
@@ -47,11 +47,10 @@ type mStore struct {
 	Bundled []byte
 }
 
-func (m mStore) Serialise() []byte {
+func (m mStore) Serialise() ([]byte, error) {
 	nl := len(m.Name)
-	// TODO
 	if nl > 255 {
-		panic("name too long")
+		return nil, errors.New("name too long")
 	}
 
 	b := make([]byte, 1, 1+nl+len(m.Bundled))
@@ -59,15 +58,15 @@ func (m mStore) Serialise() []byte {
 	b = append(b, m.Name...)
 	b = append(b, m.Bundled...)
 
-	return addType(tStore, b)
+	return addType(tStore, b), nil
 }
 
 type mStoreResult struct {
 	Hash [32]byte
 }
 
-func (m mStoreResult) Serialise() []byte {
-	return addType(tStoreResult, m.Hash[:])
+func (m mStoreResult) Serialise() ([]byte, error) {
+	return addType(tStoreResult, m.Hash[:]), nil
 }
 
 type mRun struct {
@@ -77,11 +76,10 @@ type mRun struct {
 	Input ProgramArgs
 }
 
-func (m mRun) Serialise() []byte {
+func (m mRun) Serialise() (s []byte, err error) {
 	in, err := json.Marshal(m.Input)
-	// TODO
 	if err != nil {
-		panic(err)
+		return
 	}
 
 	b := make([]byte, 1, 1+keys.PKSize+1+len(m.Name)+len(in))
@@ -91,7 +89,7 @@ func (m mRun) Serialise() []byte {
 	b = append(b, m.Name...)
 	b = append(b, in...)
 
-	return addType(tRun, b)
+	return addType(tRun, b), nil
 }
 
 type mRunResult struct {
@@ -102,11 +100,10 @@ type mRunResult struct {
 	Result    ProgramRets
 }
 
-func (m mRunResult) Serialise() []byte {
+func (m mRunResult) Serialise() (s []byte, err error) {
 	res, err := json.Marshal(m.Result)
-	// TODO
 	if err != nil {
-		panic(err)
+		return
 	}
 
 	b := make([]byte, 1, 1+keys.PKSize+1+len(m.Name)+len(res))
@@ -117,7 +114,7 @@ func (m mRunResult) Serialise() []byte {
 	b = append(b, m.InputHash[:]...)
 	b = append(b, res...)
 
-	return addType(tRunResult, b)
+	return addType(tRunResult, b), nil
 }
 
 type AnyMsg struct {
