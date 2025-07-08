@@ -123,17 +123,17 @@ func (s SK) Encode() string {
 	return b.String()
 }
 
+var errInvalidKeyType = errors.New("invalid key type")
+
 // Takes a string representation of a public key and returns the byte representation of it
-func DecodePK(key string) (bs PK, err error) {
-	if expectedLength := pkStringLength + 10; len(key) != expectedLength {
+func DecodePKNoPrefix(key string) (bs PK, err error) {
+	if expectedLength := pkStringLength + 4; len(key) != expectedLength {
 		return PK{}, fmt.Errorf("invalid length: expected %d, got %d", expectedLength, len(key))
-	} else if key[:6] != PubStart {
-		return PK{}, errors.New("invalid key type")
 	}
 
 	bp := 1
 
-	for _, v := range []byte(key[6:15] + key[16:25] + key[26:35] + key[36:45] + key[46:]) {
+	for _, v := range []byte(key[:9] + key[10:19] + key[20:29] + key[30:39] + key[40:]) {
 		carry, ok := byteMap[v]
 		if !ok {
 			return PK{}, fmt.Errorf("non-base character '%c'", v)
@@ -152,21 +152,26 @@ func DecodePK(key string) (bs PK, err error) {
 	}
 
 	slices.Reverse(bs[:])
-
 	return
 }
 
+func DecodePK(key string) (bs PK, err error) {
+	if key[:len(PubStart)] != PubStart {
+		return PK{}, errInvalidKeyType
+	}
+
+	return DecodePKNoPrefix(key[len(PubStart):])
+}
+
 // Takes a string representation of a secret key and returns the byte representation of it
-func DecodeSK(key string) (bs SK, err error) {
-	if expectedLength := skStringLength + 10; len(key) != expectedLength {
+func DecodeSKNoPrefix(key string) (bs SK, err error) {
+	if expectedLength := skStringLength + 4; len(key) != expectedLength {
 		return SK{}, fmt.Errorf("invalid length: expected %d, got %d", expectedLength, len(key))
-	} else if key[:6] != SecStart {
-		return SK{}, errors.New("invalid key type")
 	}
 
 	bp := 1
 
-	for _, v := range []byte(key[6:16] + key[17:27] + key[28:38] + key[39:49] + key[50:]) {
+	for _, v := range []byte(key[:10] + key[11:21] + key[22:32] + key[33:43] + key[44:]) {
 		carry, ok := byteMap[v]
 		if !ok {
 			return SK{}, errors.New("non-base character")
@@ -185,6 +190,13 @@ func DecodeSK(key string) (bs SK, err error) {
 	}
 
 	slices.Reverse(bs[:])
-
 	return
+}
+
+func DecodeSK(key string) (bs SK, err error) {
+	if key[:len(SecStart)] != SecStart {
+		return SK{}, errInvalidKeyType
+	}
+
+	return DecodeSKNoPrefix(key[len(SecStart):])
 }

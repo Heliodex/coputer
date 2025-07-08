@@ -21,7 +21,7 @@ func PeerFromFindString(find string) (p *keys.Peer, err error) {
 		return nil, errors.New("not a valid find string")
 	}
 
-	pk, err := keys.DecodePK(keys.PubStart + find[7:56]) // up until 1st dot
+	pk, err := keys.DecodePKNoPrefix(find[7:56]) // up until 1st dot
 	if err != nil {
 		return
 	}

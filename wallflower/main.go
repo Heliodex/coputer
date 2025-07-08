@@ -160,9 +160,9 @@ func start() {
 	}
 
 	quicConf := &quic.Config{
-		Versions:        []quic.Version{quic.Version2},
-		Allow0RTT:       true,
-		KeepAlivePeriod: 15 * time.Second,
+		Versions:             []quic.Version{quic.Version2},
+		Allow0RTT:            true,
+		KeepAlivePeriod:      15 * time.Second,
 		HandshakeIdleTimeout: time.Second, // just 4 speed
 	}
 
