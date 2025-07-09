@@ -9,9 +9,28 @@ import (
 )
 
 const (
-	host = "localhost"
+	host    = "localhost"
 	dothost = "." + host
+
+	egPk = "1mdy2o0f9-s1a9rdjkt-vwut3s6fv-gd1nv0ezr-it04zc2le"
 )
+
+func serveMain(w http.ResponseWriter, _ *http.Request, host string) {
+	fmt.Fprintln(w, "Welcome to the Coputer Gateway!")
+	fmt.Fprintln(w, "This is a placeholder for the main page.")
+	fmt.Fprintf(w, "Profiles are accessible via subdomains like %s.%s\n", egPk, host)
+	fmt.Fprintf(w, "Programs are accessible via subdomains like example.%s.%s\n", egPk, host)
+}
+
+func serveProfile(w http.ResponseWriter, _ *http.Request, pk keys.PK) {
+	fmt.Fprintf(w, "Profile for public key %s\n", pk.Encode())
+	fmt.Fprintln(w, "This is a placeholder for the public key's profile page.")
+}
+
+func serveWeb(w http.ResponseWriter, _ *http.Request, pk keys.PK, name string) {
+	fmt.Fprintf(w, "Web program '%s' for public key %s\n", name, pk.Encode())
+	fmt.Fprintln(w, "This is a placeholder for the web program page.")
+}
 
 func main() {
 	fmt.Println("Starting")
@@ -28,7 +47,7 @@ func main() {
 		hn := u.Hostname()
 		if hn == host {
 			// serve main page
-			fmt.Fprintln(w, "Hello from main page")
+			serveMain(w, r, host)
 			return
 		}
 
@@ -38,19 +57,39 @@ func main() {
 		}
 
 		sub := strings.TrimSuffix(hn, dothost)
-		if strings.Contains(sub, ".") {
+
+		// subdomain is either {name}.{pk} or just {pk}
+		dots := strings.Count(sub, ".")
+		if dots > 1 {
+			// subdomains of subdomains? someday
 			http.Error(w, fmt.Sprintf("Invalid subdomain: %s", sub), http.StatusBadRequest)
 			return
 		}
 
-		pk, err := keys.DecodePK(sub)
+		var name, pks string
+		if dots == 0 {
+			// subdomain is just {pk}
+			pks = sub
+		} else {
+			// subdomain is {name}.{pk}
+			parts := strings.SplitN(sub, ".", 2)
+			name, pks = parts[0], parts[1]
+		}
+
+		pk, err := keys.DecodePKNoPrefix(pks)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to decode public key: %v", err), http.StatusBadRequest)
 			return
 		}
 
-		// Respond with a simple message
-		fmt.Fprintln(w, "Hello from public key:", pk)
+		if name == "" {
+			// show public key "profile"
+			serveProfile(w, r, pk)
+			return
+		}
+
+		// serve web program
+		serveWeb(w, r, pk, name)
 	})
 
 	fmt.Println("Listening on port 2507")
