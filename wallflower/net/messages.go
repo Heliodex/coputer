@@ -42,6 +42,7 @@ func (m mHi) Serialise() ([]byte, error) {
 	return []byte{tHi}, nil
 }
 
+// TODO: add pk and signatures to allow sending programs to other peers
 type mStore struct {
 	Name    string
 	Bundled []byte
@@ -154,7 +155,7 @@ func (m AnyMsg) Deserialise() (SentMsg, error) {
 	case tStore:
 		nl := m.Body[0]
 		if int(nl) > len(m.Body) || nl == 0 {
-			return nil, errors.New("invalid message length")
+			return nil, errors.New("invalid name length")
 		}
 
 		name, bundled := m.Body[1:nl+1], m.Body[nl+1:]
@@ -171,7 +172,7 @@ func (m AnyMsg) Deserialise() (SentMsg, error) {
 		copy(pk[:], m.Body[1:][:29])
 		nl, rest := m.Body[30], m.Body[31:]
 		if int(nl) > len(m.Body) || nl == 0 {
-			return nil, errors.New("invalid message length")
+			return nil, errors.New("invalid name length")
 		}
 		name, rest := string(rest[:nl]), rest[nl:]
 
@@ -188,7 +189,7 @@ func (m AnyMsg) Deserialise() (SentMsg, error) {
 		copy(pk[:], m.Body[1:][:29])
 		nl, rest := m.Body[30], m.Body[31:]
 		if int(nl) > len(m.Body) || nl == 0 {
-			return nil, errors.New("invalid message length")
+			return nil, errors.New("invalid name length")
 		}
 		name, rest := string(rest[:nl]), rest[nl:]
 

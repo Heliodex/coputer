@@ -192,22 +192,21 @@ func (n *Node) handleMessage(am AnyMsg) {
 
 		switch tin := m.Input.(type) {
 		case WebArgs:
-			ret, err := StartWebProgram(m.Pk, m.Name, tin)
-			if err != nil {
-				n.log("Failed to run program\n", err)
-				break
-			}
-
 			// serialise as json
-			// TODO: i think we're serialising this twice??? figure out how to get it from somewhere else
-			inputBytes, err := json.Marshal(tin)
+			encodedIn, err := json.Marshal(tin)
 			if err != nil {
 				n.log("Failed to serialise input for hashing\n", err)
 				break
 			}
 
+			ret, err := StartWebProgram(m.Pk, m.Name, encodedIn)
+			if err != nil {
+				n.log("Failed to run program\n", err)
+				break
+			}
+
 			// return result
-			res := mRunResult{WebProgramType, m.Pk, m.Name, sha3.Sum256(inputBytes), ret}
+			res := mRunResult{WebProgramType, m.Pk, m.Name, sha3.Sum256(encodedIn), ret}
 			n.send(am.From, res)
 
 		default:
@@ -296,19 +295,19 @@ func (n *Node) receive() {
 }
 
 func (n *Node) RunWebProgram(pk keys.PK, name string, input WebArgs, useLocal bool) (res WebRets, err error) {
-	if useLocal { // testing; to prevent 2 communication servers (from realising they're) using the same execution server
-		if res, err = StartWebProgram(pk, name, input); err == nil {
-			return // we have the program!
-		}
-	}
-
 	// serialise as json
-	inputBytes, err := json.Marshal(input)
+	encodedIn, err := json.Marshal(input)
 	if err != nil {
 		return WebRets{}, err
 	}
 
-	r, err := n.peerRunName(pk, name, sha3.Sum256(inputBytes), WebProgramType, input)
+	if useLocal { // testing; to prevent 2 communication servers (from realising they're) using the same execution server
+		if res, err = StartWebProgram(pk, name, encodedIn); err == nil {
+			return // we have the program!
+		}
+	}
+
+	r, err := n.peerRunName(pk, name, sha3.Sum256(encodedIn), WebProgramType, input)
 	if err != nil {
 		return
 	} else if r.Type() != WebProgramType {
