@@ -32,17 +32,6 @@ func startWeb(v any) (rets WebRets, err error) {
 		return WebRets{}, errors.New("return statuscode, if provided, must be between 100 and 599")
 	}
 
-	statusmesage := t.GetHash("statusmessage")
-	if statusmesage == nil {
-		// default status message for the given status code
-		rets.StatusMessage = http.StatusText(rets.StatusCode)
-		if rets.StatusMessage == "" {
-			rets.StatusMessage = fmt.Sprintf("Error %d", rets.StatusCode)
-		}
-	} else if rets.StatusMessage, ok = statusmesage.(string); !ok {
-		return WebRets{}, errors.New("return statusmessage, if provided, must be a string")
-	}
-
 	if headers := t.GetHash("headers"); headers != nil {
 		theaders, ok := headers.(*Table)
 		if !ok {
@@ -73,7 +62,12 @@ func startWeb(v any) (rets WebRets, err error) {
 			rets.Headers = make(map[string]string, 1)
 		}
 		rets.Headers["content-type"] = "text/plain; charset=utf-8"
-		rets.Body = []byte(rets.StatusMessage)
+
+		sm := http.StatusText(rets.StatusCode)
+		if sm == "" {
+			sm = fmt.Sprintf("Error %d", rets.StatusCode)
+		}
+		rets.Body = []byte(sm)
 	}
 	return
 }

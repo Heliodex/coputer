@@ -18,6 +18,6 @@ require (
 	golang.org/x/tools v0.22.0 // indirect
 )
 
-replace github.com/Heliodex/coputer/litecode => ../litecode
-
 replace github.com/Heliodex/coputer/bundle => ../bundle
+
+replace github.com/Heliodex/coputer/litecode => ../litecode

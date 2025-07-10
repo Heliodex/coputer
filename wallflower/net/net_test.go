@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"net/http"
 	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/Heliodex/coputer/bundle"
@@ -18,15 +17,6 @@ type ProgramTest[A ProgramArgs, R ProgramRets] struct {
 	Rets R
 }
 
-func queryToMap(q url.Values) (m map[string]string) {
-	m = make(map[string]string, len(q))
-	for k, v := range q {
-		m[k] = strings.Join(v, "")
-	}
-
-	return
-}
-
 func wurl(s string) (w WebArgsUrl) {
 	url, err := url.Parse(s)
 	if err != nil {
@@ -37,7 +27,7 @@ func wurl(s string) (w WebArgsUrl) {
 		Rawpath:  s,
 		Path:     url.Path,
 		Rawquery: url.RawQuery,
-		Query:    queryToMap(url.Query()),
+		Query:    url.Query(),
 	}
 }
 
@@ -52,7 +42,6 @@ var webTests = [...]ProgramTest[WebArgs, WebRets]{
 		},
 		WebRets{
 			StatusCode:    200,
-			StatusMessage: http.StatusText(200),
 			Headers: map[string]string{
 				"content-type": "text/plain; charset=utf-8",
 			},
@@ -67,7 +56,6 @@ var webTests = [...]ProgramTest[WebArgs, WebRets]{
 		},
 		WebRets{
 			StatusCode:    200,
-			StatusMessage: http.StatusText(200),
 			Headers: map[string]string{
 				"content-type": "text/plain; charset=utf-8",
 			},
@@ -82,7 +70,6 @@ var webTests = [...]ProgramTest[WebArgs, WebRets]{
 		},
 		WebRets{
 			StatusCode:    405,
-			StatusMessage: http.StatusText(405),
 			Headers: map[string]string{
 				"content-type": "text/plain; charset=utf-8",
 			},
@@ -97,7 +84,6 @@ var webTests = [...]ProgramTest[WebArgs, WebRets]{
 		},
 		WebRets{
 			StatusCode:    200,
-			StatusMessage: http.StatusText(200),
 			Headers: map[string]string{
 				"content-type": "text/html; charset=utf-8",
 			},
@@ -112,7 +98,6 @@ var webTests = [...]ProgramTest[WebArgs, WebRets]{
 		},
 		WebRets{
 			StatusCode:    200,
-			StatusMessage: http.StatusText(200),
 			Headers: map[string]string{
 				"content-type": "text/html; charset=utf-8",
 			},
@@ -127,7 +112,6 @@ var webTests = [...]ProgramTest[WebArgs, WebRets]{
 		},
 		WebRets{
 			StatusCode:    454,
-			StatusMessage: "Error 454",
 			Headers: map[string]string{
 				"content-type": "text/plain; charset=utf-8",
 			},

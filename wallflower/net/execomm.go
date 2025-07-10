@@ -51,16 +51,16 @@ func StoreProgram(pk keys.PK, name string, b []byte) (hash [32]byte, err error) 
 	return
 }
 
-func StartWebProgram(pk keys.PK, name string, args WebArgs) (output WebRets, err error) {
+func StartWebProgram(pk keys.PK, name string, args WebArgs) (rets WebRets, err error) {
 	res, err := http.Post(addr+"/web/"+pk.EncodeNoPrefix()+"/"+url.PathEscape(name), "", bytes.NewReader(args.Encode()))
 	if err != nil {
-		return
+		return WebRets{}, fmt.Errorf("failed to start web program: %v", err)
 	}
 
 	// we need the body either way
 	b, err := io.ReadAll(res.Body)
 	if err != nil {
-		return
+		return WebRets{}, fmt.Errorf("failed to read response body while starting web program: %v", err)
 	}
 
 	if res.StatusCode != http.StatusOK {
@@ -68,5 +68,8 @@ func StartWebProgram(pk keys.PK, name string, args WebArgs) (output WebRets, err
 	}
 
 	// deserialise it
-	return DecodeRets[WebRets](b)
+	if rets, err = DecodeRets[WebRets](b); err != nil {
+		return WebRets{}, fmt.Errorf("failed to decode response body while starting web program: %v", err)
+	}
+	return
 }

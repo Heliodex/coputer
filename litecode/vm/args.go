@@ -12,6 +12,19 @@ func args_web(args Args) (r []Val, err error) {
 		return nil, errors.New("web args only available in web mode")
 	}
 
+	query := make(map[Val]Val, len(pargs.Url.Query))
+	for k, vs := range pargs.Url.Query {
+		params := make([]Val, len(vs))
+		for i, v := range vs {
+			params[i] = v
+		}
+
+		query[k] = &Table{
+			List:     params,
+			Readonly: true,
+		}
+	}
+
 	headers := make(map[Val]Val, len(pargs.Headers))
 	for k, v := range pargs.Headers {
 		headers[k] = v
@@ -24,7 +37,7 @@ func args_web(args Args) (r []Val, err error) {
 					"rawpath":  pargs.Url.Rawpath,
 					"path":     pargs.Url.Path,
 					"rawquery": pargs.Url.Rawquery,
-					"query":    pargs.Url.Query,
+					"query":    query,
 				},
 				Readonly: true,
 			},

@@ -1,0 +1,40 @@
+package main
+
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strconv"
+
+	. "github.com/Heliodex/coputer/litecode/types"
+	"github.com/Heliodex/coputer/wallflower/keys"
+)
+
+var addr = "http://localhost:" + strconv.Itoa(commPort)
+
+// lel
+// but seriously, this is different to the StartWebProgram function in the communication system, even though it's identical, because it addresses the communication server instead of the execution server
+func StartWebProgram(pk keys.PK, name string, args WebArgs) (rets WebRets, err error) {
+	res, err := http.Post(addr+"/web/"+pk.EncodeNoPrefix()+"/"+url.PathEscape(name), "", bytes.NewReader(args.Encode()))
+	if err != nil {
+		return WebRets{}, fmt.Errorf("failed to start web program: %v", err)
+	}
+
+	// we need the body either way
+	b, err := io.ReadAll(res.Body)
+	if err != nil {
+		return WebRets{}, fmt.Errorf("failed to read response body while starting web program: %v", err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return WebRets{}, fmt.Errorf("bad status from communication server while starting web program: %s, %s", res.Status, b)
+	}
+
+	// deserialise it
+	if rets, err = DecodeRets[WebRets](b); err != nil {
+		return WebRets{}, fmt.Errorf("failed to decode response body while starting web program: %v", err)
+	}
+	return
+}

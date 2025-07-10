@@ -194,7 +194,7 @@ func (n *Node) handleMessage(am AnyMsg) {
 			// serialise
 			ret, err := StartWebProgram(m.Pk, m.Name, tin)
 			if err != nil {
-				n.log("Failed to run program\n", err)
+				n.log("Failed to run web program\n", err)
 				break
 			}
 

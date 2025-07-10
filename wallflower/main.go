@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"runtime"
 	"strings"
@@ -12,6 +13,7 @@ import (
 
 	gnet "net"
 
+	. "github.com/Heliodex/coputer/litecode/types"
 	"github.com/Heliodex/coputer/wallflower/keys"
 	"github.com/Heliodex/coputer/wallflower/net"
 	"github.com/quic-go/quic-go"
@@ -19,7 +21,7 @@ import (
 
 // Execution System communicates on port 2505
 // Communication System communicates on port 2506 with peers
-// Gateway communicates on port 2507
+// Gateway communicates on port 2507, and hosts on port 2517
 // client/management applications (future) communicate on port 2508
 const (
 	PortExecution = iota + 2505
@@ -28,7 +30,43 @@ const (
 	PortManagement
 )
 
-func gatewayServer() {}
+func gatewayServer(n *net.Node) {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("POST /web/{pk}/{name}", func(w http.ResponseWriter, r *http.Request) {
+		pks, name := r.PathValue("pk"), r.PathValue("name")
+		pk, err := keys.DecodePKNoPrefix(pks)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to decode public key: %v", err), http.StatusBadRequest)
+			return
+		}
+
+		bodybytes, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to read request body: %v", err), http.StatusBadRequest)
+			return
+		}
+
+		args, err := DecodeArgs[WebArgs](bodybytes)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to decode request body: %v", err), http.StatusBadRequest)
+			return
+		}
+
+		rets, err := n.RunWebProgram(pk, name, args, true)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to run web program: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(rets.Encode())
+	})
+
+	fmt.Println("Listening for gateway on port", PortGateway)
+	http.ListenAndServe(fmt.Sprintf(":%d", PortGateway), mux)
+}
 
 func managementServer() {}
 
@@ -188,7 +226,7 @@ func start() {
 
 	qnet.AddNode(n)
 	n.Start()
-	go gatewayServer()
+	go gatewayServer(n)
 	go managementServer()
 
 	select {}

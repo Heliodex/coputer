@@ -22,7 +22,7 @@ type WebArgs = {
 			{ a = "1", b = "2" } -- ?a=1&b=2
 			```
 		]]
-		query: { [string]: string },
+		query: { [string]: { string } },
 	},
 	--[[
 		HTTP method of the request.
@@ -48,10 +48,6 @@ export type WebRes = {
 		HTTP status code of the response. Defaults to 200 OK.
 	]]
 	statuscode: number?,
-	--[[
-		HTTP status message of the response. Defaults to the canonical status code message.
-	]]
-	statusmessage: string?,
 	--[[
 		Headers of the response. Headers are case-insensitive, and will be converted to lowercase.
 
