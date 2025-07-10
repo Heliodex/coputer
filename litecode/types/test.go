@@ -8,14 +8,22 @@ func (TestArgs) Type() ProgramType {
 	return TestProgramType
 }
 
+func (TestArgs) Encode() ([]byte, error) {
+	return nil, nil
+}
+
 // TestRets stores the response returned from a test program.
 type TestRets struct{}
 
-func (r1 TestRets) Equal(r2 TestRets) error {
+func (TestRets) Equal(TestRets) error {
 	return nil
 }
 
 // Type returns TestProgramType.
 func (TestRets) Type() ProgramType {
 	return TestProgramType
+}
+
+func (TestRets) Encode() ([]byte, error) {
+	return nil, nil
 }

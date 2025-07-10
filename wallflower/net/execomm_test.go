@@ -1,7 +1,6 @@
 package net
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/Heliodex/coputer/bundle"
@@ -22,7 +21,7 @@ func TestExec(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		encodedArgs, err := json.Marshal(test.Args)
+		encodedArgs, err := test.Args.Encode()
 		if err != nil {
 			t.Fatal(err)
 		}

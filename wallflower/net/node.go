@@ -4,7 +4,6 @@ import (
 	"crypto/sha3"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -192,8 +191,8 @@ func (n *Node) handleMessage(am AnyMsg) {
 
 		switch tin := m.Input.(type) {
 		case WebArgs:
-			// serialise as json
-			encodedIn, err := json.Marshal(tin)
+			// serialise
+			encodedIn, err := tin.Encode()
 			if err != nil {
 				n.log("Failed to serialise input for hashing\n", err)
 				break
@@ -252,7 +251,7 @@ func (n *Node) StoreProgram(pk keys.PK, name string, b []byte) (err error) {
 }
 
 // we don't have the program; ask peers for it
-func (n *Node) peerRunName(pk keys.PK, name string, inputhash [32]byte, ptype ProgramType, input ProgramArgs) (res ProgramArgs, err error) {
+func (n *Node) peerRunName(pk keys.PK, name string, inputhash [32]byte, ptype ProgramType, input ProgramArgs) (res ProgramRets, err error) {
 	if len(n.Peers) == 0 {
 		return nil, errors.New("no peers to run program")
 	}
@@ -295,8 +294,8 @@ func (n *Node) receive() {
 }
 
 func (n *Node) RunWebProgram(pk keys.PK, name string, input WebArgs, useLocal bool) (res WebRets, err error) {
-	// serialise as json
-	encodedIn, err := json.Marshal(input)
+	// serialise
+	encodedIn, err := input.Encode()
 	if err != nil {
 		return WebRets{}, err
 	}
@@ -310,7 +309,9 @@ func (n *Node) RunWebProgram(pk keys.PK, name string, input WebArgs, useLocal bo
 	r, err := n.peerRunName(pk, name, sha3.Sum256(encodedIn), WebProgramType, input)
 	if err != nil {
 		return
-	} else if r.Type() != WebProgramType {
+	}
+
+	if r.Type() != WebProgramType {
 		return WebRets{}, errors.New("invalid program type")
 	}
 

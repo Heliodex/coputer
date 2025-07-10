@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/sha3"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -23,7 +22,9 @@ func checkHash(w http.ResponseWriter, hash string) (decoded [32]byte, b bool) {
 	if len(hash) != 64 {
 		http.Error(w, "Invalid hash length", http.StatusBadRequest)
 		return
-	} else if strings.ToLower(hash) != hash {
+	}
+
+	if strings.ToLower(hash) != hash {
 		http.Error(w, "Invalid hash case", http.StatusBadRequest)
 		return
 	}
@@ -42,7 +43,9 @@ func checkPK(w http.ResponseWriter, pk string) (b bool) {
 	if len(pk) != 49 { // 9-9-9-9-9
 		http.Error(w, "Invalid public key length", http.StatusBadRequest)
 		return
-	} else if strings.ToLower(pk) != pk {
+	}
+
+	if strings.ToLower(pk) != pk {
 		http.Error(w, "Invalid public key case", http.StatusBadRequest)
 		return
 	}
@@ -73,19 +76,23 @@ func runWeb(w http.ResponseWriter, r *http.Request, hexhash string, c Compiler /
 	inputhash := sha3.Sum256(input) // let's hope it's canonical
 
 	// decode input as json
-	var args WebArgs
-	if err := json.Unmarshal(input, &args); err != nil {
+	args, err := DecodeArgs[WebArgs](input)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	if !findExists(w, hexhash) {
 		return
-	} else if err, ok := errCache[hash][inputhash]; ok {
+	}
+
+	if err, ok := errCache[hash][inputhash]; ok {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
-	} else if res, ok := runCache[hash][inputhash]; ok {
-		b, err := json.Marshal(res)
+	}
+
+	if res, ok := runCache[hash][inputhash]; ok {
+		b, err := res.Encode()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -111,7 +118,7 @@ func runWeb(w http.ResponseWriter, r *http.Request, hexhash string, c Compiler /
 	}
 	runCache[hash][inputhash] = output
 
-	b, err := json.Marshal(output)
+	b, err := output.Encode()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -163,7 +170,9 @@ func main() {
 		if hexhash := hex.EncodeToString(hash[:]); bundle.BundleStored(hexhash) {
 			http.Error(w, "Program already exists", http.StatusConflict)
 			return
-		} else if _, err := bundle.UnbundleToDir(data); err != nil {
+		}
+
+		if _, err := bundle.UnbundleToDir(data); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}

@@ -200,7 +200,9 @@ func TestWeb(t *testing.T) {
 		p1, err := PeerFromFindString(fs1)
 		if err != nil {
 			t.Fatal(err)
-		} else if err = n1.StoreProgram(n1.Pk, test.Name, b); err != nil {
+		}
+
+		if err = n1.StoreProgram(n1.Pk, test.Name, b); err != nil {
 			t.Fatal(err)
 		}
 
@@ -212,7 +214,9 @@ func TestWeb(t *testing.T) {
 		resn, err := n2.RunWebProgram(n1.Pk, test.Name, test.Args, false)
 		if err != nil {
 			t.Fatal(err)
-		} else if err := test.Rets.Equal(resn); err != nil {
+		}
+
+		if err := test.Rets.Equal(resn); err != nil {
 			t.Fatal("hash return value not equal:", err)
 		}
 

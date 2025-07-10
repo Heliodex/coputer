@@ -5,7 +5,6 @@ package net
 import (
 	"bytes"
 	"crypto/sha3"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -37,7 +36,9 @@ func StoreProgram(pk keys.PK, name string, b []byte) (hash [32]byte, err error) 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return
-	} else if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated && res.StatusCode != http.StatusConflict {
+	}
+
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated && res.StatusCode != http.StatusConflict {
 		// read body into byte arr
 		b, err := io.ReadAll(res.Body)
 		if err != nil {
@@ -51,7 +52,7 @@ func StoreProgram(pk keys.PK, name string, b []byte) (hash [32]byte, err error) 
 }
 
 func StartWebProgram(pk keys.PK, name string, encodedIn []byte) (output WebRets, err error) {
-	res, err := http.Post(addr+"/web/"+pk.EncodeNoPrefix()+"/"+url.PathEscape(name), "", bytes.NewReader(jsonargs))
+	res, err := http.Post(addr+"/web/"+pk.EncodeNoPrefix()+"/"+url.PathEscape(name), "", bytes.NewReader(encodedIn))
 	if err != nil {
 		return
 	}
@@ -60,10 +61,12 @@ func StartWebProgram(pk keys.PK, name string, encodedIn []byte) (output WebRets,
 	b, err := io.ReadAll(res.Body)
 	if err != nil {
 		return
-	} else if res.StatusCode != http.StatusOK {
+	}
+
+	if res.StatusCode != http.StatusOK {
 		return WebRets{}, fmt.Errorf("bad status from execution server while starting web program: %s, %s", res.Status, b)
 	}
 
 	// deserialise it
-	return output, json.Unmarshal(b, &output)
+	return DecodeRets[WebRets](b)
 }

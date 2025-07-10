@@ -1,7 +1,6 @@
 package net
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -78,7 +77,7 @@ type mRun struct {
 }
 
 func (m mRun) Serialise() (s []byte, err error) {
-	in, err := json.Marshal(m.Input)
+	in, err := m.Input.Encode()
 	if err != nil {
 		return
 	}
@@ -102,7 +101,7 @@ type mRunResult struct {
 }
 
 func (m mRunResult) Serialise() (s []byte, err error) {
-	res, err := json.Marshal(m.Result)
+	res, err := m.Result.Encode()
 	if err != nil {
 		return
 	}
@@ -127,9 +126,9 @@ type AnyMsg struct {
 func unmarshalInput(ptype ProgramType, rest []byte) (ProgramArgs, error) {
 	switch ptype {
 	case WebProgramType:
-		var tin WebArgs
-		if err := json.Unmarshal(rest, &tin); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal web args: %w", err)
+		tin, err := DecodeArgs[WebArgs](rest)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode web args: %w", err)
 		}
 		return tin, nil
 	}
@@ -139,8 +138,8 @@ func unmarshalInput(ptype ProgramType, rest []byte) (ProgramArgs, error) {
 func unmarshalResult(ptype ProgramType, rest []byte) (ProgramRets, error) {
 	switch ptype {
 	case WebProgramType:
-		var tres WebRets
-		if err := json.Unmarshal(rest, &tres); err != nil {
+		tres, err := DecodeRets[WebRets](rest)
+		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal web result: %w", err)
 		}
 		return tres, nil
