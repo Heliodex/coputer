@@ -24,7 +24,9 @@ func compress(n string, f []byte) (cf File, err error) {
 	w.Name = n
 	if _, err = w.Write(f); err != nil {
 		return
-	} else if err = w.Close(); err != nil {
+	}
+
+	if err = w.Close(); err != nil {
 		return
 	}
 
@@ -36,9 +38,13 @@ func decompress(c []byte) (f File, err error) {
 	r, err := gzip.NewReader(bytes.NewReader(append(gzheader[:], c...))) // add the header
 	if err != nil {
 		return
-	} else if _, err = b.ReadFrom(r); err != nil {
+	}
+
+	if _, err = b.ReadFrom(r); err != nil {
 		return
-	} else if err = r.Close(); err != nil {
+	}
+
+	if err = r.Close(); err != nil {
 		return
 	}
 

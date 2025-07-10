@@ -94,7 +94,9 @@ func Start(c Compiler, hash string, args ProgramArgs) (output ProgramRets, err e
 	r, err := co.Resume()
 	if err != nil {
 		return
-	} else if len(r) != 1 {
+	}
+
+	if len(r) != 1 {
 		return nil, errors.New("program did not return a single value")
 	}
 

@@ -112,7 +112,9 @@ func UnbundleToDir(b []byte) (entrypath string, err error) {
 		p := filepath.Join(path, f.path)
 		if err = os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 			return
-		} else if err = os.WriteFile(p, f.data, 0o644); err != nil {
+		}
+
+		if err = os.WriteFile(p, f.data, 0o644); err != nil {
 			return
 		}
 	}
