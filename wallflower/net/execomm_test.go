@@ -21,15 +21,12 @@ func TestExec(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		encodedArgs, err := test.Args.Encode()
+		res, err := StartWebProgram(keys.PK{}, test.Name, test.Args)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		res, err := StartWebProgram(keys.PK{}, test.Name, encodedArgs)
-		if err != nil {
-			t.Fatal(err)
-		} else if err := test.Rets.Equal(res); err != nil {
+		if err := test.Rets.Equal(res); err != nil {
 			t.Fatal("unexpected response:", err)
 		}
 

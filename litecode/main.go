@@ -92,11 +92,7 @@ func runWeb(w http.ResponseWriter, r *http.Request, hexhash string, c Compiler /
 	}
 
 	if res, ok := runCache[hash][inputhash]; ok {
-		b, err := res.Encode()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+		b := res.Encode()
 
 		w.Write(b)
 		return
@@ -118,11 +114,7 @@ func runWeb(w http.ResponseWriter, r *http.Request, hexhash string, c Compiler /
 	}
 	runCache[hash][inputhash] = output
 
-	b, err := output.Encode()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	b := output.Encode()
 
 	w.Write(b)
 }

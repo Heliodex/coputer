@@ -8,8 +8,8 @@ func (TestArgs) Type() ProgramType {
 	return TestProgramType
 }
 
-func (TestArgs) Encode() ([]byte, error) {
-	return nil, nil
+func (TestArgs) Encode() []byte {
+	return nil
 }
 
 // TestRets stores the response returned from a test program.
@@ -24,6 +24,6 @@ func (TestRets) Type() ProgramType {
 	return TestProgramType
 }
 
-func (TestRets) Encode() ([]byte, error) {
-	return nil, nil
+func (TestRets) Encode() []byte {
+	return nil
 }

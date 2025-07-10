@@ -51,8 +51,8 @@ func StoreProgram(pk keys.PK, name string, b []byte) (hash [32]byte, err error) 
 	return
 }
 
-func StartWebProgram(pk keys.PK, name string, encodedIn []byte) (output WebRets, err error) {
-	res, err := http.Post(addr+"/web/"+pk.EncodeNoPrefix()+"/"+url.PathEscape(name), "", bytes.NewReader(encodedIn))
+func StartWebProgram(pk keys.PK, name string, args WebArgs) (output WebRets, err error) {
+	res, err := http.Post(addr+"/web/"+pk.EncodeNoPrefix()+"/"+url.PathEscape(name), "", bytes.NewReader(args.Encode()))
 	if err != nil {
 		return
 	}

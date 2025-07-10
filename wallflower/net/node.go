@@ -192,20 +192,14 @@ func (n *Node) handleMessage(am AnyMsg) {
 		switch tin := m.Input.(type) {
 		case WebArgs:
 			// serialise
-			encodedIn, err := tin.Encode()
-			if err != nil {
-				n.log("Failed to serialise input for hashing\n", err)
-				break
-			}
-
-			ret, err := StartWebProgram(m.Pk, m.Name, encodedIn)
+			ret, err := StartWebProgram(m.Pk, m.Name, tin)
 			if err != nil {
 				n.log("Failed to run program\n", err)
 				break
 			}
 
 			// return result
-			res := mRunResult{WebProgramType, m.Pk, m.Name, sha3.Sum256(encodedIn), ret}
+			res := mRunResult{WebProgramType, m.Pk, m.Name, sha3.Sum256(tin.Encode()), ret}
 			n.send(am.From, res)
 
 		default:
@@ -294,19 +288,13 @@ func (n *Node) receive() {
 }
 
 func (n *Node) RunWebProgram(pk keys.PK, name string, input WebArgs, useLocal bool) (res WebRets, err error) {
-	// serialise
-	encodedIn, err := input.Encode()
-	if err != nil {
-		return WebRets{}, err
-	}
-
 	if useLocal { // testing; to prevent 2 communication servers (from realising they're) using the same execution server
-		if res, err = StartWebProgram(pk, name, encodedIn); err == nil {
+		if res, err = StartWebProgram(pk, name, input); err == nil {
 			return // we have the program!
 		}
 	}
 
-	r, err := n.peerRunName(pk, name, sha3.Sum256(encodedIn), WebProgramType, input)
+	r, err := n.peerRunName(pk, name, sha3.Sum256(input.Encode()), WebProgramType, input)
 	if err != nil {
 		return
 	}

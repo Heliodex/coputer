@@ -77,10 +77,7 @@ type mRun struct {
 }
 
 func (m mRun) Serialise() (s []byte, err error) {
-	in, err := m.Input.Encode()
-	if err != nil {
-		return
-	}
+	in := m.Input.Encode()
 
 	b := make([]byte, 1, 1+keys.PKSize+1+len(m.Name)+len(in))
 	b[0] = byte(m.Type)
@@ -101,10 +98,7 @@ type mRunResult struct {
 }
 
 func (m mRunResult) Serialise() (s []byte, err error) {
-	res, err := m.Result.Encode()
-	if err != nil {
-		return
-	}
+	res := m.Result.Encode()
 
 	b := make([]byte, 1, 1+keys.PKSize+1+len(m.Name)+len(res))
 	b[0] = byte(m.Type)

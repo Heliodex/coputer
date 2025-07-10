@@ -29,8 +29,9 @@ func (WebArgs) Type() ProgramType {
 	return WebProgramType
 }
 
-func (args WebArgs) Encode() ([]byte, error) {
-	return json.Marshal(args)
+func (args WebArgs) Encode() []byte {
+	b, _ := json.Marshal(args)
+	return b
 }
 
 // WebRets stores the response returned from a web program.
@@ -63,6 +64,7 @@ func (WebRets) Type() ProgramType {
 	return WebProgramType
 }
 
-func (rets WebRets) Encode() ([]byte, error) {
-	return json.Marshal(rets)
+func (rets WebRets) Encode() []byte {
+	b, _ := json.Marshal(rets)
+	return b
 }
