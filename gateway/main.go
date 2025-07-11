@@ -21,71 +21,32 @@ const (
 
 var host = "localhost"
 
-
-func validateSubdomain(w http.ResponseWriter, hn string) (pk keys.PK, name string, err error) {
+func validateSubdomain(hn string) (pk keys.PK, name string, err error) {
 	if !strings.HasSuffix(hn, host) {
-		http.Error(w, fmt.Sprintf("Invalid hostname: %s", hn), http.StatusBadRequest)
-		return
+		return keys.PK{}, "", fmt.Errorf("invalid hostname: %s", hn)
 	}
 
 	sub := strings.TrimSuffix(hn, "."+host)
+	ls := len(sub)
 
-	// subdomain is either {name}.{pk} or just {pk}
-	dots := strings.Count(sub, ".")
-	if dots > 1 {
-		// subdomains of subdomains? someday
-		http.Error(w, fmt.Sprintf("Invalid subdomain: %s", sub), http.StatusBadRequest)
-		return
+	// subdomain is either {name}-{pk} or just {pk}
+	if ls != 49 && ls <= 50 {
+		return keys.PK{}, "", fmt.Errorf("invalid subdomain: %s", sub)
 	}
 
-	var pks string
-	if dots == 0 {
-		// subdomain is just {pk}
-		pks = sub
-	} else {
-		// subdomain is {name}.{pk}
-		parts := strings.SplitN(sub, ".", 2)
-		name, pks = parts[0], parts[1]
+	pks := sub[ls-49:] // last 49 characters are the public key
+	if ls > 50 {
+		if sub[ls-50] != '-' {
+			return keys.PK{}, "", fmt.Errorf("invalid subdomain format: %s", sub)
+		}
+		name = sub[:ls-50]
 	}
 
 	pk, err = keys.DecodePKNoPrefix(pks)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to decode public key: %v", err), http.StatusBadRequest)
-		return
+		return keys.PK{}, "", fmt.Errorf("failed to decode public key: %v", err)
 	}
-
 	return
-}
-
-
-// requested by web servers like cady
-func hostAsk(host string) {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		domain := r.URL.Query().Get("domain")
-
-		u, err := r.URL.Parse("https://" + domain)
-		if err != nil {
-			http.Error(w, "Invalid URL", http.StatusBadRequest)
-			return
-		}
-
-		hn := u.Hostname()
-		if hn == host {
-			// ok
-			return
-		}
-
-		if _, _, err = validateSubdomain(w, hn); err != nil {
-			return
-		}
-	})
-
-	fmt.Println("TLS ask server on port", askPort)
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", askPort), mux); err != nil {
-		fmt.Println("Failed to start host ask server:", err)
-		os.Exit(1)
-	}
 }
 
 func serveMain(w http.ResponseWriter, _ *http.Request, host string) {
@@ -153,8 +114,9 @@ func handleRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pk, name, err := validateSubdomain(w, hn)
+	pk, name, err := validateSubdomain(hn)
 	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -174,8 +136,6 @@ func main() {
 	}
 
 	fmt.Println("Starting")
-
-	go hostAsk(host)
 
 	// match any route as a subdomain of localhost
 	http.HandleFunc("/", handleRoute)
