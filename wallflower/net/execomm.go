@@ -20,13 +20,14 @@ const (
 )
 
 func StoreProgram(pk keys.PK, name string, b []byte) (hash [32]byte, err error) {
-	// fmt.Println("Storing program", pk.Encode(), name)
+	fmt.Println("Storing program", pk.Encode(), name)
 	hash = sha3.Sum256(b)
 
 	namePath := "/" + pk.EncodeNoPrefix() + "/" + url.PathEscape(name)
-	if resn, err := http.Get(addr + namePath); err != nil || resn.StatusCode == http.StatusOK { // Make sure that the program is accessible by both hash and pk/name
-		return [32]byte{}, err
-	}
+	// doesn't update an existing program
+	// if resn, err := http.Get(addr + namePath); err != nil || resn.StatusCode == http.StatusOK {
+	// 	return hash, err
+	// }
 
 	req, err := http.NewRequest(http.MethodPut, storeAddr+namePath, bytes.NewReader(b))
 	if err != nil {

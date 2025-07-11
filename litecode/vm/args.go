@@ -37,7 +37,10 @@ func args_web(args Args) (r []Val, err error) {
 					"rawpath":  pargs.Url.Rawpath,
 					"path":     pargs.Url.Path,
 					"rawquery": pargs.Url.Rawquery,
-					"query":    query,
+					"query": &Table{
+						Hash:     query,
+						Readonly: true,
+					},
 				},
 				Readonly: true,
 			},

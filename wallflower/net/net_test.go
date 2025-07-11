@@ -118,6 +118,145 @@ var webTests = [...]ProgramTest[WebArgs, WebRets]{
 			Body: []byte("Error 454"),
 		},
 	},
+	{
+		"web3",
+		WebArgs{
+			Url:    wurl("/error"),
+			Method: "GET",
+		},
+		WebRets{
+			StatusCode:    404,
+			Headers: map[string]string{
+				"content-type": "text/plain; charset=utf-8",
+			},
+			Body: []byte(http.StatusText(404)),
+		},
+	},
+	{
+		"web3",
+		WebArgs{
+			Url:    wurl("/"),
+			Method: "GET",
+		},
+		WebRets{
+			StatusCode:    200,
+			Body: []byte(`Raw query: `),
+		},
+	},
+	{
+		"web3",
+		WebArgs{
+			Url:    wurl("/?a="),
+			Method: "GET",
+		},
+		WebRets{
+			StatusCode:    200,
+			Body: []byte(`a =
+- 
+Raw query: a=`),
+		},
+	},
+	{
+		"web3",
+		WebArgs{
+			Url:    wurl("/?a=b&c=b"),
+			Method: "GET",
+		},
+		WebRets{
+			StatusCode:    200,
+			Body: []byte(`a =
+- b
+c =
+- b
+Raw query: a=b&c=b`),
+		},
+	},
+	{
+		"web3",
+		WebArgs{
+			Url:    wurl("/?c=b&a=b"),
+			Method: "GET",
+		},
+		WebRets{
+			StatusCode:    200,
+			Body: []byte(`a =
+- b
+c =
+- b
+Raw query: c=b&a=b`),
+		},
+	},
+	{
+		"web3",
+		WebArgs{
+			Url:    wurl("/?a=b&a=b"),
+			Method: "GET",
+		},
+		WebRets{
+			StatusCode:    200,
+			Body: []byte(`a =
+- b
+- b
+Raw query: a=b&a=b`),
+		},
+	},
+	{
+		"web3",
+		WebArgs{
+			Url:    wurl("/?a=c&a=b"),
+			Method: "GET",
+		},
+		WebRets{
+			StatusCode:    200,
+			Body: []byte(`a =
+- c
+- b
+Raw query: a=c&a=b`),
+		},
+	},
+	{
+		"web3",
+		WebArgs{
+			Url:    wurl("/?a=b&a=c"),
+			Method: "GET",
+		},
+		WebRets{
+			StatusCode:    200,
+			Body: []byte(`a =
+- b
+- c
+Raw query: a=b&a=c`),
+		},
+	},
+	{
+		"web3",
+		WebArgs{
+			Url:    wurl("/?=b&a=c"),
+			Method: "GET",
+		},
+		WebRets{
+			StatusCode:    200,
+			Body: []byte(` =
+- b
+a =
+- c
+Raw query: =b&a=c`),
+		},
+	},
+	{
+		"web3",
+		WebArgs{
+			Url:    wurl("/?=b&=c"),
+			Method: "GET",
+		},
+		WebRets{
+			StatusCode:    200,
+			Body: []byte(` =
+- b
+- c
+Raw query: =b&=c`),
+		},
+	},
 }
 
 func getBundled(p string, t *testing.T) (b []byte) {
