@@ -20,7 +20,7 @@ const (
 )
 
 func StoreProgram(pk keys.PK, name string, b []byte) (hash [32]byte, err error) {
-	fmt.Println("Storing program", pk.Encode(), name)
+	// fmt.Println("Storing program", pk.Encode(), name)
 	hash = sha3.Sum256(b)
 
 	namePath := "/" + pk.EncodeNoPrefix() + "/" + url.PathEscape(name)

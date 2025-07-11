@@ -232,6 +232,22 @@ func start() {
 	select {}
 }
 
+func dev(path string) {
+	kp := getKeypair()
+
+	n := net.NewNode(kp, keys.Address{})
+
+	fmt.Println("Public key", kp.Pk.Encode())
+	fmt.Println("Find string", n.FindString())
+	fmt.Println("Communication system listening on port", PortCommunication)
+
+	n.Start()
+	go gatewayServer(n)
+	go watchPath(n, path)
+
+	select {}
+}
+
 func main() {
 	if len(os.Args) <= 1 {
 		fmt.Println("Usage: <command>")
@@ -262,23 +278,34 @@ func main() {
 				fmt.Println("Public key:", k.Pk.Encode())
 				fmt.Println("Secret key:", k.Sk.Encode())
 			}
-		} else {
-			fmt.Println("Generating keypair...")
-			start := time.Now()
-			found := keys.GenerateKeys(threads)
-
-			kp := <-found
-			fmt.Println("Keypair generated in", time.Since(start))
-			fmt.Println("Public key:", kp.Pk.Encode())
-			fmt.Println("Secret key:", kp.Sk.Encode())
-
-			fmt.Println("Share your public key or find string with others to connect to your node.")
-			fmt.Println("DO NOT SHARE YOUR SECRET KEY WITH ANYONE!")
+			return
 		}
+
+		fmt.Println("Generating keypair...")
+		start := time.Now()
+		found := keys.GenerateKeys(threads)
+
+		kp := <-found
+		fmt.Println("Keypair generated in", time.Since(start))
+		fmt.Println("Public key:", kp.Pk.Encode())
+		fmt.Println("Secret key:", kp.Sk.Encode())
+
+		fmt.Println("Share your public key or find string with others to connect to your node.")
+		fmt.Println("DO NOT SHARE YOUR SECRET KEY WITH ANYONE!")
 
 	case "start":
 		fmt.Println("Starting Wallflower...")
 		start()
+	case "dev":
+		if len(os.Args) < 3 {
+			fmt.Println("Usage: dev <filepath>")
+			os.Exit(1)
+		}
+
+		path := os.Args[2]
+
+		fmt.Println("Starting Wallflower in development mode...")
+		dev(path)
 	default:
 		fmt.Printf("Unknown command: %s\n", os.Args[1])
 		os.Exit(1)
