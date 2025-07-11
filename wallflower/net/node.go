@@ -167,7 +167,12 @@ func (n *Node) handleMessage(am AnyMsg) {
 		n.log("Received hi message from peer\n", am.From.Pk.Encode(), "\n", am.From.MainAddr)
 
 	case mStore:
-		hash, err := StoreProgram(am.From.Pk, m.Name, m.Bundled)
+		if !m.Pk.VerifyHash(m.Sig, m.Bundled) {
+			n.log("Invalid program signature\n", m.Pk.Encode())
+			break
+		}
+
+		hash, err := StoreProgram(m.Pk, m.Name, m.Bundled)
 		if err != nil {
 			n.log("Failed to store program\n", err)
 			break
@@ -222,14 +227,14 @@ func (n *Node) seenPeer(p *keys.Peer) {
 	n.Peers[p.Pk].LastSeen = time.Now()
 }
 
-func (n *Node) StoreProgram(pk keys.PK, name string, b []byte) (err error) {
+func (n *Node) StoreProgram(pk keys.PK, name string, sig keys.HashSig, b []byte) (err error) {
+	m := mStore{name, pk, sig, b}
+
 	if _, err = StoreProgram(pk, name, b); err != nil {
-		return
+		return // maybe we can still continue if this happens
 	}
 
 	for _, peer := range n.Peers {
-		m := mStore{name, b}
-
 		if err = n.send(peer, m); err != nil {
 			return
 		}

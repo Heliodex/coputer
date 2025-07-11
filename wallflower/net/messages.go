@@ -41,9 +41,11 @@ func (m mHi) Serialise() ([]byte, error) {
 	return []byte{tHi}, nil
 }
 
-// TODO: add pk and signatures to allow sending programs to other peers
+// TODO: store this in the execution server too so we can retrieve it from there
 type mStore struct {
 	Name    string
+	Pk      keys.PK
+	Sig     keys.HashSig
 	Bundled []byte
 }
 
@@ -53,9 +55,11 @@ func (m mStore) Serialise() ([]byte, error) {
 		return nil, errors.New("name too long")
 	}
 
-	b := make([]byte, 1, 1+nl+len(m.Bundled))
+	b := make([]byte, 1, 1+nl+keys.PKSize+len(m.Sig)+len(m.Bundled))
 	b[0] = byte(nl)
 	b = append(b, m.Name...)
+	b = append(b, m.Pk[:]...)
+	b = append(b, m.Sig[:]...)
 	b = append(b, m.Bundled...)
 
 	return addType(tStore, b), nil
@@ -149,14 +153,17 @@ func (m AnyMsg) Deserialise() (SentMsg, error) {
 	case tHi:
 		return mHi{}, nil
 	case tStore:
-		nl := m.Body[0]
+		nl, rest := m.Body[0], m.Body[1:]
 		if int(nl) > len(m.Body) || nl == 0 {
 			return nil, errors.New("invalid name length")
 		}
 
-		name, bundled := m.Body[1:nl+1], m.Body[nl+1:]
+		name, rest := rest[:nl], rest[nl:]
+		pk, rest := keys.PK(rest[:keys.PKSize]), rest[keys.PKSize:]
+		sig, rest := keys.HashSig(rest[:keys.HashSigLen]), rest[keys.HashSigLen:]
+		bundled := rest
 
-		return mStore{string(name), bundled}, nil
+		return mStore{string(name), pk, sig, bundled}, nil
 	case tStoreResult:
 		var hash [32]byte
 		copy(hash[:], m.Body)

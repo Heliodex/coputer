@@ -325,7 +325,8 @@ func TestWeb(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if err = n1.StoreProgram(n1.Pk, test.Name, b); err != nil {
+		sig := n1.Kp.Sk.SignHash(b)
+		if err = n1.StoreProgram(n1.Pk, test.Name, sig, b); err != nil {
 			t.Fatal(err)
 		}
 

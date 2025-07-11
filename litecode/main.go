@@ -138,8 +138,6 @@ func main() {
 		data := make([]byte, r.ContentLength)
 		r.Body.Read(data)
 
-		hash := sha3.Sum256(data)
-
 		if err := os.MkdirAll(filepath.Join(NamesDir, pk), 0o755); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -153,7 +151,9 @@ func main() {
 		}
 		defer f.Close()
 
-		if _, err := f.Write(hash[:]); err != nil {
+		hash := sha3.Sum256(data)
+
+		if _, err = f.Write(hash[:]); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -164,7 +164,7 @@ func main() {
 			return
 		}
 
-		if _, err := bundle.UnbundleToDir(data); err != nil {
+		if _, err = bundle.UnbundleToDir(data); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}

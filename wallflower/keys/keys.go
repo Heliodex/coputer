@@ -3,6 +3,7 @@ package keys
 import (
 	"bytes"
 	"crypto/rand"
+	"crypto/sha3"
 	"errors"
 	"fmt"
 	"net"
@@ -272,7 +273,14 @@ func Decrypt(kp Keypair, emsg []byte) (from Peer, msg []byte, err error) {
 // because at the moment, signing with ed25519 with key conversion from curve25519 is a pain, converting from existing curve25519 keys to ed25519 is even worse, and while using ristretto255 for everything would be nice, that would require me rolling my own everything which would actually be not nice, and also I'm pissy that I'd have to use 64-byte private keys with edwards curves
 // this would kill any competent cryptographer from a mile away lmao
 
-func (sk SK) Sign(msg []byte) []byte {
+const (
+	SignOverhead = box.Overhead
+	HashSigLen   = 32 + box.Overhead
+)
+
+type HashSig [HashSigLen]byte
+
+func (sk SK) Sign(msg []byte) (sig []byte) {
 	skb := new([32]byte)
 	copy(skb[:], sk[:])
 
@@ -286,4 +294,25 @@ func (pk PK) Verify(sig []byte) (msg []byte, ok bool) {
 
 	// decrypt with a sk everyone knows and their pk
 	return box.Open(nil, sig, ZeroNonce, pkb, ZeroSK)
+}
+
+func (sk SK) SignHash(b []byte) (sig HashSig) {
+	skb := new([32]byte)
+	copy(skb[:], sk[:])
+
+	hash := sha3.Sum256(b)
+	return HashSig(sk.Sign(hash[:]))
+}
+
+func (pk PK) VerifyHash(sig HashSig, b []byte) (ok bool) {
+	pkb := new([32]byte)
+	copy(pkb[3:], pk[:])
+
+	msg, ok := pk.Verify(sig[:])
+	if !ok {
+		return
+	}
+
+	hash := sha3.Sum256(b)
+	return bytes.Equal(msg, hash[:])
 }

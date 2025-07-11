@@ -39,17 +39,17 @@ func StoreProgram(pk keys.PK, name string, b []byte) (hash [32]byte, err error) 
 		return
 	}
 
-	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated && res.StatusCode != http.StatusConflict {
-		// read body into byte arr
-		b, err := io.ReadAll(res.Body)
-		if err != nil {
-			return [32]byte{}, err
-		}
-
-		return [32]byte{}, fmt.Errorf("bad status from execution server while storing web program: %s, %s", res.Status, string(b))
+	if res.StatusCode == http.StatusOK || res.StatusCode == http.StatusCreated || res.StatusCode == http.StatusConflict {
+		return
 	}
 
-	return
+	// read body into byte arr
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return
+	}
+
+	return [32]byte{}, fmt.Errorf("bad status from execution server while storing web program: %s, %s", res.Status, string(body))
 }
 
 func StartWebProgram(pk keys.PK, name string, args WebArgs) (rets WebRets, err error) {
