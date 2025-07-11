@@ -12,14 +12,81 @@ import (
 )
 
 const (
-	host    = "localhost"
-	dothost = "." + host
-
 	egPk = "1mdy2o0f9-s1a9rdjkt-vwut3s6fv-gd1nv0ezr-it04zc2le"
 
 	commPort = 2507
+	askPort  = 2516
 	hostPort = 2517
 )
+
+var host = "localhost"
+
+
+func validateSubdomain(w http.ResponseWriter, hn string) (pk keys.PK, name string, err error) {
+	if !strings.HasSuffix(hn, host) {
+		http.Error(w, fmt.Sprintf("Invalid hostname: %s", hn), http.StatusBadRequest)
+		return
+	}
+
+	sub := strings.TrimSuffix(hn, "."+host)
+
+	// subdomain is either {name}.{pk} or just {pk}
+	dots := strings.Count(sub, ".")
+	if dots > 1 {
+		// subdomains of subdomains? someday
+		http.Error(w, fmt.Sprintf("Invalid subdomain: %s", sub), http.StatusBadRequest)
+		return
+	}
+
+	var pks string
+	if dots == 0 {
+		// subdomain is just {pk}
+		pks = sub
+	} else {
+		// subdomain is {name}.{pk}
+		parts := strings.SplitN(sub, ".", 2)
+		name, pks = parts[0], parts[1]
+	}
+
+	pk, err = keys.DecodePKNoPrefix(pks)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to decode public key: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	return
+}
+
+
+// requested by web servers like cady
+func hostAsk(host string) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		domain := r.URL.Query().Get("domain")
+
+		u, err := r.URL.Parse("https://" + domain)
+		if err != nil {
+			http.Error(w, "Invalid URL", http.StatusBadRequest)
+			return
+		}
+
+		hn := u.Hostname()
+		if hn == host {
+			// ok
+			return
+		}
+
+		if _, _, err = validateSubdomain(w, hn); err != nil {
+			return
+		}
+	})
+
+	fmt.Println("TLS ask server on port", askPort)
+	if err := http.ListenAndServe(fmt.Sprintf(":%d", askPort), mux); err != nil {
+		fmt.Println("Failed to start host ask server:", err)
+		os.Exit(1)
+	}
+}
 
 func serveMain(w http.ResponseWriter, _ *http.Request, host string) {
 	fmt.Fprintln(w, "Welcome to the Coputer Gateway!")
@@ -86,34 +153,8 @@ func handleRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !strings.HasSuffix(hn, host) {
-		http.Error(w, fmt.Sprintf("Invalid hostname: %s", hn), http.StatusBadRequest)
-		return
-	}
-
-	sub := strings.TrimSuffix(hn, dothost)
-
-	// subdomain is either {name}.{pk} or just {pk}
-	dots := strings.Count(sub, ".")
-	if dots > 1 {
-		// subdomains of subdomains? someday
-		http.Error(w, fmt.Sprintf("Invalid subdomain: %s", sub), http.StatusBadRequest)
-		return
-	}
-
-	var name, pks string
-	if dots == 0 {
-		// subdomain is just {pk}
-		pks = sub
-	} else {
-		// subdomain is {name}.{pk}
-		parts := strings.SplitN(sub, ".", 2)
-		name, pks = parts[0], parts[1]
-	}
-
-	pk, err := keys.DecodePKNoPrefix(pks)
+	pk, name, err := validateSubdomain(w, hn)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to decode public key: %v", err), http.StatusBadRequest)
 		return
 	}
 
@@ -128,7 +169,13 @@ func handleRoute(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	if len(os.Args) > 1 {
+		host = os.Args[1]
+	}
+
 	fmt.Println("Starting")
+
+	go hostAsk(host)
 
 	// match any route as a subdomain of localhost
 	http.HandleFunc("/", handleRoute)
