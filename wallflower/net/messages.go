@@ -94,11 +94,14 @@ type mRunResult struct {
 	Pk        keys.PK     // 29
 	Name      string      // 1 + length
 	InputHash [32]byte
-	Result    ProgramRets
+	Result    *ProgramRets // nil if failed or no program result
 }
 
 func (m mRunResult) Serialise() (s []byte, err error) {
-	res := m.Result.Encode()
+	var res []byte
+	if m.Result != nil {
+		res = (*m.Result).Encode()
+	}
 
 	b := make([]byte, 1, 1+keys.PKSize+1+len(m.Name)+len(res))
 	b[0] = byte(m.Type)
@@ -190,12 +193,16 @@ func (m AnyMsg) Deserialise() (SentMsg, error) {
 		copy(inputhash[:], rest[:32])
 		rest = rest[32:]
 
+		if len(rest) == 0 {
+			return mRunResult{ptype, pk, name, inputhash, nil}, nil
+		}
+
 		res, err := unmarshalResult(ptype, rest)
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal program result: %w", err)
 		}
 
-		return mRunResult{ptype, pk, name, inputhash, res}, nil
+		return mRunResult{ptype, pk, name, inputhash, &res}, nil
 	}
 
 	return nil, errors.New("unknown message type")

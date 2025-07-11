@@ -68,10 +68,6 @@ func (e EncryptedMsg) Decode(kp keys.Keypair) (am AnyMsg, err error) {
 }
 
 // struct keys > nested maps
-type InputHash struct {
-	Hash, InputHash [32]byte
-}
-
 type InputName struct {
 	Pk        keys.PK
 	Name      string
@@ -84,8 +80,7 @@ type Node struct {
 	Peers              map[keys.PK]*keys.Peer // known peers
 	SendRaw            Sender
 	ReceiveRaw         Receiver
-	resultsWaitingHash map[InputHash]chan ProgramRets
-	resultsWaitingName map[InputName]chan ProgramRets
+	resultsWaitingName map[InputName]chan *ProgramRets
 	running            bool
 }
 
@@ -104,8 +99,7 @@ func NewNode(kp keys.Keypair, mainAddr keys.Address, altAddrs ...keys.Address) (
 		Peers:              make(map[keys.PK]*keys.Peer),
 		SendRaw:            make(Sender),
 		ReceiveRaw:         make(Receiver),
-		resultsWaitingHash: make(map[InputHash]chan ProgramRets),
-		resultsWaitingName: make(map[InputName]chan ProgramRets),
+		resultsWaitingName: make(map[InputName]chan *ProgramRets),
 	}
 }
 
@@ -195,12 +189,13 @@ func (n *Node) handleMessage(am AnyMsg) {
 			ret, err := StartWebProgram(m.Pk, m.Name, tin)
 			if err != nil {
 				n.log("Failed to run web program\n", err)
+				n.send(am.From, mRunResult{WebProgramType, m.Pk, m.Name, sha3.Sum256(tin.Encode()), nil})
 				break
 			}
 
 			// return result
-			res := mRunResult{WebProgramType, m.Pk, m.Name, sha3.Sum256(tin.Encode()), ret}
-			n.send(am.From, res)
+			pret := ProgramRets(ret)
+			n.send(am.From, mRunResult{WebProgramType, m.Pk, m.Name, sha3.Sum256(tin.Encode()), &pret})
 
 		default:
 			n.log("Unknown program type\n", m.Input.Type())
@@ -210,7 +205,6 @@ func (n *Node) handleMessage(am AnyMsg) {
 		h := InputName{m.Pk, m.Name, m.InputHash}
 		if ch, ok := n.resultsWaitingName[h]; ok {
 			ch <- m.Result
-			delete(n.resultsWaitingName, h)
 		} else {
 			n.log("Received name result for unexpected program\n", m.Result)
 		}
@@ -251,22 +245,27 @@ func (n *Node) peerRunName(pk keys.PK, name string, inputhash [32]byte, ptype Pr
 	}
 
 	h := InputName{pk, name, inputhash}
-	ch := make(chan ProgramRets)
+	ch := make(chan *ProgramRets)
 	n.resultsWaitingName[h] = ch
 
 	for _, peer := range n.Peers {
-		m := mRun{ptype, pk, name, input}
-
-		if err = n.send(peer, m); err != nil {
+		if err = n.send(peer, mRun{ptype, pk, name, input}); err != nil {
 			return
 		}
 	}
 
-	res = <-ch
-	delete(n.resultsWaitingName, h)
-	close(ch)
+	for range n.Peers {
+		pres := <-ch
+		if pres == nil {
+			continue
+		}
+		res = *pres
+		delete(n.resultsWaitingName, h)
+		close(ch)
+		return
+	}
 
-	return
+	return nil, errors.New("no peers have the program")
 }
 
 func (n *Node) receive() {

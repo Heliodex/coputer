@@ -124,9 +124,11 @@ mainloop:
 			if err := n.dialStream(addr); err != nil {
 				fmt.Println("Dialing failed  ", addrToReadable(addr), ":", err)
 			} else if n.sendTo(addr, msg.EncryptedMsg) {
-				break // sent message on newly created stream
+				continue mainloop // sent message on newly created stream
 			}
 		}
+
+		fmt.Println("Failed to send message to any address", addrToReadable(msg.MainAddr))
 	}
 }
 
@@ -144,13 +146,13 @@ func readChunks(stream *quic.ReceiveStream, chunkChan chan<- []byte) {
 }
 
 func readMsgs(chunkChan <-chan []byte, msgChan chan<- net.EncryptedMsg) {
-	const minChunkSize = 4 // well not really, as a message can't be just a length and 0 bytes, but whatever
+	const minMsgSize = 4 // well not really, as a message can't be just a length and 0 bytes, but whatever
 
-	b := make([]byte, 0, minChunkSize)
+	b := make([]byte, 0, minMsgSize)
 
 	for {
 		// get enough chunk to read the size
-		for len(b) < minChunkSize {
+		for len(b) < minMsgSize {
 			b = append(b, <-chunkChan...)
 		}
 

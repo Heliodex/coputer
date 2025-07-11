@@ -214,6 +214,6 @@ func main() {
 		runWeb(w, r, hexhash, c, errCache, runCache)
 	})
 
-	fmt.Println("Listening on :2505")
+	fmt.Println("Listening on port 2505")
 	panic(http.ListenAndServe(":2505", nil))
 }
