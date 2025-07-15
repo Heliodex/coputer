@@ -293,9 +293,11 @@ func (n *Node) receive() {
 
 func (n *Node) RunWebProgram(pk keys.PK, name string, input WebArgs, useLocal bool) (res WebRets, err error) {
 	if useLocal { // testing; to prevent 2 communication servers (from realising they're) using the same execution server
-		if res, err = StartWebProgram(pk, name, input); err == nil {
+		res, err = StartWebProgram(pk, name, input)
+		if err == nil {
 			return // we have the program!
 		}
+		fmt.Println("Failed to run web program locally:", err)
 	}
 
 	r, err := n.peerRunName(pk, name, sha3.Sum256(input.Encode()), WebProgramType, input)

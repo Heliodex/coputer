@@ -51,8 +51,8 @@ func Compile(c Compiler, path string) (p compiled, err error) {
 		if _, err := os.Stat(path); err != nil {
 			return compiled{}, errors.New("error finding file")
 		}
-		// init.luau directory
-		pathext = path + "/init" + Ext
+		// main.luau directory
+		pathext = path + "/main" + Ext
 	}
 
 	b, err := luauCompile(pathext, c.O)

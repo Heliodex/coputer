@@ -16,3 +16,6 @@ print(table.concat(c, ", "))
 
 local created2 = table.create(5, "hllo")
 print(table.concat(created2))
+
+-- TODO: test fractional i arg
+

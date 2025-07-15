@@ -16,8 +16,10 @@ const (
 	// one entrypoint to find them
 	// one entrypoint to bring them all
 	// and in the darkness require() them
-	Entrypoint         = "init"
+	Entrypoint         = "main"
 	EntrypointFilename = Entrypoint + ".luau"
+	// (okay, init.luau doesn't work since *that* RFC)
+	InvalidEntrypiont  = "init.luau"
 	DataDir            = "./data"
 	ProgramsDir        = DataDir + "/programs"
 )
@@ -39,6 +41,8 @@ func Bundle(path string) (b []byte, err error) {
 			return err
 		} else if bf.path == EntrypointFilename {
 			cFiles = append([]File{bf}, cFiles...) // entrypoint goes first
+		} else if bf.path == InvalidEntrypiont {
+			return fmt.Errorf("invalid filename: %s", InvalidEntrypiont)
 		} else {
 			cFiles = append(cFiles, bf)
 		}
@@ -49,7 +53,7 @@ func Bundle(path string) (b []byte, err error) {
 	}
 
 	if cFiles[0].path != EntrypointFilename {
-		return nil, errors.New("entrypoint (init.luau) not found")
+		return nil, errors.New("entrypoint (main.luau) not found")
 	}
 
 	// write compressed files

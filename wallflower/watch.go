@@ -28,7 +28,9 @@ func changed(n *net.Node, path, name string) {
 func watchPath(n *net.Node, path string) {
 	fmt.Printf("Watching path %s for changes...\n", path)
 	name := filepath.Base(path)
-	fmt.Printf("Your program will be served on your gateway as http://%s.%s.localhost:2517\n", name, n.Pk.EncodeNoPrefix())
+	fmt.Printf("Your program will be served on your gateway as http://%s-%s.localhost:2517\n", name, n.Pk.EncodeNoPrefix())
+
+	changed(n, path, name)
 
 	// Make the channel buffered to ensure no event is dropped. Notify will drop
 	// an event if the receiver is not able to keep up the sending pace.

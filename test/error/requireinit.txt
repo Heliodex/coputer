@@ -1,3 +1,0 @@
-{PATH}/requireinit.luau:1: function (main)
-{PATH}/dir2/init.luau:1: function (main)
-module must return a value

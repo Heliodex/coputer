@@ -166,12 +166,13 @@ func matchbalance(s, p string, si, pi int) (int, error) {
 			break
 		}
 
-		if s[si] == e {
+		switch s[si] {
+		case e:
 			cont--
 			if cont == 0 {
 				return si + 1, nil
 			}
-		} else if s[si] == b {
+		case b:
 			cont++
 		}
 	}
