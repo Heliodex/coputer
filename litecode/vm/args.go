@@ -30,6 +30,8 @@ func args_web(args Args) (r []Val, err error) {
 		headers[k] = v
 	}
 
+	bb := Buffer(pargs.Body)
+
 	webargs := &Table{
 		Hash: map[Val]Val{
 			"url": &Table{
@@ -49,7 +51,7 @@ func args_web(args Args) (r []Val, err error) {
 				Hash:     headers,
 				Readonly: true,
 			},
-			"body": Buffer(pargs.Body),
+			"body": &bb,
 		},
 		Readonly: true,
 	}

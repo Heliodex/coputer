@@ -69,7 +69,7 @@ func serveWeb(w http.ResponseWriter, r *http.Request, pk keys.PK, name string) {
 	}
 
 	url := WebArgsUrl{
-		Rawpath:  r.URL.RawPath,
+		Rawpath:  r.URL.String(),
 		Path:     r.URL.Path, // always absolute, I think
 		Rawquery: r.URL.RawQuery,
 		Query:    r.URL.Query(),

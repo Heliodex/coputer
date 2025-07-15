@@ -24,7 +24,7 @@ func wurl(s string) (w WebArgsUrl) {
 	}
 
 	return WebArgsUrl{
-		Rawpath:  s,
+		Rawpath:  url.String(),
 		Path:     url.Path,
 		Rawquery: url.RawQuery,
 		Query:    url.Query(),
