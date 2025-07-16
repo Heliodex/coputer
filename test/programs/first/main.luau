@@ -1,118 +1,93 @@
 local webargs = args.web()
 
-local html = require "./html"
-local render, tagVoid, tag = html.renderContentTag, html.tagVoid, html.tag
+local layout = require "./layout"
+local e, c = layout.elements, layout.config
 
-local css = [[
-* {
-	margin: 0;
-	box-sizing: border-box;
-	font-family: sans-serif;
-}
-
-body {
-	padding: 1rem;
-}
-
-h1, h2, h3, h4, h5, h6 {
-	padding: 1rem 0 0.5rem 0;
-}
-]]
-
-local head: html.Tags = {
-	tag "style" {}(css),
-}
-
-local function rets(body: html.Tags): WebRes
-	local root = tag "html" { lang = "en" } {
-		tag "head" {}(head),
-		tag "body" {}(body),
-	}
-
-	return {
-		headers = {
-			["content-type"] = "text/html; charset=utf-8",
-		},
-		body = buffer.fromstring("<!doctype html>" .. render(root)),
-	} :: WebRes
-end
-
-local headertext: html.Tags = {}
+local headertext: layout.Tags = {}
 for k, v in webargs.headers do
-	table.insert(headertext, tag "p" {} { k, " = ", v })
+	table.insert(headertext, e.p { k, " = ", v })
 end
 
-local querytext: html.Tags = {}
+local querytext: layout.Tags = {}
 for k, vs in webargs.url.query do
 	for _, v in vs do
-		table.insert(querytext, tag "p" {} { k, " = ", v })
+		table.insert(querytext, e.p { k, " = ", v })
 	end
 end
 
-return rets {
-	tag "h1" {} "Hello, world!",
-	tag "p" {} "Welcome to the first ever page hosted on Coputer!",
-	tag "details" {} {
-		tag "summary" {} "Here's what the page knows about the request:",
-		tag "ul" {} {
-			tag "div" {} {
-				tag "b" {} "Body:",
-				tag "p" {} {
-					buffer.tostring(webargs.body),
-					`({buffer.len(webargs.body)} bytes)`,
+local body: layout.Tags = {
+	e.main { padding = c.paddingAll(4) } {
+		e.h(1, { "Hello, world!" }),
+		e.box { padding = c.paddingXY(0, 4) } {
+			e.p { "Welcome to the first ever page hosted on Coputer!" },
+			e.details { "Here's what the page knows about the request:" } {
+				e.list {
+					e.box {} {
+						e.bold "Body:",
+						e.p {
+							buffer.tostring(webargs.body),
+							`({buffer.len(webargs.body)} bytes)`,
+						},
+					},
+					e.box {} {
+						e.bold "Headers:",
+						table.unpack(headertext),
+					},
+					e.box {} {
+						e.bold "Method:",
+						e.p { webargs.method },
+					},
+					e.box {} {
+						e.bold "URL:",
+						e.list {
+							e.box {} {
+								e.bold "Path:",
+								e.p { webargs.url.path },
+							},
+							e.box {} {
+								e.bold "Query:",
+								table.unpack(querytext),
+							},
+							e.box {} {
+								e.bold "Raw path:",
+								e.p { webargs.url.rawpath },
+							},
+							e.box {} {
+								e.bold "Raw query:",
+								e.p { webargs.url.rawquery },
+							},
+						},
+					},
 				},
-			},
-			tag "div" {} {
-				tag "b" {} "Headers:",
-				tag "p" {}(headertext),
-			},
-			tag "div" {} {
-				tag "b" {} "Method:",
-				tag "p" {}(webargs.method),
-			},
-			tag "div" {} {
-				tag "b" {} "URL:",
-				tag "ul" {} {
-					tag "div" {} {
-						tag "b" {} "Path:",
-						tag "p" {}(webargs.url.path),
-					},
-					tag "div" {} {
-						tag "b" {} "Query:",
-						tag "p" {}(querytext),
-					},
-					tag "div" {} {
-						tag "b" {} "Raw path:",
-						tag "p" {}(webargs.url.rawpath),
-					},
-					tag "div" {} {
-						tag "b" {} "Raw query:",
-						tag "p" {}(webargs.url.rawquery),
-					},
-				},
+				e.p { "...and nothing more." },
 			},
 		},
-		tag "p" {} "...and nothing more.",
-	},
 
-	tag "h2" {} "What is a Coputer?",
-	tag "figure" { style = "padding-bottom: 1rem" } {
-		tagVoid "img" {
-			src = "https://raw.githubusercontent.com/Heliodex/coputer/638eb77c0e7867eaaf53b078a2cb61b03181d37b/coflower.svg",
-		},
-		tag "figcaption" {} {
-			tag "small" {} "This munchkin is the icon/logo for Coputer.",
+		e.h(2, { "What is a Coputer?" }),
+		e.box { padding = c.paddingXY(0, 4) } {
+			e.box { padding = c.paddingAll(4) } {
+				e.image(
+					"https://raw.githubusercontent.com/Heliodex/coputer/638eb77c0e7867eaaf53b078a2cb61b03181d37b/coflower.svg",
+					"Coputer flower logo",
+					{ "This munchkin is the icon/logo for Coputer." }
+				),
+			},
+			e.p {
+				"Coputer is a network for running programs like the one used to serve you this page.",
+			},
+			e.p {
+				"These 'Coputer programs' are written in ",
+				e.outlink "https://luau.org" { "Luau" },
+				" and are entirely deterministic.",
+			},
+			e.p {
+				"The network is decentralised and collaborative &ndash; this page could have been delivered to you from anywhere across the network, even if some of its nodes are unresponsive, have blocked you, or refuse to serve this page.",
+			},
+			e.p {
+				"Anybody should be able to upload a Coputer program for free and have it be accessible 24/7. (This probably sounds less magical now than it would have several years ago.)",
+			},
 		},
 	},
-	tag "p" {} "Coputer is a network for running programs like the one used to serve you this page.",
-	tag "p" {} {
-		"These 'Coputer programs' are written in ",
-		tag "a" {
-			href = "https://luau.org",
-			target = "_blank",
-		} "Luau",
-		" and are entirely deterministic.",
-	},
-	tag "p" {} "The network is decentralised and collaborative &ndash; this page could have been delivered to you from anywhere across the network, even if some of its nodes are unresponsive, have blocked you, or refuse to serve this page.",
-	tag "p" {} "Anybody should be able to upload a Coputer program for free and have it be accessible 24/7. (This probably sounds less magical now than it would have several years ago.)",
 }
+
+return e.rets({}, body)

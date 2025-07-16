@@ -131,11 +131,13 @@ export type ContentTag = {
 	attributes: { [string]: boolean | string },
 	children: Tags,
 }
-export type Tags = { string | VoidTag | ContentTag }
+export type Tag = string | VoidTag | ContentTag
+export type Tags = { Tag }
+export type Attrs = { [string]: string | boolean }
 
 -- fusion vibez
 local function tagVoid(name: VoidTagName)
-	return function(attributes: { [string]: string | boolean })
+	return function(attributes: Attrs)
 		return {
 			name = name,
 			attributes = attributes,
@@ -144,8 +146,8 @@ local function tagVoid(name: VoidTagName)
 end
 
 local function tagContent(name: ContentTagName)
-	return function(attributes: { [string]: string | boolean })
-		return function(children: string | Tags)
+	return function(attributes: Attrs)
+		return function(children: Tags)
 			return {
 				name = name,
 				attributes = attributes,
