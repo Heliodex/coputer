@@ -70,7 +70,7 @@ func coroutine_wrap(args Args) (r []Val, err error) {
 
 	co := createCoroutine(f, args.Co)
 
-	return []Val{fn("wrap", func(_ *Coroutine, args ...Val) (r []Val, err error) {
+	return []Val{fn("wrap", nil, func(_ *Coroutine, args ...Val) (r []Val, err error) {
 		if co.Status == internal.CoDead {
 			return nil, errors.New("cannot resume dead coroutine") // ought to be better (return false, error message) if we can figure out how
 		}

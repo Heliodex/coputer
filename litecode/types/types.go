@@ -19,6 +19,7 @@ type (
 		// Run is the native body of the function. Its coroutine argument is used to run the function in a coroutine.
 		Run  *func(co *Coroutine, args ...Val) (r []Val, err error)
 		Name string
+		Co *Coroutine // if in a different coroutine
 	}
 
 	// Buffer represents a Luau byte buffer. Luau type`buffer`

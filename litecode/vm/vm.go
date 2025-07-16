@@ -126,10 +126,11 @@ var opList = [83]internal.OpInfo{
 
 // Functions and Tables are used as pointers normally, as they need to be hashed
 
-func fn(name string, f func(co *Coroutine, args ...Val) (r []Val, err error)) Function {
+func fn(name string, co *Coroutine, f func(co *Coroutine, args ...Val) (r []Val, err error)) Function {
 	return Function{
 		Run:  &f,
 		Name: name,
+		Co:   co,
 	}
 }
 
@@ -907,11 +908,11 @@ func getImport(A, count uint8, K0, K1, K2 string, towrap toWrap, stack *[]Val) (
 	return
 }
 
-func newClosure(pc *int32, A uint8, towrap toWrap, code []*internal.Inst, stack *[]Val, openUpvals *[]*upval, upvals []*upval) {
+func newClosure(pc *int32, A uint8, towrap toWrap, code []*internal.Inst, stack *[]Val, co *Coroutine, openUpvals *[]*upval, upvals []*upval) {
 	nups := towrap.proto.Nups
 	towrap.upvals = make([]*upval, nups)
 
-	(*stack)[A] = wrapclosure(towrap)
+	(*stack)[A] = wrapclosure(towrap, co)
 	// fmt.Println("WRAPPING WITH", uvs)
 
 	// fmt.Println("nups", nups)
@@ -1056,7 +1057,11 @@ func call(top *int32, A int32, B, C uint8, towrap toWrap, stack *[]Val, co *Coro
 	}
 
 	// fmt.Println("upvals1", len(upvals))
-	retList, err := (*fn.Run)(co, (*stack)[A+1:][:params-1]...) // not inclusive
+	rco := fn.Co
+	if rco == nil { // make sure any function is called in the coroutine of its own file (mainly for correct error messages)
+		rco = co
+	}
+	retList, err := (*fn.Run)(rco, (*stack)[A+1:][:params-1]...) // not inclusive
 	// fmt.Println("upvals2", len(upvals))
 	if err != nil {
 		return
@@ -1147,7 +1152,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 	// fmt.Println("starting with upvals", upvals)
 	code, lineInfo, protos := p.Code, p.InstLineInfo, p.Protos
 	co.Dbg.Name = p.Dbgname
-
+	
 	for ; *towrap.alive; co.Dbg.Line = lineInfo[pc] {
 		// fmt.Println(top)
 
@@ -1296,7 +1301,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			pc++
 		case 19: // NEWCLOSURE
 			towrap.proto = towrap.protoList[protos[i.D]]
-			newClosure(&pc, uint8(i.A), towrap, code, &stack, &openUpvals, upvals)
+			newClosure(&pc, uint8(i.A), towrap, code, &stack, co, &openUpvals, upvals)
 			pc++
 		case 20: // NAMECALL
 			pc++
@@ -1608,7 +1613,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 		case 64: // DUPCLOSURE
 			// wrap is reused for closures
 			towrap.proto = towrap.protoList[i.K.(uint32)] // 6 closure
-			newClosure(&pc, uint8(i.A), towrap, code, &stack, nil, upvals)
+			newClosure(&pc, uint8(i.A), towrap, code, &stack, co, nil, upvals)
 			pc++
 		case 65: // PREPVARARGS
 			// Handled by wrapper
@@ -1647,11 +1652,11 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 	return nil, errors.New("program execution cancelled")
 }
 
-func wrapclosure(towrap toWrap) Function {
+func wrapclosure(towrap toWrap, existingCo *Coroutine) Function {
 	proto := towrap.proto
 	maxs, np := proto.MaxStackSize, proto.NumParams // maxs 2 lel
 
-	return fn("", func(co *Coroutine, args ...Val) (r []Val, err error) {
+	return fn("", existingCo, func(co *Coroutine, args ...Val) (r []Val, err error) {
 		la := uint8(len(args)) // we can't have more than 255 args anyway right?
 
 		var list []Val
@@ -1669,6 +1674,7 @@ func wrapclosure(towrap toWrap) Function {
 			co.Dbg = initDbg
 		}()
 
+		// fmt.Println("starting in coroutine", co.Dbgpath, "with args", args)
 		// fmt.Println("started on", co.Dbg.Line)
 		r, err = execute(towrap, stack, list, co)
 		// fmt.Println("ended on", co.Dbg.Line)
@@ -1676,6 +1682,7 @@ func wrapclosure(towrap toWrap) Function {
 			return
 		}
 		if err != nil {
+			// fmt.Println("BAM!  error coroutine", co.Dbgpath, "with args", args)
 			return nil, &internal.CoError{
 				Line:    co.Dbg.Line,
 				Dbgname: co.Dbg.Name,
@@ -1700,7 +1707,7 @@ func loadmodule(m compiled, env Env, requireCache map[string]Val, args ProgramAr
 	}
 
 	return Coroutine{
-		Body:           wrapclosure(towrap),
+		Body:           wrapclosure(towrap, nil),
 		Env:            env,
 		Filepath:       m.Filepath,
 		Dbgpath:        m.Dbgpath,
