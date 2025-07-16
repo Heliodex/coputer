@@ -7,12 +7,14 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 
 	gnet "net"
 
+	"github.com/Heliodex/coputer/bundle"
 	. "github.com/Heliodex/coputer/litecode/types"
 	"github.com/Heliodex/coputer/wallflower/keys"
 	"github.com/Heliodex/coputer/wallflower/net"
@@ -140,7 +142,8 @@ func getPeers() (peers []*keys.Peer) {
 	if err != nil && !os.IsNotExist(err) {
 		fmt.Printf("Failed to open peers file %s: %v\n", peersFile, err)
 		os.Exit(1)
-	} else if os.IsNotExist(err) {
+	}
+	if os.IsNotExist(err) {
 		fmt.Printf("Peers file %s does not exist. No peers will be loaded.\n", peersFile)
 		return
 	}
@@ -170,10 +173,61 @@ func getPeers() (peers []*keys.Peer) {
 	return
 }
 
+type loadedProgram struct {
+	Name    string
+	Bundled []byte
+}
+
+func getPrograms() (programs []loadedProgram) {
+	// open the peers file
+	const programsFile = "programs"
+	file, err := os.Open(programsFile)
+	if err != nil && !os.IsNotExist(err) {
+		fmt.Printf("Failed to open programs file %s: %v\n", programsFile, err)
+		os.Exit(1)
+	}
+	if os.IsNotExist(err) {
+		fmt.Printf("Programs file %s does not exist. No programs will be loaded.\n", programsFile)
+		return
+	}
+	defer file.Close()
+
+	b, err := io.ReadAll(file)
+	if err != nil {
+		fmt.Printf("Failed to read programs file %s: %v\n", programsFile, err)
+		os.Exit(1)
+	}
+
+	if len(b) == 0 {
+		fmt.Printf("Programs file %s is empty. No programs will be loaded.\n", programsFile)
+		return
+	}
+
+	for path := range strings.SplitSeq(strings.TrimSpace(string(b)), "\n") {
+		// split line into path and name
+		name := filepath.Base(path)
+
+		b, err := bundle.Bundle(path)
+		if err != nil {
+			fmt.Printf("Failed to bundle program %s: %v\n", name, err)
+			continue
+		}
+
+		programs = append(programs, loadedProgram{name, b})
+	}
+	fmt.Println(len(programs))
+	fmt.Println(len(programs))
+	fmt.Println(len(programs))
+	fmt.Println(len(programs))
+
+	return
+}
+
 func start() {
 	kp := getKeypair()
 	addrs := getAddrs()
 	peers := getPeers()
+	programs := getPrograms()
 
 	// generate local IP address
 	// lip, err := gnet.ResolveIPAddr("ip6", "::1")
@@ -228,6 +282,15 @@ func start() {
 	n.Start()
 	go gatewayServer(n)
 	go managementServer()
+
+	for _, prog := range programs {
+		fmt.Printf("Loading program %s (%d bytes)...\n", prog.Name, len(prog.Bundled))
+		if err := n.StoreProgram(kp.Pk, prog.Name, kp.Sk.SignHash(prog.Bundled), prog.Bundled); err != nil {
+			fmt.Printf("Failed to store program %s: %v\n", prog.Name, err)
+			continue
+		}
+		fmt.Printf("Stored program %s (%d bytes)\n", prog.Name, len(prog.Bundled))
+	}
 
 	select {}
 }

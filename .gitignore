@@ -4,3 +4,4 @@ coverage.out
 coverage.html
 .vscode
 wallflower/peers
+wallflower/programs

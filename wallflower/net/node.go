@@ -228,12 +228,11 @@ func (n *Node) seenPeer(p *keys.Peer) {
 }
 
 func (n *Node) StoreProgram(pk keys.PK, name string, sig keys.HashSig, b []byte) (err error) {
-	m := mStore{name, pk, sig, b}
-
 	if _, err = StoreProgram(pk, name, b); err != nil {
 		return // maybe we can still continue if this happens
 	}
 
+	m := mStore{name, pk, sig, b}
 	for _, peer := range n.Peers {
 		if err = n.send(peer, m); err != nil {
 			return
