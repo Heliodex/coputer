@@ -1,7 +1,7 @@
 local webargs = args.web()
 
 local html = require "./html"
-local render, tag = html.render, html.tag
+local render, tagVoid, tag = html.renderContentTag, html.tagVoid, html.tag
 
 local css = [[
 * {
@@ -97,9 +97,9 @@ return rets {
 
 	tag "h2" {} "What is a Coputer?",
 	tag "figure" { style = "padding-bottom: 1rem" } {
-		tag "img" {
+		tagVoid "img" {
 			src = "https://raw.githubusercontent.com/Heliodex/coputer/638eb77c0e7867eaaf53b078a2cb61b03181d37b/coflower.svg",
-		} {},
+		},
 		tag "figcaption" {} {
 			tag "small" {} "This munchkin is the icon/logo for Coputer.",
 		},
