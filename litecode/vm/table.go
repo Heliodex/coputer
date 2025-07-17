@@ -2,6 +2,7 @@ package vm
 
 import (
 	"errors"
+	"fmt"
 	"maps"
 	"slices"
 	"strings"
@@ -40,12 +41,14 @@ func table_concat(args Args) (r []Val, err error) {
 
 	var b strings.Builder
 	for ; i <= j; i++ {
-		v, ok := t.GetFloat(i).(string)
+		v := t.GetFloat(i)
+		sv, ok := v.(string)
 		if !ok {
-			return nil, errors.New("attempt to concatenate non-string value")
+			// return nil, errors.New("attempt to concatenate non-string value")
+			return nil, fmt.Errorf("invalid value (%s) at index %d in table for 'concat'", TypeOf(v), int(i))
 		}
 
-		b.WriteString(v)
+		b.WriteString(sv)
 		if i < j {
 			b.WriteString(sep)
 		}
@@ -57,7 +60,7 @@ func table_concat(args Args) (r []Val, err error) {
 func table_create(args Args) (r []Val, err error) {
 	s := int(args.GetNumber())
 	if s < 0 {
-		return nil, errors.New("index out of range")
+		return nil, errors.New("invalid argument #1 to 'create' (size out of range)")
 	}
 
 	var val Val
@@ -84,7 +87,7 @@ func table_find(args Args) (r []Val, err error) {
 	needle := args.GetAny()
 	init := args.GetNumber(1)
 	if init < 1 {
-		return nil, errors.New("index out of range")
+		return nil, errors.New("invalid argument #3 to 'find' (index out of range)")
 	}
 
 	if haystack.List == nil { // it doesn't even search the hash? Lame

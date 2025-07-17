@@ -1,0 +1,2 @@
+../../test/error/nonstringconcat1.luau:1: function (main)
+invalid value (function) at index 1 in table for 'concat'

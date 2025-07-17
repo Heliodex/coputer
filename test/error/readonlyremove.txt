@@ -1,0 +1,2 @@
+{PATH}/readonlyremove.luau:3: function (main)
+attempt to modify a readonly table

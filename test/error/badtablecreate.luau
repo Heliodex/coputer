@@ -1,0 +1,1 @@
+table.create(-1, "test")

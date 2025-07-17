@@ -1,0 +1,2 @@
+../../test/error/badtablecreate.luau:1: function (main)
+invalid argument #1 to 'create' (size out of range)

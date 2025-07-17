@@ -1,0 +1,2 @@
+../../test/error/nonstringconcat2.luau:1: function (main)
+invalid value (buffer) at index 3 in table for 'concat'
