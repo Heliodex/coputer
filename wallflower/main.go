@@ -222,11 +222,6 @@ func getPrograms() (programs []loadedProgram) {
 
 		programs = append(programs, loadedProgram{name, b})
 	}
-	fmt.Println(len(programs))
-	fmt.Println(len(programs))
-	fmt.Println(len(programs))
-	fmt.Println(len(programs))
-
 	return
 }
 

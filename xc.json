@@ -12,6 +12,6 @@
 	{
 		"name": "gateway",
 		"workDir": "./gateway",
-		"args": ["./gateway"]
+		"args": ["./gateway", "coputer.heliodex.cf"]
 	}
 ]

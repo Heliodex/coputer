@@ -87,6 +87,26 @@ local body: layout.Tags = {
 				"Anybody should be able to upload a Coputer program for free and have it be accessible 24/7. (This probably sounds less magical now than it would have several years ago.)",
 			},
 		},
+
+		e.box { padding = c.paddingXY(0, 4) } {
+			e.p {
+				"This page first went live on ",
+				e.bold "17 July 2025",
+				". Watch this space! It will be updated with more information soon.",
+			},
+
+			e.box {} {
+				e.outlink "https://github.com/Heliodex/coputer/blob/main/test/programs/first/main.luau" {
+					"Source code for this page",
+				},
+			},
+			e.box {} {
+				"Source code for Coputer: ",
+				e.outlink "https://github.com/Heliodex/coputer" {
+					"github.com/Heliodex/coputer",
+				},
+			},
+		},
 	},
 }
 
