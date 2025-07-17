@@ -15,7 +15,6 @@ const (
 	egPk = "1mdy2o0f9-s1a9rdjkt-vwut3s6fv-gd1nv0ezr-it04zc2le"
 
 	commPort = 2507
-	askPort  = 2516
 	hostPort = 2517
 )
 

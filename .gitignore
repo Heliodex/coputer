@@ -3,5 +3,13 @@ data
 coverage.out
 coverage.html
 .vscode
+xc
+litecode/litecode
+litecode/litecode.exe
+wallflower/wallflower
+wallflower/wallflower.exe
+gateway/gateway
+gateway/gateway.exe
+wallflower/cosec
 wallflower/peers
 wallflower/programs

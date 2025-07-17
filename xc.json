@@ -1,0 +1,17 @@
+[
+	{
+		"name": "execution",
+		"workDir": "./litecode",
+		"args": ["./litecode"]
+	},
+	{
+		"name": "communication",
+		"workDir": "./wallflower",
+		"args": ["./wallflower", "start"]
+	},
+	{
+		"name": "gateway",
+		"workDir": "./gateway",
+		"args": ["./gateway"]
+	}
+]

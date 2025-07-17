@@ -99,14 +99,21 @@ func getPublicIPs() (ips []gnet.IP, err error) {
 }
 
 func getKeypair() (kp keys.Keypair) {
-	const skEnv = "WALLFLOWER_SK"
+	const cosecFile = "cosec"
 
-	if sk, ok := os.LookupEnv(skEnv); !ok {
-		fmt.Printf("Environment variable %s not set.\n", skEnv)
-		fmt.Println("If you don't have a secret key, you can generate one with the `genkeys` command.")
+	file, err := os.Open(cosecFile)
+	if err != nil {
+		fmt.Printf("Failed to open cosec file %s: %v\n", cosecFile, err)
+		fmt.Println("If you don't have a secret key, you can generate one with the `genkeys` command and place it in the cosec file.")
 		os.Exit(1)
-	} else if skBytes, err := keys.DecodeSK(sk); err != nil {
-		fmt.Println("Invalid secret key provided.")
+	}
+	defer file.Close()
+
+	if b, err := io.ReadAll(file); err != nil {
+		fmt.Printf("Failed to read cosec file %s: %v\n", cosecFile, err)
+		os.Exit(1)
+	} else if skBytes, err := keys.DecodeSK(strings.TrimSpace(string(b))); err != nil {
+		fmt.Println("Invalid secret key in cosec file.")
 		os.Exit(1)
 	} else if kp, err = keys.KeypairSK(skBytes); err != nil {
 		fmt.Println("Failed to create keypair from secret key:", err)
