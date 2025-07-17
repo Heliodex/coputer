@@ -1,0 +1,2 @@
+{PATH}/expected2.luau:1: function (main)
+missing argument #1 to 'tonumber'

@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"errors"
 	"math/bits"
 
 	. "github.com/Heliodex/coputer/litecode/types"
@@ -111,28 +112,28 @@ func bit32_countrz(args Args) (r []Val, err error) {
 ** get field and width arguments for field-manipulation functions,
 ** checking whether they are valid.
  */
-func fieldargs(args Args) (f, w int, msg string, ok bool) {
+func fieldargs(args Args) (f, w int, err error) {
 	f = int(args.GetNumber())
 	w = int(args.GetNumber(1))
 
 	if f < 0 {
-		return 0, 0, "field cannot be negative", false
+		return 0, 0, errors.New("field cannot be negative")
 	}
 	if w < 1 {
-		return 0, 0, "width must be positive", false
+		return 0, 0, errors.New("width must be positive")
 	}
 	if f+w > nbits {
-		return 0, 0, "trying to access non-existent bits", false
+		return 0, 0, errors.New("trying to access non-existent bits")
 	}
-	return f, w, "", true
+	return f, w, nil
 }
 
 func bit32_extract(args Args) (r []Val, err error) {
 	x := uint32(args.GetNumber())
 
-	f, w, msg, ok := fieldargs(args)
-	if !ok {
-		return []Val{msg, false}, nil
+	f, w, err := fieldargs(args)
+	if err != nil {
+		return []Val{err.Error(), false}, nil
 	}
 	return []Val{float64(x >> f & bitmask(w)), true}, nil
 }
@@ -141,9 +142,9 @@ func bit32_replace(args Args) (r []Val, err error) {
 	x := uint32(args.GetNumber())
 	v := uint32(args.GetNumber())
 
-	f, w, msg, ok := fieldargs(args)
-	if !ok {
-		return []Val{msg, false}, nil
+	f, w, err := fieldargs(args)
+	if err != nil {
+		return []Val{err.Error(), false}, nil
 	}
 	m := bitmask(w)
 	v &= m // erase bits outside given width

@@ -1,0 +1,2 @@
+{PATH}/wrap2.luau:3: function (main)
+cannot resume dead coroutine
