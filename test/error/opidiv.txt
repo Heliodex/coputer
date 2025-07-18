@@ -1,0 +1,2 @@
+{PATH}/opidiv.luau:4: function (main)
+attempt to perform arithmetic (idiv) on number and string

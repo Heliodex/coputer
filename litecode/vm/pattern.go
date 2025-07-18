@@ -19,6 +19,8 @@ import (
 // 	fmt.Println(a...)
 // }
 
+const max_captures = 32
+
 var (
 	errMalformedEsc     = fmt.Errorf("malformed pattern (ends with '%c')", l_esc)
 	errMalformedBracket = errors.New("malformed pattern (missing ']')")

@@ -1,0 +1,2 @@
+{PATH}/patterncaptures.luau:1: function (main)
+too many captures

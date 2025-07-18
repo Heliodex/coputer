@@ -612,6 +612,7 @@ func TypeOf(v Val) string {
 	case Vector:
 		return "vector"
 	}
+	// panic("typeof bad type")
 	return "userdata"
 }
 
@@ -1152,7 +1153,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 	// fmt.Println("starting with upvals", upvals)
 	code, lineInfo, protos := p.Code, p.InstLineInfo, p.Protos
 	co.Dbg.Name = p.Dbgname
-	
+
 	for ; *towrap.alive; co.Dbg.Line = lineInfo[pc] {
 		// fmt.Println(top)
 

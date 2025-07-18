@@ -1,0 +1,2 @@
+{PATH}/oppow.luau:4: function (main)
+attempt to perform arithmetic (pow) on number and string

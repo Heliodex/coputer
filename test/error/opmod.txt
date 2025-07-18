@@ -1,0 +1,2 @@
+{PATH}/opmod.luau:4: function (main)
+attempt to perform arithmetic (mod) on number and string

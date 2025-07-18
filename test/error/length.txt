@@ -1,0 +1,2 @@
+{PATH}/length.luau:2: function (main)
+attempt to get length of a number value

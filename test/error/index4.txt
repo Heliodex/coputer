@@ -1,0 +1,2 @@
+{PATH}/index4.luau:2: function (main)
+attempt to index nil with 'y'

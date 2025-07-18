@@ -539,6 +539,7 @@ func ToString(a Val) string {
 	case string:
 		return strings.ReplaceAll(v, "\n", "\r\n") // bruh
 	}
+	// panic("tostring bad type")
 	return "userdata"
 }
 

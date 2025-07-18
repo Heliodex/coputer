@@ -1,0 +1,2 @@
+{PATH}/forgprep4.luau:3: function (main)
+attempt to iterate over a thread value

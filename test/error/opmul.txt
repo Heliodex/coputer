@@ -1,0 +1,2 @@
+{PATH}/opmul.luau:4: function (main)
+attempt to perform arithmetic (mul) on number and string

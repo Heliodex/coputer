@@ -1,0 +1,2 @@
+{PATH}/opsub.luau:4: function (main)
+attempt to perform arithmetic (sub) on number and string
