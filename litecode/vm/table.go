@@ -249,6 +249,8 @@ func table_remove(args Args) (r []Val, err error) {
 // ltablib.cpp
 type comp func(a, b Val) (bool, error) // ton, compton, aint no city quite like miiine
 
+var invalidOrderFunc = errors.New("invalid order function for sorting")
+
 func sort_swap(t *Table, i, j int) {
 	a := t.List
 	// LUAU_ASSERT(unsigned(i) < unsigned(n) && unsigned(j) < unsigned(n)) // contract maintained in sort_less after predicate call
@@ -377,7 +379,7 @@ func sort_rec(t *Table, l, u, limit int, c comp) (err error) {
 				} else if !r {
 					break
 				} else if i >= u {
-					return errors.New("invalid order function for sorting")
+					return invalidOrderFunc
 				}
 				i++
 			}
@@ -390,7 +392,7 @@ func sort_rec(t *Table, l, u, limit int, c comp) (err error) {
 				} else if !r {
 					break
 				} else if j <= l {
-					return errors.New("invalid order function for sorting")
+					return invalidOrderFunc
 				}
 				j--
 			}
@@ -437,12 +439,17 @@ func table_sort(args Args) (r []Val, err error) {
 		c = jumpLt
 	} else {
 		f := args.GetFunction()
-		c = func(a, b Val) (bool, error) {
+		c = func(a, b Val) (r bool, err error) {
 			res, err := (*f.Run)(args.Co, a, b)
-			if err != nil {
-				return false, err
+			if err != nil || len(res) == 0 || res[0] == nil {
+				return
 			}
-			return res[0].(bool), nil
+
+			r, ok := res[0].(bool)
+			if !ok {
+				return false, invalidOrderFunc
+			}
+			return
 		}
 	}
 

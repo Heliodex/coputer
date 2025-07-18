@@ -14,3 +14,15 @@ table.sort(s3, function(a, b) return a > b end)
 for i, v in s3 do
 	print(i, v)
 end
+
+local t = { 9, 8, 7, 6, 7, 8, 9 }
+
+table.sort(t, function(a, b) return end)
+for i, v in t do
+	print(i, v)
+end
+
+table.sort(t, function(a, b) return nil end)
+for i, v in t do
+	print(i, v)
+end

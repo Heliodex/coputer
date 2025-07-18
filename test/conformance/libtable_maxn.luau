@@ -17,3 +17,18 @@ print(x[29])
 print(x[29.7])
 print(table.maxn(x))
 print(#x)
+
+local y = {
+	1,
+	2,
+	3,
+	nil,
+	5,
+	6,
+	[9] = nil, -- idk
+	test = nil,
+	untest = nil,
+}
+
+print(table.maxn(y))
+print(#y)
