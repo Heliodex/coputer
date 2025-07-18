@@ -46,14 +46,10 @@ func string_char(args Args) (r []Val, err error) {
 	l := len(args.List)
 
 	bytes := make([]byte, l)
-	for i := range bytes {
+	for i := range l {
 		a := args.GetNumber()
-		ba := byte(a)
-		if float64(ba) != a {
-			return nil, fmt.Errorf("invalid argument #%d to 'char' (invalid value)", i+1)
-		}
 
-		bytes[i] = ba
+		bytes[i] = byte(a)
 	}
 
 	return []Val{string(bytes)}, nil

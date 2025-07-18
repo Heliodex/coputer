@@ -1,0 +1,2 @@
+{PATH}/badpatternesc2.luau:1: function (main)
+malformed pattern (missing ']')

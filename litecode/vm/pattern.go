@@ -50,10 +50,10 @@ func classend(p string, pi int) (int, error) {
 
 		for {
 			// look for a ']'
-			if pi == len(p) {
+			if pi+1 >= len(p) {
 				return 0, errMalformedBracket
 			}
-			if p[pi] == l_esc && pi+1 < len(p) {
+			if p[pi] == l_esc {
 				pi++ // skip escapes (eg. '%]')
 			}
 			pi++
