@@ -1,2 +1,2 @@
-{PATH}/badforn4.luau:3: function (main)
+{PATH}/forn1.luau:3: function (main)
 invalid 'for' initial value (number expected, got string)

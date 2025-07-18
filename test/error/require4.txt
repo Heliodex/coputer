@@ -1,0 +1,2 @@
+{PATH}/require4.luau:1: function (main)
+module must return a table or function

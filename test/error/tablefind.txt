@@ -1,0 +1,2 @@
+{PATH}/tablefind.luau:1: function (main)
+invalid argument #3 to 'find' (index out of range)

@@ -1,2 +1,2 @@
-{PATH}/badforn5.luau:3: function (main)
+{PATH}/forn2.luau:3: function (main)
 invalid 'for' limit (number expected, got string)

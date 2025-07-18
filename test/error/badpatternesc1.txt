@@ -1,2 +1,0 @@
-{PATH}/badpatternesc1.luau:1: function (main)
-malformed pattern (ends with '%')
