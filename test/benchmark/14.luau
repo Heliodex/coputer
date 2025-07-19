@@ -10,7 +10,7 @@ for i = 1, 3e4 do
 
 	while c ~= 1 do
 		l += 1
-		c = if c % 2 == 0 then c / 2 else 3 * c + 1
+		c = (if c % 2 == 0 then c / 2 else 3 * c + 1) :: number -- just solver things
 	end
 	if l > longestl then
 		longest, longestl = i, l

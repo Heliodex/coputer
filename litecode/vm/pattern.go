@@ -410,7 +410,7 @@ func defaultCase(s, p string, si, pi int, caps *captures) (cont bool, si2, pi2 i
 	// pattern class plus optional suffix
 	epi, err := classend(p, pi) // points to optional suffix
 	if err != nil {
-		return false, 0, 0, err
+		return
 	}
 	if !singlematch(s, p, si, pi, epi) {
 		// does not match at least once?

@@ -6,10 +6,11 @@ import (
 	. "github.com/Heliodex/coputer/litecode/types"
 )
 
-func invalidNumArgs(f string, nx int, tx ...string) error {
-	if len(tx) > 0 {
-		return fmt.Errorf("missing argument #%d to '%s' (%s expected)", nx, f, tx[0])
-	}
+func invalidNumArgsExpected(f string, nx int, tx string) error {
+	return fmt.Errorf("missing argument #%d to '%s' (%s expected)", nx, f, tx)
+}
+
+func invalidNumArgs(f string, nx int) error {
 	return fmt.Errorf("missing argument #%d to '%s'", nx, f)
 }
 
@@ -33,7 +34,7 @@ func getArg[T Val](a *Args, optV []T, tx string) (g T) {
 	a.pos++
 	if a.pos > len(a.List) {
 		if len(optV) == 0 {
-			a.Co.Error(invalidNumArgs(a.name, a.pos, tx))
+			a.Co.Error(invalidNumArgsExpected(a.name, a.pos, tx))
 		}
 		return optV[0]
 	}
