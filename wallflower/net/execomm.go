@@ -19,6 +19,30 @@ const (
 	storeAddr = addr + "/store"
 )
 
+func GetProfile(pk keys.PK) (programs []string, err error) {
+	res, err := http.Get(addr + "/" + pk.EncodeNoPrefix())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get programs: %v", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("bad status from execution server while getting programs: %s", res.Status)
+	}
+
+	b, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body while getting programs: %v", err)
+	}
+
+	bprograms := bytes.Split(bytes.TrimSpace(b), []byte{'\n'})
+	programs = make([]string, len(bprograms))
+	for i, v := range bprograms {
+		programs[i] = string(v)
+	}
+	return
+}
+
 func StoreProgram(pk keys.PK, name string, b []byte) (hash [32]byte, err error) {
 	// fmt.Println("Storing program", pk.Encode(), name)
 	hash = sha3.Sum256(b)

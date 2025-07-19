@@ -35,6 +35,30 @@ const (
 func gatewayServer(n *net.Node) {
 	mux := http.NewServeMux()
 
+	mux.HandleFunc("GET /{pk}", func(w http.ResponseWriter, r *http.Request) {
+		pks := r.PathValue("pk")
+		// this is the worst proxy ever; we are just re-encoding everything like 3 times
+		pk, err := keys.DecodePKNoPrefix(pks)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to decode public key: %v", err), http.StatusBadRequest)
+			return
+		}
+
+		programs, err := net.GetProfile(pk)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to get programs: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		fmt.Println("Serving profile for", pk.Encode())
+		fmt.Println("Found", len(programs), "programs for", pk.Encode())
+
+		w.WriteHeader(http.StatusOK)
+		for _, p := range programs {
+			w.Write(append([]byte(p), '\n'))
+		}
+	})
+
 	mux.HandleFunc("POST /web/{pk}/{name}", func(w http.ResponseWriter, r *http.Request) {
 		pks, name := r.PathValue("pk"), r.PathValue("name")
 		pk, err := keys.DecodePKNoPrefix(pks)

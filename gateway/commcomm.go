@@ -14,6 +14,31 @@ import (
 
 var addr = "http://localhost:" + strconv.Itoa(commPort)
 
+// god not another proxy
+func GetProfile(pk keys.PK) (programs []string, err error) {
+	res, err := http.Get(addr + "/" + pk.EncodeNoPrefix())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get programs: %v", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("bad status from communication server while getting programs: %s", res.Status)
+	}
+
+	b, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body while getting programs: %v", err)
+	}
+
+	bprograms := bytes.Split(bytes.TrimSpace(b), []byte{'\n'})
+	programs = make([]string, len(bprograms))
+	for i, v := range bprograms {
+		programs[i] = string(v)
+	}
+	return
+}
+
 // lel
 // but seriously, this is different to the StartWebProgram function in the communication system, even though it's identical, because it addresses the communication server instead of the execution server
 func StartWebProgram(pk keys.PK, name string, args WebArgs) (rets WebRets, err error) {

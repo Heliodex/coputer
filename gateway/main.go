@@ -51,13 +51,31 @@ func validateSubdomain(hn string) (pk keys.PK, name string, err error) {
 func serveMain(w http.ResponseWriter, _ *http.Request, host string) {
 	fmt.Fprintln(w, "Welcome to the Coputer Gateway!")
 	fmt.Fprintln(w, "This is a placeholder for the main page.")
-	fmt.Fprintf(w, "Profiles are accessible via subdomains like %s.%s\n", egPk, host)
-	fmt.Fprintf(w, "Programs are accessible via subdomains like example.%s.%s\n", egPk, host)
+	fmt.Fprintf(w, "Profiles are accessible via subdomains like %s-%s\n", egPk, host)
+	fmt.Fprintf(w, "Programs are accessible via subdomains like example-%s.%s\n", egPk, host)
 }
 
-func serveProfile(w http.ResponseWriter, _ *http.Request, pk keys.PK) {
-	fmt.Fprintf(w, "Profile for public key %s\n", pk.Encode())
-	fmt.Fprintln(w, "This is a placeholder for the public key's profile page.")
+func serveProfile(w http.ResponseWriter, r *http.Request, pk keys.PK) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	programs, err := GetProfile(pk)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get profile: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	if len(programs) == 0 {
+		fmt.Fprintf(w, "No programs found for public key %s\n", pk.Encode())
+		return
+	}
+
+	fmt.Fprintf(w, "Programs for public key %s:\n", pk.Encode())
+	for _, prog := range programs {
+		fmt.Fprintf(w, "- %s-%s.%s\n", prog, pk.EncodeNoPrefix(), host)
+	}
 }
 
 func serveWeb(w http.ResponseWriter, r *http.Request, pk keys.PK, name string) {

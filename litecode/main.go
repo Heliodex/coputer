@@ -172,6 +172,24 @@ func main() {
 		w.WriteHeader(http.StatusCreated)
 	})
 
+	http.HandleFunc("GET /{pk}", func(w http.ResponseWriter, r *http.Request) {
+		pk := r.PathValue("pk")
+		if !checkPK(w, pk) {
+			return
+		}
+
+		hashFiles, err := os.ReadDir(filepath.Join(NamesDir, pk))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		for _, f := range hashFiles {
+			w.Write(append([]byte(f.Name()), '\n'))
+		}
+	})
+
 	http.HandleFunc("GET /{pk}/{name}", func(w http.ResponseWriter, r *http.Request) {
 		pk, name := r.PathValue("pk"), r.PathValue("name")
 		if !checkPK(w, pk) {
