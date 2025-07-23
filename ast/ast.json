@@ -5,16 +5,27 @@
 		"hasEnd": true,
 		"body": [
 			{
-				"type": "AstStatWhile",
+				"type": "AstStatFor",
 				"location": "0,0 - 1,3",
-				"condition": {
-					"type": "AstExprConstantBool",
-					"location": "0,6 - 0,10",
-					"value": true
+				"var": {
+					"luauType": null,
+					"name": "i",
+					"type": "AstLocal",
+					"location": "0,4 - 0,5"
+				},
+				"from": {
+					"type": "AstExprConstantNumber",
+					"location": "0,8 - 0,9",
+					"value": 1
+				},
+				"to": {
+					"type": "AstExprConstantNumber",
+					"location": "0,11 - 0,13",
+					"value": 10
 				},
 				"body": {
 					"type": "AstStatBlock",
-					"location": "0,13 - 1,0",
+					"location": "0,16 - 1,0",
 					"hasEnd": true,
 					"body": []
 				},
