@@ -1,0 +1,19 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 2,0
+    HasEnd: true
+    Body:
+        Type: AstStatWhile
+        Location: 0,0 - 1,3
+        Condition:
+            Type: AstExprConstantBool
+            Location: 0,6 - 0,10
+            Value: true
+        Body:
+            Type: AstStatBlock
+            Location: 0,13 - 1,0
+            HasEnd: true
+            Body:
+        HasDo: true
+
+Comment Locations:

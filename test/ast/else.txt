@@ -1,0 +1,37 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 4,0
+    HasEnd: true
+    Body:
+        Type: AstStatIf
+        Location: 0,0 - 3,3
+        Condition:
+            Type: AstExprConstantBool
+            Location: 0,3 - 0,7
+            Value: true
+        ThenBody:
+            Type: AstStatBlock
+            Location: 0,12 - 1,0
+            HasEnd: true
+            Body:
+        ElseBody:
+            Type: AstStatIf
+            Location: 1,0 - 3,3
+            Condition:
+                Type: AstExprConstantBool
+                Location: 1,7 - 1,12
+                Value: false
+            ThenBody:
+                Type: AstStatBlock
+                Location: 1,17 - 2,0
+                HasEnd: true
+                Body:
+            ElseBody:
+                Type: AstStatBlock
+                Location: 2,4 - 3,0
+                HasEnd: true
+                Body:
+            HasThen: true
+        HasThen: true
+
+Comment Locations:

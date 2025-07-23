@@ -1,0 +1,39 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 5,0
+    HasEnd: true
+    Body:
+        Type: AstStatLocal
+        Location: 0,0 - 4,1
+        Vars:
+            Type: AstLocal
+            Location: 0,6 - 0,7
+            Name: x
+            LuauType: <nil>
+        Values:
+            Type: AstExprTable
+            Location: 0,10 - 4,1
+            Items:
+                Type: AstExprTableItem
+                Kind: item
+                Key:
+                Value:
+                    Type: AstExprConstantNumber
+                    Location: 1,1 - 1,2
+                    Value: 1.000000
+                Type: AstExprTableItem
+                Kind: item
+                Key:
+                Value:
+                    Type: AstExprConstantNumber
+                    Location: 2,1 - 2,2
+                    Value: 2.000000
+                Type: AstExprTableItem
+                Kind: item
+                Key:
+                Value:
+                    Type: AstExprConstantNumber
+                    Location: 3,1 - 3,2
+                    Value: 3.000000
+
+Comment Locations:

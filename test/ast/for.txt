@@ -1,0 +1,28 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 2,0
+    HasEnd: true
+    Body:
+        Type: AstStatFor
+        Location: 0,0 - 1,3
+        Var:
+            Type: AstLocal
+            Location: 0,4 - 0,5
+            Name: i
+            LuauType: <nil>
+        From:
+            Type: AstExprConstantNumber
+            Location: 0,8 - 0,9
+            Value: 1.000000
+        To:
+            Type: AstExprConstantNumber
+            Location: 0,11 - 0,13
+            Value: 10.000000
+        Body:
+            Type: AstStatBlock
+            Location: 0,16 - 1,0
+            HasEnd: true
+            Body:
+        HasDo: true
+
+Comment Locations:

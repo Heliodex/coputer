@@ -49,9 +49,7 @@ type Node struct {
 }
 
 func (n Node) String() string {
-	var b strings.Builder
-	b.WriteString(fmt.Sprintf("Type      %s\n", n.Type))
-	return b.String()
+	return fmt.Sprintf("Type: %s\n", n.Type)
 }
 
 func StringMaybeEvaluated(val any) string {
@@ -69,12 +67,14 @@ func StringMaybeEvaluated(val any) string {
 
 type Comment struct {
 	Node
+	Location Location `json:"location"`
 }
 
 func (c Comment) String() string {
 	var b strings.Builder
 
-	b.WriteString(fmt.Sprintf("Type      %s\n", c.Type))
+	b.WriteString(c.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s\n", c.Location))
 
 	return b.String()
 }
@@ -134,7 +134,7 @@ func (n StatAssign[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
+	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
 	b.WriteString("Vars:\n")
 	for _, v := range n.Vars {
 		b.WriteString(indentStart(StringMaybeEvaluated(v), 4))
@@ -196,8 +196,8 @@ func (n StatBlock[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
-	b.WriteString(fmt.Sprintf("HasEnd    %t\n", n.HasEnd))
+	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
+	b.WriteString(fmt.Sprintf("HasEnd: %t\n", n.HasEnd))
 	b.WriteString("Body:\n")
 
 	for _, node := range n.Body {
@@ -245,7 +245,7 @@ func (n StatExpr[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
+	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
 	b.WriteString("Expr:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
 	b.WriteByte('\n')
@@ -289,7 +289,7 @@ func (n StatFor[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
+	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
 	b.WriteString("Var:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Var), 4))
 	b.WriteString("\nFrom:\n")
@@ -357,7 +357,7 @@ func (n StatIf[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
+	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
 	b.WriteString("Condition:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Condition), 4))
 	b.WriteString("\nThenBody:\n")
@@ -422,7 +422,7 @@ func (n StatLocal[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
+	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
 	b.WriteString("Vars:\n")
 	for _, v := range n.Vars {
 		b.WriteString(indentStart(StringMaybeEvaluated(v), 4))
@@ -485,7 +485,7 @@ func (n StatWhile[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
+	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
 	b.WriteString("Condition:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Condition), 4))
 	b.WriteString("\nBody:\n")
@@ -535,7 +535,7 @@ func (n ExprCall[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
+	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
 	b.WriteString("Func:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Func), 4))
 	b.WriteString("\nArgs:\n")
@@ -590,8 +590,8 @@ func (n ExprConstantBool) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
-	b.WriteString(fmt.Sprintf("Value     %t\n", n.Value))
+	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
+	b.WriteString(fmt.Sprintf("Value: %t", n.Value))
 
 	return b.String()
 }
@@ -617,7 +617,7 @@ func (n ExprConstantNil) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
+	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
 
 	return b.String()
 }
@@ -644,8 +644,8 @@ func (n ExprConstantNumber) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
-	b.WriteString(fmt.Sprintf("Value     %f\n", n.Value))
+	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
+	b.WriteString(fmt.Sprintf("Value: %f", n.Value))
 
 	return b.String()
 }
@@ -672,8 +672,8 @@ func (n ExprConstantString) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
-	b.WriteString(fmt.Sprintf("Value     %s\n", n.Value))
+	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
+	b.WriteString(fmt.Sprintf("Value: %s", n.Value))
 
 	return b.String()
 }
@@ -700,8 +700,8 @@ func (n ExprGlobal) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
-	b.WriteString(fmt.Sprintf("Global    %s\n", n.Global))
+	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
+	b.WriteString(fmt.Sprintf("Global: %s\n", n.Global))
 
 	return b.String()
 }
@@ -728,7 +728,7 @@ func (n ExprLocal[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
+	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
 	b.WriteString("Local:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Local), 4))
 	b.WriteByte('\n')
@@ -768,7 +768,7 @@ func (n ExprTable[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
+	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
 	b.WriteString("Items:\n")
 
 	for _, item := range n.Items {
@@ -816,7 +816,7 @@ func (n ExprTableItem[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Kind      %s\n", n.Kind))
+	b.WriteString(fmt.Sprintf("Kind: %s\n", n.Kind))
 	b.WriteString("Key:\n")
 	if n.Key != nil {
 		b.WriteString(indentStart(StringMaybeEvaluated(*n.Key), 4))
@@ -872,9 +872,9 @@ func (n Local) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
-	b.WriteString(fmt.Sprintf("Name      %s\n", n.Name))
-	b.WriteString(fmt.Sprintf("LuauType  %s\n", StringMaybeEvaluated(n.LuauType)))
+	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
+	b.WriteString(fmt.Sprintf("Name: %s\n", n.Name))
+	b.WriteString(fmt.Sprintf("LuauType: %s\n", StringMaybeEvaluated(n.LuauType)))
 
 	return b.String()
 }

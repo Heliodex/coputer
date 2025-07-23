@@ -1,0 +1,69 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"strings"
+	"testing"
+)
+
+const (
+	Ext    = ".luau"
+	astDir = "../test/ast"
+)
+
+func trimext(s string) string {
+	return strings.TrimSuffix(s, Ext)
+}
+
+func TestAST(t *testing.T) {
+	files, err := os.ReadDir(astDir)
+	if err != nil {
+		t.Fatal("error reading AST tests directory:", err)
+	}
+
+	for _, f := range files {
+		fn := f.Name()
+		if !strings.HasSuffix(fn, Ext) {
+			continue
+		}
+		name := trimext(fn)
+
+		t.Log(" -- Testing", name, "--")
+		filename := fmt.Sprintf("%s/%s", astDir, name)
+
+		output, err := luauAst(filename + Ext)
+		if err != nil {
+			t.Fatal("error running luau-ast:", err)
+		}
+
+		// Decode the AST
+		ast, err := DecodeAST(output)
+		if err != nil {
+			t.Fatal("error decoding AST:", err)
+		}
+		o := ast.String()
+
+		ogb, err := os.ReadFile(filename + ".txt")
+		if err != nil {
+			t.Fatal("error reading expected output:", err)
+		}
+		og := string(ogb)
+
+		if o != og {
+			t.Errorf("output mismatch:\n-- Expected\n%s\n-- Got\n%s\n", og, o)
+			fmt.Println()
+
+			// print mismatch
+			oLines := strings.Split(o, "\n")
+			ogLines := strings.Split(og, "\n")
+			for i, line := range ogLines {
+				if line != oLines[i] {
+					t.Errorf("mismatched line: \n%s\n%v\n%s\n%v\n", line, []byte(line), oLines[i], []byte(oLines[i]))
+				}
+			}
+
+			os.Exit(1)
+		}
+	}
+}

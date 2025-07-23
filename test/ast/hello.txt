@@ -1,0 +1,37 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 2,0
+    HasEnd: true
+    Body:
+        Type: AstStatExpr
+        Location: 0,0 - 0,14
+        Expr:
+            Type: AstExprCall
+            Location: 0,0 - 0,14
+            Func:
+                Type: AstExprGlobal
+                Location: 0,0 - 0,5
+                Global: print
+            Args:
+                Type: AstExprConstantString
+                Location: 0,6 - 0,14
+                Value: Hello!
+    
+        Type: AstStatExpr
+        Location: 1,0 - 1,8
+        Expr:
+            Type: AstExprCall
+            Location: 1,0 - 1,8
+            Func:
+                Type: AstExprGlobal
+                Location: 1,0 - 1,5
+                Global: print
+            Args:
+                Type: AstExprConstantNumber
+                Location: 1,6 - 1,7
+                Value: 2.000000
+
+Comment Locations:
+    Type: Comment
+    Location: 0,15 - 0,24
+
