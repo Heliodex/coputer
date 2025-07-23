@@ -122,6 +122,65 @@ func DecodeAST(data json.RawMessage) (AST[INode], error) {
 
 // node types
 
+type StatAssign[T any] struct {
+	Node
+	Vars   []T `json:"vars"`
+	Values []T `json:"values"`
+}
+
+func (n StatAssign[T]) Type() string {
+	return "AstStatAssign"
+}
+
+func (n StatAssign[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString("Vars:\n")
+	for _, v := range n.Vars {
+		b.WriteString(indentStart(StringMaybeEvaluated(v), 4))
+		b.WriteString("\n")
+	}
+	b.WriteString("Values:\n")
+	for _, v := range n.Values {
+		b.WriteString(indentStart(StringMaybeEvaluated(v), 4))
+		b.WriteString("\n")
+	}
+
+	return b.String()
+}
+
+func DecodeStatAssign(data json.RawMessage) (INode, error) {
+	var raw StatAssign[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	vars := make([]INode, len(raw.Vars))
+	for i, v := range raw.Vars {
+		n, err := decodeNode(v)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding var node: %v", err)
+		}
+		vars[i] = n
+	}
+
+	values := make([]INode, len(raw.Values))
+	for i, v := range raw.Values {
+		n, err := decodeNode(v)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding value node: %v", err)
+		}
+		values[i] = n
+	}
+
+	return StatAssign[INode]{
+		Node:   raw.Node,
+		Vars:   vars,
+		Values: values,
+	}, nil
+}
+
 type StatBlock[T any] struct {
 	Node
 	HasEnd bool `json:"hasEnd"`
@@ -336,6 +395,65 @@ func DecodeStatIf(data json.RawMessage) (INode, error) {
 	}, nil
 }
 
+type StatLocal[T any] struct {
+	Node
+	Vars   []T `json:"vars"`
+	Values []T `json:"values"`
+}
+
+func (n StatLocal[T]) Type() string {
+	return "AstStatLocal"
+}
+
+func (n StatLocal[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString("Vars:\n")
+	for _, v := range n.Vars {
+		b.WriteString(indentStart(StringMaybeEvaluated(v), 4))
+		b.WriteString("\n")
+	}
+	b.WriteString("Values:\n")
+	for _, v := range n.Values {
+		b.WriteString(indentStart(StringMaybeEvaluated(v), 4))
+		b.WriteString("\n")
+	}
+
+	return b.String()
+}
+
+func DecodeStatLocal(data json.RawMessage) (INode, error) {
+	var raw StatLocal[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	vars := make([]INode, len(raw.Vars))
+	for i, v := range raw.Vars {
+		n, err := decodeNode(v)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding var node: %v", err)
+		}
+		vars[i] = n
+	}
+
+	values := make([]INode, len(raw.Values))
+	for i, v := range raw.Values {
+		n, err := decodeNode(v)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding value node: %v", err)
+		}
+		values[i] = n
+	}
+
+	return StatLocal[INode]{
+		Node:   raw.Node,
+		Vars:   vars,
+		Values: values,
+	}, nil
+}
+
 type StatWhile[T any] struct {
 	Node
 	Condition T    `json:"condition"`
@@ -437,52 +555,26 @@ func DecodeExprCall(data json.RawMessage) (INode, error) {
 	}, nil
 }
 
-type ExprGlobal struct {
+type ExprConstantBool struct {
 	Node
-	Global string `json:"global"`
+	Value bool `json:"value"`
 }
 
-func (n ExprGlobal) Type() string {
-	return "AstExprGlobal"
+func (n ExprConstantBool) Type() string {
+	return "AstExprConstantBool"
 }
 
-func (n ExprGlobal) String() string {
+func (n ExprConstantBool) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Global    %s\n", n.Global))
+	b.WriteString(fmt.Sprintf("Value     %t\n", n.Value))
 
 	return b.String()
 }
 
-func DecodeExprGlobal(data json.RawMessage) (INode, error) {
-	var raw ExprGlobal
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
-	}
-	return raw, nil
-}
-
-type ExprConstantString struct {
-	Node
-	Value string `json:"value"`
-}
-
-func (n ExprConstantString) Type() string {
-	return "AstExprConstantString"
-}
-
-func (n ExprConstantString) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Value     %s\n", n.Value))
-
-	return b.String()
-}
-
-func DecodeExprConstantString(data json.RawMessage) (INode, error) {
-	var raw ExprConstantString
+func DecodeExprConstantBool(data json.RawMessage) (INode, error) {
+	var raw ExprConstantBool
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %v", err)
 	}
@@ -515,30 +607,93 @@ func DecodeExprConstantNumber(data json.RawMessage) (INode, error) {
 	return raw, nil
 }
 
-type ExprConstantBool struct {
+type ExprConstantString struct {
 	Node
-	Value bool `json:"value"`
+	Value string `json:"value"`
 }
 
-func (n ExprConstantBool) Type() string {
-	return "AstExprConstantBool"
+func (n ExprConstantString) Type() string {
+	return "AstExprConstantString"
 }
 
-func (n ExprConstantBool) String() string {
+func (n ExprConstantString) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Value     %t\n", n.Value))
+	b.WriteString(fmt.Sprintf("Value     %s\n", n.Value))
 
 	return b.String()
 }
 
-func DecodeExprConstantBool(data json.RawMessage) (INode, error) {
-	var raw ExprConstantBool
+func DecodeExprConstantString(data json.RawMessage) (INode, error) {
+	var raw ExprConstantString
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %v", err)
 	}
 	return raw, nil
+}
+
+type ExprGlobal struct {
+	Node
+	Global string `json:"global"`
+}
+
+func (n ExprGlobal) Type() string {
+	return "AstExprGlobal"
+}
+
+func (n ExprGlobal) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Global    %s\n", n.Global))
+
+	return b.String()
+}
+
+func DecodeExprGlobal(data json.RawMessage) (INode, error) {
+	var raw ExprGlobal
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+	return raw, nil
+}
+
+type ExprLocal[T any] struct {
+	Node
+	Local T `json:"local"`
+}
+
+func (n ExprLocal[T]) Type() string {
+	return "AstExprLocal"
+}
+
+func (n ExprLocal[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString("Local:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Local), 4))
+	b.WriteByte('\n')
+
+	return b.String()
+}
+
+func DecodeExprLocal(data json.RawMessage) (INode, error) {
+	var raw ExprLocal[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	localNode, err := decodeNode(raw.Local)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding local: %v", err)
+	}
+
+	return ExprLocal[INode]{
+		Node:  raw.Node,
+		Local: localNode,
+	}, nil
 }
 
 type Local struct {
@@ -586,6 +741,8 @@ func decodeNode(data json.RawMessage) (INode, error) {
 	}
 
 	switch t := node.Type; t {
+	case "AstStatAssign":
+		return ret(DecodeStatAssign(data))
 	case "AstStatBlock":
 		return ret(DecodeStatBlock(data))
 	case "AstStatExpr":
@@ -594,18 +751,22 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeStatFor(data))
 	case "AstStatIf":
 		return ret(DecodeStatIf(data))
+	case "AstStatLocal":
+		return ret(DecodeStatLocal(data))
 	case "AstStatWhile":
 		return ret(DecodeStatWhile(data))
 	case "AstExprCall":
 		return ret(DecodeExprCall(data))
-	case "AstExprGlobal":
-		return ret(DecodeExprGlobal(data))
-	case "AstExprConstantString":
-		return ret(DecodeExprConstantString(data))
-	case "AstExprConstantNumber":
-		return ret(DecodeExprConstantNumber(data))
 	case "AstExprConstantBool":
 		return ret(DecodeExprConstantBool(data))
+	case "AstExprConstantNumber":
+		return ret(DecodeExprConstantNumber(data))
+	case "AstExprConstantString":
+		return ret(DecodeExprConstantString(data))
+	case "AstExprGlobal":
+		return ret(DecodeExprGlobal(data))
+	case "AstExprLocal":
+		return ret(DecodeExprLocal(data))
 	case "AstLocal":
 		return ret(DecodeLocal(data))
 	}
