@@ -45,14 +45,12 @@ func (l *Location) UnmarshalJSON(data []byte) error {
 
 // base for every node
 type Node struct {
-	Type     string   `json:"type"`
-	Location Location `json:"location"`
+	Type string `json:"type"`
 }
 
 func (n Node) String() string {
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("Type      %s\n", n.Type))
-	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
 	return b.String()
 }
 
@@ -77,7 +75,6 @@ func (c Comment) String() string {
 	var b strings.Builder
 
 	b.WriteString(fmt.Sprintf("Type      %s\n", c.Type))
-	b.WriteString(fmt.Sprintf("Location  %s\n", c.Location))
 
 	return b.String()
 }
@@ -124,8 +121,9 @@ func DecodeAST(data json.RawMessage) (AST[INode], error) {
 
 type StatAssign[T any] struct {
 	Node
-	Vars   []T `json:"vars"`
-	Values []T `json:"values"`
+	Location Location `json:"location"`
+	Vars     []T      `json:"vars"`
+	Values   []T      `json:"values"`
 }
 
 func (n StatAssign[T]) Type() string {
@@ -136,6 +134,7 @@ func (n StatAssign[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
 	b.WriteString("Vars:\n")
 	for _, v := range n.Vars {
 		b.WriteString(indentStart(StringMaybeEvaluated(v), 4))
@@ -175,16 +174,18 @@ func DecodeStatAssign(data json.RawMessage) (INode, error) {
 	}
 
 	return StatAssign[INode]{
-		Node:   raw.Node,
-		Vars:   vars,
-		Values: values,
+		Node:     raw.Node,
+		Location: raw.Location,
+		Vars:     vars,
+		Values:   values,
 	}, nil
 }
 
 type StatBlock[T any] struct {
 	Node
-	HasEnd bool `json:"hasEnd"`
-	Body   []T  `json:"body"`
+	Location Location `json:"location"`
+	HasEnd   bool     `json:"hasEnd"`
+	Body     []T      `json:"body"`
 }
 
 func (n StatBlock[T]) Type() string {
@@ -195,6 +196,7 @@ func (n StatBlock[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
 	b.WriteString(fmt.Sprintf("HasEnd    %t\n", n.HasEnd))
 	b.WriteString("Body:\n")
 
@@ -222,15 +224,17 @@ func DecodeStatBlock(data json.RawMessage) (INode, error) {
 	}
 
 	return StatBlock[INode]{
-		Node:   raw.Node,
-		HasEnd: raw.HasEnd,
-		Body:   body,
+		Node:     raw.Node,
+		Location: raw.Location,
+		HasEnd:   raw.HasEnd,
+		Body:     body,
 	}, nil
 }
 
 type StatExpr[T any] struct {
 	Node
-	Expr T `json:"expr"`
+	Location Location `json:"location"`
+	Expr     T        `json:"expr"`
 }
 
 func (n StatExpr[T]) Type() string {
@@ -241,6 +245,7 @@ func (n StatExpr[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
 	b.WriteString("Expr:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
 	b.WriteByte('\n')
@@ -260,18 +265,20 @@ func DecodeStatExpr(data json.RawMessage) (INode, error) {
 	}
 
 	return StatExpr[INode]{
-		Node: raw.Node,
-		Expr: n,
+		Node:     raw.Node,
+		Location: raw.Location,
+		Expr:     n,
 	}, nil
 }
 
 type StatFor[T any] struct {
 	Node
-	Var   T    `json:"var"`
-	From  T    `json:"from"`
-	To    T    `json:"to"`
-	Body  T    `json:"body"`
-	HasDo bool `json:"hasDo"`
+	Location Location `json:"location"`
+	Var      T        `json:"var"`
+	From     T        `json:"from"`
+	To       T        `json:"to"`
+	Body     T        `json:"body"`
+	HasDo    bool     `json:"hasDo"`
 }
 
 func (n StatFor[T]) Type() string {
@@ -282,6 +289,7 @@ func (n StatFor[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
 	b.WriteString("Var:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Var), 4))
 	b.WriteString("\nFrom:\n")
@@ -322,21 +330,23 @@ func DecodeStatFor(data json.RawMessage) (INode, error) {
 	}
 
 	return StatFor[INode]{
-		Node:  raw.Node,
-		Var:   varNode,
-		From:  fromNode,
-		To:    toNode,
-		Body:  bodyNode,
-		HasDo: raw.HasDo,
+		Node:     raw.Node,
+		Location: raw.Location,
+		Var:      varNode,
+		From:     fromNode,
+		To:       toNode,
+		Body:     bodyNode,
+		HasDo:    raw.HasDo,
 	}, nil
 }
 
 type StatIf[T any] struct {
 	Node
-	Condition T    `json:"condition"`
-	ThenBody  T    `json:"thenbody"`
-	ElseBody  *T   `json:"elsebody"`
-	HasThen   bool `json:"hasThen"`
+	Location  Location `json:"location"`
+	Condition T        `json:"condition"`
+	ThenBody  T        `json:"thenbody"`
+	ElseBody  *T       `json:"elsebody"`
+	HasThen   bool     `json:"hasThen"`
 }
 
 func (n StatIf[T]) Type() string {
@@ -347,6 +357,7 @@ func (n StatIf[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
 	b.WriteString("Condition:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Condition), 4))
 	b.WriteString("\nThenBody:\n")
@@ -388,6 +399,7 @@ func DecodeStatIf(data json.RawMessage) (INode, error) {
 
 	return StatIf[INode]{
 		Node:      raw.Node,
+		Location:  raw.Location,
 		Condition: condition,
 		ThenBody:  thenBody,
 		ElseBody:  elseBodyMaybe,
@@ -397,8 +409,9 @@ func DecodeStatIf(data json.RawMessage) (INode, error) {
 
 type StatLocal[T any] struct {
 	Node
-	Vars   []T `json:"vars"`
-	Values []T `json:"values"`
+	Location Location `json:"location"`
+	Vars     []T      `json:"vars"`
+	Values   []T      `json:"values"`
 }
 
 func (n StatLocal[T]) Type() string {
@@ -409,6 +422,7 @@ func (n StatLocal[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
 	b.WriteString("Vars:\n")
 	for _, v := range n.Vars {
 		b.WriteString(indentStart(StringMaybeEvaluated(v), 4))
@@ -448,17 +462,19 @@ func DecodeStatLocal(data json.RawMessage) (INode, error) {
 	}
 
 	return StatLocal[INode]{
-		Node:   raw.Node,
-		Vars:   vars,
-		Values: values,
+		Node:     raw.Node,
+		Location: raw.Location,
+		Vars:     vars,
+		Values:   values,
 	}, nil
 }
 
 type StatWhile[T any] struct {
 	Node
-	Condition T    `json:"condition"`
-	Body      T    `json:"body"`
-	HasDo     bool `json:"hasDo"`
+	Location  Location `json:"location"`
+	Condition T        `json:"condition"`
+	Body      T        `json:"body"`
+	HasDo     bool     `json:"hasDo"`
 }
 
 func (n StatWhile[T]) Type() string {
@@ -469,6 +485,7 @@ func (n StatWhile[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
 	b.WriteString("Condition:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Condition), 4))
 	b.WriteString("\nBody:\n")
@@ -496,6 +513,7 @@ func DecodeStatWhile(data json.RawMessage) (INode, error) {
 
 	return StatWhile[INode]{
 		Node:      raw.Node,
+		Location:  raw.Location,
 		Condition: condition,
 		Body:      body,
 		HasDo:     raw.HasDo,
@@ -504,8 +522,9 @@ func DecodeStatWhile(data json.RawMessage) (INode, error) {
 
 type ExprCall[T any] struct {
 	Node
-	Func T   `json:"func"`
-	Args []T `json:"args"`
+	Location Location `json:"location"`
+	Func     T        `json:"func"`
+	Args     []T      `json:"args"`
 }
 
 func (n ExprCall[T]) Type() string {
@@ -516,6 +535,7 @@ func (n ExprCall[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
 	b.WriteString("Func:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Func), 4))
 	b.WriteString("\nArgs:\n")
@@ -549,15 +569,17 @@ func DecodeExprCall(data json.RawMessage) (INode, error) {
 	}
 
 	return ExprCall[INode]{
-		Node: raw.Node,
-		Func: funcNode,
-		Args: args,
+		Node:     raw.Node,
+		Location: raw.Location,
+		Func:     funcNode,
+		Args:     args,
 	}, nil
 }
 
 type ExprConstantBool struct {
 	Node
-	Value bool `json:"value"`
+	Location Location `json:"location"`
+	Value    bool     `json:"value"`
 }
 
 func (n ExprConstantBool) Type() string {
@@ -568,6 +590,7 @@ func (n ExprConstantBool) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
 	b.WriteString(fmt.Sprintf("Value     %t\n", n.Value))
 
 	return b.String()
@@ -583,7 +606,8 @@ func DecodeExprConstantBool(data json.RawMessage) (INode, error) {
 
 type ExprConstantNumber struct {
 	Node
-	Value float64 `json:"value"`
+	Location Location `json:"location"`
+	Value    float64  `json:"value"`
 }
 
 func (n ExprConstantNumber) Type() string {
@@ -594,6 +618,7 @@ func (n ExprConstantNumber) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
 	b.WriteString(fmt.Sprintf("Value     %f\n", n.Value))
 
 	return b.String()
@@ -609,7 +634,8 @@ func DecodeExprConstantNumber(data json.RawMessage) (INode, error) {
 
 type ExprConstantString struct {
 	Node
-	Value string `json:"value"`
+	Location Location `json:"location"`
+	Value    string   `json:"value"`
 }
 
 func (n ExprConstantString) Type() string {
@@ -620,6 +646,7 @@ func (n ExprConstantString) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
 	b.WriteString(fmt.Sprintf("Value     %s\n", n.Value))
 
 	return b.String()
@@ -635,7 +662,8 @@ func DecodeExprConstantString(data json.RawMessage) (INode, error) {
 
 type ExprGlobal struct {
 	Node
-	Global string `json:"global"`
+	Location Location `json:"location"`
+	Global   string   `json:"global"`
 }
 
 func (n ExprGlobal) Type() string {
@@ -646,6 +674,7 @@ func (n ExprGlobal) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
 	b.WriteString(fmt.Sprintf("Global    %s\n", n.Global))
 
 	return b.String()
@@ -661,7 +690,8 @@ func DecodeExprGlobal(data json.RawMessage) (INode, error) {
 
 type ExprLocal[T any] struct {
 	Node
-	Local T `json:"local"`
+	Location Location `json:"location"`
+	Local    T        `json:"local"`
 }
 
 func (n ExprLocal[T]) Type() string {
@@ -672,6 +702,7 @@ func (n ExprLocal[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
 	b.WriteString("Local:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Local), 4))
 	b.WriteByte('\n')
@@ -691,15 +722,103 @@ func DecodeExprLocal(data json.RawMessage) (INode, error) {
 	}
 
 	return ExprLocal[INode]{
+		Node:     raw.Node,
+		Location: raw.Location,
+		Local:    localNode,
+	}, nil
+}
+
+type ExprTable[T any] struct {
+	Node
+	Location Location `json:"location"`
+	Items    []T      `json:"items"`
+}
+
+func (n ExprTable[T]) Type() string {
+	return "AstExprTable"
+}
+
+func (n ExprTable[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
+	b.WriteString("Items:\n")
+
+	for _, item := range n.Items {
+		b.WriteString(indentStart(StringMaybeEvaluated(item), 4))
+		b.WriteString("\n")
+	}
+
+	return b.String()
+}
+
+func DecodeExprTable(data json.RawMessage) (INode, error) {
+	var raw ExprTable[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	items := make([]INode, len(raw.Items))
+	for i, item := range raw.Items {
+		n, err := decodeNode(item)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding item node: %v", err)
+		}
+		items[i] = n
+	}
+
+	return ExprTable[INode]{
+		Node:     raw.Node,
+		Location: raw.Location,
+		Items:    items,
+	}, nil
+}
+
+type ExprTableItem[T any] struct {
+	Node
+	Kind  string `json:"kind"`
+	Value T      `json:"value"`
+}
+
+func (n ExprTableItem[T]) Type() string {
+	return "AstExprTableItem"
+}
+
+func (n ExprTableItem[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString("Value:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Value), 4))
+	b.WriteByte('\n')
+
+	return b.String()
+}
+
+func DecodeExprTableItem(data json.RawMessage) (INode, error) {
+	var raw ExprTableItem[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	valueNode, err := decodeNode(raw.Value)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding value: %v", err)
+	}
+
+	return ExprTableItem[INode]{
 		Node:  raw.Node,
-		Local: localNode,
+		Kind:  raw.Kind,
+		Value: valueNode,
 	}, nil
 }
 
 type Local struct {
 	Node
-	Name     string `json:"name"`
-	LuauType any    `json:"luauType"` // for now it's probably nil?
+	Location Location `json:"location"`
+	Name     string   `json:"name"`
+	LuauType any      `json:"luauType"` // for now it's probably nil?
 }
 
 func (n Local) Type() string {
@@ -710,6 +829,7 @@ func (n Local) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
 	b.WriteString(fmt.Sprintf("Name      %s\n", n.Name))
 	b.WriteString(fmt.Sprintf("LuauType  %s\n", StringMaybeEvaluated(n.LuauType)))
 
@@ -767,6 +887,10 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeExprGlobal(data))
 	case "AstExprLocal":
 		return ret(DecodeExprLocal(data))
+	case "AstExprTable":
+		return ret(DecodeExprTable(data))
+	case "AstExprTableItem":
+		return ret(DecodeExprTableItem(data))
 	case "AstLocal":
 		return ret(DecodeLocal(data))
 	}
