@@ -604,6 +604,32 @@ func DecodeExprConstantBool(data json.RawMessage) (INode, error) {
 	return raw, nil
 }
 
+type ExprConstantNil struct {
+	Node
+	Location Location `json:"location"`
+}
+
+func (n ExprConstantNil) Type() string {
+	return "AstExprConstantNil"
+}
+
+func (n ExprConstantNil) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location  %s\n", n.Location))
+
+	return b.String()
+}
+
+func DecodeExprConstantNil(data json.RawMessage) (INode, error) {
+	var raw ExprConstantNil
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+	return raw, nil
+}
+
 type ExprConstantNumber struct {
 	Node
 	Location Location `json:"location"`
@@ -778,6 +804,7 @@ func DecodeExprTable(data json.RawMessage) (INode, error) {
 type ExprTableItem[T any] struct {
 	Node
 	Kind  string `json:"kind"`
+	Key   *T     `json:"key"`
 	Value T      `json:"value"`
 }
 
@@ -789,6 +816,12 @@ func (n ExprTableItem[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Kind      %s\n", n.Kind))
+	b.WriteString("Key:\n")
+	if n.Key != nil {
+		b.WriteString(indentStart(StringMaybeEvaluated(*n.Key), 4))
+		b.WriteByte('\n')
+	}
 	b.WriteString("Value:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Value), 4))
 	b.WriteByte('\n')
@@ -802,6 +835,15 @@ func DecodeExprTableItem(data json.RawMessage) (INode, error) {
 		return nil, fmt.Errorf("error decoding: %v", err)
 	}
 
+	var keyNodeMaybe *INode
+	if raw.Key != nil {
+		keyNode, err := decodeNode(*raw.Key)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding key: %v", err)
+		}
+		keyNodeMaybe = &keyNode
+	}
+
 	valueNode, err := decodeNode(raw.Value)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding value: %v", err)
@@ -810,6 +852,7 @@ func DecodeExprTableItem(data json.RawMessage) (INode, error) {
 	return ExprTableItem[INode]{
 		Node:  raw.Node,
 		Kind:  raw.Kind,
+		Key:   keyNodeMaybe,
 		Value: valueNode,
 	}, nil
 }
@@ -879,6 +922,8 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeExprCall(data))
 	case "AstExprConstantBool":
 		return ret(DecodeExprConstantBool(data))
+	case "AstExprConstantNil":
+		return ret(DecodeExprConstantNil(data))
 	case "AstExprConstantNumber":
 		return ret(DecodeExprConstantNumber(data))
 	case "AstExprConstantString":

@@ -1,12 +1,12 @@
 {
 	"root": {
 		"type": "AstStatBlock",
-		"location": "0,0 - 5,0",
+		"location": "0,0 - 7,0",
 		"hasEnd": true,
 		"body": [
 			{
 				"type": "AstStatLocal",
-				"location": "0,0 - 4,1",
+				"location": "0,0 - 6,1",
 				"vars": [
 					{
 						"luauType": null,
@@ -18,24 +18,48 @@
 				"values": [
 					{
 						"type": "AstExprTable",
-						"location": "0,10 - 4,1",
+						"location": "0,10 - 6,1",
 						"items": [
 							{
 								"type": "AstExprTableItem",
-								"kind": "item",
+								"kind": "general",
+								"key": {
+									"type": "AstExprConstantString",
+									"location": "1,2 - 1,5",
+									"value": "a"
+								},
 								"value": {
 									"type": "AstExprConstantNumber",
-									"location": "1,1 - 1,2",
+									"location": "1,9 - 1,10",
 									"value": 1
 								}
 							},
 							{
 								"type": "AstExprTableItem",
-								"kind": "item",
+								"kind": "record",
+								"key": {
+									"type": "AstExprConstantString",
+									"location": "2,1 - 2,2",
+									"value": "b"
+								},
 								"value": {
 									"type": "AstExprConstantNumber",
-									"location": "2,1 - 2,2",
+									"location": "2,5 - 2,6",
 									"value": 2
+								}
+							},
+							{
+								"type": "AstExprTableItem",
+								"kind": "general",
+								"key": {
+									"type": "AstExprGlobal",
+									"location": "3,2 - 3,3",
+									"global": "x"
+								},
+								"value": {
+									"type": "AstExprConstantNumber",
+									"location": "3,7 - 3,8",
+									"value": 3
 								}
 							},
 							{
@@ -43,8 +67,16 @@
 								"kind": "item",
 								"value": {
 									"type": "AstExprConstantNumber",
-									"location": "3,1 - 3,2",
-									"value": 3
+									"location": "4,1 - 4,2",
+									"value": 4
+								}
+							},
+							{
+								"type": "AstExprTableItem",
+								"kind": "item",
+								"value": {
+									"type": "AstExprConstantNil",
+									"location": "5,1 - 5,4"
 								}
 							}
 						]
