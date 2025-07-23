@@ -1,35 +1,46 @@
 {
 	"root": {
 		"type": "AstStatBlock",
-		"location": "0,0 - 2,0",
+		"location": "0,0 - 4,0",
 		"hasEnd": true,
 		"body": [
 			{
-				"type": "AstStatFor",
-				"location": "0,0 - 1,3",
-				"var": {
-					"luauType": null,
-					"name": "i",
-					"type": "AstLocal",
-					"location": "0,4 - 0,5"
+				"type": "AstStatIf",
+				"location": "0,0 - 3,3",
+				"condition": {
+					"type": "AstExprConstantBool",
+					"location": "0,3 - 0,7",
+					"value": true
 				},
-				"from": {
-					"type": "AstExprConstantNumber",
-					"location": "0,8 - 0,9",
-					"value": 1
-				},
-				"to": {
-					"type": "AstExprConstantNumber",
-					"location": "0,11 - 0,13",
-					"value": 10
-				},
-				"body": {
+				"thenbody": {
 					"type": "AstStatBlock",
-					"location": "0,16 - 1,0",
+					"location": "0,12 - 1,0",
 					"hasEnd": true,
 					"body": []
 				},
-				"hasDo": true
+				"elsebody": {
+					"type": "AstStatIf",
+					"location": "1,0 - 3,3",
+					"condition": {
+						"type": "AstExprConstantBool",
+						"location": "1,7 - 1,12",
+						"value": false
+					},
+					"thenbody": {
+						"type": "AstStatBlock",
+						"location": "1,17 - 2,0",
+						"hasEnd": true,
+						"body": []
+					},
+					"elsebody": {
+						"type": "AstStatBlock",
+						"location": "2,4 - 3,0",
+						"hasEnd": true,
+						"body": []
+					},
+					"hasThen": true
+				},
+				"hasThen": true
 			}
 		]
 	},

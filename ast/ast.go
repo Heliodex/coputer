@@ -272,6 +272,70 @@ func DecodeStatFor(data json.RawMessage) (INode, error) {
 	}, nil
 }
 
+type StatIf[T any] struct {
+	Node
+	Condition T    `json:"condition"`
+	ThenBody  T    `json:"thenbody"`
+	ElseBody  *T   `json:"elsebody"`
+	HasThen   bool `json:"hasThen"`
+}
+
+func (n StatIf[T]) Type() string {
+	return "AstStatIf"
+}
+
+func (n StatIf[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString("Condition:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Condition), 4))
+	b.WriteString("\nThenBody:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.ThenBody), 4))
+	b.WriteString("\nElseBody:\n")
+	if n.ElseBody != nil {
+		b.WriteString(indentStart(StringMaybeEvaluated(*n.ElseBody), 4))
+		b.WriteByte('\n')
+	}
+	b.WriteString(fmt.Sprintf("HasThen: %t\n", n.HasThen))
+
+	return b.String()
+}
+
+func DecodeStatIf(data json.RawMessage) (INode, error) {
+	var raw StatIf[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	condition, err := decodeNode(raw.Condition)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding condition: %v", err)
+	}
+
+	thenBody, err := decodeNode(raw.ThenBody)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding then body: %v", err)
+	}
+
+	var elseBodyMaybe *INode
+	if raw.ElseBody != nil {
+		elseBody, err := decodeNode(*raw.ElseBody)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding else body: %v", err)
+		}
+		elseBodyMaybe = &elseBody
+	}
+
+	return StatIf[INode]{
+		Node:      raw.Node,
+		Condition: condition,
+		ThenBody:  thenBody,
+		ElseBody:  elseBodyMaybe,
+		HasThen:   raw.HasThen,
+	}, nil
+}
+
 type StatWhile[T any] struct {
 	Node
 	Condition T    `json:"condition"`
@@ -528,6 +592,8 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeStatExpr(data))
 	case "AstStatFor":
 		return ret(DecodeStatFor(data))
+	case "AstStatIf":
+		return ret(DecodeStatIf(data))
 	case "AstStatWhile":
 		return ret(DecodeStatWhile(data))
 	case "AstExprCall":
