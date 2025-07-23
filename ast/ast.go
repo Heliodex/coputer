@@ -206,6 +206,54 @@ func DecodeStatExpr(data json.RawMessage) (INode, error) {
 	}, nil
 }
 
+type StatWhile[T any] struct {
+	Node
+	Condition T    `json:"condition"`
+	Body      T    `json:"body"`
+	HasDo     bool `json:"hasDo"`
+}
+
+func (n StatWhile[T]) Type() string {
+	return "AstStatWhile"
+}
+
+func (n StatWhile[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString("Condition:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Condition), 4))
+	b.WriteString("\nBody:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Body), 4))
+	b.WriteString(fmt.Sprintf("\nHasDo: %t\n", n.HasDo))
+
+	return b.String()
+}
+
+func DecodeStatWhile(data json.RawMessage) (INode, error) {
+	var raw StatWhile[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	condition, err := decodeNode(raw.Condition)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding condition: %v", err)
+	}
+
+	body, err := decodeNode(raw.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding body: %v", err)
+	}
+
+	return StatWhile[INode]{
+		Node:      raw.Node,
+		Condition: condition,
+		Body:      body,
+		HasDo:     raw.HasDo,
+	}, nil
+}
+
 type ExprCall[T any] struct {
 	Node
 	Func T   `json:"func"`
@@ -337,6 +385,32 @@ func DecodeExprConstantNumber(data json.RawMessage) (INode, error) {
 	return raw, nil
 }
 
+type ExprConstantBool struct {
+	Node
+	Value bool `json:"value"`
+}
+
+func (n ExprConstantBool) Type() string {
+	return "AstExprConstantBool"
+}
+
+func (n ExprConstantBool) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Value     %t\n", n.Value))
+
+	return b.String()
+}
+
+func DecodeExprConstantBool(data json.RawMessage) (INode, error) {
+	var raw ExprConstantBool
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+	return raw, nil
+}
+
 // decoding
 
 func decodeNode(data json.RawMessage) (INode, error) {
@@ -358,6 +432,8 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeStatBlock(data))
 	case "AstStatExpr":
 		return ret(DecodeStatExpr(data))
+	case "AstStatWhile":
+		return ret(DecodeStatWhile(data))
 	case "AstExprCall":
 		return ret(DecodeExprCall(data))
 	case "AstExprGlobal":
@@ -366,6 +442,8 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeExprConstantString(data))
 	case "AstExprConstantNumber":
 		return ret(DecodeExprConstantNumber(data))
+	case "AstExprConstantBool":
+		return ret(DecodeExprConstantBool(data))
 	}
 	return ret(nil, errors.New("unknown node type"))
 }

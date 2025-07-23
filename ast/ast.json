@@ -5,50 +5,22 @@
 		"hasEnd": true,
 		"body": [
 			{
-				"type": "AstStatExpr",
-				"location": "0,0 - 0,14",
-				"expr": {
-					"type": "AstExprCall",
-					"location": "0,0 - 0,14",
-					"func": {
-						"type": "AstExprGlobal",
-						"location": "0,0 - 0,5",
-						"global": "print"
-					},
-					"args": [
-						{
-							"type": "AstExprConstantString",
-							"location": "0,6 - 0,14",
-							"value": "Hello!"
-						}
-					],
-					"self": false,
-					"argLocation": "0,6 - 0,14"
-				}
-			},
-			{
-				"type": "AstStatExpr",
-				"location": "1,0 - 1,8",
-				"expr": {
-					"type": "AstExprCall",
-					"location": "1,0 - 1,8",
-					"func": {
-						"type": "AstExprGlobal",
-						"location": "1,0 - 1,5",
-						"global": "print"
-					},
-					"args": [
-						{
-							"type": "AstExprConstantNumber",
-							"location": "1,6 - 1,7",
-							"value": 2
-						}
-					],
-					"self": false,
-					"argLocation": "1,6 - 1,8"
-				}
+				"type": "AstStatWhile",
+				"location": "0,0 - 1,3",
+				"condition": {
+					"type": "AstExprConstantBool",
+					"location": "0,6 - 0,10",
+					"value": true
+				},
+				"body": {
+					"type": "AstStatBlock",
+					"location": "0,13 - 1,0",
+					"hasEnd": true,
+					"body": []
+				},
+				"hasDo": true
 			}
 		]
 	},
-	"commentLocations": [{ "type": "Comment", "location": "0,15 - 0,24" }]
+	"commentLocations": []
 }
