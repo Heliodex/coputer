@@ -135,15 +135,15 @@ func (n StatAssign[T]) String() string {
 
 	b.WriteString(n.Node.String())
 	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
-	b.WriteString("Vars:\n")
+	b.WriteString("Vars:")
 	for _, v := range n.Vars {
+		b.WriteByte('\n')
 		b.WriteString(indentStart(StringMaybeEvaluated(v), 4))
-		b.WriteString("\n")
 	}
-	b.WriteString("Values:\n")
+	b.WriteString("\nValues:")
 	for _, v := range n.Values {
+		b.WriteByte('\n')
 		b.WriteString(indentStart(StringMaybeEvaluated(v), 4))
-		b.WriteString("\n")
 	}
 
 	return b.String()
@@ -423,15 +423,15 @@ func (n StatLocal[T]) String() string {
 
 	b.WriteString(n.Node.String())
 	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
-	b.WriteString("Vars:\n")
+	b.WriteString("Vars:")
 	for _, v := range n.Vars {
+		b.WriteByte('\n')
 		b.WriteString(indentStart(StringMaybeEvaluated(v), 4))
-		b.WriteString("\n")
 	}
-	b.WriteString("Values:\n")
+	b.WriteString("\nValues:")
 	for _, v := range n.Values {
+		b.WriteByte('\n')
 		b.WriteString(indentStart(StringMaybeEvaluated(v), 4))
-		b.WriteString("\n")
 	}
 
 	return b.String()
@@ -714,6 +714,55 @@ func DecodeExprGlobal(data json.RawMessage) (INode, error) {
 	return raw, nil
 }
 
+type ExprIndexExpr[T any] struct {
+	Node
+	Location Location `json:"location"`
+	Expr     T        `json:"expr"`
+	Index    T        `json:"index"`
+}
+
+func (n ExprIndexExpr[T]) Type() string {
+	return "AstExprIndexExpr"
+}
+
+func (n ExprIndexExpr[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
+	b.WriteString("Expr:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
+	b.WriteString("\nIndex:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Index), 4))
+	b.WriteByte('\n')
+
+	return b.String()
+}
+
+func DecodeExprIndexExpr(data json.RawMessage) (INode, error) {
+	var raw ExprIndexExpr[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	exprNode, err := decodeNode(raw.Expr)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding expr: %v", err)
+	}
+
+	indexNode, err := decodeNode(raw.Index)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding index: %v", err)
+	}
+
+	return ExprIndexExpr[INode]{
+		Node:     raw.Node,
+		Location: raw.Location,
+		Expr:     exprNode,
+		Index:    indexNode,
+	}, nil
+}
+
 type ExprLocal[T any] struct {
 	Node
 	Location Location `json:"location"`
@@ -769,11 +818,11 @@ func (n ExprTable[T]) String() string {
 
 	b.WriteString(n.Node.String())
 	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
-	b.WriteString("Items:\n")
+	b.WriteString("Items:")
 
 	for _, item := range n.Items {
+		b.WriteByte('\n')
 		b.WriteString(indentStart(StringMaybeEvaluated(item), 4))
-		b.WriteString("\n")
 	}
 
 	return b.String()
@@ -930,6 +979,8 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeExprConstantString(data))
 	case "AstExprGlobal":
 		return ret(DecodeExprGlobal(data))
+	case "AstExprIndexExpr":
+		return ret(DecodeExprIndexExpr(data))
 	case "AstExprLocal":
 		return ret(DecodeExprLocal(data))
 	case "AstExprTable":

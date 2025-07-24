@@ -1,12 +1,12 @@
 {
 	"root": {
 		"type": "AstStatBlock",
-		"location": "0,0 - 7,0",
+		"location": "0,0 - 3,0",
 		"hasEnd": true,
 		"body": [
 			{
 				"type": "AstStatLocal",
-				"location": "0,0 - 6,1",
+				"location": "0,0 - 0,12",
 				"vars": [
 					{
 						"luauType": null,
@@ -16,72 +16,76 @@
 					}
 				],
 				"values": [
+					{ "type": "AstExprTable", "location": "0,10 - 0,12", "items": [] }
+				]
+			},
+			{
+				"type": "AstStatAssign",
+				"location": "1,0 - 1,11",
+				"vars": [
 					{
-						"type": "AstExprTable",
-						"location": "0,10 - 6,1",
-						"items": [
-							{
-								"type": "AstExprTableItem",
-								"kind": "general",
-								"key": {
-									"type": "AstExprConstantString",
-									"location": "1,2 - 1,5",
-									"value": "a"
-								},
-								"value": {
-									"type": "AstExprConstantNumber",
-									"location": "1,9 - 1,10",
-									"value": 1
-								}
-							},
-							{
-								"type": "AstExprTableItem",
-								"kind": "record",
-								"key": {
-									"type": "AstExprConstantString",
-									"location": "2,1 - 2,2",
-									"value": "b"
-								},
-								"value": {
-									"type": "AstExprConstantNumber",
-									"location": "2,5 - 2,6",
-									"value": 2
-								}
-							},
-							{
-								"type": "AstExprTableItem",
-								"kind": "general",
-								"key": {
-									"type": "AstExprGlobal",
-									"location": "3,2 - 3,3",
-									"global": "x"
-								},
-								"value": {
-									"type": "AstExprConstantNumber",
-									"location": "3,7 - 3,8",
-									"value": 3
-								}
-							},
-							{
-								"type": "AstExprTableItem",
-								"kind": "item",
-								"value": {
-									"type": "AstExprConstantNumber",
-									"location": "4,1 - 4,2",
-									"value": 4
-								}
-							},
-							{
-								"type": "AstExprTableItem",
-								"kind": "item",
-								"value": {
-									"type": "AstExprConstantNil",
-									"location": "5,1 - 5,4"
-								}
+						"type": "AstExprIndexExpr",
+						"location": "1,0 - 1,4",
+						"expr": {
+							"type": "AstExprLocal",
+							"location": "1,0 - 1,1",
+							"local": {
+								"luauType": null,
+								"name": "x",
+								"type": "AstLocal",
+								"location": "0,6 - 0,7"
 							}
-						]
+						},
+						"index": {
+							"type": "AstExprConstantNumber",
+							"location": "1,2 - 1,3",
+							"value": 1
+						}
+					}
+				],
+				"values": [
+					{
+						"type": "AstExprConstantString",
+						"location": "1,7 - 1,11",
+						"value": "hi"
 					}
 				]
+			},
+			{
+				"type": "AstStatExpr",
+				"location": "2,0 - 2,11",
+				"expr": {
+					"type": "AstExprCall",
+					"location": "2,0 - 2,11",
+					"func": {
+						"type": "AstExprGlobal",
+						"location": "2,0 - 2,5",
+						"global": "print"
+					},
+					"args": [
+						{
+							"type": "AstExprIndexExpr",
+							"location": "2,6 - 2,10",
+							"expr": {
+								"type": "AstExprLocal",
+								"location": "2,6 - 2,7",
+								"local": {
+									"luauType": null,
+									"name": "x",
+									"type": "AstLocal",
+									"location": "0,6 - 0,7"
+								}
+							},
+							"index": {
+								"type": "AstExprConstantNumber",
+								"location": "2,8 - 2,9",
+								"value": 1
+							}
+						}
+					],
+					"self": false,
+					"argLocation": "2,6 - 2,11"
+				}
 			}
 		]
 	},
