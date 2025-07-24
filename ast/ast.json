@@ -1,23 +1,90 @@
 {
 	"root": {
 		"type": "AstStatBlock",
-		"location": "0,0 - 0,12",
+		"location": "0,0 - 2,0",
 		"hasEnd": true,
 		"body": [
 			{
-				"type": "AstStatCompoundAssign",
-				"location": "0,0 - 0,12",
-				"op": "Concat",
-				"var": {
-					"type": "AstExprGlobal",
-					"location": "0,0 - 0,1",
-					"global": "z"
-				},
-				"value": {
-					"type": "AstExprConstantString",
-					"location": "0,6 - 0,12",
-					"value": "yeah"
-				}
+				"type": "AstStatLocal",
+				"location": "0,0 - 0,21",
+				"vars": [
+					{
+						"luauType": null,
+						"name": "x",
+						"type": "AstLocal",
+						"location": "0,6 - 0,7"
+					}
+				],
+				"values": [
+					{
+						"type": "AstExprBinary",
+						"location": "0,10 - 0,21",
+						"op": "Mul",
+						"left": {
+							"type": "AstExprGroup",
+							"location": "0,10 - 0,17",
+							"expr": {
+								"type": "AstExprBinary",
+								"location": "0,11 - 0,16",
+								"op": "Add",
+								"left": {
+									"type": "AstExprConstantNumber",
+									"location": "0,11 - 0,12",
+									"value": 1
+								},
+								"right": {
+									"type": "AstExprConstantNumber",
+									"location": "0,15 - 0,16",
+									"value": 2
+								}
+							}
+						},
+						"right": {
+							"type": "AstExprConstantNumber",
+							"location": "0,20 - 0,21",
+							"value": 3
+						}
+					}
+				]
+			},
+			{
+				"type": "AstStatLocal",
+				"location": "1,0 - 1,19",
+				"vars": [
+					{
+						"luauType": null,
+						"name": "y",
+						"type": "AstLocal",
+						"location": "1,6 - 1,7"
+					}
+				],
+				"values": [
+					{
+						"type": "AstExprBinary",
+						"location": "1,10 - 1,19",
+						"op": "Add",
+						"left": {
+							"type": "AstExprConstantNumber",
+							"location": "1,10 - 1,11",
+							"value": 1
+						},
+						"right": {
+							"type": "AstExprBinary",
+							"location": "1,14 - 1,19",
+							"op": "Mul",
+							"left": {
+								"type": "AstExprConstantNumber",
+								"location": "1,14 - 1,15",
+								"value": 2
+							},
+							"right": {
+								"type": "AstExprConstantNumber",
+								"location": "1,18 - 1,19",
+								"value": 3
+							}
+						}
+					}
+				]
 			}
 		]
 	},

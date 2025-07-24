@@ -979,6 +979,46 @@ func DecodeExprGlobal(data json.RawMessage) (INode, error) {
 	return raw, nil
 }
 
+type ExprGroup[T any] struct {
+	Node
+	Location Location `json:"location"`
+	Expr     T        `json:"expr"` // only contains one expression right? strange when you first think about it
+}
+
+func (n ExprGroup[T]) Type() string {
+	return "AstExprGroup"
+}
+
+func (n ExprGroup[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
+	b.WriteString("Expr:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
+	b.WriteByte('\n')
+
+	return b.String()
+}
+
+func DecodeExprGroup(data json.RawMessage) (INode, error) {
+	var raw ExprGroup[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	exprNode, err := decodeNode(raw.Expr)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding expr: %v", err)
+	}
+
+	return ExprGroup[INode]{
+		Node:     raw.Node,
+		Location: raw.Location,
+		Expr:     exprNode,
+	}, nil
+}
+
 type ExprIndexExpr[T any] struct {
 	Node
 	Location Location `json:"location"`
@@ -1298,6 +1338,8 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeExprFunction(data))
 	case "AstExprGlobal":
 		return ret(DecodeExprGlobal(data))
+	case "AstExprGroup":
+		return ret(DecodeExprGroup(data))
 	case "AstExprIndexExpr":
 		return ret(DecodeExprIndexExpr(data))
 	case "AstExprIndexName":
