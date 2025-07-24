@@ -21,11 +21,11 @@
 			},
 			{
 				"type": "AstStatAssign",
-				"location": "1,0 - 1,11",
+				"location": "1,0 - 1,14",
 				"vars": [
 					{
-						"type": "AstExprIndexExpr",
-						"location": "1,0 - 1,4",
+						"type": "AstExprIndexName",
+						"location": "1,0 - 1,7",
 						"expr": {
 							"type": "AstExprLocal",
 							"location": "1,0 - 1,1",
@@ -36,27 +36,25 @@
 								"location": "0,6 - 0,7"
 							}
 						},
-						"index": {
-							"type": "AstExprConstantNumber",
-							"location": "1,2 - 1,3",
-							"value": 1
-						}
+						"index": "hello",
+						"indexLocation": "1,2 - 1,7",
+						"op": "."
 					}
 				],
 				"values": [
 					{
 						"type": "AstExprConstantString",
-						"location": "1,7 - 1,11",
+						"location": "1,10 - 1,14",
 						"value": "hi"
 					}
 				]
 			},
 			{
 				"type": "AstStatExpr",
-				"location": "2,0 - 2,11",
+				"location": "2,0 - 2,14",
 				"expr": {
 					"type": "AstExprCall",
-					"location": "2,0 - 2,11",
+					"location": "2,0 - 2,14",
 					"func": {
 						"type": "AstExprGlobal",
 						"location": "2,0 - 2,5",
@@ -64,8 +62,8 @@
 					},
 					"args": [
 						{
-							"type": "AstExprIndexExpr",
-							"location": "2,6 - 2,10",
+							"type": "AstExprIndexName",
+							"location": "2,6 - 2,13",
 							"expr": {
 								"type": "AstExprLocal",
 								"location": "2,6 - 2,7",
@@ -76,15 +74,13 @@
 									"location": "0,6 - 0,7"
 								}
 							},
-							"index": {
-								"type": "AstExprConstantNumber",
-								"location": "2,8 - 2,9",
-								"value": 1
-							}
+							"index": "hello",
+							"indexLocation": "2,8 - 2,13",
+							"op": "."
 						}
 					],
 					"self": false,
-					"argLocation": "2,6 - 2,11"
+					"argLocation": "2,6 - 2,14"
 				}
 			}
 		]

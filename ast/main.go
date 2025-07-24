@@ -20,7 +20,7 @@ func indentStart(s string, n int) string {
 }
 
 func main() {
-	const filepath = "../test/ast/tableaccess.luau"
+	const filepath = "../test/ast/tableindex.luau"
 
 	output, err := luauAst(filepath)
 	if err != nil {
