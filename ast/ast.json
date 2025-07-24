@@ -1,86 +1,35 @@
 {
 	"root": {
 		"type": "AstStatBlock",
-		"location": "0,0 - 3,0",
+		"location": "0,0 - 1,0",
 		"hasEnd": true,
 		"body": [
 			{
-				"type": "AstStatLocal",
-				"location": "0,0 - 0,12",
-				"vars": [
-					{
-						"luauType": null,
-						"name": "x",
-						"type": "AstLocal",
-						"location": "0,6 - 0,7"
-					}
-				],
-				"values": [
-					{ "type": "AstExprTable", "location": "0,10 - 0,12", "items": [] }
-				]
-			},
-			{
-				"type": "AstStatAssign",
-				"location": "1,0 - 1,14",
-				"vars": [
-					{
-						"type": "AstExprIndexName",
-						"location": "1,0 - 1,7",
-						"expr": {
-							"type": "AstExprLocal",
-							"location": "1,0 - 1,1",
-							"local": {
-								"luauType": null,
-								"name": "x",
-								"type": "AstLocal",
-								"location": "0,6 - 0,7"
-							}
-						},
-						"index": "hello",
-						"indexLocation": "1,2 - 1,7",
-						"op": "."
-					}
-				],
-				"values": [
-					{
-						"type": "AstExprConstantString",
-						"location": "1,10 - 1,14",
-						"value": "hi"
-					}
-				]
-			},
-			{
-				"type": "AstStatExpr",
-				"location": "2,0 - 2,14",
-				"expr": {
-					"type": "AstExprCall",
-					"location": "2,0 - 2,14",
-					"func": {
-						"type": "AstExprGlobal",
-						"location": "2,0 - 2,5",
-						"global": "print"
+				"type": "AstStatLocalFunction",
+				"location": "0,0 - 0,22",
+				"name": {
+					"luauType": null,
+					"name": "x",
+					"type": "AstLocal",
+					"location": "0,15 - 0,16"
+				},
+				"func": {
+					"type": "AstExprFunction",
+					"location": "0,0 - 0,22",
+					"attributes": [],
+					"generics": [],
+					"genericPacks": [],
+					"args": [],
+					"vararg": false,
+					"varargLocation": "0,0 - 0,0",
+					"body": {
+						"type": "AstStatBlock",
+						"location": "0,18 - 0,19",
+						"hasEnd": true,
+						"body": []
 					},
-					"args": [
-						{
-							"type": "AstExprIndexName",
-							"location": "2,6 - 2,13",
-							"expr": {
-								"type": "AstExprLocal",
-								"location": "2,6 - 2,7",
-								"local": {
-									"luauType": null,
-									"name": "x",
-									"type": "AstLocal",
-									"location": "0,6 - 0,7"
-								}
-							},
-							"index": "hello",
-							"indexLocation": "2,8 - 2,13",
-							"op": "."
-						}
-					],
-					"self": false,
-					"argLocation": "2,6 - 2,14"
+					"functionDepth": 1,
+					"debugname": "x"
 				}
 			}
 		]
