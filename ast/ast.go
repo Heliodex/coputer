@@ -231,6 +231,57 @@ func DecodeStatBlock(data json.RawMessage) (INode, error) {
 	}, nil
 }
 
+type StatCompoundAssign[T any] struct {
+	Node
+	Location Location `json:"location"`
+	Op       string   `json:"op"`
+	Var      T        `json:"var"`
+	Value    T        `json:"value"`
+}
+
+func (n StatCompoundAssign[T]) Type() string {
+	return "AstStatCompoundAssign"
+}
+
+func (n StatCompoundAssign[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
+	b.WriteString(fmt.Sprintf("Op: %s\n", n.Op))
+	b.WriteString("Var:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Var), 4))
+	b.WriteString("\nValue:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Value), 4))
+
+	return b.String()
+}
+
+func DecodeStatCompoundAssign(data json.RawMessage) (INode, error) {
+	var raw StatCompoundAssign[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	varNode, err := decodeNode(raw.Var)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding var: %v", err)
+	}
+
+	valueNode, err := decodeNode(raw.Value)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding value: %v", err)
+	}
+
+	return StatCompoundAssign[INode]{
+		Node:     raw.Node,
+		Location: raw.Location,
+		Op:       raw.Op,
+		Var:      varNode,
+		Value:    valueNode,
+	}, nil
+}
+
 type StatExpr[T any] struct {
 	Node
 	Location Location `json:"location"`
@@ -565,6 +616,57 @@ func DecodeStatWhile(data json.RawMessage) (INode, error) {
 		Condition: condition,
 		Body:      body,
 		HasDo:     raw.HasDo,
+	}, nil
+}
+
+type ExprBinary[T any] struct {
+	Node
+	Location Location `json:"location"`
+	Op       string   `json:"op"`
+	Left     T        `json:"left"`
+	Right    T        `json:"right"`
+}
+
+func (n ExprBinary[T]) Type() string {
+	return "AstExprBinary"
+}
+
+func (n ExprBinary[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
+	b.WriteString(fmt.Sprintf("Op: %s\n", n.Op))
+	b.WriteString("Left:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Left), 4))
+	b.WriteString("\nRight:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Right), 4))
+
+	return b.String()
+}
+
+func DecodeExprBinary(data json.RawMessage) (INode, error) {
+	var raw ExprBinary[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	left, err := decodeNode(raw.Left)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding left: %v", err)
+	}
+
+	right, err := decodeNode(raw.Right)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding right: %v", err)
+	}
+
+	return ExprBinary[INode]{
+		Node:     raw.Node,
+		Location: raw.Location,
+		Op:       raw.Op,
+		Left:     left,
+		Right:    right,
 	}, nil
 }
 
@@ -1166,6 +1268,8 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeStatAssign(data))
 	case "AstStatBlock":
 		return ret(DecodeStatBlock(data))
+	case "AstStatCompoundAssign":
+		return ret(DecodeStatCompoundAssign(data))
 	case "AstStatExpr":
 		return ret(DecodeStatExpr(data))
 	case "AstStatFor":
@@ -1178,6 +1282,8 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeStatLocalFunction(data))
 	case "AstStatWhile":
 		return ret(DecodeStatWhile(data))
+	case "AstExprBinary":
+		return ret(DecodeExprBinary(data))
 	case "AstExprCall":
 		return ret(DecodeExprCall(data))
 	case "AstExprConstantBool":

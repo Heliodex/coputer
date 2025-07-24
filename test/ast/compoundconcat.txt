@@ -1,0 +1,18 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 0,12
+    HasEnd: true
+    Body:
+        Type: AstStatCompoundAssign
+        Location: 0,0 - 0,12
+        Op: Concat
+        Var:
+            Type: AstExprGlobal
+            Location: 0,0 - 0,1
+            Global: z
+        Value:
+            Type: AstExprConstantString
+            Location: 0,6 - 0,12
+            Value: yeah
+
+Comment Locations:

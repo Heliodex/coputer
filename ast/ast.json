@@ -1,35 +1,22 @@
 {
 	"root": {
 		"type": "AstStatBlock",
-		"location": "0,0 - 1,0",
+		"location": "0,0 - 0,12",
 		"hasEnd": true,
 		"body": [
 			{
-				"type": "AstStatLocalFunction",
-				"location": "0,0 - 0,22",
-				"name": {
-					"luauType": null,
-					"name": "x",
-					"type": "AstLocal",
-					"location": "0,15 - 0,16"
+				"type": "AstStatCompoundAssign",
+				"location": "0,0 - 0,12",
+				"op": "Concat",
+				"var": {
+					"type": "AstExprGlobal",
+					"location": "0,0 - 0,1",
+					"global": "z"
 				},
-				"func": {
-					"type": "AstExprFunction",
-					"location": "0,0 - 0,22",
-					"attributes": [],
-					"generics": [],
-					"genericPacks": [],
-					"args": [],
-					"vararg": false,
-					"varargLocation": "0,0 - 0,0",
-					"body": {
-						"type": "AstStatBlock",
-						"location": "0,18 - 0,19",
-						"hasEnd": true,
-						"body": []
-					},
-					"functionDepth": 1,
-					"debugname": "x"
+				"value": {
+					"type": "AstExprConstantString",
+					"location": "0,6 - 0,12",
+					"value": "yeah"
 				}
 			}
 		]
