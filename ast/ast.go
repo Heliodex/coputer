@@ -232,6 +232,32 @@ func DecodeStatBlock(data json.RawMessage) (INode, error) {
 	}, nil
 }
 
+type StatBreak struct {
+	Node
+	Location Location `json:"location"`
+}
+
+func (n StatBreak) Type() string {
+	return "AstStatBreak"
+}
+
+func (n StatBreak) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+
+	return b.String()
+}
+
+func DecodeStatBreak(data json.RawMessage) (INode, error) {
+	var raw StatBreak
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+	return raw, nil
+}
+
 type StatCompoundAssign[T any] struct {
 	Node
 	Location Location `json:"location"`
@@ -281,6 +307,32 @@ func DecodeStatCompoundAssign(data json.RawMessage) (INode, error) {
 		Var:      varNode,
 		Value:    valueNode,
 	}, nil
+}
+
+type StatContinue struct {
+	Node
+	Location Location `json:"location"`
+}
+
+func (n StatContinue) Type() string {
+	return "AstStatContinue"
+}
+
+func (n StatContinue) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+
+	return b.String()
+}
+
+func DecodeStatContinue(data json.RawMessage) (INode, error) {
+	var raw StatContinue
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+	return raw, nil
 }
 
 type StatExpr[T any] struct {
@@ -1400,8 +1452,12 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeStatAssign(data))
 	case "AstStatBlock":
 		return ret(DecodeStatBlock(data))
+	case "AstStatBreak":
+		return ret(DecodeStatBreak(data))
 	case "AstStatCompoundAssign":
 		return ret(DecodeStatCompoundAssign(data))
+	case "AstStatContinue":
+		return ret(DecodeStatContinue(data))
 	case "AstStatExpr":
 		return ret(DecodeStatExpr(data))
 	case "AstStatFor":

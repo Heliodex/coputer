@@ -1,23 +1,24 @@
 {
 	"root": {
 		"type": "AstStatBlock",
-		"location": "0,0 - 2,0",
+		"location": "0,0 - 3,0",
 		"hasEnd": true,
 		"body": [
 			{
-				"type": "AstStatRepeat",
-				"location": "0,0 - 1,11",
+				"type": "AstStatWhile",
+				"location": "0,0 - 2,3",
 				"condition": {
 					"type": "AstExprConstantBool",
-					"location": "1,6 - 1,11",
-					"value": false
+					"location": "0,6 - 0,10",
+					"value": true
 				},
 				"body": {
 					"type": "AstStatBlock",
-					"location": "0,6 - 1,0",
+					"location": "0,13 - 2,0",
 					"hasEnd": true,
-					"body": []
-				}
+					"body": [{ "type": "AstStatContinue", "location": "1,1 - 1,9" }]
+				},
+				"hasDo": true
 			}
 		]
 	},
