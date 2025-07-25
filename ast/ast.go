@@ -135,8 +135,8 @@ func (n StatAssign[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
-	b.WriteString("Vars:")
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nVars:")
 	for _, v := range n.Vars {
 		b.WriteByte('\n')
 		b.WriteString(indentStart(StringMaybeEvaluated(v), 4))
@@ -197,9 +197,9 @@ func (n StatBlock[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
-	b.WriteString(fmt.Sprintf("HasEnd: %t\n", n.HasEnd))
-	b.WriteString("Body:\n")
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString(fmt.Sprintf("\nHasEnd: %t", n.HasEnd))
+	b.WriteString("\nBody:\n")
 
 	for _, node := range n.Body {
 		b.WriteString(indentStart(StringMaybeEvaluated(node), 4))
@@ -248,9 +248,9 @@ func (n StatCompoundAssign[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
-	b.WriteString(fmt.Sprintf("Op: %s\n", n.Op))
-	b.WriteString("Var:\n")
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString(fmt.Sprintf("\nOp: %s", n.Op))
+	b.WriteString("\nVar:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Var), 4))
 	b.WriteString("\nValue:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Value), 4))
@@ -297,8 +297,8 @@ func (n StatExpr[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
-	b.WriteString("Expr:\n")
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nExpr:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
 	b.WriteByte('\n')
 
@@ -341,8 +341,8 @@ func (n StatFor[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
-	b.WriteString("Var:\n")
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nVar:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Var), 4))
 	b.WriteString("\nFrom:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.From), 4))
@@ -409,8 +409,8 @@ func (n StatIf[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
-	b.WriteString("Condition:\n")
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nCondition:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Condition), 4))
 	b.WriteString("\nThenBody:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.ThenBody), 4))
@@ -474,8 +474,8 @@ func (n StatLocal[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
-	b.WriteString("Vars:")
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nVars:")
 	for _, v := range n.Vars {
 		b.WriteByte('\n')
 		b.WriteString(indentStart(StringMaybeEvaluated(v), 4))
@@ -536,8 +536,8 @@ func (n StatLocalFunction[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
-	b.WriteString("Name:\n")
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nName:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Name), 4))
 	b.WriteString("\nFunc:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Func), 4))
@@ -569,6 +569,54 @@ func DecodeStatLocalFunction(data json.RawMessage) (INode, error) {
 	}, nil
 }
 
+type StatRepeat[T any] struct {
+	Node
+	Location  Location `json:"location"`
+	Condition T        `json:"condition"`
+	Body      T        `json:"body"`
+}
+
+func (n StatRepeat[T]) Type() string {
+	return "AstStatRepeat"
+}
+
+func (n StatRepeat[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nCondition:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Condition), 4))
+	b.WriteString("\nBody:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Body), 4))
+
+	return b.String()
+}
+
+func DecodeStatRepeat(data json.RawMessage) (INode, error) {
+	var raw StatRepeat[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	condition, err := decodeNode(raw.Condition)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding condition: %v", err)
+	}
+
+	body, err := decodeNode(raw.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding body: %v", err)
+	}
+
+	return StatRepeat[INode]{
+		Node:      raw.Node,
+		Location:  raw.Location,
+		Condition: condition,
+		Body:      body,
+	}, nil
+}
+
 type StatReturn[T any] struct {
 	Node
 	Location Location `json:"location"`
@@ -583,8 +631,8 @@ func (n StatReturn[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
-	b.WriteString("List:")
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nList:")
 
 	for _, item := range n.List {
 		b.WriteByte('\n')
@@ -632,8 +680,8 @@ func (n StatWhile[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
-	b.WriteString("Condition:\n")
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nCondition:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Condition), 4))
 	b.WriteString("\nBody:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Body), 4))
@@ -683,9 +731,9 @@ func (n ExprBinary[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
-	b.WriteString(fmt.Sprintf("Op: %s\n", n.Op))
-	b.WriteString("Left:\n")
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString(fmt.Sprintf("\nOp: %s", n.Op))
+	b.WriteString("\nLeft:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Left), 4))
 	b.WriteString("\nRight:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Right), 4))
@@ -870,8 +918,8 @@ func (n ExprConstantString) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location))
-	b.WriteString(fmt.Sprintf("Value: %s", n.Value))
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString(fmt.Sprintf("\nValue: %s", n.Value))
 
 	return b.String()
 }
@@ -1364,6 +1412,8 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeStatLocal(data))
 	case "AstStatLocalFunction":
 		return ret(DecodeStatLocalFunction(data))
+	case "AstStatRepeat":
+		return ret(DecodeStatRepeat(data))
 	case "AstStatReturn":
 		return ret(DecodeStatReturn(data))
 	case "AstStatWhile":
