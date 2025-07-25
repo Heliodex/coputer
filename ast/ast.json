@@ -1,90 +1,168 @@
 {
 	"root": {
 		"type": "AstStatBlock",
-		"location": "0,0 - 2,0",
+		"location": "0,0 - 6,0",
 		"hasEnd": true,
 		"body": [
 			{
-				"type": "AstStatLocal",
-				"location": "0,0 - 0,21",
-				"vars": [
-					{
-						"luauType": null,
-						"name": "x",
-						"type": "AstLocal",
-						"location": "0,6 - 0,7"
-					}
-				],
-				"values": [
-					{
-						"type": "AstExprBinary",
-						"location": "0,10 - 0,21",
-						"op": "Mul",
-						"left": {
-							"type": "AstExprGroup",
-							"location": "0,10 - 0,17",
-							"expr": {
-								"type": "AstExprBinary",
-								"location": "0,11 - 0,16",
-								"op": "Add",
-								"left": {
-									"type": "AstExprConstantNumber",
-									"location": "0,11 - 0,12",
-									"value": 1
-								},
-								"right": {
-									"type": "AstExprConstantNumber",
-									"location": "0,15 - 0,16",
-									"value": 2
-								}
-							}
+				"type": "AstStatLocalFunction",
+				"location": "0,0 - 3,3",
+				"name": {
+					"luauType": null,
+					"name": "x",
+					"type": "AstLocal",
+					"location": "0,15 - 0,16"
+				},
+				"func": {
+					"type": "AstExprFunction",
+					"location": "0,0 - 3,3",
+					"attributes": [],
+					"generics": [],
+					"genericPacks": [],
+					"args": [
+						{
+							"luauType": null,
+							"name": "y",
+							"type": "AstLocal",
+							"location": "0,17 - 0,18"
 						},
-						"right": {
-							"type": "AstExprConstantNumber",
-							"location": "0,20 - 0,21",
-							"value": 3
+						{
+							"luauType": null,
+							"name": "z",
+							"type": "AstLocal",
+							"location": "0,20 - 0,21"
 						}
-					}
-				]
+					],
+					"vararg": false,
+					"varargLocation": "0,0 - 0,0",
+					"body": {
+						"type": "AstStatBlock",
+						"location": "0,22 - 3,0",
+						"hasEnd": true,
+						"body": [
+							{
+								"type": "AstStatExpr",
+								"location": "1,1 - 1,47",
+								"expr": {
+									"type": "AstExprCall",
+									"location": "1,1 - 1,47",
+									"func": {
+										"type": "AstExprGlobal",
+										"location": "1,1 - 1,6",
+										"global": "print"
+									},
+									"args": [
+										{
+											"type": "AstExprConstantString",
+											"location": "1,7 - 1,40",
+											"value": "Function called with arguments:"
+										},
+										{
+											"type": "AstExprLocal",
+											"location": "1,42 - 1,43",
+											"local": {
+												"luauType": null,
+												"name": "y",
+												"type": "AstLocal",
+												"location": "0,17 - 0,18"
+											}
+										},
+										{
+											"type": "AstExprLocal",
+											"location": "1,45 - 1,46",
+											"local": {
+												"luauType": null,
+												"name": "z",
+												"type": "AstLocal",
+												"location": "0,20 - 0,21"
+											}
+										}
+									],
+									"self": false,
+									"argLocation": "1,7 - 1,47"
+								}
+							},
+							{
+								"type": "AstStatReturn",
+								"location": "2,1 - 2,13",
+								"list": [
+									{
+										"type": "AstExprBinary",
+										"location": "2,8 - 2,13",
+										"op": "Add",
+										"left": {
+											"type": "AstExprLocal",
+											"location": "2,8 - 2,9",
+											"local": {
+												"luauType": null,
+												"name": "y",
+												"type": "AstLocal",
+												"location": "0,17 - 0,18"
+											}
+										},
+										"right": {
+											"type": "AstExprLocal",
+											"location": "2,12 - 2,13",
+											"local": {
+												"luauType": null,
+												"name": "z",
+												"type": "AstLocal",
+												"location": "0,20 - 0,21"
+											}
+										}
+									}
+								]
+							}
+						]
+					},
+					"functionDepth": 1,
+					"debugname": "x"
+				}
 			},
 			{
-				"type": "AstStatLocal",
-				"location": "1,0 - 1,19",
-				"vars": [
-					{
-						"luauType": null,
-						"name": "y",
-						"type": "AstLocal",
-						"location": "1,6 - 1,7"
-					}
-				],
-				"values": [
-					{
-						"type": "AstExprBinary",
-						"location": "1,10 - 1,19",
-						"op": "Add",
-						"left": {
-							"type": "AstExprConstantNumber",
-							"location": "1,10 - 1,11",
-							"value": 1
-						},
-						"right": {
-							"type": "AstExprBinary",
-							"location": "1,14 - 1,19",
-							"op": "Mul",
-							"left": {
-								"type": "AstExprConstantNumber",
-								"location": "1,14 - 1,15",
-								"value": 2
+				"type": "AstStatExpr",
+				"location": "5,0 - 5,14",
+				"expr": {
+					"type": "AstExprCall",
+					"location": "5,0 - 5,14",
+					"func": {
+						"type": "AstExprGlobal",
+						"location": "5,0 - 5,5",
+						"global": "print"
+					},
+					"args": [
+						{
+							"type": "AstExprCall",
+							"location": "5,6 - 5,13",
+							"func": {
+								"type": "AstExprLocal",
+								"location": "5,6 - 5,7",
+								"local": {
+									"luauType": null,
+									"name": "x",
+									"type": "AstLocal",
+									"location": "0,15 - 0,16"
+								}
 							},
-							"right": {
-								"type": "AstExprConstantNumber",
-								"location": "1,18 - 1,19",
-								"value": 3
-							}
+							"args": [
+								{
+									"type": "AstExprConstantNumber",
+									"location": "5,8 - 5,9",
+									"value": 1
+								},
+								{
+									"type": "AstExprConstantNumber",
+									"location": "5,11 - 5,12",
+									"value": 2
+								}
+							],
+							"self": false,
+							"argLocation": "5,8 - 5,13"
 						}
-					}
-				]
+					],
+					"self": false,
+					"argLocation": "5,6 - 5,14"
+				}
 			}
 		]
 	},

@@ -1,0 +1,116 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 6,0
+    HasEnd: true
+    Body:
+        Type: AstStatLocalFunction
+        Location: 0,0 - 3,3
+        Name:
+            Type: AstLocal
+            Location: 0,15 - 0,16
+            Name: x
+            LuauType: <nil>
+        Func:
+            Type: AstExprFunction
+            Location: 0,0 - 3,3
+            Attributes:
+            Generics:
+            GenericPacks:
+            Args:
+                Type: AstLocal
+                Location: 0,17 - 0,18
+                Name: y
+                LuauType: <nil>
+                Type: AstLocal
+                Location: 0,20 - 0,21
+                Name: z
+                LuauType: <nil>
+            Vararg: false
+            VarargLocation: 0,0 - 0,0
+            Body:
+                Type: AstStatBlock
+                Location: 0,22 - 3,0
+                HasEnd: true
+                Body:
+                    Type: AstStatExpr
+                    Location: 1,1 - 1,47
+                    Expr:
+                        Type: AstExprCall
+                        Location: 1,1 - 1,47
+                        Func:
+                            Type: AstExprGlobal
+                            Location: 1,1 - 1,6
+                            Global: print
+                        Args:
+                            Type: AstExprConstantString
+                            Location: 1,7 - 1,40
+                            Value: Function called with arguments:
+                            Type: AstExprLocal
+                            Location: 1,42 - 1,43
+                            Local:
+                                Type: AstLocal
+                                Location: 0,17 - 0,18
+                                Name: y
+                                LuauType: <nil>
+                            Type: AstExprLocal
+                            Location: 1,45 - 1,46
+                            Local:
+                                Type: AstLocal
+                                Location: 0,20 - 0,21
+                                Name: z
+                                LuauType: <nil>
+                
+                    Type: AstStatReturn
+                    Location: 2,1 - 2,13
+                    List:
+                        Type: AstExprBinary
+                        Location: 2,8 - 2,13
+                        Op: Add
+                        Left:
+                            Type: AstExprLocal
+                            Location: 2,8 - 2,9
+                            Local:
+                                Type: AstLocal
+                                Location: 0,17 - 0,18
+                                Name: y
+                                LuauType: <nil>
+                        Right:
+                            Type: AstExprLocal
+                            Location: 2,12 - 2,13
+                            Local:
+                                Type: AstLocal
+                                Location: 0,20 - 0,21
+                                Name: z
+                                LuauType: <nil>
+            FunctionDepth: 1
+            Debugname: x
+    
+        Type: AstStatExpr
+        Location: 5,0 - 5,14
+        Expr:
+            Type: AstExprCall
+            Location: 5,0 - 5,14
+            Func:
+                Type: AstExprGlobal
+                Location: 5,0 - 5,5
+                Global: print
+            Args:
+                Type: AstExprCall
+                Location: 5,6 - 5,13
+                Func:
+                    Type: AstExprLocal
+                    Location: 5,6 - 5,7
+                    Local:
+                        Type: AstLocal
+                        Location: 0,15 - 0,16
+                        Name: x
+                        LuauType: <nil>
+                Args:
+                    Type: AstExprConstantNumber
+                    Location: 5,8 - 5,9
+                    Value: 1.000000
+                    Type: AstExprConstantNumber
+                    Location: 5,11 - 5,12
+                    Value: 2.000000
+
+Comment Locations:

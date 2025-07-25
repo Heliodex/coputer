@@ -55,11 +55,20 @@ func TestAST(t *testing.T) {
 			fmt.Println()
 
 			// print mismatch
-			oLines := strings.Split(o, "\n")
-			ogLines := strings.Split(og, "\n")
-			for i, line := range ogLines {
-				if line != oLines[i] {
-					t.Errorf("mismatched line: \n%s\n%v\n%s\n%v\n", line, []byte(line), oLines[i], []byte(oLines[i]))
+			oLines, ogLines := strings.Split(o, "\n"), strings.Split(og, "\n")
+			olen, oglen := len(oLines), len(ogLines)
+
+			if olen != oglen {
+				t.Errorf("line count mismatch: expected %d, got %d", oglen, olen)
+			}
+
+			for i := range max(olen, oglen) {
+				if i >= olen || i >= oglen {
+					continue
+				}
+
+				if oline, ogline := oLines[i], ogLines[i]; oline != ogline {
+					t.Errorf("mismatched line: \n%s\n%v\n%s\n%v\n", oline, []byte(oline), ogline, []byte(ogline))
 				}
 			}
 
