@@ -1166,6 +1166,69 @@ func DecodeExprGroup(data json.RawMessage) (INode, error) {
 	}, nil
 }
 
+type ExprIfElse[T any] struct {
+	Node
+	Location  Location `json:"location"`
+	Condition T        `json:"condition"`
+	HasThen   bool     `json:"hasThen"`
+	TrueExpr  T        `json:"trueExpr"`
+	HasElse   bool     `json:"hasElse"`
+	FalseExpr T        `json:"falseExpr"`
+}
+
+func (n ExprIfElse[T]) Type() string {
+	return "AstExprIfElse"
+}
+
+func (n ExprIfElse[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nCondition:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Condition), 4))
+	b.WriteString(fmt.Sprintf("\nHasThen: %t", n.HasThen))
+	b.WriteString("\nTrueExpr:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.TrueExpr), 4))
+	b.WriteString(fmt.Sprintf("\nHasElse: %t", n.HasElse))
+	b.WriteString("\nFalseExpr:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.FalseExpr), 4))
+
+	return b.String()
+}
+
+func DecodeExprIfElse(data json.RawMessage) (INode, error) {
+	var raw ExprIfElse[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	conditionNode, err := decodeNode(raw.Condition)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding condition: %v", err)
+	}
+
+	trueExprNode, err := decodeNode(raw.TrueExpr)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding true expression: %v", err)
+	}
+
+	falseExprNode, err := decodeNode(raw.FalseExpr)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding false expression: %v", err)
+	}
+
+	return ExprIfElse[INode]{
+		Node:      raw.Node,
+		Location:  raw.Location,
+		Condition: conditionNode,
+		HasThen:   raw.HasThen,
+		TrueExpr:  trueExprNode,
+		HasElse:   raw.HasElse,
+		FalseExpr: falseExprNode,
+	}, nil
+}
+
 type ExprIndexExpr[T any] struct {
 	Node
 	Location Location `json:"location"`
@@ -1492,6 +1555,8 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeExprGlobal(data))
 	case "AstExprGroup":
 		return ret(DecodeExprGroup(data))
+	case "AstExprIfElse":
+		return ret(DecodeExprIfElse(data))
 	case "AstExprIndexExpr":
 		return ret(DecodeExprIndexExpr(data))
 	case "AstExprIndexName":

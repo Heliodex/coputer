@@ -1,24 +1,59 @@
 {
 	"root": {
 		"type": "AstStatBlock",
-		"location": "0,0 - 3,0",
+		"location": "0,0 - 1,0",
 		"hasEnd": true,
 		"body": [
 			{
-				"type": "AstStatWhile",
-				"location": "0,0 - 2,3",
-				"condition": {
-					"type": "AstExprConstantBool",
-					"location": "0,6 - 0,10",
-					"value": true
-				},
-				"body": {
-					"type": "AstStatBlock",
-					"location": "0,13 - 2,0",
-					"hasEnd": true,
-					"body": [{ "type": "AstStatContinue", "location": "1,1 - 1,9" }]
-				},
-				"hasDo": true
+				"type": "AstStatLocal",
+				"location": "0,0 - 0,51",
+				"vars": [
+					{
+						"luauType": null,
+						"name": "x",
+						"type": "AstLocal",
+						"location": "0,6 - 0,7"
+					}
+				],
+				"values": [
+					{
+						"type": "AstExprIfElse",
+						"location": "0,10 - 0,51",
+						"condition": {
+							"type": "AstExprConstantBool",
+							"location": "0,13 - 0,17",
+							"value": true
+						},
+						"hasThen": true,
+						"trueExpr": {
+							"type": "AstExprConstantNumber",
+							"location": "0,23 - 0,24",
+							"value": 1
+						},
+						"hasElse": true,
+						"falseExpr": {
+							"type": "AstExprIfElse",
+							"location": "0,25 - 0,51",
+							"condition": {
+								"type": "AstExprConstantBool",
+								"location": "0,32 - 0,37",
+								"value": false
+							},
+							"hasThen": true,
+							"trueExpr": {
+								"type": "AstExprConstantNumber",
+								"location": "0,43 - 0,44",
+								"value": 2
+							},
+							"hasElse": true,
+							"falseExpr": {
+								"type": "AstExprConstantNumber",
+								"location": "0,50 - 0,51",
+								"value": 3
+							}
+						}
+					}
+				]
 			}
 		]
 	},
