@@ -120,6 +120,34 @@ func DecodeAST(data json.RawMessage) (AST[INode], error) {
 
 // node types
 
+type Attr struct {
+	Node
+	Location Location `json:"location"`
+	Name     string   `json:"name"`
+}
+
+func (a Attr) Type() string {
+	return "AstAttr"
+}
+
+func (a Attr) String() string {
+	var b strings.Builder
+
+	b.WriteString(a.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s\n", a.Location))
+	b.WriteString(fmt.Sprintf("Name: %s\n", a.Name))
+
+	return b.String()
+}
+
+func DecodeAttr(data json.RawMessage) (INode, error) {
+	var raw Attr
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+	return raw, nil
+}
+
 type StatAssign[T any] struct {
 	Node
 	Location Location `json:"location"`
@@ -1464,6 +1492,32 @@ func DecodeExprTableItem(data json.RawMessage) (INode, error) {
 	}, nil
 }
 
+type ExprVarargs struct {
+	Node
+	Location Location `json:"location"`
+}
+
+func (n ExprVarargs) Type() string {
+	return "AstExprVarargs"
+}
+
+func (n ExprVarargs) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+
+	return b.String()
+}
+
+func DecodeExprVarargs(data json.RawMessage) (INode, error) {
+	var raw ExprVarargs
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+	return raw, nil
+}
+
 type Local struct {
 	Node
 	Location Location `json:"location"`
@@ -1511,6 +1565,8 @@ func decodeNode(data json.RawMessage) (INode, error) {
 	}
 
 	switch t := node.Type; t {
+	case "AstAttr":
+		return ret(DecodeAttr(data))
 	case "AstStatAssign":
 		return ret(DecodeStatAssign(data))
 	case "AstStatBlock":
@@ -1567,6 +1623,8 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeExprTable(data))
 	case "AstExprTableItem":
 		return ret(DecodeExprTableItem(data))
+	case "AstExprVarargs":
+		return ret(DecodeExprVarargs(data))
 	case "AstLocal":
 		return ret(DecodeLocal(data))
 	}
