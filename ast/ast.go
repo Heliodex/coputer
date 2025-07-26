@@ -472,6 +472,131 @@ func DecodeStatFor(data json.RawMessage) (INode, error) {
 	}, nil
 }
 
+type StatForIn[T any] struct {
+	Node
+	Location Location `json:"location"`
+	Vars     []T      `json:"vars"`
+	Values   []T      `json:"values"`
+	Body     T        `json:"body"`
+	HasIn    bool     `json:"hasIn"`
+	HasDo    bool     `json:"hasDo"`
+}
+
+func (n StatForIn[T]) Type() string {
+	return "AstStatForIn"
+}
+
+func (n StatForIn[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nVars:")
+	for _, v := range n.Vars {
+		b.WriteByte('\n')
+		b.WriteString(indentStart(StringMaybeEvaluated(v), 4))
+	}
+	b.WriteString("\nValues:")
+	for _, v := range n.Values {
+		b.WriteByte('\n')
+		b.WriteString(indentStart(StringMaybeEvaluated(v), 4))
+	}
+	b.WriteString("\nBody:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Body), 4))
+	b.WriteString(fmt.Sprintf("\nHasIn: %t\n", n.HasIn))
+	b.WriteString(fmt.Sprintf("HasDo: %t\n", n.HasDo))
+
+	return b.String()
+}
+
+func DecodeStatForIn(data json.RawMessage) (INode, error) {
+	var raw StatForIn[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	vars := make([]INode, len(raw.Vars))
+	for i, v := range raw.Vars {
+		n, err := decodeNode(v)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding var node: %v", err)
+		}
+		vars[i] = n
+	}
+
+	values := make([]INode, len(raw.Values))
+	for i, v := range raw.Values {
+		n, err := decodeNode(v)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding value node: %v", err)
+		}
+		values[i] = n
+	}
+
+	bodyNode, err := decodeNode(raw.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding body: %v", err)
+	}
+
+	return StatForIn[INode]{
+		Node:     raw.Node,
+		Location: raw.Location,
+		Vars:     vars,
+		Values:   values,
+		Body:     bodyNode,
+		HasIn:    raw.HasIn,
+		HasDo:    raw.HasDo,
+	}, nil
+}
+
+type StatFunction[T any] struct {
+	Node
+	Location Location `json:"location"`
+	Name     T        `json:"name"`
+	Func     T        `json:"func"`
+}
+
+func (n StatFunction[T]) Type() string {
+	return "AstStatFunction"
+}
+
+func (n StatFunction[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nName:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Name), 4))
+	b.WriteString("\nFunc:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Func), 4))
+
+	return b.String()
+}
+
+func DecodeStatFunction(data json.RawMessage) (INode, error) {
+	var raw StatFunction[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	nameNode, err := decodeNode(raw.Name)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding name: %v", err)
+	}
+
+	funcNode, err := decodeNode(raw.Func)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding func: %v", err)
+	}
+
+	return StatFunction[INode]{
+		Node:     raw.Node,
+		Location: raw.Location,
+		Name:     nameNode,
+		Func:     funcNode,
+	}, nil
+}
+
 type StatIf[T any] struct {
 	Node
 	Location  Location `json:"location"`
@@ -1623,6 +1748,10 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeStatExpr(data))
 	case "AstStatFor":
 		return ret(DecodeStatFor(data))
+	case "AstStatForIn":
+		return ret(DecodeStatForIn(data))
+	case "AstStatFunction":
+		return ret(DecodeStatFunction(data))
 	case "AstStatIf":
 		return ret(DecodeStatIf(data))
 	case "AstStatLocal":

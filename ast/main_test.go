@@ -7,11 +7,6 @@ import (
 	"testing"
 )
 
-const (
-	Ext    = ".luau"
-	astDir = "../test/ast"
-)
-
 func trimext(s string) string {
 	return strings.TrimSuffix(s, Ext)
 }
@@ -76,3 +71,38 @@ func TestAST(t *testing.T) {
 		}
 	}
 }
+
+func TestParsing(t *testing.T) {
+	files, err := os.ReadDir(conformanceDir)
+	if err != nil {
+		t.Fatal("error reading conformance tests directory:", err)
+	}
+
+	for _, f := range files {
+		fn := f.Name()
+		if !strings.HasSuffix(fn, Ext) {
+			continue
+		}
+		name := trimext(fn)
+
+		t.Log(" -- Testing", name, "--")
+		filename := fmt.Sprintf("%s/%s", conformanceDir, name)
+
+		output, err := luauAst(filename + Ext)
+		if err != nil {
+			t.Fatal("error running luau-ast:", err)
+		}
+
+		// Decode the AST
+		_, err = DecodeAST(output)
+		if err != nil {
+			t.Fatal("error decoding AST:", err)
+		}
+		// o := ast.String()
+
+		fmt.Println("AST for", name, ":")
+		// fmt.Println(o)
+	}
+}
+
+

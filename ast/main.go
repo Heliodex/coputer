@@ -6,6 +6,12 @@ import (
 	"strings"
 )
 
+const (
+	Ext            = ".luau"
+	astDir         = "../test/ast"
+	conformanceDir = "../test/conformance"
+)
+
 func luauAst(path string) (output []byte, err error) {
 	cmd := exec.Command("luau-ast", path)
 	return cmd.Output()
@@ -20,7 +26,7 @@ func indentStart(s string, n int) string {
 }
 
 func main() {
-	const filepath = "../test/ast/unopunm.luau"
+	const filepath = conformanceDir + "/basic.luau"
 
 	output, err := luauAst(filepath)
 	if err != nil {
