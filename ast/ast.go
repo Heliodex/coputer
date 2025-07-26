@@ -1518,6 +1518,48 @@ func DecodeExprVarargs(data json.RawMessage) (INode, error) {
 	return raw, nil
 }
 
+type ExprUnary[T any] struct {
+	Node
+	Location Location `json:"location"`
+	Op       string   `json:"op"`
+	Expr     T        `json:"expr"`
+}
+
+func (n ExprUnary[T]) Type() string {
+	return "AstExprUnary"
+}
+
+func (n ExprUnary[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString(fmt.Sprintf("\nOp: %s", n.Op))
+	b.WriteString("\nExpr:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
+
+	return b.String()
+}
+
+func DecodeExprUnary(data json.RawMessage) (INode, error) {
+	var raw ExprUnary[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	exprNode, err := decodeNode(raw.Expr)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding expr: %v", err)
+	}
+
+	return ExprUnary[INode]{
+		Node:     raw.Node,
+		Location: raw.Location,
+		Op:       raw.Op,
+		Expr:     exprNode,
+	}, nil
+}
+
 type Local struct {
 	Node
 	Location Location `json:"location"`
@@ -1625,6 +1667,8 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeExprTableItem(data))
 	case "AstExprVarargs":
 		return ret(DecodeExprVarargs(data))
+	case "AstExprUnary":
+		return ret(DecodeExprUnary(data))
 	case "AstLocal":
 		return ret(DecodeLocal(data))
 	}
