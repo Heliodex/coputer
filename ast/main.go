@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -39,7 +40,7 @@ func standardise(in []byte) []byte {
 }
 
 func main() {
-	const filepath = astDir + "/typeassertion.luau"
+	const filepath = astDir + "/typeunion.luau"
 
 	out, err := luauAst(filepath)
 	if err != nil {
@@ -49,11 +50,11 @@ func main() {
 	s := standardise(out)
 
 	// write to ast.jsonc
-	// if err = os.WriteFile("ast.jsonc", s, 0o644); err != nil {
-	// 	fmt.Println("Error writing to file:", err)
-	// 	return
-	// }
-	// fmt.Println("AST written to ast.jsonc successfully.")
+	if err = os.WriteFile("ast.jsonc", s, 0o644); err != nil {
+		fmt.Println("Error writing to file:", err)
+		return
+	}
+	fmt.Println("AST written to ast.jsonc successfully.")
 
 	// encode as AST
 	ast, err := DecodeAST(s)

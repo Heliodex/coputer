@@ -1,0 +1,75 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 2,0
+    HasEnd: true
+    Body:
+        Type: AstStatTypeAlias
+        Location: 0,0 - 0,27
+        Name: x
+        Generics:
+        GenericPacks:
+        Value:
+            Type: AstTypeFunction
+            Location: 0,9 - 0,27
+            Attributes:
+            Generics:
+            GenericPacks:
+            ArgTypes:
+                Type: AstTypeList
+                Types:
+                    Type: AstTypeReference
+                    Location: 0,10 - 0,16
+                    Name: number
+                    NameLocation: 0,10 - 0,16
+                    Parameters:
+            ArgNames:
+            ReturnTypes:
+                Type: AstTypePackExplicit
+                Location: 0,21 - 0,27
+                TypeList:
+                    Type: AstTypeList
+                    Types:
+                        Type: AstTypeReference
+                        Location: 0,21 - 0,27
+                        Name: string
+                        NameLocation: 0,21 - 0,27
+                        Parameters:
+        Exported: false
+    
+        Type: AstStatTypeAlias
+        Location: 1,0 - 1,30
+        Name: y
+        Generics:
+        GenericPacks:
+        Value:
+            Type: AstTypeFunction
+            Location: 1,9 - 1,30
+            Attributes:
+            Generics:
+            GenericPacks:
+            ArgTypes:
+                Type: AstTypeList
+                Types:
+                    Type: AstTypeReference
+                    Location: 1,13 - 1,19
+                    Name: number
+                    NameLocation: 1,13 - 1,19
+                    Parameters:
+            ArgNames:
+                Type: AstArgumentName
+                Name: n
+                Location: 1,10 - 1,11
+            ReturnTypes:
+                Type: AstTypePackExplicit
+                Location: 1,24 - 1,30
+                TypeList:
+                    Type: AstTypeList
+                    Types:
+                        Type: AstTypeReference
+                        Location: 1,24 - 1,30
+                        Name: string
+                        NameLocation: 1,24 - 1,30
+                        Parameters:
+        Exported: false
+
+Comment Locations:

@@ -120,6 +120,34 @@ func DecodeAST(data json.RawMessage) (AST[INode], error) {
 
 // node types
 
+type ArgumentName struct {
+	Node
+	Name     string   `json:"name"`
+	Location Location `json:"location"`
+}
+
+func (a ArgumentName) Type() string {
+	return "AstArgumentName"
+}
+
+func (a ArgumentName) String() string {
+	var b strings.Builder
+
+	b.WriteString(a.Node.String())
+	b.WriteString(fmt.Sprintf("Name: %s\n", a.Name))
+	b.WriteString(fmt.Sprintf("Location: %s\n", a.Location))
+
+	return b.String()
+}
+
+func DecodeArgumentName(data json.RawMessage) (INode, error) {
+	var raw ArgumentName
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+	return raw, nil
+}
+
 type Attr struct {
 	Node
 	Location Location `json:"location"`
@@ -1882,6 +1910,201 @@ func DecodeTableProp(data json.RawMessage) (INode, error) {
 	}, nil
 }
 
+type TypeFunction[T any] struct {
+	Node
+	Location     Location `json:"location"`
+	Attributes   []T      `json:"attributes"`
+	Generics     []T      `json:"generics"`
+	GenericPacks []T      `json:"genericPacks"`
+	ArgTypes     T        `json:"argTypes"`
+	ArgNames     []T      `json:"argNames"`
+	ReturnTypes  T        `json:"returnTypes"`
+}
+
+func (n TypeFunction[T]) Type() string {
+	return "AstTypeFunction"
+}
+
+func (n TypeFunction[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nAttributes:")
+	for _, attr := range n.Attributes {
+		b.WriteByte('\n')
+		b.WriteString(indentStart(StringMaybeEvaluated(attr), 4))
+	}
+	b.WriteString("\nGenerics:")
+	for _, gen := range n.Generics {
+		b.WriteByte('\n')
+		b.WriteString(indentStart(StringMaybeEvaluated(gen), 4))
+	}
+	b.WriteString("\nGenericPacks:")
+	for _, pack := range n.GenericPacks {
+		b.WriteByte('\n')
+		b.WriteString(indentStart(StringMaybeEvaluated(pack), 4))
+	}
+	b.WriteString("\nArgTypes:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.ArgTypes), 4))
+	b.WriteString("\nArgNames:")
+	for _, name := range n.ArgNames {
+		b.WriteByte('\n')
+		b.WriteString(indentStart(StringMaybeEvaluated(name), 4))
+	}
+	b.WriteString("\nReturnTypes:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.ReturnTypes), 4))
+
+	return b.String()
+}
+
+func DecodeTypeFunction(data json.RawMessage) (INode, error) {
+	var raw TypeFunction[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	attributes := make([]INode, len(raw.Attributes))
+	for i, attr := range raw.Attributes {
+		n, err := decodeNode(attr)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding attribute node: %v", err)
+		}
+		attributes[i] = n
+	}
+
+	generics := make([]INode, len(raw.Generics))
+	for i, gen := range raw.Generics {
+		n, err := decodeNode(gen)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding generic node: %v", err)
+		}
+		generics[i] = n
+	}
+
+	genericPacks := make([]INode, len(raw.GenericPacks))
+	for i, pack := range raw.GenericPacks {
+		n, err := decodeNode(pack)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding generic pack node: %v", err)
+		}
+		genericPacks[i] = n
+	}
+
+	argTypesNode, err := decodeNode(raw.ArgTypes)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding arg types: %v", err)
+	}
+
+	argNames := make([]INode, len(raw.ArgNames))
+	for i, name := range raw.ArgNames {
+		n, err := decodeNode(name)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding arg name node: %v", err)
+		}
+		argNames[i] = n
+	}
+
+	returnTypesNode, err := decodeNode(raw.ReturnTypes)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding return types: %v", err)
+	}
+
+	return TypeFunction[INode]{
+		Node:         raw.Node,
+		Location:     raw.Location,
+		Attributes:   attributes,
+		Generics:     generics,
+		GenericPacks: genericPacks,
+		ArgTypes:     argTypesNode,
+		ArgNames:     argNames,
+		ReturnTypes:  returnTypesNode,
+	}, nil
+}
+
+type TypeList[T any] struct {
+	Node
+	Types []T `json:"types"`
+}
+
+func (n TypeList[T]) Type() string {
+	return "AstTypeList"
+}
+
+func (n TypeList[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString("Types:")
+
+	for _, typ := range n.Types {
+		b.WriteByte('\n')
+		b.WriteString(indentStart(StringMaybeEvaluated(typ), 4))
+	}
+
+	return b.String()
+}
+
+func DecodeTypeList(data json.RawMessage) (INode, error) {
+	var raw TypeList[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	types := make([]INode, len(raw.Types))
+	for i, typ := range raw.Types {
+		n, err := decodeNode(typ)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding type node: %v", err)
+		}
+		types[i] = n
+	}
+
+	return TypeList[INode]{
+		Node:  raw.Node,
+		Types: types,
+	}, nil
+}
+
+type TypePackExplicit[T any] struct {
+	Node
+	Location Location `json:"location"`
+	TypeList T        `json:"typeList"`
+}
+
+func (n TypePackExplicit[T]) Type() string {
+	return "AstTypePackExplicit"
+}
+
+func (n TypePackExplicit[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nTypeList:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.TypeList), 4))
+
+	return b.String()
+}
+
+func DecodeTypePackExplicit(data json.RawMessage) (INode, error) {
+	var raw TypePackExplicit[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	typeListNode, err := decodeNode(raw.TypeList)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding type list: %v", err)
+	}
+
+	return TypePackExplicit[INode]{
+		Node:     raw.Node,
+		Location: raw.Location,
+		TypeList: typeListNode,
+	}, nil
+}
+
 type TypeReference[T any] struct {
 	Node
 	Location     Location `json:"location"`
@@ -2025,6 +2248,53 @@ func DecodeTypeTable(data json.RawMessage) (INode, error) {
 	}, nil
 }
 
+type TypeUnion[T any] struct {
+	Node
+	Location Location `json:"location"`
+	Types    []T      `json:"types"`
+}
+
+func (n TypeUnion[T]) Type() string {
+	return "AstTypeUnion"
+}
+
+func (n TypeUnion[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("Types:")
+
+	for _, typ := range n.Types {
+		b.WriteByte('\n')
+		b.WriteString(indentStart(StringMaybeEvaluated(typ), 4))
+	}
+
+	return b.String()
+}
+
+func DecodeTypeUnion(data json.RawMessage) (INode, error) {
+	var raw TypeUnion[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	types := make([]INode, len(raw.Types))
+	for i, typ := range raw.Types {
+		n, err := decodeNode(typ)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding type node: %v", err)
+		}
+		types[i] = n
+	}
+
+	return TypeUnion[INode]{
+		Node:     raw.Node,
+		Location: raw.Location,
+		Types:    types,
+	}, nil
+}
+
 // decoding
 
 func decodeNode(data json.RawMessage) (INode, error) {
@@ -2042,6 +2312,8 @@ func decodeNode(data json.RawMessage) (INode, error) {
 	}
 
 	switch t := node.Type; t {
+	case "AstArgumentName":
+		return ret(DecodeArgumentName(data))
 	case "AstAttr":
 		return ret(DecodeAttr(data))
 	case "AstStatAssign":
@@ -2116,10 +2388,18 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeLocal(data))
 	case "AstTableProp":
 		return ret(DecodeTableProp(data))
+	case "AstTypeFunction":
+		return ret(DecodeTypeFunction(data))
+	case "AstTypeList":
+		return ret(DecodeTypeList(data))
+	case "AstTypePackExplicit":
+		return ret(DecodeTypePackExplicit(data))
 	case "AstTypeReference":
 		return ret(DecodeTypeReference(data))
 	case "AstTypeTable":
 		return ret(DecodeTypeTable(data))
+	case "AstTypeUnion":
+		return ret(DecodeTypeUnion(data))
 	}
 	return ret(nil, errors.New("unknown node type"))
 }
