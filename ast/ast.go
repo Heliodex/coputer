@@ -176,6 +176,909 @@ func DecodeAttr(data json.RawMessage) (INode, error) {
 	return raw, nil
 }
 
+type ExprBinary[T any] struct {
+	Node
+	Location Location `json:"location"`
+	Op       string   `json:"op"`
+	Left     T        `json:"left"`
+	Right    T        `json:"right"`
+}
+
+func (n ExprBinary[T]) Type() string {
+	return "AstExprBinary"
+}
+
+func (n ExprBinary[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString(fmt.Sprintf("\nOp: %s", n.Op))
+	b.WriteString("\nLeft:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Left), 4))
+	b.WriteString("\nRight:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Right), 4))
+
+	return b.String()
+}
+
+func DecodeExprBinary(data json.RawMessage) (INode, error) {
+	var raw ExprBinary[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	left, err := decodeNode(raw.Left)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding left: %v", err)
+	}
+
+	right, err := decodeNode(raw.Right)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding right: %v", err)
+	}
+
+	return ExprBinary[INode]{
+		Node:     raw.Node,
+		Location: raw.Location,
+		Op:       raw.Op,
+		Left:     left,
+		Right:    right,
+	}, nil
+}
+
+type ExprCall[T any] struct {
+	Node
+	Location    Location `json:"location"`
+	Func        T        `json:"func"`
+	Args        []T      `json:"args"`
+	Self        bool     `json:"self"`
+	ArgLocation Location `json:"argLocation"`
+}
+
+func (n ExprCall[T]) Type() string {
+	return "AstExprCall"
+}
+
+func (n ExprCall[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nFunc:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Func), 4))
+	b.WriteString("\nArgs:")
+
+	for _, arg := range n.Args {
+		b.WriteByte('\n')
+		b.WriteString(indentStart(StringMaybeEvaluated(arg), 4))
+	}
+
+	b.WriteString(fmt.Sprintf("\nSelf: %t", n.Self))
+	b.WriteString(fmt.Sprintf("\nArgLocation: %s", n.ArgLocation))
+
+	return b.String()
+}
+
+func DecodeExprCall(data json.RawMessage) (INode, error) {
+	var raw ExprCall[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	funcNode, err := decodeNode(raw.Func)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding func: %v", err)
+	}
+
+	args := make([]INode, len(raw.Args))
+	for i, arg := range raw.Args {
+		n, err := decodeNode(arg)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding arg node: %v", err)
+		}
+		args[i] = n
+	}
+
+	return ExprCall[INode]{
+		Node:        raw.Node,
+		Location:    raw.Location,
+		Func:        funcNode,
+		Args:        args,
+		Self:        raw.Self,
+		ArgLocation: raw.ArgLocation,
+	}, nil
+}
+
+type ExprConstantBool struct {
+	Node
+	Location Location `json:"location"`
+	Value    bool     `json:"value"`
+}
+
+func (n ExprConstantBool) Type() string {
+	return "AstExprConstantBool"
+}
+
+func (n ExprConstantBool) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString(fmt.Sprintf("\nValue: %t", n.Value))
+
+	return b.String()
+}
+
+func DecodeExprConstantBool(data json.RawMessage) (INode, error) {
+	var raw ExprConstantBool
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+	return raw, nil
+}
+
+type ExprConstantNil struct {
+	Node
+	Location Location `json:"location"`
+}
+
+func (n ExprConstantNil) Type() string {
+	return "AstExprConstantNil"
+}
+
+func (n ExprConstantNil) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+
+	return b.String()
+}
+
+func DecodeExprConstantNil(data json.RawMessage) (INode, error) {
+	var raw ExprConstantNil
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+	return raw, nil
+}
+
+type ExprConstantNumber struct {
+	Node
+	Location Location `json:"location"`
+	Value    float64  `json:"value"`
+}
+
+func (n ExprConstantNumber) Type() string {
+	return "AstExprConstantNumber"
+}
+
+func (n ExprConstantNumber) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString(fmt.Sprintf("\nValue: %f", n.Value))
+
+	return b.String()
+}
+
+func DecodeExprConstantNumber(data json.RawMessage) (INode, error) {
+	var raw ExprConstantNumber
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+	return raw, nil
+}
+
+type ExprConstantString struct {
+	Node
+	Location Location `json:"location"`
+	Value    string   `json:"value"`
+}
+
+func (n ExprConstantString) Type() string {
+	return "AstExprConstantString"
+}
+
+func (n ExprConstantString) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString(fmt.Sprintf("\nValue: %s", n.Value))
+
+	return b.String()
+}
+
+func DecodeExprConstantString(data json.RawMessage) (INode, error) {
+	var raw ExprConstantString
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+	return raw, nil
+}
+
+type ExprFunction[T any] struct {
+	Node
+	Location       Location `json:"location"`
+	Attributes     []T      `json:"attributes"`
+	Generics       []T      `json:"generics"`
+	GenericPacks   []T      `json:"genericPacks"`
+	Args           []T      `json:"args"`
+	Vararg         bool     `json:"vararg"`
+	VarargLocation Location `json:"varargLocation"`
+	Body           T        `json:"body"`
+	FunctionDepth  int      `json:"functionDepth"`
+	Debugname      string   `json:"debugname"`
+}
+
+func (n ExprFunction[T]) Type() string {
+	return "AstExprFunction"
+}
+
+func (n ExprFunction[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nAttributes:")
+	for _, attr := range n.Attributes {
+		b.WriteByte('\n')
+		b.WriteString(indentStart(StringMaybeEvaluated(attr), 4))
+	}
+	b.WriteString("\nGenerics:")
+	for _, gen := range n.Generics {
+		b.WriteByte('\n')
+		b.WriteString(indentStart(StringMaybeEvaluated(gen), 4))
+	}
+	b.WriteString("\nGenericPacks:")
+	for _, pack := range n.GenericPacks {
+		b.WriteByte('\n')
+		b.WriteString(indentStart(StringMaybeEvaluated(pack), 4))
+	}
+	b.WriteString("\nArgs:")
+	for _, arg := range n.Args {
+		b.WriteByte('\n')
+		b.WriteString(indentStart(StringMaybeEvaluated(arg), 4))
+	}
+	b.WriteString(fmt.Sprintf("\nVararg: %t", n.Vararg))
+	b.WriteString(fmt.Sprintf("\nVarargLocation: %s", n.VarargLocation))
+	b.WriteString("\nBody:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Body), 4))
+	b.WriteString(fmt.Sprintf("\nFunctionDepth: %d", n.FunctionDepth))
+	b.WriteString(fmt.Sprintf("\nDebugname: %s", n.Debugname))
+
+	return b.String()
+}
+
+func DecodeExprFunction(data json.RawMessage) (INode, error) {
+	var raw ExprFunction[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	attributes := make([]INode, len(raw.Attributes))
+	for i, attr := range raw.Attributes {
+		n, err := decodeNode(attr)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding attribute node: %v", err)
+		}
+		attributes[i] = n
+	}
+
+	generics := make([]INode, len(raw.Generics))
+	for i, gen := range raw.Generics {
+		n, err := decodeNode(gen)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding generic node: %v", err)
+		}
+		generics[i] = n
+	}
+
+	genericPacks := make([]INode, len(raw.GenericPacks))
+	for i, pack := range raw.GenericPacks {
+		n, err := decodeNode(pack)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding generic pack node: %v", err)
+		}
+		genericPacks[i] = n
+	}
+
+	args := make([]INode, len(raw.Args))
+	for i, arg := range raw.Args {
+		n, err := decodeNode(arg)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding arg node: %v", err)
+		}
+		args[i] = n
+	}
+
+	bodyNode, err := decodeNode(raw.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding body node: %v", err)
+	}
+
+	return ExprFunction[INode]{
+		Node:           raw.Node,
+		Location:       raw.Location,
+		Attributes:     attributes,
+		Generics:       generics,
+		GenericPacks:   genericPacks,
+		Args:           args,
+		Vararg:         raw.Vararg,
+		VarargLocation: raw.VarargLocation,
+		Body:           bodyNode,
+		FunctionDepth:  raw.FunctionDepth,
+		Debugname:      raw.Debugname,
+	}, nil
+}
+
+type ExprGlobal struct {
+	Node
+	Location Location `json:"location"`
+	Global   string   `json:"global"`
+}
+
+func (n ExprGlobal) Type() string {
+	return "AstExprGlobal"
+}
+
+func (n ExprGlobal) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString(fmt.Sprintf("\nGlobal: %s", n.Global))
+
+	return b.String()
+}
+
+func DecodeExprGlobal(data json.RawMessage) (INode, error) {
+	var raw ExprGlobal
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+	return raw, nil
+}
+
+type ExprGroup[T any] struct {
+	Node
+	Location Location `json:"location"`
+	Expr     T        `json:"expr"` // only contains one expression right? strange when you first think about it
+}
+
+func (n ExprGroup[T]) Type() string {
+	return "AstExprGroup"
+}
+
+func (n ExprGroup[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nExpr:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
+
+	return b.String()
+}
+
+func DecodeExprGroup(data json.RawMessage) (INode, error) {
+	var raw ExprGroup[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	exprNode, err := decodeNode(raw.Expr)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding expr: %v", err)
+	}
+
+	return ExprGroup[INode]{
+		Node:     raw.Node,
+		Location: raw.Location,
+		Expr:     exprNode,
+	}, nil
+}
+
+type ExprIfElse[T any] struct {
+	Node
+	Location  Location `json:"location"`
+	Condition T        `json:"condition"`
+	HasThen   bool     `json:"hasThen"`
+	TrueExpr  T        `json:"trueExpr"`
+	HasElse   bool     `json:"hasElse"`
+	FalseExpr T        `json:"falseExpr"`
+}
+
+func (n ExprIfElse[T]) Type() string {
+	return "AstExprIfElse"
+}
+
+func (n ExprIfElse[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nCondition:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Condition), 4))
+	b.WriteString(fmt.Sprintf("\nHasThen: %t", n.HasThen))
+	b.WriteString("\nTrueExpr:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.TrueExpr), 4))
+	b.WriteString(fmt.Sprintf("\nHasElse: %t", n.HasElse))
+	b.WriteString("\nFalseExpr:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.FalseExpr), 4))
+
+	return b.String()
+}
+
+func DecodeExprIfElse(data json.RawMessage) (INode, error) {
+	var raw ExprIfElse[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	conditionNode, err := decodeNode(raw.Condition)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding condition: %v", err)
+	}
+
+	trueExprNode, err := decodeNode(raw.TrueExpr)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding true expression: %v", err)
+	}
+
+	falseExprNode, err := decodeNode(raw.FalseExpr)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding false expression: %v", err)
+	}
+
+	return ExprIfElse[INode]{
+		Node:      raw.Node,
+		Location:  raw.Location,
+		Condition: conditionNode,
+		HasThen:   raw.HasThen,
+		TrueExpr:  trueExprNode,
+		HasElse:   raw.HasElse,
+		FalseExpr: falseExprNode,
+	}, nil
+}
+
+type ExprIndexExpr[T any] struct {
+	Node
+	Location Location `json:"location"`
+	Expr     T        `json:"expr"`
+	Index    T        `json:"index"`
+}
+
+func (n ExprIndexExpr[T]) Type() string {
+	return "AstExprIndexExpr"
+}
+
+func (n ExprIndexExpr[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nExpr:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
+	b.WriteString("\nIndex:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Index), 4))
+
+	return b.String()
+}
+
+func DecodeExprIndexExpr(data json.RawMessage) (INode, error) {
+	var raw ExprIndexExpr[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	exprNode, err := decodeNode(raw.Expr)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding expr: %v", err)
+	}
+
+	indexNode, err := decodeNode(raw.Index)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding index: %v", err)
+	}
+
+	return ExprIndexExpr[INode]{
+		Node:     raw.Node,
+		Location: raw.Location,
+		Expr:     exprNode,
+		Index:    indexNode,
+	}, nil
+}
+
+type ExprIndexName[T any] struct {
+	Node
+	Location      Location `json:"location"`
+	Expr          T        `json:"expr"`
+	Index         string   `json:"index"`
+	IndexLocation Location `json:"indexLocation"`
+	Op            string   `json:"op"`
+}
+
+func (n ExprIndexName[T]) Type() string {
+	return "AstExprIndexName"
+}
+
+func (n ExprIndexName[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nExpr:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
+	b.WriteString(fmt.Sprintf("\nIndex: %s", n.Index))
+
+	return b.String()
+}
+
+func DecodeExprIndexName(data json.RawMessage) (INode, error) {
+	var raw ExprIndexName[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	exprNode, err := decodeNode(raw.Expr)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding expr: %v", err)
+	}
+
+	return ExprIndexName[INode]{
+		Node:          raw.Node,
+		Location:      raw.Location,
+		Expr:          exprNode,
+		Index:         raw.Index,
+		IndexLocation: raw.IndexLocation,
+		Op:            raw.Op,
+	}, nil
+}
+
+type ExprInterpString[T any] struct {
+	Node
+	Location    Location `json:"location"`
+	Strings     []string `json:"strings"`
+	Expressions []T      `json:"expressions"`
+}
+
+func (n ExprInterpString[T]) Type() string {
+	return "AstExprInterpString"
+}
+
+func (n ExprInterpString[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nStrings:")
+	for _, str := range n.Strings {
+		b.WriteByte('\n')
+		b.WriteString(indentStart(str, 4))
+	}
+	b.WriteString("\nExpressions:")
+	for _, expr := range n.Expressions {
+		b.WriteByte('\n')
+		b.WriteString(indentStart(StringMaybeEvaluated(expr), 4))
+	}
+
+	return b.String()
+}
+
+func DecodeExprInterpString(data json.RawMessage) (INode, error) {
+	var raw ExprInterpString[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	expressions := make([]INode, len(raw.Expressions))
+	for i, expr := range raw.Expressions {
+		n, err := decodeNode(expr)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding expression node: %v", err)
+		}
+		expressions[i] = n
+	}
+
+	return ExprInterpString[INode]{
+		Node:        raw.Node,
+		Location:    raw.Location,
+		Strings:     raw.Strings,
+		Expressions: expressions,
+	}, nil
+}
+
+type ExprLocal[T any] struct {
+	Node
+	Location Location `json:"location"`
+	Local    T        `json:"local"`
+}
+
+func (n ExprLocal[T]) Type() string {
+	return "AstExprLocal"
+}
+
+func (n ExprLocal[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nLocal:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Local), 4))
+
+	return b.String()
+}
+
+func DecodeExprLocal(data json.RawMessage) (INode, error) {
+	var raw ExprLocal[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	localNode, err := decodeNode(raw.Local)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding local: %v", err)
+	}
+
+	return ExprLocal[INode]{
+		Node:     raw.Node,
+		Location: raw.Location,
+		Local:    localNode,
+	}, nil
+}
+
+type ExprTable[T any] struct {
+	Node
+	Location Location `json:"location"`
+	Items    []T      `json:"items"`
+}
+
+func (n ExprTable[T]) Type() string {
+	return "AstExprTable"
+}
+
+func (n ExprTable[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nItems:")
+
+	for _, item := range n.Items {
+		b.WriteByte('\n')
+		b.WriteString(indentStart(StringMaybeEvaluated(item), 4))
+	}
+
+	return b.String()
+}
+
+func DecodeExprTable(data json.RawMessage) (INode, error) {
+	var raw ExprTable[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	items := make([]INode, len(raw.Items))
+	for i, item := range raw.Items {
+		n, err := decodeNode(item)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding item node: %v", err)
+		}
+		items[i] = n
+	}
+
+	return ExprTable[INode]{
+		Node:     raw.Node,
+		Location: raw.Location,
+		Items:    items,
+	}, nil
+}
+
+type ExprTableItem[T any] struct {
+	Node
+	Kind  string `json:"kind"`
+	Key   *T     `json:"key"`
+	Value T      `json:"value"`
+}
+
+func (n ExprTableItem[T]) Type() string {
+	return "AstExprTableItem"
+}
+
+func (n ExprTableItem[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Kind: %s", n.Kind))
+	b.WriteString("\nKey:")
+	if n.Key != nil {
+		b.WriteByte('\n')
+		b.WriteString(indentStart(StringMaybeEvaluated(*n.Key), 4))
+	}
+	b.WriteString("\nValue:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Value), 4))
+
+	return b.String()
+}
+
+func DecodeExprTableItem(data json.RawMessage) (INode, error) {
+	var raw ExprTableItem[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	var keyNodeMaybe *INode
+	if raw.Key != nil {
+		keyNode, err := decodeNode(*raw.Key)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding key: %v", err)
+		}
+		keyNodeMaybe = &keyNode
+	}
+
+	valueNode, err := decodeNode(raw.Value)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding value: %v", err)
+	}
+
+	return ExprTableItem[INode]{
+		Node:  raw.Node,
+		Kind:  raw.Kind,
+		Key:   keyNodeMaybe,
+		Value: valueNode,
+	}, nil
+}
+
+type ExprTypeAssertion[T any] struct {
+	Node
+	Location   Location `json:"location"`
+	Expr       T        `json:"expr"`
+	Annotation T        `json:"annotation"`
+}
+
+func (n ExprTypeAssertion[T]) Type() string {
+	return "AstExprTypeAssertion"
+}
+
+func (n ExprTypeAssertion[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nExpr:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
+	b.WriteString("\nAnnotation:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Annotation), 4))
+
+	return b.String()
+}
+
+func DecodeExprTypeAssertion(data json.RawMessage) (INode, error) {
+	var raw ExprTypeAssertion[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	exprNode, err := decodeNode(raw.Expr)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding expr: %v", err)
+	}
+
+	annotationNode, err := decodeNode(raw.Annotation)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding annotation: %v", err)
+	}
+
+	return ExprTypeAssertion[INode]{
+		Node:       raw.Node,
+		Location:   raw.Location,
+		Expr:       exprNode,
+		Annotation: annotationNode,
+	}, nil
+}
+
+type ExprVarargs struct {
+	Node
+	Location Location `json:"location"`
+}
+
+func (n ExprVarargs) Type() string {
+	return "AstExprVarargs"
+}
+
+func (n ExprVarargs) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+
+	return b.String()
+}
+
+func DecodeExprVarargs(data json.RawMessage) (INode, error) {
+	var raw ExprVarargs
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+	return raw, nil
+}
+
+type ExprUnary[T any] struct {
+	Node
+	Location Location `json:"location"`
+	Op       string   `json:"op"`
+	Expr     T        `json:"expr"`
+}
+
+func (n ExprUnary[T]) Type() string {
+	return "AstExprUnary"
+}
+
+func (n ExprUnary[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString(fmt.Sprintf("\nOp: %s", n.Op))
+	b.WriteString("\nExpr:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
+
+	return b.String()
+}
+
+func DecodeExprUnary(data json.RawMessage) (INode, error) {
+	var raw ExprUnary[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	exprNode, err := decodeNode(raw.Expr)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding expr: %v", err)
+	}
+
+	return ExprUnary[INode]{
+		Node:     raw.Node,
+		Location: raw.Location,
+		Op:       raw.Op,
+		Expr:     exprNode,
+	}, nil
+}
+
+type Local struct {
+	LuauType any    `json:"luauType"` // for now it's probably nil?
+	Name     string `json:"name"`
+	Node
+	Location Location `json:"location"`
+}
+
+func (n Local) Type() string {
+	return "AstLocal"
+}
+
+func (n Local) String() string {
+	var b strings.Builder
+
+	b.WriteString(fmt.Sprintf("LuauType: %s", StringMaybeEvaluated(n.LuauType)))
+	b.WriteString(fmt.Sprintf("\nName: %s\n", n.Name))
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+
+	return b.String()
+}
+
+func DecodeLocal(data json.RawMessage) (INode, error) {
+	var raw Local
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+	return raw, nil
+}
+
 type StatAssign[T any] struct {
 	Node
 	Location Location `json:"location"`
@@ -1025,909 +1928,6 @@ func DecodeStatWhile(data json.RawMessage) (INode, error) {
 	}, nil
 }
 
-type ExprBinary[T any] struct {
-	Node
-	Location Location `json:"location"`
-	Op       string   `json:"op"`
-	Left     T        `json:"left"`
-	Right    T        `json:"right"`
-}
-
-func (n ExprBinary[T]) Type() string {
-	return "AstExprBinary"
-}
-
-func (n ExprBinary[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString(fmt.Sprintf("\nOp: %s", n.Op))
-	b.WriteString("\nLeft:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Left), 4))
-	b.WriteString("\nRight:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Right), 4))
-
-	return b.String()
-}
-
-func DecodeExprBinary(data json.RawMessage) (INode, error) {
-	var raw ExprBinary[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
-	}
-
-	left, err := decodeNode(raw.Left)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding left: %v", err)
-	}
-
-	right, err := decodeNode(raw.Right)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding right: %v", err)
-	}
-
-	return ExprBinary[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
-		Op:       raw.Op,
-		Left:     left,
-		Right:    right,
-	}, nil
-}
-
-type ExprCall[T any] struct {
-	Node
-	Location    Location `json:"location"`
-	Func        T        `json:"func"`
-	Args        []T      `json:"args"`
-	Self        bool     `json:"self"`
-	ArgLocation Location `json:"argLocation"`
-}
-
-func (n ExprCall[T]) Type() string {
-	return "AstExprCall"
-}
-
-func (n ExprCall[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nFunc:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Func), 4))
-	b.WriteString("\nArgs:")
-
-	for _, arg := range n.Args {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(arg), 4))
-	}
-	
-	b.WriteString(fmt.Sprintf("\nSelf: %t", n.Self))
-	b.WriteString(fmt.Sprintf("\nArgLocation: %s", n.ArgLocation))
-
-	return b.String()
-}
-
-func DecodeExprCall(data json.RawMessage) (INode, error) {
-	var raw ExprCall[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
-	}
-
-	funcNode, err := decodeNode(raw.Func)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding func: %v", err)
-	}
-
-	args := make([]INode, len(raw.Args))
-	for i, arg := range raw.Args {
-		n, err := decodeNode(arg)
-		if err != nil {
-			return nil, fmt.Errorf("error decoding arg node: %v", err)
-		}
-		args[i] = n
-	}
-
-	return ExprCall[INode]{
-		Node:        raw.Node,
-		Location:    raw.Location,
-		Func:        funcNode,
-		Args:        args,
-		Self:        raw.Self,
-		ArgLocation: raw.ArgLocation,
-	}, nil
-}
-
-type ExprConstantBool struct {
-	Node
-	Location Location `json:"location"`
-	Value    bool     `json:"value"`
-}
-
-func (n ExprConstantBool) Type() string {
-	return "AstExprConstantBool"
-}
-
-func (n ExprConstantBool) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString(fmt.Sprintf("\nValue: %t", n.Value))
-
-	return b.String()
-}
-
-func DecodeExprConstantBool(data json.RawMessage) (INode, error) {
-	var raw ExprConstantBool
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
-	}
-	return raw, nil
-}
-
-type ExprConstantNil struct {
-	Node
-	Location Location `json:"location"`
-}
-
-func (n ExprConstantNil) Type() string {
-	return "AstExprConstantNil"
-}
-
-func (n ExprConstantNil) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-
-	return b.String()
-}
-
-func DecodeExprConstantNil(data json.RawMessage) (INode, error) {
-	var raw ExprConstantNil
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
-	}
-	return raw, nil
-}
-
-type ExprConstantNumber struct {
-	Node
-	Location Location `json:"location"`
-	Value    float64  `json:"value"`
-}
-
-func (n ExprConstantNumber) Type() string {
-	return "AstExprConstantNumber"
-}
-
-func (n ExprConstantNumber) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString(fmt.Sprintf("\nValue: %f", n.Value))
-
-	return b.String()
-}
-
-func DecodeExprConstantNumber(data json.RawMessage) (INode, error) {
-	var raw ExprConstantNumber
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
-	}
-	return raw, nil
-}
-
-type ExprConstantString struct {
-	Node
-	Location Location `json:"location"`
-	Value    string   `json:"value"`
-}
-
-func (n ExprConstantString) Type() string {
-	return "AstExprConstantString"
-}
-
-func (n ExprConstantString) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString(fmt.Sprintf("\nValue: %s", n.Value))
-
-	return b.String()
-}
-
-func DecodeExprConstantString(data json.RawMessage) (INode, error) {
-	var raw ExprConstantString
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
-	}
-	return raw, nil
-}
-
-type ExprFunction[T any] struct {
-	Node
-	Location       Location `json:"location"`
-	Attributes     []T      `json:"attributes"`
-	Generics       []T      `json:"generics"`
-	GenericPacks   []T      `json:"genericPacks"`
-	Args           []T      `json:"args"`
-	Vararg         bool     `json:"vararg"`
-	VarargLocation Location `json:"varargLocation"`
-	Body           T        `json:"body"`
-	FunctionDepth  int      `json:"functionDepth"`
-	Debugname      string   `json:"debugname"`
-}
-
-func (n ExprFunction[T]) Type() string {
-	return "AstExprFunction"
-}
-
-func (n ExprFunction[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nAttributes:")
-	for _, attr := range n.Attributes {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(attr), 4))
-	}
-	b.WriteString("\nGenerics:")
-	for _, gen := range n.Generics {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(gen), 4))
-	}
-	b.WriteString("\nGenericPacks:")
-	for _, pack := range n.GenericPacks {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(pack), 4))
-	}
-	b.WriteString("\nArgs:")
-	for _, arg := range n.Args {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(arg), 4))
-	}
-	b.WriteString(fmt.Sprintf("\nVararg: %t", n.Vararg))
-	b.WriteString(fmt.Sprintf("\nVarargLocation: %s", n.VarargLocation))
-	b.WriteString("\nBody:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Body), 4))
-	b.WriteString(fmt.Sprintf("\nFunctionDepth: %d", n.FunctionDepth))
-	b.WriteString(fmt.Sprintf("\nDebugname: %s", n.Debugname))
-
-	return b.String()
-}
-
-func DecodeExprFunction(data json.RawMessage) (INode, error) {
-	var raw ExprFunction[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
-	}
-
-	attributes := make([]INode, len(raw.Attributes))
-	for i, attr := range raw.Attributes {
-		n, err := decodeNode(attr)
-		if err != nil {
-			return nil, fmt.Errorf("error decoding attribute node: %v", err)
-		}
-		attributes[i] = n
-	}
-
-	generics := make([]INode, len(raw.Generics))
-	for i, gen := range raw.Generics {
-		n, err := decodeNode(gen)
-		if err != nil {
-			return nil, fmt.Errorf("error decoding generic node: %v", err)
-		}
-		generics[i] = n
-	}
-
-	genericPacks := make([]INode, len(raw.GenericPacks))
-	for i, pack := range raw.GenericPacks {
-		n, err := decodeNode(pack)
-		if err != nil {
-			return nil, fmt.Errorf("error decoding generic pack node: %v", err)
-		}
-		genericPacks[i] = n
-	}
-
-	args := make([]INode, len(raw.Args))
-	for i, arg := range raw.Args {
-		n, err := decodeNode(arg)
-		if err != nil {
-			return nil, fmt.Errorf("error decoding arg node: %v", err)
-		}
-		args[i] = n
-	}
-
-	bodyNode, err := decodeNode(raw.Body)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding body node: %v", err)
-	}
-
-	return ExprFunction[INode]{
-		Node:           raw.Node,
-		Location:       raw.Location,
-		Attributes:     attributes,
-		Generics:       generics,
-		GenericPacks:   genericPacks,
-		Args:           args,
-		Vararg:         raw.Vararg,
-		VarargLocation: raw.VarargLocation,
-		Body:           bodyNode,
-		FunctionDepth:  raw.FunctionDepth,
-		Debugname:      raw.Debugname,
-	}, nil
-}
-
-type ExprGlobal struct {
-	Node
-	Location Location `json:"location"`
-	Global   string   `json:"global"`
-}
-
-func (n ExprGlobal) Type() string {
-	return "AstExprGlobal"
-}
-
-func (n ExprGlobal) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString(fmt.Sprintf("\nGlobal: %s", n.Global))
-
-	return b.String()
-}
-
-func DecodeExprGlobal(data json.RawMessage) (INode, error) {
-	var raw ExprGlobal
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
-	}
-	return raw, nil
-}
-
-type ExprGroup[T any] struct {
-	Node
-	Location Location `json:"location"`
-	Expr     T        `json:"expr"` // only contains one expression right? strange when you first think about it
-}
-
-func (n ExprGroup[T]) Type() string {
-	return "AstExprGroup"
-}
-
-func (n ExprGroup[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nExpr:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
-
-	return b.String()
-}
-
-func DecodeExprGroup(data json.RawMessage) (INode, error) {
-	var raw ExprGroup[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
-	}
-
-	exprNode, err := decodeNode(raw.Expr)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding expr: %v", err)
-	}
-
-	return ExprGroup[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
-		Expr:     exprNode,
-	}, nil
-}
-
-type ExprIfElse[T any] struct {
-	Node
-	Location  Location `json:"location"`
-	Condition T        `json:"condition"`
-	HasThen   bool     `json:"hasThen"`
-	TrueExpr  T        `json:"trueExpr"`
-	HasElse   bool     `json:"hasElse"`
-	FalseExpr T        `json:"falseExpr"`
-}
-
-func (n ExprIfElse[T]) Type() string {
-	return "AstExprIfElse"
-}
-
-func (n ExprIfElse[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nCondition:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Condition), 4))
-	b.WriteString(fmt.Sprintf("\nHasThen: %t", n.HasThen))
-	b.WriteString("\nTrueExpr:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.TrueExpr), 4))
-	b.WriteString(fmt.Sprintf("\nHasElse: %t", n.HasElse))
-	b.WriteString("\nFalseExpr:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.FalseExpr), 4))
-
-	return b.String()
-}
-
-func DecodeExprIfElse(data json.RawMessage) (INode, error) {
-	var raw ExprIfElse[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
-	}
-
-	conditionNode, err := decodeNode(raw.Condition)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding condition: %v", err)
-	}
-
-	trueExprNode, err := decodeNode(raw.TrueExpr)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding true expression: %v", err)
-	}
-
-	falseExprNode, err := decodeNode(raw.FalseExpr)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding false expression: %v", err)
-	}
-
-	return ExprIfElse[INode]{
-		Node:      raw.Node,
-		Location:  raw.Location,
-		Condition: conditionNode,
-		HasThen:   raw.HasThen,
-		TrueExpr:  trueExprNode,
-		HasElse:   raw.HasElse,
-		FalseExpr: falseExprNode,
-	}, nil
-}
-
-type ExprIndexExpr[T any] struct {
-	Node
-	Location Location `json:"location"`
-	Expr     T        `json:"expr"`
-	Index    T        `json:"index"`
-}
-
-func (n ExprIndexExpr[T]) Type() string {
-	return "AstExprIndexExpr"
-}
-
-func (n ExprIndexExpr[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nExpr:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
-	b.WriteString("\nIndex:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Index), 4))
-
-	return b.String()
-}
-
-func DecodeExprIndexExpr(data json.RawMessage) (INode, error) {
-	var raw ExprIndexExpr[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
-	}
-
-	exprNode, err := decodeNode(raw.Expr)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding expr: %v", err)
-	}
-
-	indexNode, err := decodeNode(raw.Index)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding index: %v", err)
-	}
-
-	return ExprIndexExpr[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
-		Expr:     exprNode,
-		Index:    indexNode,
-	}, nil
-}
-
-type ExprIndexName[T any] struct {
-	Node
-	Location      Location `json:"location"`
-	Expr          T        `json:"expr"`
-	Index         string   `json:"index"`
-	IndexLocation Location `json:"indexLocation"`
-	Op            string   `json:"op"`
-}
-
-func (n ExprIndexName[T]) Type() string {
-	return "AstExprIndexName"
-}
-
-func (n ExprIndexName[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nExpr:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
-	b.WriteString(fmt.Sprintf("\nIndex: %s", n.Index))
-
-	return b.String()
-}
-
-func DecodeExprIndexName(data json.RawMessage) (INode, error) {
-	var raw ExprIndexName[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
-	}
-
-	exprNode, err := decodeNode(raw.Expr)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding expr: %v", err)
-	}
-
-	return ExprIndexName[INode]{
-		Node:          raw.Node,
-		Location:      raw.Location,
-		Expr:          exprNode,
-		Index:         raw.Index,
-		IndexLocation: raw.IndexLocation,
-		Op:            raw.Op,
-	}, nil
-}
-
-type ExprInterpString[T any] struct {
-	Node
-	Location    Location `json:"location"`
-	Strings     []string `json:"strings"`
-	Expressions []T      `json:"expressions"`
-}
-
-func (n ExprInterpString[T]) Type() string {
-	return "AstExprInterpString"
-}
-
-func (n ExprInterpString[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nStrings:")
-	for _, str := range n.Strings {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(str, 4))
-	}
-	b.WriteString("\nExpressions:")
-	for _, expr := range n.Expressions {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(expr), 4))
-	}
-
-	return b.String()
-}
-
-func DecodeExprInterpString(data json.RawMessage) (INode, error) {
-	var raw ExprInterpString[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
-	}
-
-	expressions := make([]INode, len(raw.Expressions))
-	for i, expr := range raw.Expressions {
-		n, err := decodeNode(expr)
-		if err != nil {
-			return nil, fmt.Errorf("error decoding expression node: %v", err)
-		}
-		expressions[i] = n
-	}
-
-	return ExprInterpString[INode]{
-		Node:        raw.Node,
-		Location:    raw.Location,
-		Strings:     raw.Strings,
-		Expressions: expressions,
-	}, nil
-}
-
-type ExprLocal[T any] struct {
-	Node
-	Location Location `json:"location"`
-	Local    T        `json:"local"`
-}
-
-func (n ExprLocal[T]) Type() string {
-	return "AstExprLocal"
-}
-
-func (n ExprLocal[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nLocal:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Local), 4))
-
-	return b.String()
-}
-
-func DecodeExprLocal(data json.RawMessage) (INode, error) {
-	var raw ExprLocal[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
-	}
-
-	localNode, err := decodeNode(raw.Local)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding local: %v", err)
-	}
-
-	return ExprLocal[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
-		Local:    localNode,
-	}, nil
-}
-
-type ExprTable[T any] struct {
-	Node
-	Location Location `json:"location"`
-	Items    []T      `json:"items"`
-}
-
-func (n ExprTable[T]) Type() string {
-	return "AstExprTable"
-}
-
-func (n ExprTable[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nItems:")
-
-	for _, item := range n.Items {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(item), 4))
-	}
-
-	return b.String()
-}
-
-func DecodeExprTable(data json.RawMessage) (INode, error) {
-	var raw ExprTable[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
-	}
-
-	items := make([]INode, len(raw.Items))
-	for i, item := range raw.Items {
-		n, err := decodeNode(item)
-		if err != nil {
-			return nil, fmt.Errorf("error decoding item node: %v", err)
-		}
-		items[i] = n
-	}
-
-	return ExprTable[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
-		Items:    items,
-	}, nil
-}
-
-type ExprTableItem[T any] struct {
-	Node
-	Kind  string `json:"kind"`
-	Key   *T     `json:"key"`
-	Value T      `json:"value"`
-}
-
-func (n ExprTableItem[T]) Type() string {
-	return "AstExprTableItem"
-}
-
-func (n ExprTableItem[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Kind: %s", n.Kind))
-	b.WriteString("\nKey:")
-	if n.Key != nil {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(*n.Key), 4))
-	}
-	b.WriteString("\nValue:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Value), 4))
-
-	return b.String()
-}
-
-func DecodeExprTableItem(data json.RawMessage) (INode, error) {
-	var raw ExprTableItem[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
-	}
-
-	var keyNodeMaybe *INode
-	if raw.Key != nil {
-		keyNode, err := decodeNode(*raw.Key)
-		if err != nil {
-			return nil, fmt.Errorf("error decoding key: %v", err)
-		}
-		keyNodeMaybe = &keyNode
-	}
-
-	valueNode, err := decodeNode(raw.Value)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding value: %v", err)
-	}
-
-	return ExprTableItem[INode]{
-		Node:  raw.Node,
-		Kind:  raw.Kind,
-		Key:   keyNodeMaybe,
-		Value: valueNode,
-	}, nil
-}
-
-type ExprTypeAssertion[T any] struct {
-	Node
-	Location   Location `json:"location"`
-	Expr       T        `json:"expr"`
-	Annotation T        `json:"annotation"`
-}
-
-func (n ExprTypeAssertion[T]) Type() string {
-	return "AstExprTypeAssertion"
-}
-
-func (n ExprTypeAssertion[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nExpr:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
-	b.WriteString("\nAnnotation:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Annotation), 4))
-
-	return b.String()
-}
-
-func DecodeExprTypeAssertion(data json.RawMessage) (INode, error) {
-	var raw ExprTypeAssertion[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
-	}
-
-	exprNode, err := decodeNode(raw.Expr)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding expr: %v", err)
-	}
-
-	annotationNode, err := decodeNode(raw.Annotation)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding annotation: %v", err)
-	}
-
-	return ExprTypeAssertion[INode]{
-		Node:       raw.Node,
-		Location:   raw.Location,
-		Expr:       exprNode,
-		Annotation: annotationNode,
-	}, nil
-}
-
-type ExprVarargs struct {
-	Node
-	Location Location `json:"location"`
-}
-
-func (n ExprVarargs) Type() string {
-	return "AstExprVarargs"
-}
-
-func (n ExprVarargs) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-
-	return b.String()
-}
-
-func DecodeExprVarargs(data json.RawMessage) (INode, error) {
-	var raw ExprVarargs
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
-	}
-	return raw, nil
-}
-
-type ExprUnary[T any] struct {
-	Node
-	Location Location `json:"location"`
-	Op       string   `json:"op"`
-	Expr     T        `json:"expr"`
-}
-
-func (n ExprUnary[T]) Type() string {
-	return "AstExprUnary"
-}
-
-func (n ExprUnary[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString(fmt.Sprintf("\nOp: %s", n.Op))
-	b.WriteString("\nExpr:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
-
-	return b.String()
-}
-
-func DecodeExprUnary(data json.RawMessage) (INode, error) {
-	var raw ExprUnary[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
-	}
-
-	exprNode, err := decodeNode(raw.Expr)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding expr: %v", err)
-	}
-
-	return ExprUnary[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
-		Op:       raw.Op,
-		Expr:     exprNode,
-	}, nil
-}
-
-type Local struct {
-	LuauType any      `json:"luauType"` // for now it's probably nil?
-	Name     string   `json:"name"`
-	Node
-	Location Location `json:"location"`
-}
-
-func (n Local) Type() string {
-	return "AstLocal"
-}
-
-func (n Local) String() string {
-	var b strings.Builder
-
-	b.WriteString(fmt.Sprintf("LuauType: %s", StringMaybeEvaluated(n.LuauType)))
-	b.WriteString(fmt.Sprintf("\nName: %s\n", n.Name))
-	b.WriteString(n.Node.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-
-	return b.String()
-}
-
-func DecodeLocal(data json.RawMessage) (INode, error) {
-	var raw Local
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
-	}
-	return raw, nil
-}
-
 type TableProp[T any] struct {
 	Name string `json:"name"`
 	Node
@@ -2376,38 +2376,6 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeArgumentName(data))
 	case "AstAttr":
 		return ret(DecodeAttr(data))
-	case "AstStatAssign":
-		return ret(DecodeStatAssign(data))
-	case "AstStatBlock":
-		return ret(DecodeStatBlock(data))
-	case "AstStatBreak":
-		return ret(DecodeStatBreak(data))
-	case "AstStatCompoundAssign":
-		return ret(DecodeStatCompoundAssign(data))
-	case "AstStatContinue":
-		return ret(DecodeStatContinue(data))
-	case "AstStatExpr":
-		return ret(DecodeStatExpr(data))
-	case "AstStatFor":
-		return ret(DecodeStatFor(data))
-	case "AstStatForIn":
-		return ret(DecodeStatForIn(data))
-	case "AstStatFunction":
-		return ret(DecodeStatFunction(data))
-	case "AstStatIf":
-		return ret(DecodeStatIf(data))
-	case "AstStatLocal":
-		return ret(DecodeStatLocal(data))
-	case "AstStatLocalFunction":
-		return ret(DecodeStatLocalFunction(data))
-	case "AstStatRepeat":
-		return ret(DecodeStatRepeat(data))
-	case "AstStatReturn":
-		return ret(DecodeStatReturn(data))
-	case "AstStatTypeAlias":
-		return ret(DecodeStatTypeAlias(data))
-	case "AstStatWhile":
-		return ret(DecodeStatWhile(data))
 	case "AstExprBinary":
 		return ret(DecodeExprBinary(data))
 	case "AstExprCall":
@@ -2448,6 +2416,38 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeExprUnary(data))
 	case "AstLocal":
 		return ret(DecodeLocal(data))
+	case "AstStatAssign":
+		return ret(DecodeStatAssign(data))
+	case "AstStatBlock":
+		return ret(DecodeStatBlock(data))
+	case "AstStatBreak":
+		return ret(DecodeStatBreak(data))
+	case "AstStatCompoundAssign":
+		return ret(DecodeStatCompoundAssign(data))
+	case "AstStatContinue":
+		return ret(DecodeStatContinue(data))
+	case "AstStatExpr":
+		return ret(DecodeStatExpr(data))
+	case "AstStatFor":
+		return ret(DecodeStatFor(data))
+	case "AstStatForIn":
+		return ret(DecodeStatForIn(data))
+	case "AstStatFunction":
+		return ret(DecodeStatFunction(data))
+	case "AstStatIf":
+		return ret(DecodeStatIf(data))
+	case "AstStatLocal":
+		return ret(DecodeStatLocal(data))
+	case "AstStatLocalFunction":
+		return ret(DecodeStatLocalFunction(data))
+	case "AstStatRepeat":
+		return ret(DecodeStatRepeat(data))
+	case "AstStatReturn":
+		return ret(DecodeStatReturn(data))
+	case "AstStatTypeAlias":
+		return ret(DecodeStatTypeAlias(data))
+	case "AstStatWhile":
+		return ret(DecodeStatWhile(data))
 	case "AstTableProp":
 		return ret(DecodeTableProp(data))
 	case "AstTypeFunction":

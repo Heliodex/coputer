@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/tailscale/hujson"
 )
@@ -12,6 +12,7 @@ import (
 const (
 	Ext            = ".luau"
 	astDir         = "../test/ast"
+	benchmarkDir   = "../test/benchmark"
 	conformanceDir = "../test/conformance"
 )
 
@@ -40,7 +41,7 @@ func standardise(in []byte) []byte {
 }
 
 func main() {
-	const filepath = astDir + "/functioncall.luau"
+	const filepath = benchmarkDir + "/luauception.luau"
 
 	out, err := luauAst(filepath)
 	if err != nil {
@@ -49,12 +50,23 @@ func main() {
 	}
 	s := standardise(out)
 
+	// pprof time
+	// f, err := os.Create("cpu.prof")
+	// if err != nil {
+	// 	fmt.Println("Error creating CPU profile file:", err)
+	// 	return
+	// }
+	// pprof.StartCPUProfile(f)
+	// defer pprof.StopCPUProfile()
+
 	// write to ast.jsonc
-	if err = os.WriteFile("ast.jsonc", s, 0o644); err != nil {
-		fmt.Println("Error writing to file:", err)
-		return
-	}
-	fmt.Println("AST written to ast.jsonc successfully.")
+	// if err = os.WriteFile("ast.jsonc", s, 0o644); err != nil {
+	// 	fmt.Println("Error writing to file:", err)
+	// 	return
+	// }
+	// fmt.Println("AST written to ast.jsonc successfully.")
+
+	st := time.Now()
 
 	// encode as AST
 	ast, err := DecodeAST(s)
@@ -64,4 +76,5 @@ func main() {
 	}
 
 	fmt.Println(ast)
+	fmt.Printf("AST decoded in %s\n", time.Since(st))
 }

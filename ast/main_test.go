@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 func trimext(s string) string {
@@ -77,37 +78,51 @@ func TestAST(t *testing.T) {
 	}
 }
 
+func parseFile(t *testing.T, f os.DirEntry, dir string) {
+	fn := f.Name()
+	if !strings.HasSuffix(fn, Ext) {
+		return
+	}
+	name := trimext(fn)
+
+	t.Log(" -- Testing", name, "--")
+	filename := fmt.Sprintf("%s/%s", dir, name)
+
+	out, err := luauAst(filename + Ext)
+	if err != nil {
+		t.Fatal("error running luau-ast:", err)
+	}
+
+	fmt.Println("luau-ast completed")
+	st := time.Now()
+
+	// Decode the AST
+	if _, err = DecodeAST(standardise(out)); err != nil {
+		t.Fatal("error decoding AST:", err)
+	}
+
+	fmt.Println("decoded in", time.Since(st))
+}
+
 func TestParsing(t *testing.T) {
-	files, err := os.ReadDir(conformanceDir)
+	files1, err := os.ReadDir(benchmarkDir)
+	if err != nil {
+		t.Fatal("error reading benchmark tests directory:", err)
+	}
+
+	files2, err := os.ReadDir(conformanceDir)
 	if err != nil {
 		t.Fatal("error reading conformance tests directory:", err)
 	}
 
-	for _, f := range files {
-		fn := f.Name()
-		if !strings.HasSuffix(fn, Ext) {
-			continue
+	for _, f := range files1 {
+		if f.Name() == "luauception.luau" {
+			fmt.Println("⚠️ WARNING! ⚠️ This test takes about a minute to run. It will also eat all of your RAM.")
 		}
-		name := trimext(fn)
+		parseFile(t, f, benchmarkDir)
+	}
 
-		t.Log(" -- Testing", name, "--")
-		filename := fmt.Sprintf("%s/%s", conformanceDir, name)
-
-		out, err := luauAst(filename + Ext)
-		if err != nil {
-			t.Fatal("error running luau-ast:", err)
-		}
-
-		// Decode the AST
-		_, err = DecodeAST(standardise(out))
-		if err != nil {
-			t.Fatal("error decoding AST:", err)
-		}
-		// o := ast.String()
-
-		fmt.Println("AST for", name, ":")
-		// fmt.Println(o)
+	for _, f := range files2 {
+		parseFile(t, f, conformanceDir)
 	}
 }
-
-
