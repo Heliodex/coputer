@@ -1,0 +1,19 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 1,0
+    HasEnd: true
+    Body:
+        Type: AstStatTypeAlias
+        Location: 0,0 - 0,12
+        Name: x
+        Generics:
+        GenericPacks:
+        Value:
+            Type: AstTypeReference
+            Location: 0,9 - 0,12
+            Name: nil
+            NameLocation: 0,9 - 0,12
+            Parameters:
+        Exported: false
+
+Comment Locations:

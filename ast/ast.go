@@ -176,6 +176,51 @@ func DecodeAttr(data json.RawMessage) (INode, error) {
 	return raw, nil
 }
 
+type DeclaredClassProp[T any] struct {
+	Name         string   `json:"name"`
+	NameLocation Location `json:"nameLocation"`
+	Node
+	LuauType T        `json:"luauType"`
+	Location Location `json:"location"`
+}
+
+func (d DeclaredClassProp[T]) Type() string {
+	return "AstDeclaredClassProp"
+}
+
+func (d DeclaredClassProp[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(d.Node.String())
+	b.WriteString(fmt.Sprintf("Name: %s\n", d.Name))
+	b.WriteString(fmt.Sprintf("NameLocation: %s\n", d.NameLocation))
+	b.WriteString(fmt.Sprintf("Location: %s\n", d.Location))
+	b.WriteString("\nLuauType:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(d.LuauType), 4))
+
+	return b.String()
+}
+
+func DecodeDeclaredClassProp(data json.RawMessage) (INode, error) {
+	var raw DeclaredClassProp[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	luauTypeNode, err := decodeNode(raw.LuauType)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding luauType: %v", err)
+	}
+
+	return DeclaredClassProp[INode]{
+		Name:         raw.Name,
+		NameLocation: raw.NameLocation,
+		Node:         raw.Node,
+		LuauType:     luauTypeNode,
+		Location:     raw.Location,
+	}, nil
+}
+
 type ExprBinary[T any] struct {
 	Node
 	Location Location `json:"location"`
@@ -1365,6 +1410,71 @@ func DecodeStatContinue(data json.RawMessage) (INode, error) {
 	return raw, nil
 }
 
+type StatDeclareClass[T any] struct {
+	Node
+	Location Location `json:"location"`
+	Name     string   `json:"name"`
+	Props    []T      `json:"props"`
+	Indexer  *T       `json:"indexer"`
+}
+
+func (n StatDeclareClass[T]) Type() string {
+	return "AstStatDeclareClass"
+}
+
+func (n StatDeclareClass[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString(fmt.Sprintf("\nName: %s", n.Name))
+	b.WriteString("\nProps:")
+	for _, prop := range n.Props {
+		b.WriteByte('\n')
+		b.WriteString(indentStart(StringMaybeEvaluated(prop), 4))
+	}
+	b.WriteString("\nIndexer:")
+	if n.Indexer != nil {
+		b.WriteByte('\n')
+		b.WriteString(indentStart(StringMaybeEvaluated(*n.Indexer), 4))
+	}
+
+	return b.String()
+}
+
+func DecodeStatDeclareClass(data json.RawMessage) (INode, error) {
+	var raw StatDeclareClass[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	props := make([]INode, len(raw.Props))
+	for i, prop := range raw.Props {
+		n, err := decodeNode(prop)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding prop node: %v", err)
+		}
+		props[i] = n
+	}
+
+	var indexerNodeMaybe *INode
+	if raw.Indexer != nil {
+		indexerNode, err := decodeNode(*raw.Indexer)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding indexer: %v", err)
+		}
+		indexerNodeMaybe = &indexerNode
+	}
+
+	return StatDeclareClass[INode]{
+		Node:     raw.Node,
+		Location: raw.Location,
+		Name:     raw.Name,
+		Props:    props,
+		Indexer:  indexerNodeMaybe,
+	}, nil
+}
+
 type StatExpr[T any] struct {
 	Node
 	Location Location `json:"location"`
@@ -2328,6 +2438,72 @@ func DecodeTypeReference(data json.RawMessage) (INode, error) {
 	}, nil
 }
 
+type TypeSingletonBool struct {
+	Node
+	Location Location `json:"location"`
+	Value    bool     `json:"value"`
+}
+
+func (n TypeSingletonBool) Type() string {
+	return "AstTypeSingletonBool"
+}
+
+func (n TypeSingletonBool) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString(fmt.Sprintf("\nValue: %t", n.Value))
+
+	return b.String()
+}
+
+func DecodeTypeSingletonBool(data json.RawMessage) (INode, error) {
+	var raw TypeSingletonBool
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	return TypeSingletonBool{
+		Node:     raw.Node,
+		Location: raw.Location,
+		Value:    raw.Value,
+	}, nil
+}
+
+type TypeSingletonString struct {
+	Node
+	Location Location `json:"location"`
+	Value    string   `json:"value"`
+}
+
+func (n TypeSingletonString) Type() string {
+	return "AstTypeSingletonString"
+}
+
+func (n TypeSingletonString) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString(fmt.Sprintf("\nValue: %s", n.Value))
+
+	return b.String()
+}
+
+func DecodeTypeSingletonString(data json.RawMessage) (INode, error) {
+	var raw TypeSingletonString
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	return TypeSingletonString{
+		Node:     raw.Node,
+		Location: raw.Location,
+		Value:    raw.Value,
+	}, nil
+}
+
 type Indexer[T any] struct {
 	Location   Location `json:"location"`
 	IndexType  T        `json:"indexType"`
@@ -2422,7 +2598,7 @@ func DecodeTypeTable(data json.RawMessage) (INode, error) {
 type TypeTypeof[T any] struct {
 	Node
 	Location Location `json:"location"`
-	Expr   T        `json:"expr"`
+	Expr     T        `json:"expr"`
 }
 
 func (n TypeTypeof[T]) Type() string {
@@ -2526,6 +2702,8 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeArgumentName(data))
 	case "AstAttr":
 		return ret(DecodeAttr(data))
+	case "AstDeclaredClassProp":
+		return ret(DecodeDeclaredClassProp(data))
 	case "AstExprBinary":
 		return ret(DecodeExprBinary(data))
 	case "AstExprCall":
@@ -2580,6 +2758,8 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeStatCompoundAssign(data))
 	case "AstStatContinue":
 		return ret(DecodeStatContinue(data))
+	case "AstStatDeclareClass":
+		return ret(DecodeStatDeclareClass(data))
 	case "AstStatExpr":
 		return ret(DecodeStatExpr(data))
 	case "AstStatFor":
@@ -2614,6 +2794,10 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeTypePackExplicit(data))
 	case "AstTypeReference":
 		return ret(DecodeTypeReference(data))
+	case "AstTypeSingletonBool":
+		return ret(DecodeTypeSingletonBool(data))
+	case "AstTypeSingletonString":
+		return ret(DecodeTypeSingletonString(data))
 	case "AstTypeTable":
 		return ret(DecodeTypeTable(data))
 	case "AstTypeTypeof":

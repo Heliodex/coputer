@@ -1,0 +1,12 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 1,0
+    HasEnd: true
+    Body:
+        Type: AstStatDeclareClass
+        Location: 0,14 - 0,26
+        Name: EnumItem
+        Props:
+        Indexer:
+
+Comment Locations:

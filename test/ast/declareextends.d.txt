@@ -1,0 +1,57 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 8,0
+    HasEnd: true
+    Body:
+        Type: AstStatDeclareClass
+        Location: 0,14 - 0,26
+        Name: EnumItem
+        Props:
+        Indexer:
+    
+        Type: AstStatDeclareClass
+        Location: 2,14 - 2,48
+        Name: EnumAASamples
+        Props:
+        Indexer:
+    
+        Type: AstStatDeclareClass
+        Location: 3,14 - 7,3
+        Name: EnumAASamples_INTERNAL
+        Props:
+            Type: AstDeclaredClassProp
+            Name: 4
+            NameLocation: 4,2 - 4,5
+            Location: 4,1 - 4,21
+            
+            LuauType:
+                Type: AstTypeReference
+                Location: 4,8 - 4,21
+                Name: EnumAASamples
+                NameLocation: 4,8 - 4,21
+                Parameters:
+            Type: AstDeclaredClassProp
+            Name: 8
+            NameLocation: 5,2 - 5,5
+            Location: 5,1 - 5,21
+            
+            LuauType:
+                Type: AstTypeReference
+                Location: 5,8 - 5,21
+                Name: EnumAASamples
+                NameLocation: 5,8 - 5,21
+                Parameters:
+            Type: AstDeclaredClassProp
+            Name: None
+            NameLocation: 6,1 - 6,5
+            Location: 6,1 - 6,20
+            
+            LuauType:
+                Type: AstTypeReference
+                Location: 6,7 - 6,20
+                Name: EnumAASamples
+                NameLocation: 6,7 - 6,20
+                Parameters:
+        Indexer:
+
+Comment Locations:
