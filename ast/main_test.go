@@ -27,13 +27,13 @@ func TestAST(t *testing.T) {
 		t.Log(" -- Testing", name, "--")
 		filename := fmt.Sprintf("%s/%s", astDir, name)
 
-		output, err := luauAst(filename + Ext)
+		out, err := luauAst(filename + Ext)
 		if err != nil {
 			t.Fatal("error running luau-ast:", err)
 		}
 
 		// Decode the AST
-		ast, err := DecodeAST(output)
+		ast, err := DecodeAST(standardise(out))
 		if err != nil {
 			t.Fatal("error decoding AST:", err)
 		}
@@ -88,13 +88,13 @@ func TestParsing(t *testing.T) {
 		t.Log(" -- Testing", name, "--")
 		filename := fmt.Sprintf("%s/%s", conformanceDir, name)
 
-		output, err := luauAst(filename + Ext)
+		out, err := luauAst(filename + Ext)
 		if err != nil {
 			t.Fatal("error running luau-ast:", err)
 		}
 
 		// Decode the AST
-		_, err = DecodeAST(output)
+		_, err = DecodeAST(standardise(out))
 		if err != nil {
 			t.Fatal("error decoding AST:", err)
 		}

@@ -869,6 +869,83 @@ func DecodeStatReturn(data json.RawMessage) (INode, error) {
 	}, nil
 }
 
+type StatTypeAlias[T any] struct {
+	Node
+	Location     Location `json:"location"`
+	Name         string   `json:"name"`
+	Generics     []T      `json:"generics"`
+	GenericPacks []T      `json:"genericPacks"`
+	Value        T        `json:"value"`
+	Exported     bool     `json:"exported"`
+}
+
+func (n StatTypeAlias[T]) Type() string {
+	return "AstStatTypeAlias"
+}
+
+func (n StatTypeAlias[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString(fmt.Sprintf("\nName: %s", n.Name))
+	b.WriteString("\nGenerics:")
+	for _, g := range n.Generics {
+		b.WriteByte('\n')
+		b.WriteString(indentStart(StringMaybeEvaluated(g), 4))
+	}
+	b.WriteString("\nGenericPacks:")
+	for _, gp := range n.GenericPacks {
+		b.WriteByte('\n')
+		b.WriteString(indentStart(StringMaybeEvaluated(gp), 4))
+	}
+	b.WriteString("\nValue:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Value), 4))
+	b.WriteString(fmt.Sprintf("\nExported: %t\n", n.Exported))
+
+	return b.String()
+}
+
+func DecodeStatTypeAlias(data json.RawMessage) (INode, error) {
+	var raw StatTypeAlias[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	generics := make([]INode, len(raw.Generics))
+	for i, g := range raw.Generics {
+		n, err := decodeNode(g)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding generic node: %v", err)
+		}
+		generics[i] = n
+	}
+
+	genericPacks := make([]INode, len(raw.GenericPacks))
+	for i, gp := range raw.GenericPacks {
+		n, err := decodeNode(gp)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding generic pack node: %v", err)
+		}
+		genericPacks[i] = n
+	}
+
+	valueNode, err := decodeNode(raw.Value)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding value: %v", err)
+	}
+
+	return StatTypeAlias[INode]{
+		Node:         raw.Node,
+		Location:     raw.Location,
+		Name:         raw.Name,
+		Generics:     generics,
+		GenericPacks: genericPacks,
+		Value:        valueNode,
+		Exported:     raw.Exported,
+	}, nil
+}
+
 type StatWhile[T any] struct {
 	Node
 	Location  Location `json:"location"`
@@ -1715,6 +1792,65 @@ func DecodeLocal(data json.RawMessage) (INode, error) {
 	return raw, nil
 }
 
+type TypeReference[T any] struct {
+	Node
+	Location Location `json:"location"`
+	Name     string   `json:"name"`
+	NameLocation Location `json:"nameLocation"`
+	Parameters   []T      `json:"parameters"`
+}
+
+func (n TypeReference[T]) Type() string {
+	return "AstTypeReference"
+}
+
+func (n TypeReference[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString(fmt.Sprintf("\nName: %s", n.Name))
+	b.WriteString(fmt.Sprintf("\nNameLocation: %s", n.NameLocation))
+	b.WriteString("\nParameters:")
+
+	for _, param := range n.Parameters {
+		b.WriteByte('\n')
+		b.WriteString(indentStart(StringMaybeEvaluated(param), 4))
+	}
+
+	return b.String()
+}
+
+func DecodeTypeReference(data json.RawMessage) (INode, error) {
+	var raw TypeReference[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	parameters := make([]INode, len(raw.Parameters))
+	for i, param := range raw.Parameters {
+		n, err := decodeNode(param)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding parameter node: %v", err)
+		}
+		parameters[i] = n
+	}
+
+	return TypeReference[INode]{
+		Node:        raw.Node,
+		Location:    raw.Location,
+		Name:        raw.Name,
+		NameLocation: raw.NameLocation,
+		Parameters:  parameters,
+	}, nil
+}
+
+// type TypeTable[T any] struct {
+// 	Node
+// 	Location Location `json:"location"`
+// 	Props   []T      `json:"props"`
+// }
+
 // decoding
 
 func decodeNode(data json.RawMessage) (INode, error) {
@@ -1762,6 +1898,8 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeStatRepeat(data))
 	case "AstStatReturn":
 		return ret(DecodeStatReturn(data))
+	case "AstStatTypeAlias":
+		return ret(DecodeStatTypeAlias(data))
 	case "AstStatWhile":
 		return ret(DecodeStatWhile(data))
 	case "AstExprBinary":
@@ -1800,6 +1938,10 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeExprUnary(data))
 	case "AstLocal":
 		return ret(DecodeLocal(data))
+	case "AstTypeReference":
+		return ret(DecodeTypeReference(data))
+	// case "AstTypeTable":
+	// 	return ret(DecodeTypeTable(data))
 	}
 	return ret(nil, errors.New("unknown node type"))
 }

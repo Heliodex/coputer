@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+
+	"github.com/tailscale/hujson"
 )
 
 const (
@@ -25,24 +27,36 @@ func indentStart(s string, n int) string {
 	return strings.Join(lines, "\n")
 }
 
-func main() {
-	const filepath = conformanceDir + "/basic.luau"
+// remember, luau-ast outputs JSONC, not JSON
+func standardise(in []byte) []byte {
+	v, err := hujson.Parse(in)
+	if err != nil {
+		return in
+	}
+	v.Standardize()
+	v.Format()
+	return v.Pack()
+}
 
-	output, err := luauAst(filepath)
+func main() {
+	const filepath = astDir + "/typealias.luau"
+
+	out, err := luauAst(filepath)
 	if err != nil {
 		fmt.Println("Error:", err)
 		return
 	}
+	s := standardise(out)
 
-	// write to ast.json
-	// if err = os.WriteFile("ast.json", output, 0o644); err != nil {
+	// write to ast.jsonc
+	// if err = os.WriteFile("ast.jsonc", s, 0o644); err != nil {
 	// 	fmt.Println("Error writing to file:", err)
 	// 	return
 	// }
-	// fmt.Println("AST written to ast.json successfully.")
+	// fmt.Println("AST written to ast.jsonc successfully.")
 
 	// encode as AST
-	ast, err := DecodeAST(output)
+	ast, err := DecodeAST(s)
 	if err != nil {
 		fmt.Println("Error decoding AST:", err)
 		return
