@@ -1,0 +1,1 @@
+type D = A<number, ()>

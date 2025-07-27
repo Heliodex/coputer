@@ -1075,6 +1075,32 @@ func DecodeGenericType(data json.RawMessage) (INode, error) {
 	return raw, nil
 }
 
+type GenericTypePack struct {
+	Node
+	Name string `json:"name"`
+}
+
+func (g GenericTypePack) Type() string {
+	return "AstGenericTypePack"
+}
+
+func (g GenericTypePack) String() string {
+	var b strings.Builder
+
+	b.WriteString(g.Node.String())
+	b.WriteString(fmt.Sprintf("Name: %s", g.Name))
+
+	return b.String()
+}
+
+func DecodeGenericTypePack(data json.RawMessage) (INode, error) {
+	var raw GenericTypePack
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+	return raw, nil
+}
+
 type Local[T any] struct {
 	LuauType *T     `json:"luauType"` // for now it's probably nil?
 	Name     string `json:"name"`
@@ -2127,6 +2153,45 @@ func DecodeTypeFunction(data json.RawMessage) (INode, error) {
 	}, nil
 }
 
+type TypeGroup[T any] struct {
+	Node
+	Location Location `json:"location"`
+	Inner    T        `json:"inner"`
+}
+
+func (n TypeGroup[T]) Type() string {
+	return "AstTypeGroup"
+}
+
+func (n TypeGroup[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nInner:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Inner), 4))
+
+	return b.String()
+}
+
+func DecodeTypeGroup(data json.RawMessage) (INode, error) {
+	var raw TypeGroup[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	innerNode, err := decodeNode(raw.Inner)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding inner node: %v", err)
+	}
+
+	return TypeGroup[INode]{
+		Node:     raw.Node,
+		Location: raw.Location,
+		Inner:    innerNode,
+	}, nil
+}
+
 type TypeList[T any] struct {
 	Node
 	Types []T `json:"types"`
@@ -2353,6 +2418,46 @@ func DecodeTypeTable(data json.RawMessage) (INode, error) {
 	}, nil
 }
 
+// lol
+type TypeTypeof[T any] struct {
+	Node
+	Location Location `json:"location"`
+	Expr   T        `json:"expr"`
+}
+
+func (n TypeTypeof[T]) Type() string {
+	return "AstTypeTypeof"
+}
+
+func (n TypeTypeof[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nExpr:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
+
+	return b.String()
+}
+
+func DecodeTypeTypeof(data json.RawMessage) (INode, error) {
+	var raw TypeTypeof[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	exprNode, err := decodeNode(raw.Expr)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding expr: %v", err)
+	}
+
+	return TypeTypeof[INode]{
+		Node:     raw.Node,
+		Location: raw.Location,
+		Expr:     exprNode,
+	}, nil
+}
+
 type TypeUnion[T any] struct {
 	Node
 	Location Location `json:"location"`
@@ -2461,6 +2566,8 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeExprUnary(data))
 	case "AstGenericType":
 		return ret(DecodeGenericType(data))
+	case "AstGenericTypePack":
+		return ret(DecodeGenericTypePack(data))
 	case "AstLocal":
 		return ret(DecodeLocal(data))
 	case "AstStatAssign":
@@ -2499,6 +2606,8 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeTableProp(data))
 	case "AstTypeFunction":
 		return ret(DecodeTypeFunction(data))
+	case "AstTypeGroup":
+		return ret(DecodeTypeGroup(data))
 	case "AstTypeList":
 		return ret(DecodeTypeList(data))
 	case "AstTypePackExplicit":
@@ -2507,6 +2616,8 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeTypeReference(data))
 	case "AstTypeTable":
 		return ret(DecodeTypeTable(data))
+	case "AstTypeTypeof":
+		return ret(DecodeTypeTypeof(data))
 	case "AstTypeUnion":
 		return ret(DecodeTypeUnion(data))
 	}
