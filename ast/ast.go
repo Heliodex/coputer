@@ -1694,6 +1694,54 @@ func DecodeExprTableItem(data json.RawMessage) (INode, error) {
 	}, nil
 }
 
+type ExprTypeAssertion[T any] struct {
+	Node
+	Location   Location `json:"location"`
+	Expr       T        `json:"expr"`
+	Annotation T        `json:"annotation"`
+}
+
+func (n ExprTypeAssertion[T]) Type() string {
+	return "AstExprTypeAssertion"
+}
+
+func (n ExprTypeAssertion[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nExpr:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
+	b.WriteString("\nAnnotation:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.Annotation), 4))
+
+	return b.String()
+}
+
+func DecodeExprTypeAssertion(data json.RawMessage) (INode, error) {
+	var raw ExprTypeAssertion[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	exprNode, err := decodeNode(raw.Expr)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding expr: %v", err)
+	}
+
+	annotationNode, err := decodeNode(raw.Annotation)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding annotation: %v", err)
+	}
+
+	return ExprTypeAssertion[INode]{
+		Node:       raw.Node,
+		Location:   raw.Location,
+		Expr:       exprNode,
+		Annotation: annotationNode,
+	}, nil
+}
+
 type ExprVarargs struct {
 	Node
 	Location Location `json:"location"`
@@ -1792,10 +1840,52 @@ func DecodeLocal(data json.RawMessage) (INode, error) {
 	return raw, nil
 }
 
-type TypeReference[T any] struct {
+type TableProp[T any] struct {
+	Name string `json:"name"`
 	Node
 	Location Location `json:"location"`
-	Name     string   `json:"name"`
+	PropType T        `json:"propType"`
+}
+
+func (n TableProp[T]) Type() string {
+	return "AstTableProp"
+}
+
+func (n TableProp[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString(fmt.Sprintf("\nName: %s", n.Name))
+	b.WriteString("\nPropType:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.PropType), 4))
+
+	return b.String()
+}
+
+func DecodeTableProp(data json.RawMessage) (INode, error) {
+	var raw TableProp[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	propTypeNode, err := decodeNode(raw.PropType)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding prop type: %v", err)
+	}
+
+	return TableProp[INode]{
+		Node:     raw.Node,
+		Location: raw.Location,
+		Name:     raw.Name,
+		PropType: propTypeNode,
+	}, nil
+}
+
+type TypeReference[T any] struct {
+	Node
+	Location     Location `json:"location"`
+	Name         string   `json:"name"`
 	NameLocation Location `json:"nameLocation"`
 	Parameters   []T      `json:"parameters"`
 }
@@ -1837,19 +1927,103 @@ func DecodeTypeReference(data json.RawMessage) (INode, error) {
 	}
 
 	return TypeReference[INode]{
-		Node:        raw.Node,
-		Location:    raw.Location,
-		Name:        raw.Name,
+		Node:         raw.Node,
+		Location:     raw.Location,
+		Name:         raw.Name,
 		NameLocation: raw.NameLocation,
-		Parameters:  parameters,
+		Parameters:   parameters,
 	}, nil
 }
 
-// type TypeTable[T any] struct {
-// 	Node
-// 	Location Location `json:"location"`
-// 	Props   []T      `json:"props"`
-// }
+type Indexer[T any] struct {
+	Location   Location `json:"location"`
+	IndexType  T        `json:"indexType"`
+	ResultType T        `json:"resultType"`
+}
+
+func (n Indexer[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nIndexType:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.IndexType), 4))
+	b.WriteString("\nResultType:\n")
+	b.WriteString(indentStart(StringMaybeEvaluated(n.ResultType), 4))
+
+	return b.String()
+}
+
+type TypeTable[T any] struct {
+	Node
+	Location Location    `json:"location"`
+	Props    []T         `json:"props"`
+	Indexer  *Indexer[T] `json:"indexer"`
+}
+
+func (n TypeTable[T]) Type() string {
+	return "AstTypeTable"
+}
+
+func (n TypeTable[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nProps:")
+
+	for _, prop := range n.Props {
+		b.WriteByte('\n')
+		b.WriteString(indentStart(StringMaybeEvaluated(prop), 4))
+	}
+
+	b.WriteString("\nIndexer:")
+	if n.Indexer != nil {
+		b.WriteByte('\n')
+		b.WriteString(indentStart(n.Indexer.String(), 4))
+	}
+
+	return b.String()
+}
+
+func DecodeTypeTable(data json.RawMessage) (INode, error) {
+	var raw TypeTable[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	props := make([]INode, len(raw.Props))
+	for i, prop := range raw.Props {
+		n, err := decodeNode(prop)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding prop node: %v", err)
+		}
+		props[i] = n
+	}
+
+	var indexerMaybe *Indexer[INode]
+	if raw.Indexer != nil {
+		indexerNode, err := decodeNode(raw.Indexer.IndexType)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding indexer index type: %v", err)
+		}
+		resultNode, err := decodeNode(raw.Indexer.ResultType)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding indexer result type: %v", err)
+		}
+		indexerMaybe = &Indexer[INode]{
+			Location:   raw.Indexer.Location,
+			IndexType:  indexerNode,
+			ResultType: resultNode,
+		}
+	}
+
+	return TypeTable[INode]{
+		Node:     raw.Node,
+		Location: raw.Location,
+		Props:    props,
+		Indexer:  indexerMaybe,
+	}, nil
+}
 
 // decoding
 
@@ -1932,16 +2106,20 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeExprTable(data))
 	case "AstExprTableItem":
 		return ret(DecodeExprTableItem(data))
+	case "AstExprTypeAssertion":
+		return ret(DecodeExprTypeAssertion(data))
 	case "AstExprVarargs":
 		return ret(DecodeExprVarargs(data))
 	case "AstExprUnary":
 		return ret(DecodeExprUnary(data))
 	case "AstLocal":
 		return ret(DecodeLocal(data))
+	case "AstTableProp":
+		return ret(DecodeTableProp(data))
 	case "AstTypeReference":
 		return ret(DecodeTypeReference(data))
-	// case "AstTypeTable":
-	// 	return ret(DecodeTypeTable(data))
+	case "AstTypeTable":
+		return ret(DecodeTypeTable(data))
 	}
 	return ret(nil, errors.New("unknown node type"))
 }
