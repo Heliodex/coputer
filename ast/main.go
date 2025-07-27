@@ -40,7 +40,7 @@ func standardise(in []byte) []byte {
 }
 
 func main() {
-	const filepath = astDir + "/typeunion.luau"
+	const filepath = astDir + "/functioncall.luau"
 
 	out, err := luauAst(filepath)
 	if err != nil {

@@ -6,10 +6,10 @@ Root:
         Type: AstStatLocal
         Location: 0,0 - 0,21
         Vars:
+            LuauType: <nil>
+            Name: x
             Type: AstLocal
             Location: 0,6 - 0,7
-            Name: x
-            LuauType: <nil>
         Values:
             Type: AstExprTable
             Location: 0,10 - 0,21
@@ -39,22 +39,22 @@ Root:
         Type: AstStatForIn
         Location: 2,0 - 3,3
         Vars:
+            LuauType: <nil>
+            Name: i
             Type: AstLocal
             Location: 2,4 - 2,5
-            Name: i
             LuauType: <nil>
+            Name: v
             Type: AstLocal
             Location: 2,7 - 2,8
-            Name: v
-            LuauType: <nil>
         Values:
             Type: AstExprLocal
             Location: 2,12 - 2,13
             Local:
+                LuauType: <nil>
+                Name: x
                 Type: AstLocal
                 Location: 0,6 - 0,7
-                Name: x
-                LuauType: <nil>
         Body:
             Type: AstStatBlock
             Location: 2,16 - 3,0

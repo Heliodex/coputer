@@ -6,10 +6,10 @@ Root:
         Type: AstStatLocal
         Location: 0,0 - 0,21
         Vars:
+            LuauType: <nil>
+            Name: x
             Type: AstLocal
             Location: 0,6 - 0,7
-            Name: x
-            LuauType: <nil>
         Values:
             Type: AstExprBinary
             Location: 0,10 - 0,21
@@ -37,10 +37,10 @@ Root:
         Type: AstStatLocal
         Location: 1,0 - 1,19
         Vars:
+            LuauType: <nil>
+            Name: y
             Type: AstLocal
             Location: 1,6 - 1,7
-            Name: y
-            LuauType: <nil>
         Values:
             Type: AstExprBinary
             Location: 1,10 - 1,19

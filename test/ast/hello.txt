@@ -16,6 +16,8 @@ Root:
                 Type: AstExprConstantString
                 Location: 0,6 - 0,14
                 Value: Hello!
+            Self: false
+            ArgLocation: 0,6 - 0,14
     
         Type: AstStatExpr
         Location: 1,0 - 1,8
@@ -30,6 +32,8 @@ Root:
                 Type: AstExprConstantNumber
                 Location: 1,6 - 1,7
                 Value: 2.000000
+            Self: false
+            ArgLocation: 1,6 - 1,8
 
 Comment Locations:
     Type: Comment

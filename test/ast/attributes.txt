@@ -6,10 +6,10 @@ Root:
         Type: AstStatLocalFunction
         Location: 0,0 - 1,22
         Name:
+            LuauType: <nil>
+            Name: x
             Type: AstLocal
             Location: 1,15 - 1,16
-            Name: x
-            LuauType: <nil>
         Func:
             Type: AstExprFunction
             Location: 0,0 - 1,22

@@ -6,10 +6,10 @@ Root:
         Type: AstStatLocal
         Location: 0,0 - 0,12
         Vars:
+            LuauType: <nil>
+            Name: x
             Type: AstLocal
             Location: 0,6 - 0,7
-            Name: x
-            LuauType: <nil>
         Values:
             Type: AstExprTable
             Location: 0,10 - 0,12
@@ -24,10 +24,10 @@ Root:
                 Type: AstExprLocal
                 Location: 1,0 - 1,1
                 Local:
+                    LuauType: <nil>
+                    Name: x
                     Type: AstLocal
                     Location: 0,6 - 0,7
-                    Name: x
-                    LuauType: <nil>
             Index: hello
         Values:
             Type: AstExprConstantString
@@ -50,10 +50,12 @@ Root:
                     Type: AstExprLocal
                     Location: 2,6 - 2,7
                     Local:
+                        LuauType: <nil>
+                        Name: x
                         Type: AstLocal
                         Location: 0,6 - 0,7
-                        Name: x
-                        LuauType: <nil>
                 Index: hello
+            Self: false
+            ArgLocation: 2,6 - 2,14
 
 Comment Locations:

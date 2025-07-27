@@ -6,10 +6,10 @@ Root:
         Type: AstStatLocalFunction
         Location: 0,0 - 4,3
         Name:
+            LuauType: <nil>
+            Name: x
             Type: AstLocal
             Location: 0,15 - 0,16
-            Name: x
-            LuauType: <nil>
         Func:
             Type: AstExprFunction
             Location: 0,0 - 4,3
@@ -17,10 +17,10 @@ Root:
             Generics:
             GenericPacks:
             Args:
+                LuauType: <nil>
+                Name: a
                 Type: AstLocal
                 Location: 0,17 - 0,18
-                Name: a
-                LuauType: <nil>
             Vararg: true
             VarargLocation: 0,20 - 0,23
             Body:
@@ -44,10 +44,12 @@ Root:
                             Type: AstExprLocal
                             Location: 1,26 - 1,27
                             Local:
+                                LuauType: <nil>
+                                Name: a
                                 Type: AstLocal
                                 Location: 0,17 - 0,18
-                                Name: a
-                                LuauType: <nil>
+                        Self: false
+                        ArgLocation: 1,7 - 1,28
                 
                     Type: AstStatExpr
                     Location: 2,1 - 2,34
@@ -64,6 +66,8 @@ Root:
                             Value: variadic arguments:
                             Type: AstExprVarargs
                             Location: 2,30 - 2,33
+                        Self: false
+                        ArgLocation: 2,7 - 2,34
                 
                     Type: AstStatReturn
                     Location: 3,1 - 3,11
@@ -89,10 +93,10 @@ Root:
                     Type: AstExprLocal
                     Location: 6,6 - 6,7
                     Local:
+                        LuauType: <nil>
+                        Name: x
                         Type: AstLocal
                         Location: 0,15 - 0,16
-                        Name: x
-                        LuauType: <nil>
                 Args:
                     Type: AstExprConstantNumber
                     Location: 6,8 - 6,9
@@ -106,5 +110,9 @@ Root:
                     Type: AstExprConstantNumber
                     Location: 6,17 - 6,18
                     Value: 4.000000
+                Self: false
+                ArgLocation: 6,8 - 6,19
+            Self: false
+            ArgLocation: 6,6 - 6,20
 
 Comment Locations:

@@ -1078,9 +1078,11 @@ func DecodeExprBinary(data json.RawMessage) (INode, error) {
 
 type ExprCall[T any] struct {
 	Node
-	Location Location `json:"location"`
-	Func     T        `json:"func"`
-	Args     []T      `json:"args"`
+	Location    Location `json:"location"`
+	Func        T        `json:"func"`
+	Args        []T      `json:"args"`
+	Self        bool     `json:"self"`
+	ArgLocation Location `json:"argLocation"`
 }
 
 func (n ExprCall[T]) Type() string {
@@ -1100,6 +1102,9 @@ func (n ExprCall[T]) String() string {
 		b.WriteByte('\n')
 		b.WriteString(indentStart(StringMaybeEvaluated(arg), 4))
 	}
+	
+	b.WriteString(fmt.Sprintf("\nSelf: %t", n.Self))
+	b.WriteString(fmt.Sprintf("\nArgLocation: %s", n.ArgLocation))
 
 	return b.String()
 }
@@ -1125,10 +1130,12 @@ func DecodeExprCall(data json.RawMessage) (INode, error) {
 	}
 
 	return ExprCall[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
-		Func:     funcNode,
-		Args:     args,
+		Node:        raw.Node,
+		Location:    raw.Location,
+		Func:        funcNode,
+		Args:        args,
+		Self:        raw.Self,
+		ArgLocation: raw.ArgLocation,
 	}, nil
 }
 
@@ -1581,6 +1588,59 @@ func DecodeExprIndexName(data json.RawMessage) (INode, error) {
 	}, nil
 }
 
+type ExprInterpString[T any] struct {
+	Node
+	Location    Location `json:"location"`
+	Strings     []string `json:"strings"`
+	Expressions []T      `json:"expressions"`
+}
+
+func (n ExprInterpString[T]) Type() string {
+	return "AstExprInterpString"
+}
+
+func (n ExprInterpString[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString("\nStrings:")
+	for _, str := range n.Strings {
+		b.WriteByte('\n')
+		b.WriteString(indentStart(str, 4))
+	}
+	b.WriteString("\nExpressions:")
+	for _, expr := range n.Expressions {
+		b.WriteByte('\n')
+		b.WriteString(indentStart(StringMaybeEvaluated(expr), 4))
+	}
+
+	return b.String()
+}
+
+func DecodeExprInterpString(data json.RawMessage) (INode, error) {
+	var raw ExprInterpString[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	expressions := make([]INode, len(raw.Expressions))
+	for i, expr := range raw.Expressions {
+		n, err := decodeNode(expr)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding expression node: %v", err)
+		}
+		expressions[i] = n
+	}
+
+	return ExprInterpString[INode]{
+		Node:        raw.Node,
+		Location:    raw.Location,
+		Strings:     raw.Strings,
+		Expressions: expressions,
+	}, nil
+}
+
 type ExprLocal[T any] struct {
 	Node
 	Location Location `json:"location"`
@@ -1839,10 +1899,10 @@ func DecodeExprUnary(data json.RawMessage) (INode, error) {
 }
 
 type Local struct {
+	LuauType any      `json:"luauType"` // for now it's probably nil?
+	Name     string   `json:"name"`
 	Node
 	Location Location `json:"location"`
-	Name     string   `json:"name"`
-	LuauType any      `json:"luauType"` // for now it's probably nil?
 }
 
 func (n Local) Type() string {
@@ -1852,10 +1912,10 @@ func (n Local) Type() string {
 func (n Local) String() string {
 	var b strings.Builder
 
+	b.WriteString(fmt.Sprintf("LuauType: %s", StringMaybeEvaluated(n.LuauType)))
+	b.WriteString(fmt.Sprintf("\nName: %s\n", n.Name))
 	b.WriteString(n.Node.String())
 	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString(fmt.Sprintf("\nName: %s", n.Name))
-	b.WriteString(fmt.Sprintf("\nLuauType: %s", StringMaybeEvaluated(n.LuauType)))
 
 	return b.String()
 }
@@ -2372,6 +2432,8 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeExprIndexExpr(data))
 	case "AstExprIndexName":
 		return ret(DecodeExprIndexName(data))
+	case "AstExprInterpString":
+		return ret(DecodeExprInterpString(data))
 	case "AstExprLocal":
 		return ret(DecodeExprLocal(data))
 	case "AstExprTable":

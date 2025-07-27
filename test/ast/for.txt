@@ -6,10 +6,10 @@ Root:
         Type: AstStatFor
         Location: 0,0 - 1,3
         Var:
+            LuauType: <nil>
+            Name: i
             Type: AstLocal
             Location: 0,4 - 0,5
-            Name: i
-            LuauType: <nil>
         From:
             Type: AstExprConstantNumber
             Location: 0,8 - 0,9
