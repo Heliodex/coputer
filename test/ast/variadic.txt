@@ -6,7 +6,7 @@ Root:
         Type: AstStatLocalFunction
         Location: 0,0 - 4,3
         Name:
-            LuauType: <nil>
+            LuauType:
             Name: x
             Type: AstLocal
             Location: 0,15 - 0,16
@@ -17,7 +17,7 @@ Root:
             Generics:
             GenericPacks:
             Args:
-                LuauType: <nil>
+                LuauType:
                 Name: a
                 Type: AstLocal
                 Location: 0,17 - 0,18
@@ -44,7 +44,7 @@ Root:
                             Type: AstExprLocal
                             Location: 1,26 - 1,27
                             Local:
-                                LuauType: <nil>
+                                LuauType:
                                 Name: a
                                 Type: AstLocal
                                 Location: 0,17 - 0,18
@@ -93,7 +93,7 @@ Root:
                     Type: AstExprLocal
                     Location: 6,6 - 6,7
                     Local:
-                        LuauType: <nil>
+                        LuauType:
                         Name: x
                         Type: AstLocal
                         Location: 0,15 - 0,16

@@ -1,0 +1,62 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 2,0
+    HasEnd: true
+    Body:
+        Type: AstStatTypeAlias
+        Location: 0,0 - 0,23
+        Name: x
+        Generics:
+            Type: AstGenericType
+            Name: T
+        GenericPacks:
+        Value:
+            Type: AstTypeFunction
+            Location: 0,12 - 0,23
+            Attributes:
+            Generics:
+            GenericPacks:
+            ArgTypes:
+                Type: AstTypeList
+                Types:
+                    Type: AstTypeReference
+                    Location: 0,16 - 0,17
+                    Name: T
+                    NameLocation: 0,16 - 0,17
+                    Parameters:
+            ArgNames:
+                Type: AstArgumentName
+                Name: a
+                Location: 0,13 - 0,14
+            ReturnTypes:
+                Type: AstTypePackExplicit
+                Location: 0,22 - 0,23
+                TypeList:
+                    Type: AstTypeList
+                    Types:
+                        Type: AstTypeReference
+                        Location: 0,22 - 0,23
+                        Name: T
+                        NameLocation: 0,22 - 0,23
+                        Parameters:
+        Exported: false
+    
+        Type: AstStatTypeAlias
+        Location: 1,0 - 1,18
+        Name: y
+        Generics:
+        GenericPacks:
+        Value:
+            Type: AstTypeReference
+            Location: 1,9 - 1,18
+            Name: x
+            NameLocation: 1,9 - 1,10
+            Parameters:
+                Type: AstTypeReference
+                Location: 1,11 - 1,17
+                Name: number
+                NameLocation: 1,11 - 1,17
+                Parameters:
+        Exported: false
+
+Comment Locations:

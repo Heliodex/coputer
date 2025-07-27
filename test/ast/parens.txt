@@ -6,7 +6,7 @@ Root:
         Type: AstStatLocal
         Location: 0,0 - 0,21
         Vars:
-            LuauType: <nil>
+            LuauType:
             Name: x
             Type: AstLocal
             Location: 0,6 - 0,7
@@ -37,7 +37,7 @@ Root:
         Type: AstStatLocal
         Location: 1,0 - 1,19
         Vars:
-            LuauType: <nil>
+            LuauType:
             Name: y
             Type: AstLocal
             Location: 1,6 - 1,7

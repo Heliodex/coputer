@@ -1049,21 +1049,51 @@ func DecodeExprUnary(data json.RawMessage) (INode, error) {
 	}, nil
 }
 
-type Local struct {
-	LuauType any    `json:"luauType"` // for now it's probably nil?
+type GenericType struct {
+	Node
+	Name string `json:"name"`
+}
+
+func (g GenericType) Type() string {
+	return "AstGenericType"
+}
+
+func (g GenericType) String() string {
+	var b strings.Builder
+
+	b.WriteString(g.Node.String())
+	b.WriteString(fmt.Sprintf("Name: %s", g.Name))
+
+	return b.String()
+}
+
+func DecodeGenericType(data json.RawMessage) (INode, error) {
+	var raw GenericType
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+	return raw, nil
+}
+
+type Local[T any] struct {
+	LuauType *T     `json:"luauType"` // for now it's probably nil?
 	Name     string `json:"name"`
 	Node
 	Location Location `json:"location"`
 }
 
-func (n Local) Type() string {
+func (n Local[T]) Type() string {
 	return "AstLocal"
 }
 
-func (n Local) String() string {
+func (n Local[T]) String() string {
 	var b strings.Builder
 
-	b.WriteString(fmt.Sprintf("LuauType: %s", StringMaybeEvaluated(n.LuauType)))
+	b.WriteString("LuauType:")
+	if n.LuauType != nil {
+		b.WriteByte('\n')
+		b.WriteString(indentStart(StringMaybeEvaluated(*n.LuauType), 4))
+	}
 	b.WriteString(fmt.Sprintf("\nName: %s\n", n.Name))
 	b.WriteString(n.Node.String())
 	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
@@ -1072,11 +1102,26 @@ func (n Local) String() string {
 }
 
 func DecodeLocal(data json.RawMessage) (INode, error) {
-	var raw Local
+	var raw Local[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %v", err)
 	}
-	return raw, nil
+
+	var luauTypeMaybe *INode
+	if raw.LuauType != nil {
+		luauTypeNode, err := decodeNode(*raw.LuauType)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding luau type: %v", err)
+		}
+		luauTypeMaybe = &luauTypeNode
+	}
+
+	return Local[INode]{
+		LuauType: luauTypeMaybe,
+		Name:     raw.Name,
+		Node:     raw.Node,
+		Location: raw.Location,
+	}, nil
 }
 
 type StatAssign[T any] struct {
@@ -2414,6 +2459,8 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeExprVarargs(data))
 	case "AstExprUnary":
 		return ret(DecodeExprUnary(data))
+	case "AstGenericType":
+		return ret(DecodeGenericType(data))
 	case "AstLocal":
 		return ret(DecodeLocal(data))
 	case "AstStatAssign":

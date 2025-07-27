@@ -88,6 +88,10 @@ func parseFile(t *testing.T, f os.DirEntry, dir string) {
 	t.Log(" -- Testing", name, "--")
 	filename := fmt.Sprintf("%s/%s", dir, name)
 
+	if name == "luauception" {
+		fmt.Println("⚠️ WARNING! ⚠️ This test takes about a minute to run. It will also eat all of your RAM.")
+	}
+
 	out, err := luauAst(filename + Ext)
 	if err != nil {
 		t.Fatal("error running luau-ast:", err)
@@ -116,9 +120,6 @@ func TestParsing(t *testing.T) {
 	}
 
 	for _, f := range files1 {
-		if f.Name() == "luauception.luau" {
-			fmt.Println("⚠️ WARNING! ⚠️ This test takes about a minute to run. It will also eat all of your RAM.")
-		}
 		parseFile(t, f, benchmarkDir)
 	}
 

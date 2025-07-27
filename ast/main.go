@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -41,7 +42,7 @@ func standardise(in []byte) []byte {
 }
 
 func main() {
-	const filepath = benchmarkDir + "/luauception.luau"
+	const filepath = astDir + "/functiongeneric.luau"
 
 	out, err := luauAst(filepath)
 	if err != nil {
@@ -60,11 +61,11 @@ func main() {
 	// defer pprof.StopCPUProfile()
 
 	// write to ast.jsonc
-	// if err = os.WriteFile("ast.jsonc", s, 0o644); err != nil {
-	// 	fmt.Println("Error writing to file:", err)
-	// 	return
-	// }
-	// fmt.Println("AST written to ast.jsonc successfully.")
+	if err = os.WriteFile("ast.jsonc", s, 0o644); err != nil {
+		fmt.Println("Error writing to file:", err)
+		return
+	}
+	fmt.Println("AST written to ast.jsonc successfully.")
 
 	st := time.Now()
 
