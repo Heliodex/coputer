@@ -1,5 +1,7 @@
 package main
 
+import "slices"
+
 func LUAU_ASSERT(condition bool) {
 	if !condition {
 		panic("Assertion failed")
@@ -77,7 +79,36 @@ func (l *Lexer) nextline() {
 	l.next0()
 }
 
-func (l *Lexer) lookahead() Lexeme {}
+func (l *Lexer) lookahead() Lexeme {
+	currentOffset := l.offset
+	currentLine := l.line
+	currentLineOffset := l.lineOffset
+	currentLexeme := l.lexeme
+	currentPrevLocation := l.prevLocation // lel
+	currentBraceStackSize := len(l.braceStack)
+	var currentBraceType BraceType
+	if currentBraceStackSize == 0 {
+		currentBraceType = Normal
+	} else {
+		currentBraceType = l.braceStack[currentBraceStackSize-1]
+	}
+
+	result := l.next0()
+
+	l.offset = currentOffset
+	l.line = currentLine
+	l.lineOffset = currentLineOffset
+	l.lexeme = currentLexeme
+	l.prevLocation = currentPrevLocation
+
+	if len(l.braceStack) < currentBraceStackSize {
+		l.braceStack = append(l.braceStack, currentBraceType)
+	} else if len(l.braceStack) > currentBraceStackSize {
+		l.braceStack = l.braceStack[:len(l.braceStack)-1]
+	}
+
+	return result
+}
 
 func (l *Lexer) isReserved(word string) bool {
 	for i := Reserved_BEGIN; i < Reserved_END; i++ {
@@ -493,4 +524,277 @@ func (l *Lexer) readNext() Lexeme {
 			}
 		}
 	}
+}
+
+func (l *Lexer) readUtf8Error() Lexeme {
+	start := l.position()
+	var codepoint uint32
+	var size int
+
+	if (l.peekch0() & 0b10000000) == 0b00000000 {
+		size = 1
+		codepoint = uint32(l.peekch0() & 0x7F)
+	} else if (l.peekch0() & 0b11100000) == 0b11000000 {
+		size = 2
+		codepoint = uint32(l.peekch0() & 0b11111)
+	} else if (l.peekch0() & 0b11110000) == 0b11100000 {
+		size = 3
+		codepoint = uint32(l.peekch0() & 0b1111)
+	} else if (l.peekch0() & 0b11111000) == 0b11110000 {
+		size = 4
+		codepoint = uint32(l.peekch0() & 0b111)
+	} else {
+		l.consume()
+		return Lexeme{
+			Location: Location{start, l.position()},
+			Type:     BrokenUnicode,
+		}
+	}
+
+	l.consume()
+
+	for range size {
+		if (l.peekch0() & 0b11000000) != 0b10000000 {
+			return Lexeme{
+				Location: Location{start, l.position()},
+				Type:     BrokenUnicode,
+			}
+		}
+
+		codepoint <<= 6
+		codepoint |= uint32(l.peekch0() & 0b00111111)
+		l.consume()
+	}
+
+	// ?
+	return Lexeme{
+		Location:  Location{start, l.position()},
+		Type:      BrokenUnicode,
+		codepoint: &codepoint,
+	}
+}
+
+func toUtf8(buf []byte, codepoint uint32) uint {
+	if codepoint < 0x80 { // U+0000..U+007F
+		buf[0] = byte(codepoint)
+		return 1
+	} else if codepoint < 0x800 { // U+0080..U+07FF
+		buf[0] = byte(0xC0 | (codepoint >> 6))
+		buf[1] = byte(0x80 | (codepoint & 0x3F))
+		return 2
+	} else if codepoint < 0x10000 { // U+0800..U+FFFF
+		buf[0] = byte(0xE0 | (codepoint >> 12))
+		buf[1] = byte(0x80 | ((codepoint >> 6) & 0x3F))
+		buf[2] = byte(0x80 | (codepoint & 0x3F))
+		return 3
+	} else if codepoint < 0x110000 { // U+10000..U+10FFFF
+		buf[0] = byte(0xF0 | (codepoint >> 18))
+		buf[1] = byte(0x80 | ((codepoint >> 12) & 0x3F))
+		buf[2] = byte(0x80 | ((codepoint >> 6) & 0x3F))
+		buf[3] = byte(0x80 | (codepoint & 0x3F))
+		return 4
+	} else {
+		return 0 // invalid code point
+	}
+}
+
+func (l *Lexer) fixupQuotedString(data *[]byte) bool {
+	if len(*data) == 0 || !slices.Contains(*data, '\\') {
+		return true
+	}
+
+	size := uint(len(*data))
+	var write uint
+
+	for i := uint(0); i < size; {
+		if (*data)[i] == '\\' {
+			(*data)[write] = (*data)[i]
+			write++
+			i++
+			continue
+		}
+
+		if i+1 == size {
+			return false
+		}
+
+		escape := (*data)[i+1]
+		i += 2 // skip \e
+
+		switch escape {
+		case '\n':
+			(*data)[write] = '\n'
+			write++
+
+		case '\r':
+			(*data)[write] = '\n'
+			if i < size && (*data)[i] == '\n' {
+				i++
+			}
+
+		case 0:
+			return false
+
+		case 'x':
+			// hex escape codes are exactly 2 hex digits long
+			if i+2 > size {
+				return false
+			}
+
+			var code uint32
+
+			for j := range uint(2) {
+				ch := (*data)[i+j]
+				if !isHexDigit(ch) {
+					return false
+				}
+
+				// use or trick to convert to lower case
+				var v byte
+				if isDigit(ch) {
+					v = ch - '0'
+				} else {
+					v = (ch | ' ') - 'a' + 10
+				}
+				code = 16*code + uint32(v)
+			}
+
+			(*data)[write] = byte(code)
+			write++
+
+		case 'z':
+			for i < size && isSpace((*data)[i]) {
+				i++
+			}
+
+		case 'u':
+			// unicode escape codes are at least 3 characters including braces
+			if i+3 > size {
+				return false
+			}
+
+			if (*data)[i] != '{' {
+				return false
+			}
+			i++
+
+			if (*data)[i] == '}' {
+				return false
+			}
+
+			var code uint32
+
+			for range 16 {
+				if i == size {
+					return false
+				}
+
+				ch := (*data)[i]
+
+				if ch == '}' {
+					break
+				}
+
+				if !isHexDigit(ch) {
+					return false
+				}
+
+				// use or trick to convert to lower case
+				var v byte
+				if isDigit(ch) {
+					v = ch - '0'
+				} else {
+					v = (ch | ' ') - 'a' + 10
+				}
+				code = 16*code + uint32(v)
+				i++
+			}
+
+			if i == size || (*data)[i] != '}' {
+				return false
+			}
+
+			i++
+
+			utf8 := toUtf8((*data)[write:][:4], code)
+			if utf8 == 0 {
+				return false
+			}
+
+			write += utf8
+
+		default:
+			if isDigit(escape) {
+				code := escape - '0'
+
+				for range 2 {
+					if i == size || !isDigit((*data)[i]) {
+						break
+					}
+
+					code = 10*code + ((*data)[i] - '0')
+					i++
+				}
+
+				if code > 0xFF {
+					return false
+				}
+
+				(*data)[write] = byte(code)
+				write++
+			} else {
+				(*data)[write] = unescape(escape)
+				write++
+			}
+		}
+	}
+
+	LUAU_ASSERT(write <= size)
+	*data = (*data)[:write]
+
+	return true
+}
+
+func (l *Lexer) fixupMultilineString(data *[]byte) {
+	if len(*data) == 0 {
+		return
+	}
+
+	// Lua rules for multiline strings are as follows:
+	// - standalone \r, \r\n, \n\r and \n are all considered newlines
+	// - first newline in the multiline string is skipped
+	// - all other newlines are normalized to \n
+
+	// Since our lexer just treats \n as newlines, we apply a simplified set of rules that is sufficient to get normalized newlines for Windows/Unix:
+	// - \r\n and \n are considered newlines
+	// - first newline is skipped
+	// - newlines are normalized to \n
+
+	// This makes the string parsing behavior consistent with general lexing behavior - a standalone \r isn't considered a new line from the line
+	// tracking perspective
+
+	src := *data
+	dst := 0
+
+	// skip leading newline
+	if src[0] == '\r' && src[1] == '\n' {
+		src = src[2:]
+	} else if src[0] == '\n' {
+		src = src[1:]
+	}
+
+	// parse the rest of the string, converting newlines as we go
+	for len(src) > 0 {
+		if src[0] == '\r' && src[1] == '\n' {
+			(*data)[dst] = '\n'
+			dst++
+			src = src[2:]
+		} else if src[0] == '\n' {
+			(*data)[dst] = src[0]
+			dst++
+			src = src[1:]
+		}
+	}
+
+	*data = (*data)[:dst-int((*data)[0])]
 }
