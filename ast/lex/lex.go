@@ -209,7 +209,7 @@ func (l Lexeme) String() string {
 		if l.codepoint != nil {
 			confusable := findConfusable(*l.codepoint)
 			if confusable != nil {
-				return fmt.Sprintf("Unicode character U+%x (did you mean '%s'?)", *l.codepoint, confusable)
+				return fmt.Sprintf("Unicode character U+%x (did you mean '%s'?)", *l.codepoint, *confusable)
 			}
 			return fmt.Sprintf("Unicode character U+%x", *l.codepoint)
 		} else {

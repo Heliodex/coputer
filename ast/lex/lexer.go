@@ -32,12 +32,36 @@ func LocationLen(start Position, l uint32) Location {
 	}
 }
 
+type AstNameTable struct {
+	data map[string]NameTypePair
+}
+
+func (t *AstNameTable) getOrAddWithType(name []byte) (r NameTypePair) {
+	sn := string(name)
+	r = NameTypePair{
+		Name: AstName(&sn),
+		Type: Name,
+	}
+	t.data[sn] = r
+
+	return
+}
+
+func (t *AstNameTable) getWithType(name []byte) NameTypePair {
+	if entry, ok := t.data[string(name)]; ok {
+		return entry
+	}
+	return NameTypePair{nil, Name}
+}
+
 type Lexer struct {
 	buffer []byte
 
 	offset, line, lineOffset uint32
 	lexeme                   Lexeme
 	prevLocation             Location
+
+	names AstNameTable
 
 	skipComments bool
 	readNames    bool
@@ -725,14 +749,14 @@ func (l *Lexer) fixupQuotedString(data *[]byte) bool {
 
 		default:
 			if isDigit(escape) {
-				code := escape - '0'
+				code := uint32(escape - '0')
 
 				for range 2 {
 					if i == size || !isDigit((*data)[i]) {
 						break
 					}
 
-					code = 10*code + ((*data)[i] - '0')
+					code = 10*code + uint32((*data)[i]-'0')
 					i++
 				}
 
