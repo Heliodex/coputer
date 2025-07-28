@@ -1,6 +1,8 @@
 package main
 
-import "slices"
+import (
+	"slices"
+)
 
 func LUAU_ASSERT(condition bool) {
 	if !condition {
@@ -36,11 +38,45 @@ type AstNameTable struct {
 	data map[string]NameTypePair
 }
 
+func NewAstNameTable() AstNameTable {
+	t := AstNameTable{make(map[string]NameTypePair)}
+
+	for i := Reserved_BEGIN; i < Reserved_END; i++ {
+		t.addStatic(kReserved[i-Reserved_BEGIN], LexemeType(i))
+	}
+
+	return t
+}
+
+func (t *AstNameTable) addStatic(name string, lt LexemeType) AstName {
+	entry := NameTypePair{
+		Name: AstName(&name),
+		Type: lt,
+	}
+
+	_, ok := t.data[name]
+	LUAU_ASSERT(!ok)
+	t.data[name] = entry
+
+	return entry.Name
+}
+
 func (t *AstNameTable) getOrAddWithType(name []byte) (r NameTypePair) {
 	sn := string(name)
+	if entry, ok := t.data[sn]; ok {
+		return entry
+	}
+
+	var lt LexemeType
+	if name[0] == '@' {
+		lt = Attribute
+	} else {
+		lt = Name
+	}
+
 	r = NameTypePair{
 		Name: AstName(&sn),
-		Type: Name,
+		Type: lt,
 	}
 	t.data[sn] = r
 
@@ -67,6 +103,10 @@ type Lexer struct {
 	readNames    bool
 
 	braceStack []BraceType
+}
+
+func (l *Lexer) current() Lexeme {
+	return l.lexeme
 }
 
 func (l *Lexer) next0() Lexeme {
@@ -240,7 +280,7 @@ func (l *Lexer) readLongString(start Position, sep int, ok, broken LexemeType) L
 
 	for l.peekch0() != 0 {
 		if l.peekch0() == ']' {
-			if l.skipLongSeparator() == ']' {
+			if l.skipLongSeparator() == sep {
 				LUAU_ASSERT(l.peekch0() == ']')
 				l.consume() // skip (second) ]
 
@@ -250,7 +290,7 @@ func (l *Lexer) readLongString(start Position, sep int, ok, broken LexemeType) L
 				return Lexeme{
 					Location: Location{start, l.position()},
 					Type:     ok,
-					data:     l.buffer[startOffset:endOffset],
+					data:     l.buffer[startOffset:][:endOffset-startOffset],
 				}
 			}
 		} else {
@@ -432,9 +472,9 @@ func (l *Lexer) readName() NameTypePair {
 	}
 
 	if l.readNames {
-		return l.names.getOrAddWithType((l.buffer[startOffset:][:l.offset-startOffset]))
+		return l.names.getOrAddWithType(l.buffer[startOffset:][:l.offset-startOffset])
 	}
-	return l.names.getWithType((l.buffer[startOffset:][:l.offset-startOffset]))
+	return l.names.getWithType(l.buffer[startOffset:][:l.offset-startOffset])
 }
 
 func (l *Lexer) readNext() Lexeme {
@@ -523,7 +563,241 @@ func (l *Lexer) readNext() Lexeme {
 
 		return l.readInterpolatedStringSection(start, InterpStringMid, InterpStringEnd)
 
-		// TODO
+	case '=':
+		l.consume()
+
+		if l.peekch0() == '=' {
+			l.consume()
+			return Lexeme{
+				Location: LocationLen(start, 2),
+				Type:     Equal,
+			}
+		} else {
+			return Lexeme{
+				Location: LocationLen(start, 1),
+				Type:     '=',
+			}
+		}
+
+	case '<':
+		l.consume()
+
+		if l.peekch0() == '=' {
+			l.consume()
+			return Lexeme{
+				Location: LocationLen(start, 2),
+				Type:     LessEqual,
+			}
+		} else {
+			return Lexeme{
+				Location: LocationLen(start, 1),
+				Type:     '<',
+			}
+		}
+
+	case '>':
+		l.consume()
+
+		if l.peekch0() == '=' {
+			l.consume()
+			return Lexeme{
+				Location: LocationLen(start, 2),
+				Type:     GreaterEqual,
+			}
+		} else {
+			return Lexeme{
+				Location: LocationLen(start, 1),
+				Type:     '>',
+			}
+		}
+
+	case '~':
+		l.consume()
+
+		if l.peekch0() == '=' {
+			l.consume()
+			return Lexeme{
+				Location: LocationLen(start, 2),
+				Type:     NotEqual,
+			}
+		} else {
+			return Lexeme{
+				Location: LocationLen(start, 1),
+				Type:     '~', // is this even a valid luau token
+			}
+		}
+
+	case '"', '\'':
+		return l.readQuotedString()
+
+	case '`':
+		return l.readInterpolatedStringBegin()
+
+	case '.':
+		l.consume()
+
+		if l.peekch0() == '.' {
+			l.consume()
+
+			if l.peekch0() == '.' {
+				l.consume()
+
+				return Lexeme{
+					Location: LocationLen(start, 3),
+					Type:     Dot3,
+				}
+			} else if l.peekch0() == '=' {
+				l.consume()
+
+				return Lexeme{
+					Location: LocationLen(start, 3),
+					Type:     ConcatAssign,
+				}
+			} else {
+				return Lexeme{
+					Location: LocationLen(start, 2),
+					Type:     Dot2,
+				}
+			}
+		} else {
+			if isDigit(l.peekch0()) {
+				return l.readNumber(start, l.offset-1)
+			} else {
+				return Lexeme{
+					Location: LocationLen(start, 1),
+					Type:     '.',
+				}
+			}
+		}
+
+	case '+':
+		l.consume()
+
+		if l.peekch0() == '=' {
+			l.consume()
+			return Lexeme{
+				Location: LocationLen(start, 2),
+				Type:     AddAssign,
+			}
+		} else {
+			return Lexeme{
+				Location: LocationLen(start, 1),
+				Type:     '+',
+			}
+		}
+
+	case '/':
+		l.consume()
+
+		ch := l.peekch0()
+
+		if ch == '=' {
+			l.consume()
+			return Lexeme{
+				Location: LocationLen(start, 2),
+				Type:     DivAssign,
+			}
+		} else if ch == '/' {
+			l.consume()
+
+			if l.peekch0() == '=' {
+				l.consume()
+				return Lexeme{
+					Location: LocationLen(start, 3),
+					Type:     FloorDivAssign,
+				}
+			} else {
+				return Lexeme{
+					Location: LocationLen(start, 2),
+					Type:     FloorDiv,
+				}
+			}
+		} else {
+			return Lexeme{
+				Location: LocationLen(start, 1),
+				Type:     '/',
+			}
+		}
+
+	case '*':
+		l.consume()
+
+		if l.peekch0() == '=' {
+			l.consume()
+			return Lexeme{
+				Location: LocationLen(start, 2),
+				Type:     MulAssign,
+			}
+		} else {
+			return Lexeme{
+				Location: LocationLen(start, 1),
+				Type:     '*',
+			}
+		}
+
+	case '%':
+		l.consume()
+
+		if l.peekch0() == '=' {
+			l.consume()
+			return Lexeme{
+				Location: LocationLen(start, 2),
+				Type:     ModAssign,
+			}
+		} else {
+			return Lexeme{
+				Location: LocationLen(start, 1),
+				Type:     '%',
+			}
+		}
+
+	case '^':
+		l.consume()
+
+		if l.peekch0() == '=' {
+			l.consume()
+			return Lexeme{
+				Location: LocationLen(start, 2),
+				Type:     PowAssign,
+			}
+		} else {
+			return Lexeme{
+				Location: LocationLen(start, 1),
+				Type:     '^',
+			}
+		}
+
+	case ':':
+		l.consume()
+		if l.peekch0() == ':' {
+			l.consume()
+			return Lexeme{
+				Location: LocationLen(start, 2),
+				Type:     DoubleColon,
+			}
+		} else {
+			return Lexeme{
+				Location: LocationLen(start, 1),
+				Type:     ':',
+			}
+		}
+
+	case '(', ')', ']', ';', ',', '#', '?', '&', '|':
+		ch := l.peekch0()
+		l.consume()
+
+		return Lexeme{
+			Location: LocationLen(start, 1),
+			Type:     LexemeType(ch),
+		}
+
+	case '@':
+		attribute := l.readName()
+		return Lexeme{
+			Location: Location{start, l.position()},
+			Type:     Attribute,
+			name:     (*string)(attribute.Name),
+		}
 
 	default:
 		if isDigit(l.peekch0()) {
