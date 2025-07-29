@@ -1,4 +1,4 @@
-package main
+package lex
 
 import (
 	"slices"
@@ -105,7 +105,7 @@ type Lexer struct {
 	braceStack []BraceType
 }
 
-func (l *Lexer) current() Lexeme {
+func (l *Lexer) Current() Lexeme {
 	return l.lexeme
 }
 
@@ -143,7 +143,7 @@ func (l *Lexer) nextline() {
 	l.next0()
 }
 
-func (l *Lexer) lookahead() Lexeme {
+func (l *Lexer) Lookahead() Lexeme {
 	currentOffset := l.offset
 	currentLine := l.line
 	currentLineOffset := l.lineOffset
@@ -414,7 +414,7 @@ func (l *Lexer) readInterpolatedStringSection(start Position, formatType, endTyp
 			return Lexeme{
 				Location: Location{start, l.position()},
 				Type:     formatType,
-				data:     l.buffer[startOffset:l.offset-1],
+				data:     l.buffer[startOffset : l.offset-1],
 				rest:     l.buffer[l.offset-1:],
 			}
 
@@ -428,7 +428,7 @@ func (l *Lexer) readInterpolatedStringSection(start Position, formatType, endTyp
 	return Lexeme{
 		Location: Location{start, l.position()},
 		Type:     endType,
-		data:     l.buffer[startOffset:l.offset-1],
+		data:     l.buffer[startOffset : l.offset-1],
 		rest:     l.buffer[l.offset-1:],
 	}
 }

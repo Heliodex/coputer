@@ -1,4 +1,4 @@
-package main
+package lex
 
 import (
 	"fmt"
@@ -82,36 +82,36 @@ func TestLookahead(t *testing.T) {
 	lexer := Lexer{buffer: []byte(testinput), names: table, skipComments: true, readNames: true}
 	lexer.next0() // must call next() before reading data from lexer at least once
 
-	CHECK_EQ(t, lexer.current().Type, Name)
-	CHECK_EQ(t, *(lexer.current().name), "foo")
-	CHECK_EQ(t, lexer.lookahead().Type, Name)
-	CHECK_EQ(t, *(lexer.lookahead().name), "bar")
+	CHECK_EQ(t, lexer.Current().Type, Name)
+	CHECK_EQ(t, *(lexer.Current().name), "foo")
+	CHECK_EQ(t, lexer.Lookahead().Type, Name)
+	CHECK_EQ(t, *(lexer.Lookahead().name), "bar")
 
 	lexer.next0()
 
-	CHECK_EQ(t, lexer.current().Type, Name)
-	CHECK_EQ(t, *(lexer.current().name), "bar")
-	CHECK_EQ(t, lexer.lookahead().Type, ':')
+	CHECK_EQ(t, lexer.Current().Type, Name)
+	CHECK_EQ(t, *(lexer.Current().name), "bar")
+	CHECK_EQ(t, lexer.Lookahead().Type, ':')
 
 	lexer.next0()
 
-	CHECK_EQ(t, lexer.current().Type, ':')
-	CHECK_EQ(t, lexer.lookahead().Type, ReservedNil)
+	CHECK_EQ(t, lexer.Current().Type, ':')
+	CHECK_EQ(t, lexer.Lookahead().Type, ReservedNil)
 
 	lexer.next0()
 
-	CHECK_EQ(t, lexer.current().Type, ReservedNil)
-	CHECK_EQ(t, lexer.lookahead().Type, ReservedEnd)
+	CHECK_EQ(t, lexer.Current().Type, ReservedNil)
+	CHECK_EQ(t, lexer.Lookahead().Type, ReservedEnd)
 
 	lexer.next0()
 
-	CHECK_EQ(t, lexer.current().Type, ReservedEnd)
-	CHECK_EQ(t, lexer.lookahead().Type, Eof)
+	CHECK_EQ(t, lexer.Current().Type, ReservedEnd)
+	CHECK_EQ(t, lexer.Lookahead().Type, Eof)
 
 	lexer.next0()
 
-	CHECK_EQ(t, lexer.current().Type, Eof)
-	CHECK_EQ(t, lexer.lookahead().Type, Eof)
+	CHECK_EQ(t, lexer.Current().Type, Eof)
+	CHECK_EQ(t, lexer.Lookahead().Type, Eof)
 }
 
 func TestStringInterpolationBasic(t *testing.T) {

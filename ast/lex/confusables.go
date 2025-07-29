@@ -1,4 +1,4 @@
-package main
+package lex
 
 var kConfusables = map[uint32]string{
 	34:     "\"",   // MA#* ( " → '' ) QUOTATION MARK → APOSTROPHE, APOSTROPHE# # Converted to a quote.
