@@ -3,53 +3,20 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
-	"strings"
 	"time"
 
-	"github.com/tailscale/hujson"
+	. "github.com/Heliodex/coputer/ast/ast"
 )
-
-const (
-	Ext            = ".luau"
-	astDir         = "../test/ast"
-	benchmarkDir   = "../test/benchmark"
-	conformanceDir = "../test/conformance"
-)
-
-func luauAst(path string) (output []byte, err error) {
-	cmd := exec.Command("luau-ast", path)
-	return cmd.Output()
-}
-
-func indentStart(s string, n int) string {
-	lines := strings.Split(strings.TrimSpace(s), "\n")
-	for i, line := range lines {
-		lines[i] = strings.Repeat(" ", n) + line
-	}
-	return strings.Join(lines, "\n")
-}
-
-// remember, luau-ast outputs JSONC, not JSON
-func standardise(in []byte) []byte {
-	v, err := hujson.Parse(in)
-	if err != nil {
-		return in
-	}
-	v.Standardize()
-	v.Format()
-	return v.Pack()
-}
 
 func main() {
-	const filepath = astDir + "/typeoptional.luau"
+	const filepath = AstDir + "/typeoptional.luau"
 
-	out, err := luauAst(filepath)
+	out, err := LuauAst(filepath)
 	if err != nil {
 		fmt.Println("Error:", err)
 		return
 	}
-	s := standardise(out)
+	s := Standardise(out)
 
 	// pprof time
 	// f, err := os.Create("cpu.prof")

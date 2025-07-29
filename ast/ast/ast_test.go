@@ -1,4 +1,4 @@
-package main
+package ast
 
 import (
 	"fmt"
@@ -13,7 +13,7 @@ func trimext(s string) string {
 }
 
 func TestAST(t *testing.T) {
-	files, err := os.ReadDir(astDir)
+	files, err := os.ReadDir("../" + AstDir)
 	if err != nil {
 		t.Fatal("error reading AST tests directory:", err)
 	}
@@ -26,15 +26,15 @@ func TestAST(t *testing.T) {
 		name := trimext(fn)
 
 		t.Log(" -- Testing", name, "--")
-		filename := fmt.Sprintf("%s/%s", astDir, name)
+		filename := fmt.Sprintf("../%s/%s", AstDir, name)
 
-		out, err := luauAst(filename + Ext)
+		out, err := LuauAst(filename + Ext)
 		if err != nil {
 			t.Fatal("error running luau-ast:", err)
 		}
 
 		// Decode the AST
-		ast, err := DecodeAST(standardise(out))
+		ast, err := DecodeAST(Standardise(out))
 		if err != nil {
 			t.Fatal("error decoding AST:", err)
 		}
@@ -86,13 +86,13 @@ func parseFile(t *testing.T, f os.DirEntry, dir string) {
 	name := trimext(fn)
 
 	t.Log(" -- Testing", name, "--")
-	filename := fmt.Sprintf("%s/%s", dir, name)
+	filename := fmt.Sprintf("../%s/%s", dir, name)
 
 	if name == "luauception" {
 		fmt.Println("⚠️ WARNING! ⚠️ This test takes about a minute to run. It will also eat all of your RAM.")
 	}
 
-	out, err := luauAst(filename + Ext)
+	out, err := LuauAst(filename + Ext)
 	if err != nil {
 		t.Fatal("error running luau-ast:", err)
 	}
@@ -101,7 +101,7 @@ func parseFile(t *testing.T, f os.DirEntry, dir string) {
 	st := time.Now()
 
 	// Decode the AST
-	if _, err = DecodeAST(standardise(out)); err != nil {
+	if _, err = DecodeAST(Standardise(out)); err != nil {
 		t.Fatal("error decoding AST:", err)
 	}
 
@@ -109,21 +109,21 @@ func parseFile(t *testing.T, f os.DirEntry, dir string) {
 }
 
 func TestParsing(t *testing.T) {
-	files1, err := os.ReadDir(benchmarkDir)
+	files1, err := os.ReadDir("../" + BenchmarkDir)
 	if err != nil {
 		t.Fatal("error reading benchmark tests directory:", err)
 	}
 
-	files2, err := os.ReadDir(conformanceDir)
+	files2, err := os.ReadDir("../" + ConformanceDir)
 	if err != nil {
 		t.Fatal("error reading conformance tests directory:", err)
 	}
 
 	for _, f := range files1 {
-		parseFile(t, f, benchmarkDir)
+		parseFile(t, f, BenchmarkDir)
 	}
 
 	for _, f := range files2 {
-		parseFile(t, f, conformanceDir)
+		parseFile(t, f, ConformanceDir)
 	}
 }
