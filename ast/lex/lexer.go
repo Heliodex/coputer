@@ -243,7 +243,8 @@ func (l *Lexer) readCommentBody() Lexeme {
 	return Lexeme{
 		Location: Location{start, l.position()},
 		Type:     Comment,
-		data:     l.buffer[startOffset:][:l.offset-startOffset],
+		data:     l.buffer[startOffset:l.offset],
+		rest:     l.buffer[l.offset:],
 	}
 }
 
@@ -290,7 +291,8 @@ func (l *Lexer) readLongString(start Position, sep int, ok, broken LexemeType) L
 				return Lexeme{
 					Location: Location{start, l.position()},
 					Type:     ok,
-					data:     l.buffer[startOffset:][:endOffset-startOffset],
+					data:     l.buffer[startOffset:endOffset],
+					rest:     l.buffer[endOffset:],
 				}
 			}
 		} else {
@@ -357,7 +359,8 @@ func (l *Lexer) readQuotedString() Lexeme {
 	return Lexeme{
 		Location: Location{start, l.position()},
 		Type:     QuotedString,
-		data:     l.buffer[startOffset:][:l.offset-startOffset-1],
+		data:     l.buffer[startOffset : l.offset-1],
+		rest:     l.buffer[l.offset-1:],
 	}
 }
 
@@ -399,7 +402,8 @@ func (l *Lexer) readInterpolatedStringSection(start Position, formatType, endTyp
 				brokenDoubleBrace := Lexeme{
 					Location: Location{start, l.position()},
 					Type:     BrokenInterpDoubleBrace,
-					data:     l.buffer[startOffset:][:l.offset-startOffset],
+					data:     l.buffer[startOffset:l.offset],
+					rest:     l.buffer[l.offset:],
 				}
 				l.consume()
 				l.consume()
@@ -410,7 +414,8 @@ func (l *Lexer) readInterpolatedStringSection(start Position, formatType, endTyp
 			return Lexeme{
 				Location: Location{start, l.position()},
 				Type:     formatType,
-				data:     l.buffer[startOffset:][:l.offset-startOffset-1],
+				data:     l.buffer[startOffset:l.offset-1],
+				rest:     l.buffer[l.offset-1:],
 			}
 
 		default:
@@ -423,7 +428,8 @@ func (l *Lexer) readInterpolatedStringSection(start Position, formatType, endTyp
 	return Lexeme{
 		Location: Location{start, l.position()},
 		Type:     endType,
-		data:     l.buffer[startOffset:][:l.offset-startOffset-1],
+		data:     l.buffer[startOffset:l.offset-1],
+		rest:     l.buffer[l.offset-1:],
 	}
 }
 
@@ -455,7 +461,8 @@ func (l *Lexer) readNumber(start Position, startOffset uint32) Lexeme {
 	return Lexeme{
 		Location: Location{start, l.position()},
 		Type:     Number,
-		data:     l.buffer[startOffset:][:l.offset-startOffset],
+		data:     l.buffer[startOffset:l.offset],
+		rest:     l.buffer[l.offset:],
 	}
 }
 

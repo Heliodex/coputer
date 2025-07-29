@@ -83,9 +83,9 @@ type Lexeme struct {
 	Type     LexemeType
 	Location Location
 
-	data      []byte
-	name      *string
-	codepoint *uint32
+	data, rest []byte
+	name       *string
+	codepoint  *uint32
 }
 
 func (l Lexeme) String() string {
@@ -239,6 +239,38 @@ const (
 	InterpolatedString BraceType = iota
 	Normal
 )
+
+func (l Lexeme) getBlockDepth() uint32 {
+	LUAU_ASSERT(l.Type == RawString || l.Type == BlockComment)
+
+	// If we have a well-formed string, we are guaranteed to see 2 `]` characters after the end of the string contents
+	LUAU_ASSERT(l.rest[0] == ']')
+	var depth uint32
+	for {
+		depth++
+		if l.rest[depth] == ']' {
+			break
+		}
+	}
+
+	return depth - 1
+}
+
+func (l Lexeme) getQuoteStyle() QuoteStyle {
+	LUAU_ASSERT(l.Type == QuotedString)
+
+	// If we have a well-formed string, we are guaranteed to see a closing delimiter after the string
+	LUAU_ASSERT(len(l.data) > 0)
+
+	quote := l.rest[0]
+	if quote == '\'' {
+		return Single
+	} else if quote == '"' {
+		return Double
+	}
+
+	panic("unknown quote style")
+}
 
 func isSpace(ch byte) bool {
 	return ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n' || ch == '\v' || ch == '\f'
