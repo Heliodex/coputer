@@ -137,7 +137,7 @@ func fn(name string, co *Coroutine, f func(co *Coroutine, args ...Val) (r []Val,
 func createCoroutine(body Function, currentCo *Coroutine) *Coroutine {
 	// first time i actually ran into the channel axiom issues
 	return &Coroutine{
-		Body:       body,
+		Function:   body,
 		Filepath:   currentCo.Filepath,
 		Dbgpath:    currentCo.Dbgpath,
 		YieldChan:  make(chan internal.Yield, 1),
@@ -1708,7 +1708,7 @@ func loadmodule(m compiled, env Env, requireCache map[string]Val, args ProgramAr
 	}
 
 	return Coroutine{
-		Body:           wrapclosure(towrap, nil),
+		Function:       wrapclosure(towrap, nil),
 		Env:            env,
 		Filepath:       m.Filepath,
 		Dbgpath:        m.Dbgpath,
