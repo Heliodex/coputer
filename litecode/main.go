@@ -135,8 +135,11 @@ func main() {
 			return
 		}
 
-		data := make([]byte, r.ContentLength)
-		r.Body.Read(data)
+		data, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 
 		if err := os.MkdirAll(filepath.Join(NamesDir, pk), 0o755); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)

@@ -15,12 +15,12 @@ func changed(n *net.Node, path, name string) {
 
 	b, err := bundle.Bundle(path)
 	if err != nil {
-		fmt.Println("Failed to bundle program:", err)
+		fmt.Println("Failed to bundle dev program:", err)
 		return
 	}
 
 	if _, err = net.StoreProgram(n.Pk, name, b); err != nil {
-		fmt.Println("Failed to store program:", err)
+		fmt.Println("Failed to store dev program:", err)
 		return
 	}
 }
