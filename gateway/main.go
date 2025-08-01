@@ -51,7 +51,7 @@ func validateSubdomain(hn string) (pk keys.PK, name string, err error) {
 func serveMain(w http.ResponseWriter, _ *http.Request, host string) {
 	fmt.Fprintln(w, "Welcome to the Coputer Gateway!")
 	fmt.Fprintln(w, "This is a placeholder for the main page.")
-	fmt.Fprintf(w, "Profiles are accessible via subdomains like %s-%s\n", egPk, host)
+	fmt.Fprintf(w, "Profiles are accessible via subdomains like %s.%s\n", egPk, host)
 	fmt.Fprintf(w, "Programs are accessible via subdomains like example-%s.%s\n", egPk, host)
 }
 
