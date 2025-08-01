@@ -15,7 +15,6 @@ import (
 func startWeb(v any) (rets WebRets, err error) {
 	t, ok := v.(*Table)
 	if !ok {
-		fmt.Println("no table", v, vm.TypeOf(v))
 		return WebRets{}, errors.New("web program did not return a table")
 	}
 

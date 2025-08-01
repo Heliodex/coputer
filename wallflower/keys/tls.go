@@ -46,7 +46,6 @@ func (sk SK) TLS() (cert tls.Certificate, err error) {
 		IPAddresses: []net.IP{net.IPv6loopback},
 	}
 
-
 	der, err := x509.CreateCertificate(rand.Reader, template, template, &esk.PublicKey, esk)
 	if err != nil {
 		return tls.Certificate{}, fmt.Errorf("failed to create X509 certificate: %v", err)
@@ -60,11 +59,8 @@ func (sk SK) TLS() (cert tls.Certificate, err error) {
 	}
 	keyPem := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: skBytes})
 
-	cert, err = tls.X509KeyPair(certPem, keyPem)
-	if err != nil {
+	if cert, err = tls.X509KeyPair(certPem, keyPem); err != nil {
 		return tls.Certificate{}, fmt.Errorf("failed to create TLS certificate: %v", err)
 	}
-
-
 	return
 }
