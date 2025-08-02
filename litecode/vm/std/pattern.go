@@ -528,11 +528,11 @@ func matchPos(s, p string, si, pi int, caps *captures) (si2 int, err error) {
 				return -1, nil // match failed
 			case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9': // capture results (%0-%9)?
 				if si, err = matchCapture(s, si, int(p[pi+1]), caps); err != nil {
-					return 0, err
+					return
 				}
 				if si != -1 {
 					// dlog("matched catched")
-					pi += 1
+					pi++
 					continue
 				}
 				return si, nil

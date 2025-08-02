@@ -4,7 +4,6 @@ package vm
 import (
 	"errors"
 	"fmt"
-	"math"
 	"strings"
 
 	// unsafe code paths removed... for now
@@ -82,20 +81,8 @@ func falsy(v Val) bool {
 	return v == nil || v == false
 }
 
-func invalidCompare(op, ta, tb string) error {
-	return fmt.Errorf("attempt to compare %s %s %s", ta, op, tb)
-}
-
 func uncallableType(v string) error {
 	return fmt.Errorf("attempt to call a %s value", v)
-}
-
-func invalidArithmetic(op, ta, tb string) error {
-	return fmt.Errorf("attempt to perform arithmetic (%s) on %s and %s", op, ta, tb)
-}
-
-func invalidUnm(t string) error {
-	return fmt.Errorf("attempt to perform arithmetic (unm) on %s", t)
 }
 
 func invalidFor(pos, t string) error {
@@ -130,221 +117,6 @@ func missingMethod(ta string, v Val) error {
 	}
 
 	return fmt.Errorf("attempt to call missing method %v of %v", tb, ta)
-}
-
-func aAdd(a, b Val) (Val, error) {
-	fa, ok1 := a.(float64)
-	fb, ok2 := b.(float64)
-	if ok1 && ok2 {
-		return fa + fb, nil
-	}
-
-	va, ok3 := a.(Vector)
-	vb, ok4 := b.(Vector)
-	if ok3 && ok4 {
-		return Vector{va[0] + vb[0], va[1] + vb[1], va[2] + vb[2], va[3] + vb[3]}, nil
-	}
-
-	return nil, invalidArithmetic("add", std.TypeOf(a), std.TypeOf(b))
-}
-
-func aSub(a, b Val) (Val, error) {
-	fa, ok1 := a.(float64)
-	fb, ok2 := b.(float64)
-	if ok1 && ok2 {
-		return fa - fb, nil
-	}
-
-	va, ok3 := a.(Vector)
-	vb, ok4 := b.(Vector)
-	if ok3 && ok4 {
-		return Vector{va[0] - vb[0], va[1] - vb[1], va[2] - vb[2], va[3] - vb[3]}, nil
-	}
-
-	return nil, invalidArithmetic("sub", std.TypeOf(a), std.TypeOf(b))
-}
-
-func aMul(a, b Val) (Val, error) {
-	fa, ok1 := a.(float64)
-	fb, ok2 := b.(float64)
-	if ok1 && ok2 {
-		return fa * fb, nil
-	}
-
-	va, ok3 := a.(Vector)
-	vb, ok4 := b.(Vector)
-	switch {
-	case ok3 && ok4:
-		return Vector{va[0] * vb[0], va[1] * vb[1], va[2] * vb[2], va[3] * vb[3]}, nil
-	case ok1 && ok4:
-		f := float32(fa)
-		return Vector{f * vb[0], f * vb[1], f * vb[2], f * vb[3]}, nil
-	case ok3 && ok2:
-		f := float32(fb)
-		return Vector{va[0] * f, va[1] * f, va[2] * f, va[3] * f}, nil
-	}
-
-	return nil, invalidArithmetic("mul", std.TypeOf(a), std.TypeOf(b))
-}
-
-func aDiv(a, b Val) (Val, error) {
-	fa, ok1 := a.(float64)
-	fb, ok2 := b.(float64)
-	if ok1 && ok2 {
-		return fa / fb, nil
-	}
-
-	va, ok3 := a.(Vector)
-	vb, ok4 := b.(Vector)
-	switch {
-	case ok3 && ok4:
-		return Vector{va[0] / vb[0], va[1] / vb[1], va[2] / vb[2], va[3] / vb[3]}, nil
-	case ok1 && ok4:
-		f := float32(fa)
-		return Vector{f / vb[0], f / vb[1], f / vb[2], f / vb[3]}, nil
-	case ok3 && ok2:
-		f := float32(fb)
-		return Vector{va[0] / f, va[1] / f, va[2] / f, va[3] / f}, nil
-	}
-
-	return nil, invalidArithmetic("div", std.TypeOf(a), std.TypeOf(b))
-}
-
-func aMod(a, b Val) (Val, error) {
-	fa, ok1 := a.(float64)
-	fb, ok2 := b.(float64)
-	if ok1 && ok2 {
-		return fa - fb*math.Floor(fa/fb), nil
-	}
-
-	return nil, invalidArithmetic("mod", std.TypeOf(a), std.TypeOf(b))
-}
-
-func aPow(a, b Val) (Val, error) {
-	fa, ok1 := a.(float64)
-	fb, ok2 := b.(float64)
-	if ok1 && ok2 {
-		return math.Pow(fa, fb), nil
-	}
-
-	return nil, invalidArithmetic("pow", std.TypeOf(a), std.TypeOf(b))
-}
-
-func aIdiv(a, b Val) (Val, error) {
-	fa, ok1 := a.(float64)
-	fb, ok2 := b.(float64)
-	if ok1 && ok2 {
-		return math.Floor(fa / fb), nil
-	}
-
-	va, ok3 := a.(Vector)
-	vb, ok4 := b.(Vector)
-	switch {
-	case ok3 && ok4:
-		return Vector{
-			std.F32Floor(va[0] / vb[0]),
-			std.F32Floor(va[1] / vb[1]),
-			std.F32Floor(va[2] / vb[2]),
-			std.F32Floor(va[3] / vb[3]),
-		}, nil
-	case ok1 && ok4:
-		f := float32(fa)
-		return Vector{
-			std.F32Floor(f / vb[0]),
-			std.F32Floor(f / vb[1]),
-			std.F32Floor(f / vb[2]),
-			std.F32Floor(f / vb[3]),
-		}, nil
-	case ok3 && ok2:
-		f := float32(fb)
-		return Vector{
-			std.F32Floor(va[0] / f),
-			std.F32Floor(va[1] / f),
-			std.F32Floor(va[2] / f),
-			std.F32Floor(va[3] / f),
-		}, nil
-	}
-
-	return nil, invalidArithmetic("idiv", std.TypeOf(a), std.TypeOf(b))
-}
-
-func aUnm(a Val) (Val, error) {
-	fa, ok1 := a.(float64)
-	if ok1 {
-		return -fa, nil
-	}
-
-	va, ok2 := a.(Vector)
-	if ok2 {
-		return Vector{-va[0], -va[1], -va[2], -va[3]}, nil
-	}
-
-	return nil, invalidUnm(std.TypeOf(a))
-}
-
-// vectors dont have these comparisons
-func jumpLe(a, b Val) (bool, error) {
-	fa, ok1 := a.(float64)
-	fb, ok2 := b.(float64)
-	if ok1 && ok2 {
-		return fa <= fb, nil
-	}
-
-	sa, ok1 := a.(string)
-	sb, ok2 := b.(string)
-	if ok1 && ok2 {
-		return sa <= sb, nil
-	}
-
-	return false, invalidCompare("<=", std.TypeOf(a), std.TypeOf(b))
-}
-
-func jumpLt(a, b Val) (bool, error) {
-	fa, ok1 := a.(float64)
-	fb, ok2 := b.(float64)
-	if ok1 && ok2 {
-		return fa < fb, nil
-	}
-
-	sa, ok1 := a.(string)
-	sb, ok2 := b.(string)
-	if ok1 && ok2 {
-		return sa < sb, nil
-	}
-
-	return false, invalidCompare("<", std.TypeOf(a), std.TypeOf(b))
-}
-
-func jumpGt(a, b Val) (bool, error) {
-	fa, ok1 := a.(float64)
-	fb, ok2 := b.(float64)
-	if ok1 && ok2 {
-		return fa > fb, nil
-	}
-
-	sa, ok1 := a.(string)
-	sb, ok2 := b.(string)
-	if ok1 && ok2 {
-		return sa > sb, nil
-	}
-
-	return false, invalidCompare(">", std.TypeOf(a), std.TypeOf(b))
-}
-
-func jumpGe(a, b Val) (bool, error) {
-	fa, ok1 := a.(float64)
-	fb, ok2 := b.(float64)
-	if ok1 && ok2 {
-		return fa >= fb, nil
-	}
-
-	sa, ok1 := a.(string)
-	sb, ok2 := b.(string)
-	if ok1 && ok2 {
-		return sa >= sb, nil
-	}
-
-	return false, invalidCompare(">=", std.TypeOf(a), std.TypeOf(b))
 }
 
 func gettable(k, v Val) (Val, error) {
@@ -861,7 +633,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 				pc += 2
 			}
 		case 28:
-			if j, err := jumpLe(stack[i.A], stack[i.Aux]); err != nil {
+			if j, err := std.Le(stack[i.A], stack[i.Aux]); err != nil {
 				return nil, err
 			} else if j {
 				pc += i.D + 1
@@ -869,7 +641,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 				pc += 2
 			}
 		case 29:
-			if j, err := jumpLt(stack[i.A], stack[i.Aux]); err != nil {
+			if j, err := std.Lt(stack[i.A], stack[i.Aux]); err != nil {
 				return nil, err
 			} else if j {
 				pc += i.D + 1
@@ -883,7 +655,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 				pc += 2
 			}
 		case 31:
-			if j, err := jumpGt(stack[i.A], stack[i.Aux]); err != nil {
+			if j, err := std.Gt(stack[i.A], stack[i.Aux]); err != nil {
 				return nil, err
 			} else if j {
 				pc += i.D + 1
@@ -891,7 +663,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 				pc += 2
 			}
 		case 32:
-			if j, err := jumpGe(stack[i.A], stack[i.Aux]); err != nil {
+			if j, err := std.Ge(stack[i.A], stack[i.Aux]); err != nil {
 				return nil, err
 			} else if j {
 				pc += i.D + 1
@@ -899,82 +671,82 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 				pc += 2
 			}
 		case 33: // arithmetic
-			if stack[i.A], err = aAdd(stack[i.B], stack[i.C]); err != nil {
+			if stack[i.A], err = std.Add(stack[i.B], stack[i.C]); err != nil {
 				return
 			}
 			pc++
 		case 34:
-			if stack[i.A], err = aSub(stack[i.B], stack[i.C]); err != nil {
+			if stack[i.A], err = std.Sub(stack[i.B], stack[i.C]); err != nil {
 				return
 			}
 			pc++
 		case 35:
-			if stack[i.A], err = aMul(stack[i.B], stack[i.C]); err != nil {
+			if stack[i.A], err = std.Mul(stack[i.B], stack[i.C]); err != nil {
 				return
 			}
 			pc++
 		case 36:
-			if stack[i.A], err = aDiv(stack[i.B], stack[i.C]); err != nil {
+			if stack[i.A], err = std.Div(stack[i.B], stack[i.C]); err != nil {
 				return
 			}
 			pc++
 		case 37:
-			if stack[i.A], err = aMod(stack[i.B], stack[i.C]); err != nil {
+			if stack[i.A], err = std.Mod(stack[i.B], stack[i.C]); err != nil {
 				return
 			}
 			pc++
 		case 38:
-			if stack[i.A], err = aPow(stack[i.B], stack[i.C]); err != nil {
+			if stack[i.A], err = std.Pow(stack[i.B], stack[i.C]); err != nil {
 				return
 			}
 			pc++
 		case 81:
-			if stack[i.A], err = aIdiv(stack[i.B], stack[i.C]); err != nil {
+			if stack[i.A], err = std.Idiv(stack[i.B], stack[i.C]); err != nil {
 				return
 			}
 			pc++
 		case 39: // arithmetik
-			if stack[i.A], err = aAdd(stack[i.B], i.K); err != nil {
+			if stack[i.A], err = std.Add(stack[i.B], i.K); err != nil {
 				return
 			}
 			pc++
 		case 40:
-			if stack[i.A], err = aSub(stack[i.B], i.K); err != nil {
+			if stack[i.A], err = std.Sub(stack[i.B], i.K); err != nil {
 				return
 			}
 			pc++
 		case 41:
-			if stack[i.A], err = aMul(stack[i.B], i.K); err != nil {
+			if stack[i.A], err = std.Mul(stack[i.B], i.K); err != nil {
 				return
 			}
 			pc++
 		case 42:
-			if stack[i.A], err = aDiv(stack[i.B], i.K); err != nil {
+			if stack[i.A], err = std.Div(stack[i.B], i.K); err != nil {
 				return
 			}
 			pc++
 		case 43:
-			if stack[i.A], err = aMod(stack[i.B], i.K); err != nil {
+			if stack[i.A], err = std.Mod(stack[i.B], i.K); err != nil {
 				return
 			}
 			pc++
 		case 44:
-			if stack[i.A], err = aPow(stack[i.B], i.K); err != nil {
+			if stack[i.A], err = std.Pow(stack[i.B], i.K); err != nil {
 				return
 			}
 			pc++
 		case 82:
-			if stack[i.A], err = aIdiv(stack[i.B], i.K); err != nil {
+			if stack[i.A], err = std.Idiv(stack[i.B], i.K); err != nil {
 				return
 			}
 			pc++
 		case 71: // SUBRK
-			if stack[i.A], err = aSub(i.K, stack[i.C]); err != nil {
+			if stack[i.A], err = std.Sub(i.K, stack[i.C]); err != nil {
 				return
 			}
 			pc++
 		case 72: // DIVRK
-			if stack[i.A], err = aDiv(i.K, stack[i.C]); err != nil {
+			if stack[i.A], err = std.Div(i.K, stack[i.C]); err != nil {
 				return
 			}
 			pc++
@@ -1024,7 +796,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			stack[i.A] = falsy(stack[i.B])
 			pc++
 		case 51: // MINUS
-			if stack[i.A], err = aUnm(stack[i.B]); err != nil {
+			if stack[i.A], err = std.Unm(stack[i.B]); err != nil {
 				return
 			}
 			pc++

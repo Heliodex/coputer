@@ -51,7 +51,7 @@ func F32Floor(x float32) float32 {
 	if x < 0 {
 		d, fract := f32Modf(-x)
 		if fract != 0 {
-			d += 1
+			d++
 		}
 		return -d
 	}
