@@ -127,8 +127,8 @@ func NewLib(functions []Function, other ...map[string]Val) *Table {
 }
 
 // MakeFn creates a new function with a given name and body. Functions created by MakeFn can be added to a library using NewLib.
-func MakeFn(name string, f func(args Args) (r []Val, err error)) Function {
-	return fn(name, func(co *Coroutine, vargs ...Val) (r []Val, err error) {
+func MakeFn(name string, f func(Args) ([]Val, error)) Function {
+	return fn(name, func(co *Coroutine, vargs ...Val) ([]Val, error) {
 		return f(Args{
 			Co:   co,
 			List: vargs,

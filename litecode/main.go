@@ -12,7 +12,7 @@ import (
 
 	"github.com/Heliodex/coputer/bundle"
 	. "github.com/Heliodex/coputer/litecode/types"
-	"github.com/Heliodex/coputer/litecode/vm"
+	"github.com/Heliodex/coputer/litecode/vm/compile"
 )
 
 const NamesDir = bundle.DataDir + "/names"
@@ -120,7 +120,7 @@ func runWeb(w http.ResponseWriter, r *http.Request, hexhash string, c Compiler /
 }
 
 func main() {
-	c := vm.NewCompiler(1)
+	c := compile.NewCompiler(1)
 
 	// just 1 error cache, as different inputs may result in errors/not
 	// (we don't want one error to bring down the whole program for every user)
