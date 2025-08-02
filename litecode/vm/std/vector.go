@@ -9,7 +9,7 @@ import (
 const wide4 = false
 
 func mag(v Vector) float32 {
-	return F32Sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2] + v[3]*v[3])
+	return f32Sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2] + v[3]*v[3])
 }
 
 func vector_create(args Args) (r []Val, err error) {
@@ -51,44 +51,59 @@ func vector_cross(args Args) (r []Val, err error) {
 	return []Val{cross(a, b)}, nil
 }
 
+func dot(a, b Vector) float32 {
+	return a[0]*b[0] + a[1]*b[1] + a[2]*b[2] + a[3]*b[3]
+}
+
 func vector_dot(args Args) (r []Val, err error) {
 	a, b := args.GetVector(), args.GetVector()
 
-	return []Val{float64(a[0]*b[0] + a[1]*b[1] + a[2]*b[2] + a[3]*b[3])}, nil
+	return []Val{float64(dot(a, b))}, nil
+}
+
+func angle(a, b, axis Vector) float64 {
+	// cross(a, b)
+	c := Vector{
+		a[1]*b[2] - a[2]*b[1],
+		a[2]*b[0] - a[0]*b[2],
+		a[0]*b[1] - a[1]*b[0],
+	}
+
+	sinA := f32Sqrt(c[0]*c[0] + c[1]*c[1] + c[2]*c[2])
+	// dot(a, b)
+	cosA := a[0]*b[0] + a[1]*b[1] + a[2]*b[2]
+	angle := math.Atan2(float64(sinA), float64(cosA))
+
+	// dot(c, axis)
+	if c[0]*axis[0]+c[1]*axis[1]+c[2]*axis[2] < 0 {
+		return -angle
+	}
+	return angle
 }
 
 func vector_angle(args Args) (r []Val, err error) {
 	a, b := args.GetVector(), args.GetVector()
 	axis := args.GetVector(Vector{})
 
-	c := cross(a, b)
-
-	sinA := F32Sqrt(c[0]*c[0] + c[1]*c[1] + c[2]*c[2])
-	cosA := a[0]*b[0] + a[1]*b[1] + a[2]*b[2]
-	angle := math.Atan2(float64(sinA), float64(cosA))
-
-	if c[0]*axis[0]+c[1]*axis[1]+c[2]*axis[2] < 0 {
-		return []Val{-angle}, nil
-	}
-	return []Val{angle}, nil
+	return []Val{angle(a, b, axis)}, nil
 }
 
 func vector_floor(args Args) (r []Val, err error) {
 	v := args.GetVector()
 
-	return []Val{Vector{F32Floor(v[0]), F32Floor(v[1]), F32Floor(v[2]), F32Floor(v[3])}}, nil
+	return []Val{Vector{f32Floor(v[0]), f32Floor(v[1]), f32Floor(v[2]), f32Floor(v[3])}}, nil
 }
 
 func vector_ceil(args Args) (r []Val, err error) {
 	v := args.GetVector()
 
-	return []Val{Vector{F32Ceil(v[0]), F32Ceil(v[1]), F32Ceil(v[2]), F32Ceil(v[3])}}, nil
+	return []Val{Vector{f32Ceil(v[0]), f32Ceil(v[1]), f32Ceil(v[2]), f32Ceil(v[3])}}, nil
 }
 
 func vector_abs(args Args) (r []Val, err error) {
 	v := args.GetVector()
 
-	return []Val{Vector{F32Abs(v[0]), F32Abs(v[1]), F32Abs(v[2]), F32Abs(v[3])}}, nil
+	return []Val{Vector{f32Abs(v[0]), f32Abs(v[1]), f32Abs(v[2]), f32Abs(v[3])}}, nil
 }
 
 func sign(v float32) float32 {
@@ -107,12 +122,12 @@ func vector_sign(args Args) (r []Val, err error) {
 	return []Val{Vector{sign(v[0]), sign(v[1]), sign(v[2]), sign(v[3])}}, nil
 }
 
-func clamp(v, min, max float32) float32 {
-	if v < min {
-		return min
+func clamp(v, minv, maxv float32) float32 {
+	if v < minv {
+		return minv
 	}
-	if v > max {
-		return max
+	if v > maxv {
+		return maxv
 	}
 	return v
 }

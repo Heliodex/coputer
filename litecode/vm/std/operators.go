@@ -129,26 +129,26 @@ func Idiv(a, b Val) (Val, error) {
 	switch {
 	case ok3 && ok4:
 		return Vector{
-			F32Floor(va[0] / vb[0]),
-			F32Floor(va[1] / vb[1]),
-			F32Floor(va[2] / vb[2]),
-			F32Floor(va[3] / vb[3]),
+			f32Floor(va[0] / vb[0]),
+			f32Floor(va[1] / vb[1]),
+			f32Floor(va[2] / vb[2]),
+			f32Floor(va[3] / vb[3]),
 		}, nil
 	case ok1 && ok4:
 		f := float32(fa)
 		return Vector{
-			F32Floor(f / vb[0]),
-			F32Floor(f / vb[1]),
-			F32Floor(f / vb[2]),
-			F32Floor(f / vb[3]),
+			f32Floor(f / vb[0]),
+			f32Floor(f / vb[1]),
+			f32Floor(f / vb[2]),
+			f32Floor(f / vb[3]),
 		}, nil
 	case ok3 && ok2:
 		f := float32(fb)
 		return Vector{
-			F32Floor(va[0] / f),
-			F32Floor(va[1] / f),
-			F32Floor(va[2] / f),
-			F32Floor(va[3] / f),
+			f32Floor(va[0] / f),
+			f32Floor(va[1] / f),
+			f32Floor(va[2] / f),
+			f32Floor(va[3] / f),
 		}, nil
 	}
 
