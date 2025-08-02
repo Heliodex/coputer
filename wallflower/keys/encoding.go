@@ -45,9 +45,7 @@ const (
 	Secret
 )
 
-func digitEncoding[T interface {
-	[pkStringLength]uint | [skStringLength]uint
-}, K interface{ PK | SK }](k K) (digits T) {
+func digitEncoding[T [pkStringLength]uint | [skStringLength]uint, K PK | SK](k K) (digits T) {
 	var di int
 
 	for i := 0; i < len(k); i++ {
@@ -104,7 +102,7 @@ func (sk SK) Encode() string {
 
 var errInvalidKeyType = errors.New("invalid key type")
 
-func parseKey[T interface{ PK | SK }](bs []byte) (bf T, err error) {
+func parseKey[T PK | SK](bs []byte) (bf T, err error) {
 	var bp int
 
 	for _, v := range bs {

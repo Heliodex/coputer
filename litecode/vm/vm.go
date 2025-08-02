@@ -979,7 +979,6 @@ func wrapclosure(towrap toWrap, existingCo *Coroutine) Function {
 				Sub:     err,
 			}
 		}
-
 		return
 	})
 }

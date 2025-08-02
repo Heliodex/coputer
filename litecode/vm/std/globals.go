@@ -152,11 +152,7 @@ const kPow10TableMin = -292
 
 // const kPow10TableMax = 324
 
-var kPow5Table = [16]uint64{
-	0x8000000000000000, 0xa000000000000000, 0xc800000000000000, 0xfa00000000000000, 0x9c40000000000000, 0xc350000000000000,
-	0xf424000000000000, 0x9896800000000000, 0xbebc200000000000, 0xee6b280000000000, 0x9502f90000000000, 0xba43b74000000000,
-	0xe8d4a51000000000, 0x9184e72a00000000, 0xb5e620f480000000, 0xe35fa931a0000000,
-}
+var kPow5Table = [16]uint64{0x8000000000000000, 0xa000000000000000, 0xc800000000000000, 0xfa00000000000000, 0x9c40000000000000, 0xc350000000000000, 0xf424000000000000, 0x9896800000000000, 0xbebc200000000000, 0xee6b280000000000, 0x9502f90000000000, 0xba43b74000000000, 0xe8d4a51000000000, 0x9184e72a00000000, 0xb5e620f480000000, 0xe35fa931a0000000}
 
 var kPow10Table = [39][3]uint64{
 	{0xff77b1fcbebcdc4f, 0x25e8e89c13bb0f7b, 0x333443443333443b},
@@ -211,6 +207,14 @@ func mul128(x, y uint64) (uint64, uint64) {
 	return p11 + mid>>32 + p01>>32, mid<<32 | uint64(uint32(p00))
 }
 
+func mul128hi(x, y uint64) uint64 {
+	x0, x1 := uint64(uint32(x)), uint64(uint32(x>>32))
+	y0, y1 := uint64(uint32(y)), uint64(uint32(y>>32))
+	p11, p01, p10, p00 := x1*y1, x0*y1, x1*y0, x0*y0
+	mid := p10 + p00>>32 + uint64(uint32(p01))
+	return p11 + mid>>32 + p01>>32
+}
+
 func b2i(b bool) uint64 {
 	if b { // damn integer booleans
 		return 1
@@ -221,26 +225,23 @@ func b2i(b bool) uint64 {
 // (x*y)>>64 => 128-bit product (lo+hi)
 func mul192hi(xhi, xlo, y uint64) (uint64, uint64) {
 	z2, z1 := mul128(xhi, y)
-	z1c, _ := mul128(xlo, y)
+	z1c := mul128hi(xlo, y)
 
 	z1 += z1c
-	z2 += b2i(z1 < z1c)
-
-	return z2, z1
+	return z2 + b2i(z1 < z1c), z1
 }
 
 // 9.3. Rounding to odd (+ figure 8 + result 23)
 func roundodd(ghi, glo, cp uint64) uint64 {
-	xhi, _ := mul128(glo, cp)
 	yhi, ylo := mul128(ghi, cp)
+	xhi := mul128hi(glo, cp)
 
 	z := ylo + xhi
 	return yhi + b2i(z < xhi) | b2i(z > 1)
 }
 
-func schubfach(exponent int, fraction uint64) (uint64, int) {
+func schubfach(exponent int, c uint64) (uint64, int) {
 	// Extract c & q such that c*2^q == |v|
-	c := fraction
 	q := exponent - 1023 - 51
 
 	if exponent != 0 { // normal numbers have implicit leading 1

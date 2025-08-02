@@ -60,7 +60,7 @@ func string_char(args Args) (r []Val, err error) {
 const (
 	cap_unfinished = -1
 	cap_position   = -2
-	l_esc          = byte('%')
+	l_esc          = '%'
 	specials       = "^$*+?.([%-"
 	maxcalls       = 200
 )

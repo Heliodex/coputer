@@ -84,9 +84,7 @@ func utf8_codepoint(args Args) (cps []Val, err error) {
 	// luaL_checkstack(L, n, "string slice too long");
 	// n := 0
 
-	si := posi - 1
-
-	for si < pose {
+	for si := posi - 1; si < pose; {
 		s, size := utf8.DecodeRuneInString(s[si:])
 		if s == utf8.RuneError {
 			return nil, errors.New("invalid UTF-8 code")
@@ -94,7 +92,6 @@ func utf8_codepoint(args Args) (cps []Val, err error) {
 		si += size
 		cps = append(cps, float64(s))
 	}
-
 	return
 }
 
@@ -144,8 +141,8 @@ func utf8_offset(args Args) (r []Val, err error) {
 			n++
 		}
 	} else {
-		n-- // do not move for 1st character
-		for ; n > 0 && posi < len(s); posi++ {
+		// do not move for 1st character
+		for n--; n > 0 && posi < len(s); posi++ {
 			// find beginning of next character
 			for iscont(s[posi]) {
 				posi++

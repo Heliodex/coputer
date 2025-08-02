@@ -119,10 +119,10 @@ func matchbracketclass(c byte, p string, pi, eci int) (sig bool) {
 				return
 			}
 		} else if p[pi+1] == '-' && pi+2 < eci {
-			pi += 2
-			if p[pi-2] <= c && c <= p[pi] {
+			if p[pi] <= c && c <= p[pi+2] {
 				return
 			}
+			pi += 2
 		} else if p[pi] == c {
 			return
 		}
@@ -161,8 +161,7 @@ func matchbalance(s, p string, si, pi int) (int, error) {
 		return -1, nil
 	}
 
-	e := p[pi+1]
-	for cont := 1; ; {
+	for e, cont := p[pi+1], 1; ; {
 		si++
 		if si >= len(s) {
 			break
@@ -170,10 +169,10 @@ func matchbalance(s, p string, si, pi int) (int, error) {
 
 		switch s[si] {
 		case e:
-			cont--
-			if cont == 0 {
+			if cont == 1 {
 				return si + 1, nil
 			}
+			cont--
 		case b:
 			cont++
 		}
@@ -257,12 +256,8 @@ func maxExpand(s, p string, si, pi, epi int, caps *captures) (res int, err error
 	// dlog("xpanding", si, i)
 	for i >= 0 {
 		// dlog("reduced", si, i)
-		if res, err = matchPos(s, p, si+i, epi+1, caps); err != nil {
+		if res, err = matchPos(s, p, si+i, epi+1, caps); err != nil || res != -1 {
 			return
-		}
-		if res != -1 {
-			// dlog("xpandmatched", si, caps.captures)
-			return res, nil
 		}
 		i-- // else didn't match; reduce 1 repetition to try again
 	}
