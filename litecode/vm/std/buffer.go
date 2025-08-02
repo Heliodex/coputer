@@ -1,4 +1,4 @@
-package vm
+package std
 
 import (
 	"encoding/binary"
@@ -307,7 +307,7 @@ func buffer_fill(args Args) (r []Val, err error) {
 	return []Val{nil, true}, nil
 }
 
-var libbuffer = NewLib([]Function{
+var Libbuffer = NewLib([]Function{
 	MakeFn("create", buffer_create),
 	MakeFn("fromstring", buffer_fromstring),
 	MakeFn("tostring", buffer_tostring),

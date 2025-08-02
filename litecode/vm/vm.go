@@ -2,7 +2,6 @@
 package vm
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"math"
@@ -12,117 +11,14 @@ import (
 
 	"github.com/Heliodex/coputer/litecode/internal"
 	. "github.com/Heliodex/coputer/litecode/types"
+	"github.com/Heliodex/coputer/litecode/vm/compile"
+	"github.com/Heliodex/coputer/litecode/vm/std"
 )
 
 var (
 	errReadonly = errors.New("attempt to modify a readonly table")
 	errNilIndex = errors.New("table index is nil")
 )
-
-// opList contains information about the instruction, each instruction is defined in this format:
-// { Name, Mode, KMode, HasAux }
-// Mode specifies what type of registers the instruction uses if any
-//		0 = NONE
-//		1 = A
-//		2 = AB
-//		3 = ABC
-//		4 = AD
-//		5 = AE
-// KMode specifies if the instruction has a register that holds a constant table index, which will be directly converted to the constant in the 2nd pass
-//		0 = NONE
-//		1 = AUX
-//		2 = C
-//		3 = D
-//		4 = AUX import
-//		5 = AUX boolean low 1 bit
-//		6 = AUX number low 24 bits
-// HasAux boolean specifies whether the instruction is followed up with an AUX word, which may be used to execute the instruction.
-
-var opList = [83]internal.OpInfo{
-	{Mode: 0, KMode: 0, HasAux: false}, // NOP
-	{Mode: 0, KMode: 0, HasAux: false}, // BREAK
-	{Mode: 1, KMode: 0, HasAux: false}, // LOADNIL
-	{Mode: 3, KMode: 0, HasAux: false}, // LOADB
-	{Mode: 4, KMode: 0, HasAux: false}, // LOADN
-	{Mode: 4, KMode: 3, HasAux: false}, // LOADK
-	{Mode: 2, KMode: 0, HasAux: false}, // MOVE
-	{Mode: 1, KMode: 1, HasAux: true},  // GETGLOBAL
-	{Mode: 1, KMode: 1, HasAux: true},  // SETGLOBAL
-	{Mode: 2, KMode: 0, HasAux: false}, // GETUPVAL
-	{Mode: 2, KMode: 0, HasAux: false}, // SETUPVAL
-	{Mode: 1, KMode: 0, HasAux: false}, // CLOSEUPVALS
-	{Mode: 4, KMode: 4, HasAux: true},  // GETIMPORT
-	{Mode: 3, KMode: 0, HasAux: false}, // GETTABLE
-	{Mode: 3, KMode: 0, HasAux: false}, // SETTABLE
-	{Mode: 3, KMode: 1, HasAux: true},  // GETTABLEKS
-	{Mode: 3, KMode: 1, HasAux: true},  // SETTABLEKS
-	{Mode: 3, KMode: 0, HasAux: false}, // GETTABLEN
-	{Mode: 3, KMode: 0, HasAux: false}, // SETTABLEN
-	{Mode: 4, KMode: 0, HasAux: false}, // NEWCLOSURE
-	{Mode: 3, KMode: 1, HasAux: true},  // NAMECALL
-	{Mode: 3, KMode: 0, HasAux: false}, // CALL
-	{Mode: 2, KMode: 0, HasAux: false}, // RETURN
-	{Mode: 4, KMode: 0, HasAux: false}, // JUMP
-	{Mode: 4, KMode: 0, HasAux: false}, // JUMPBACK
-	{Mode: 4, KMode: 0, HasAux: false}, // JUMPIF
-	{Mode: 4, KMode: 0, HasAux: false}, // JUMPIFNOT
-	{Mode: 4, KMode: 0, HasAux: true},  // JUMPIFEQ
-	{Mode: 4, KMode: 0, HasAux: true},  // JUMPIFLE
-	{Mode: 4, KMode: 0, HasAux: true},  // JUMPIFLT
-	{Mode: 4, KMode: 0, HasAux: true},  // JUMPIFNOTEQ
-	{Mode: 4, KMode: 0, HasAux: true},  // JUMPIFNOTLE
-	{Mode: 4, KMode: 0, HasAux: true},  // JUMPIFNOTLT
-	{Mode: 3, KMode: 0, HasAux: false}, // ADD
-	{Mode: 3, KMode: 0, HasAux: false}, // SUB
-	{Mode: 3, KMode: 0, HasAux: false}, // MUL
-	{Mode: 3, KMode: 0, HasAux: false}, // DIV
-	{Mode: 3, KMode: 0, HasAux: false}, // MOD
-	{Mode: 3, KMode: 0, HasAux: false}, // POW
-	{Mode: 3, KMode: 2, HasAux: false}, // ADDK
-	{Mode: 3, KMode: 2, HasAux: false}, // SUBK
-	{Mode: 3, KMode: 2, HasAux: false}, // MULK
-	{Mode: 3, KMode: 2, HasAux: false}, // DIVK
-	{Mode: 3, KMode: 2, HasAux: false}, // MODK
-	{Mode: 3, KMode: 2, HasAux: false}, // POWK
-	{Mode: 3, KMode: 0, HasAux: false}, // AND
-	{Mode: 3, KMode: 0, HasAux: false}, // OR
-	{Mode: 3, KMode: 2, HasAux: false}, // ANDK
-	{Mode: 3, KMode: 2, HasAux: false}, // ORK
-	{Mode: 3, KMode: 0, HasAux: false}, // CONCAT
-	{Mode: 2, KMode: 0, HasAux: false}, // NOT
-	{Mode: 2, KMode: 0, HasAux: false}, // MINUS
-	{Mode: 2, KMode: 0, HasAux: false}, // LENGTH
-	{Mode: 2, KMode: 0, HasAux: true},  // NEWTABLE
-	{Mode: 4, KMode: 3, HasAux: false}, // DUPTABLE
-	{Mode: 3, KMode: 0, HasAux: true},  // SETLIST
-	{Mode: 4, KMode: 0, HasAux: false}, // FORNPREP
-	{Mode: 4, KMode: 0, HasAux: false}, // FORNLOOP
-	{Mode: 4, KMode: 8, HasAux: true},  // FORGLOOP
-	{Mode: 4, KMode: 0, HasAux: false}, // FORGPREP_INEXT
-	{Mode: 3, KMode: 1, HasAux: true},  // FASTCALL3
-	{Mode: 4, KMode: 0, HasAux: false}, // FORGPREP_NEXT
-	{Mode: 0, KMode: 0, HasAux: false}, // FORGLOOP_NEXT (deprecated)
-	{Mode: 2, KMode: 0, HasAux: false}, // GETVARARGS
-	{Mode: 4, KMode: 3, HasAux: false}, // DUPCLOSURE
-	{Mode: 1, KMode: 0, HasAux: false}, // PREPVARARGS
-	{Mode: 1, KMode: 1, HasAux: true},  // LOADKX
-	{Mode: 5, KMode: 0, HasAux: false}, // JUMPX
-	{Mode: 3, KMode: 0, HasAux: false}, // FASTCALL
-	{Mode: 5, KMode: 0, HasAux: false}, // COVERAGE
-	{Mode: 2, KMode: 0, HasAux: false}, // CAPTURE
-	{Mode: 3, KMode: 7, HasAux: false}, // SUBRK
-	{Mode: 3, KMode: 7, HasAux: false}, // DIVRK
-	{Mode: 3, KMode: 0, HasAux: false}, // FASTCALL1
-	{Mode: 3, KMode: 0, HasAux: true},  // FASTCALL2
-	{Mode: 3, KMode: 1, HasAux: true},  // FASTCALL2K
-	{Mode: 4, KMode: 0, HasAux: false}, // FORGPREP
-	{Mode: 4, KMode: 5, HasAux: true},  // JUMPXEQKNIL
-	{Mode: 4, KMode: 5, HasAux: true},  // JUMPXEQKB
-	{Mode: 4, KMode: 6, HasAux: true},  // JUMPXEQKN
-	{Mode: 4, KMode: 6, HasAux: true},  // JUMPXEQKS
-	{Mode: 3, KMode: 0, HasAux: false}, // IDIV
-	{Mode: 3, KMode: 2, HasAux: false}, // IDIVK
-}
 
 // Functions and Tables are used as pointers normally, as they need to be hashed
 
@@ -134,17 +30,6 @@ func fn(name string, co *Coroutine, f func(co *Coroutine, args ...Val) (r []Val,
 	}
 }
 
-func createCoroutine(body Function, currentCo *Coroutine) *Coroutine {
-	// first time i actually ran into the channel axiom issues
-	return &Coroutine{
-		Function:   body,
-		Filepath:   currentCo.Filepath,
-		Dbgpath:    currentCo.Dbgpath,
-		YieldChan:  make(chan internal.Yield, 1),
-		ResumeChan: make(chan []Val, 1),
-	}
-}
-
 const luau_multret = -1
 
 func namecallHandler(co *Coroutine, kv string, stack *[]Val, c1, c2 int32) (ok bool, retList []Val, err error) {
@@ -153,7 +38,7 @@ func namecallHandler(co *Coroutine, kv string, stack *[]Val, c1, c2 int32) (ok b
 		str := (*stack)[c1].(string)
 		args := (*stack)[1:][c1:c2]
 
-		f, err := fmtstring(str, Args{Co: co, List: args, name: "format"})
+		f, err := std.Fmtstring(str, std.Args{Co: co, List: args, Name: "format"})
 		if err != nil {
 			return false, nil, err
 		}
@@ -164,369 +49,29 @@ func namecallHandler(co *Coroutine, kv string, stack *[]Val, c1, c2 int32) (ok b
 
 // The only global environment, never mutated (yes, it only stores string keys)
 var exts = map[string]Val{
-	"math":      libmath,
-	"table":     libtable,
-	"string":    libstring,
-	"coroutine": libcoroutine,
-	"bit32":     libbit32,
-	"utf8":      libutf8,
+	"args":      std.Libargs, // custom
+	"bit32":     std.Libbit32,
+	"buffer":    std.Libbuffer,
+	"coroutine": std.Libcoroutine,
+	"math":      std.Libmath,
+	"string":    std.Libstring,
+	"table":     std.Libtable,
+	"utf8":      std.Libutf8,
+	"vector":    std.Libvector,
 	// fuck os
 	// and debug
-	"buffer": libbuffer,
-	"vector": libvector,
 
-	// globals
-	"type": MakeFn("type", global_type),
-	// "typeof":   MakeFn("typeof", global_type), // same because no metatables
-	"ipairs":   MakeFn("ipairs", global_ipairs),
-	"pairs":    MakeFn("pairs", global_pairs),
-	"next":     MakeFn("next", global_next),
-	"tonumber": MakeFn("tonumber", global_tonumber),
-	"tostring": MakeFn("tostring", global_tostring),
 	"_VERSION": "Luau", // todo: custom
+}
 
-	"require": MakeFn("require", global_require),
-	"args":    libargs,
+func init() {
+	for _, g := range std.Globals {
+		exts[g.Name] = g
+	}
 }
 
 // var VectorSize = 4
 // var AllowProxyErrors = false
-
-func checkkmode(i *internal.Inst, k []Val) {
-	switch i.KMode {
-	case 1: // AUX
-		if i.Aux < uint32(len(k)) { // sometimes huge for some reason
-			i.K = k[i.Aux]
-		}
-	case 2: // C
-		i.K = k[i.C]
-		// fmt.Println("SET K TO", i.K, "FROM", i.C)
-	case 3: // D
-		i.K = k[i.D]
-	case 4: // AUX import
-		extend := i.Aux
-		count := uint8(extend >> 30)
-		i.KC = count
-
-		id0 := extend >> 20 & 0x3ff
-		i.K0 = k[id0].(string) // lmk if this panics lol
-		// fmt.Println("AUX", i.K0)
-
-		if count < 2 {
-			break
-		}
-		id1 := extend >> 10 & 0x3ff
-		i.K1 = k[id1].(string)
-
-		if count < 3 { // should never be >3
-			break
-		}
-		id2 := extend & 0x3ff
-		i.K2 = k[id2].(string)
-	case 5: // AUX boolean low 1 bit
-		i.K = i.Aux&1 == 1
-		i.KN = i.Aux>>31 == 1
-	case 6: // AUX number low 24 bits
-		i.K = k[i.Aux&(1<<24-1)]
-		i.KN = i.Aux>>31 == 1
-	case 7: // B
-		i.K = k[i.B]
-	case 8: // AUX number low 16 bits ig
-		i.K = uint8(i.Aux & 0xf) // forgloop
-	}
-}
-
-type stream struct {
-	data []byte
-	pos  uint32
-}
-
-func (s *stream) rByte() (b byte) {
-	b = s.data[s.pos]
-	s.pos++
-	return
-}
-
-func (s *stream) rBool() bool {
-	return s.rByte() != 0
-}
-
-func (s *stream) rUint32() (w uint32) {
-	w = binary.LittleEndian.Uint32(s.data[s.pos:])
-	s.pos += 4
-	return
-}
-
-func (s *stream) skipUint32() {
-	s.pos += 4
-}
-
-// this is the only thing float32s are ever used for anyway
-func (s *stream) rVector() (r Vector) {
-	for i := range 4 {
-		r[i] = math.Float32frombits(s.rUint32())
-	}
-	return
-}
-
-func (s *stream) rFloat64() (r float64) {
-	r = math.Float64frombits(binary.LittleEndian.Uint64(s.data[s.pos:]))
-
-	s.pos += 8
-	return
-}
-
-func (s *stream) rVarInt() (r uint32) {
-	for i := range 4 {
-		v := uint32(s.rByte())
-		r |= v & 0b0111_1111 << (i * 7)
-		if v&0b1000_0000 == 0 {
-			return
-		}
-	}
-	return
-}
-
-func (s *stream) skipVarInt() {
-	for range 4 {
-		if s.rByte()&0b1000_0000 == 0 {
-			return
-		}
-	}
-}
-
-func (s *stream) rString() (str string) {
-	size := s.rVarInt()
-	str = string(s.data[s.pos:][:size])
-
-	s.pos += size
-	return
-}
-
-func (s *stream) checkEnd() error {
-	if s.pos != uint32(len(s.data)) {
-		return errors.New("deserialiser position mismatch")
-	}
-	return nil
-}
-
-// reads either 1 or 2 words
-func (s *stream) readInst(code *[]*internal.Inst) bool {
-	value := s.rUint32()
-
-	opcode := uint8(value)
-	opinfo := opList[opcode]
-
-	i := internal.Inst{
-		Opcode: opcode,
-		KMode:  opinfo.KMode,
-	}
-
-	// value >>= 8 // uint24 I guess
-	switch opinfo.Mode {
-	case 5: // other A lol
-		if i.A = int32(value >> 8); i.A >= 0x800000 { // why no arbitrary width integers, go
-			i.A -= 0x1000000
-		}
-	case 4: // AD
-		i.A = int32(uint8(value >> 8))
-		i.D = int32(int16(value >> 16))
-	case 3: // ABC
-		i.C = uint8(value >> 24)
-		fallthrough
-	case 2: // AB
-		i.B = uint8(value >> 16)
-		fallthrough
-	case 1: // A
-		i.A = int32(uint8(value >> 8)) // 8 bit
-	}
-
-	*code = append(*code, &i)
-	if opinfo.HasAux {
-		i.Aux = s.rUint32()
-
-		*code = append(*code, &internal.Inst{})
-		return true
-	}
-
-	return false
-}
-
-func (s *stream) readLineInfo(sizecode uint32) (instLineInfo []uint32) {
-	linegaplog2 := s.rByte()
-
-	lineinfo := make([]uint8, sizecode)
-	var lastoffset uint8
-	for i := range sizecode {
-		lastoffset += s.rByte() // yeah this is how the reference implementation does it, whatever hpppens happens
-		lineinfo[i] = lastoffset
-	}
-
-	intervals := (sizecode-1)>>linegaplog2 + 1
-	abslineinfo := make([]uint32, intervals)
-	var lastline uint32
-	for i := range intervals {
-		lastline += s.rUint32()
-		// fmt.Println("lastline", lastline)
-		abslineinfo[i] = lastline // overflow babyy (faster than % (1 << 32))
-	}
-
-	instLineInfo = make([]uint32, sizecode)
-	for i, v := range lineinfo {
-		// -- p->abslineinfo[pc >> p->linegaplog2] + p->lineinfo[pc];
-		instLineInfo[i] = abslineinfo[i>>linegaplog2] + uint32(v)
-	}
-	return
-}
-
-func (s *stream) readDebugInfo() {
-	for range s.rVarInt() { // sizel
-		s.skipVarInt()
-		s.skipVarInt()
-		s.skipVarInt()
-		s.pos++
-	}
-	for range s.rVarInt() { // sizeupvalues
-		s.skipVarInt()
-	}
-}
-
-func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
-	p = &internal.Proto{
-		MaxStackSize: s.rByte(),
-		NumParams:    s.rByte(),
-		Nups:         s.rByte(),
-	}
-
-	// s.rBool()            // isvararg
-	// native := s.rByte() // -- flags
-	// if (native&1) != 0 || (native&4) != 0 {
-	// 	return nil, fmt.Errorf("native function not supported")
-	// }
-
-	s.pos += 2
-	s.pos += s.rVarInt() // typesize
-
-	sizecode := s.rVarInt()
-	for i := uint32(0); i < sizecode; i++ {
-		if s.readInst(&p.Code) {
-			i++
-		}
-	}
-
-	sizek := s.rVarInt()
-	K := make([]Val, sizek) // krazy
-
-	for i := range sizek {
-		switch kt := s.rByte(); kt {
-		case 0: // Nil
-			// yeah
-		case 1: // Bool
-			K[i] = s.rBool()
-		case 2: // Number
-			K[i] = s.rFloat64()
-		case 3: // String
-			K[i] = stringList[s.rVarInt()-1]
-		case 4: // Import
-			// only used with useImportConstants
-			s.skipUint32()
-		case 5: // Table
-			// moot, whatever
-			for range s.rVarInt() {
-				s.skipVarInt()
-			}
-		case 6: // Closure
-			// pain in the cranium
-			K[i] = s.rVarInt() // ⚠️ not a val ⚠️
-			// fmt.Println("case 6", p.K[i])
-		case 7: // Vector
-			K[i] = s.rVector()
-		default:
-			return nil, fmt.Errorf("unknown ktype %d", kt)
-		}
-	}
-
-	// -- 2nd pass to replace constant references in the instruction
-	for i := range sizecode {
-		checkkmode(p.Code[i], K)
-	}
-
-	sizep := s.rVarInt()
-	p.Protos = make([]uint32, sizep)
-	for i := range sizep {
-		p.Protos[i] = s.rVarInt()
-	}
-
-	// p.LineDefined = s.rVarInt()
-	s.skipVarInt()
-
-	if dbgnamei := s.rVarInt(); dbgnamei == 0 {
-		p.Dbgname = "(??)"
-	} else {
-		p.Dbgname = stringList[dbgnamei-1]
-	}
-
-	// LineInfoEnabled
-	if s.rBool() {
-		p.InstLineInfo = s.readLineInfo(sizecode)
-	}
-
-	if s.rBool() {
-		s.readDebugInfo()
-	}
-
-	return
-}
-
-func deserialise(b []byte) (d internal.Deserialised, err error) {
-	s := &stream{data: b}
-
-	if luauVersion := s.rByte(); luauVersion == 0 {
-		return internal.Deserialised{}, errors.New("the provided bytecode is an error message")
-	} else if luauVersion != 6 {
-		return internal.Deserialised{}, errors.New("the version of the provided bytecode is unsupported")
-	}
-	if s.rByte() != 3 { // types version
-		return internal.Deserialised{}, errors.New("the types version of the provided bytecode is unsupported")
-	}
-
-	stringCount := s.rVarInt()
-	stringList := make([]string, stringCount)
-	for i := range stringCount {
-		stringList[i] = s.rString()
-	}
-
-	// const userdataTypeLimit = 32
-
-	// userdata type remapping table
-	// for unknown userdata types, the entry will remap to common 'userdata' type
-	// for idx := s.rByte(); idx != 0; idx = s.rByte() {
-	// 	name := stringList[s.rVarInt()]
-
-	// 	if idx-1 < userdataTypeLimit {}
-	// }
-
-	// (not used in VM, left unused)
-	for s.rBool() {
-		s.skipVarInt()
-	}
-
-	protoCount := s.rVarInt()
-	protoList := make([]*internal.Proto, protoCount)
-	for i := range protoCount {
-		if protoList[i], err = s.readProto(stringList); err != nil {
-			return
-		}
-	}
-
-	mainProto := protoList[s.rVarInt()]
-	mainProto.Dbgname = "(main)"
-
-	return internal.Deserialised{
-		MainProto: mainProto,
-		ProtoList: protoList,
-	}, s.checkEnd()
-}
 
 type upval struct {
 	Val
@@ -566,7 +111,7 @@ func invalidConcat(t1, t2 string) error {
 }
 
 func invalidIndex(ta string, v Val) error {
-	tb := TypeOf(v)
+	tb := std.TypeOf(v)
 	if tb == "string" {
 		tb = fmt.Sprintf("'%v'", v)
 	}
@@ -579,41 +124,12 @@ func invalidIter(t string) error {
 }
 
 func missingMethod(ta string, v Val) error {
-	tb := TypeOf(v)
+	tb := std.TypeOf(v)
 	if tb == "string" {
 		tb = fmt.Sprintf("'%v'", v)
 	}
 
 	return fmt.Errorf("attempt to call missing method %v of %v", tb, ta)
-}
-
-// TypeOf returns the underlying VM datatype of a value as a string.
-// This does not return the Luau type, as type() does.
-func TypeOf(v Val) string {
-	if v == nil {
-		return "nil"
-	}
-
-	switch v.(type) {
-	case float64:
-		return "number"
-	case string:
-		return "string"
-	case bool:
-		return "boolean"
-	case *Table:
-		return "table"
-	case Function:
-		return "function"
-	case *Coroutine:
-		return "thread"
-	case *Buffer:
-		return "buffer"
-	case Vector:
-		return "vector"
-	}
-	// panic("typeof bad type")
-	return "userdata"
 }
 
 func aAdd(a, b Val) (Val, error) {
@@ -629,7 +145,7 @@ func aAdd(a, b Val) (Val, error) {
 		return Vector{va[0] + vb[0], va[1] + vb[1], va[2] + vb[2], va[3] + vb[3]}, nil
 	}
 
-	return nil, invalidArithmetic("add", TypeOf(a), TypeOf(b))
+	return nil, invalidArithmetic("add", std.TypeOf(a), std.TypeOf(b))
 }
 
 func aSub(a, b Val) (Val, error) {
@@ -645,7 +161,7 @@ func aSub(a, b Val) (Val, error) {
 		return Vector{va[0] - vb[0], va[1] - vb[1], va[2] - vb[2], va[3] - vb[3]}, nil
 	}
 
-	return nil, invalidArithmetic("sub", TypeOf(a), TypeOf(b))
+	return nil, invalidArithmetic("sub", std.TypeOf(a), std.TypeOf(b))
 }
 
 func aMul(a, b Val) (Val, error) {
@@ -668,7 +184,7 @@ func aMul(a, b Val) (Val, error) {
 		return Vector{va[0] * f, va[1] * f, va[2] * f, va[3] * f}, nil
 	}
 
-	return nil, invalidArithmetic("mul", TypeOf(a), TypeOf(b))
+	return nil, invalidArithmetic("mul", std.TypeOf(a), std.TypeOf(b))
 }
 
 func aDiv(a, b Val) (Val, error) {
@@ -691,7 +207,7 @@ func aDiv(a, b Val) (Val, error) {
 		return Vector{va[0] / f, va[1] / f, va[2] / f, va[3] / f}, nil
 	}
 
-	return nil, invalidArithmetic("div", TypeOf(a), TypeOf(b))
+	return nil, invalidArithmetic("div", std.TypeOf(a), std.TypeOf(b))
 }
 
 func aMod(a, b Val) (Val, error) {
@@ -701,7 +217,7 @@ func aMod(a, b Val) (Val, error) {
 		return fa - fb*math.Floor(fa/fb), nil
 	}
 
-	return nil, invalidArithmetic("mod", TypeOf(a), TypeOf(b))
+	return nil, invalidArithmetic("mod", std.TypeOf(a), std.TypeOf(b))
 }
 
 func aPow(a, b Val) (Val, error) {
@@ -711,7 +227,7 @@ func aPow(a, b Val) (Val, error) {
 		return math.Pow(fa, fb), nil
 	}
 
-	return nil, invalidArithmetic("pow", TypeOf(a), TypeOf(b))
+	return nil, invalidArithmetic("pow", std.TypeOf(a), std.TypeOf(b))
 }
 
 func aIdiv(a, b Val) (Val, error) {
@@ -726,30 +242,30 @@ func aIdiv(a, b Val) (Val, error) {
 	switch {
 	case ok3 && ok4:
 		return Vector{
-			f32Floor(va[0] / vb[0]),
-			f32Floor(va[1] / vb[1]),
-			f32Floor(va[2] / vb[2]),
-			f32Floor(va[3] / vb[3]),
+			std.F32Floor(va[0] / vb[0]),
+			std.F32Floor(va[1] / vb[1]),
+			std.F32Floor(va[2] / vb[2]),
+			std.F32Floor(va[3] / vb[3]),
 		}, nil
 	case ok1 && ok4:
 		f := float32(fa)
 		return Vector{
-			f32Floor(f / vb[0]),
-			f32Floor(f / vb[1]),
-			f32Floor(f / vb[2]),
-			f32Floor(f / vb[3]),
+			std.F32Floor(f / vb[0]),
+			std.F32Floor(f / vb[1]),
+			std.F32Floor(f / vb[2]),
+			std.F32Floor(f / vb[3]),
 		}, nil
 	case ok3 && ok2:
 		f := float32(fb)
 		return Vector{
-			f32Floor(va[0] / f),
-			f32Floor(va[1] / f),
-			f32Floor(va[2] / f),
-			f32Floor(va[3] / f),
+			std.F32Floor(va[0] / f),
+			std.F32Floor(va[1] / f),
+			std.F32Floor(va[2] / f),
+			std.F32Floor(va[3] / f),
 		}, nil
 	}
 
-	return nil, invalidArithmetic("idiv", TypeOf(a), TypeOf(b))
+	return nil, invalidArithmetic("idiv", std.TypeOf(a), std.TypeOf(b))
 }
 
 func aUnm(a Val) (Val, error) {
@@ -763,7 +279,7 @@ func aUnm(a Val) (Val, error) {
 		return Vector{-va[0], -va[1], -va[2], -va[3]}, nil
 	}
 
-	return nil, invalidUnm(TypeOf(a))
+	return nil, invalidUnm(std.TypeOf(a))
 }
 
 // vectors dont have these comparisons
@@ -780,7 +296,7 @@ func jumpLe(a, b Val) (bool, error) {
 		return sa <= sb, nil
 	}
 
-	return false, invalidCompare("<=", TypeOf(a), TypeOf(b))
+	return false, invalidCompare("<=", std.TypeOf(a), std.TypeOf(b))
 }
 
 func jumpLt(a, b Val) (bool, error) {
@@ -796,7 +312,7 @@ func jumpLt(a, b Val) (bool, error) {
 		return sa < sb, nil
 	}
 
-	return false, invalidCompare("<", TypeOf(a), TypeOf(b))
+	return false, invalidCompare("<", std.TypeOf(a), std.TypeOf(b))
 }
 
 func jumpGt(a, b Val) (bool, error) {
@@ -812,7 +328,7 @@ func jumpGt(a, b Val) (bool, error) {
 		return sa > sb, nil
 	}
 
-	return false, invalidCompare(">", TypeOf(a), TypeOf(b))
+	return false, invalidCompare(">", std.TypeOf(a), std.TypeOf(b))
 }
 
 func jumpGe(a, b Val) (bool, error) {
@@ -828,7 +344,7 @@ func jumpGe(a, b Val) (bool, error) {
 		return sa >= sb, nil
 	}
 
-	return false, invalidCompare(">=", TypeOf(a), TypeOf(b))
+	return false, invalidCompare(">=", std.TypeOf(a), std.TypeOf(b))
 }
 
 func gettable(k, v Val) (Val, error) {
@@ -848,7 +364,7 @@ func gettable(k, v Val) (Val, error) {
 		}
 	}
 
-	return nil, invalidIndex(TypeOf(v), k)
+	return nil, invalidIndex(std.TypeOf(v), k)
 }
 
 type toWrap struct {
@@ -900,7 +416,7 @@ func getImport(A, count uint8, K0, K1, K2 string, towrap toWrap, stack *[]Val) (
 
 	t2, ok := imp.(*Table)
 	if !ok {
-		return invalidIndex(TypeOf(imp), K2)
+		return invalidIndex(std.TypeOf(imp), K2)
 	}
 
 	(*stack)[A] = t2.GetHash(K2)
@@ -984,14 +500,14 @@ func namecall(pc, top *int32, i *internal.Inst, code []*internal.Inst, lineInfo 
 		case *Table:
 			call := t.GetHash(kv)
 			if call == nil {
-				return missingMethod(TypeOf(t), kv)
+				return missingMethod(std.TypeOf(t), kv)
 			}
 
 			(*stack)[i.A] = call
 		case string:
-			return missingMethod(TypeOf(t), kv)
+			return missingMethod(std.TypeOf(t), kv)
 		default:
-			return invalidIndex(TypeOf(t), kv)
+			return invalidIndex(std.TypeOf(t), kv)
 		}
 		return
 	}
@@ -1013,13 +529,13 @@ func namecall(pc, top *int32, i *internal.Inst, code []*internal.Inst, lineInfo 
 	return
 }
 
-func handleRequire(towrap toWrap, lc compiled, co *Coroutine) (rets []Val, err error) {
-	if c, ok := towrap.requireCache[lc.Filepath]; ok {
+func handleRequire(towrap toWrap, p compile.Program, co *Coroutine) (rets []Val, err error) {
+	if c, ok := towrap.requireCache[p.Filepath]; ok {
 		return []Val{c}, nil
 	}
 
 	// since environments only store global libraries etc, using the same env here should be fine??
-	c2, _ := loadmodule(lc, co.Env, towrap.requireCache, co.ProgramArgs)
+	c2, _ := loadmodule(p, co.Env, towrap.requireCache, co.ProgramArgs)
 	reqrets, err := c2.Resume()
 	if err != nil {
 		return
@@ -1036,7 +552,7 @@ func handleRequire(towrap toWrap, lc compiled, co *Coroutine) (rets []Val, err e
 		return nil, errors.New("module must return a table or function")
 	}
 
-	towrap.requireCache[lc.Filepath] = ret
+	towrap.requireCache[p.Filepath] = ret
 	return []Val{ret}, nil
 }
 
@@ -1047,7 +563,7 @@ func call(top *int32, A int32, B, C uint8, towrap toWrap, stack *[]Val, co *Coro
 	fn, ok := f.(Function)
 	// fmt.Println("calling with", (*stack)[A+1:][:params])
 	if !ok {
-		return uncallableType(TypeOf(f))
+		return uncallableType(std.TypeOf(f))
 	}
 
 	var params int32
@@ -1072,11 +588,11 @@ func call(top *int32, A int32, B, C uint8, towrap toWrap, stack *[]Val, co *Coro
 
 	// fmt.Println("COUNT", retCount)
 	if retCount == 1 { // requires should return only 1 value anyway
-		if lc, ok := retList[0].(compiled); ok {
+		if p, ok := retList[0].(compile.Program); ok {
 			// it's a require
 			// fmt.Println("REQUIRE", lc.filepath)
 
-			if retList, err = handleRequire(towrap, lc, co); err != nil {
+			if retList, err = handleRequire(towrap, p, co); err != nil {
 				return
 			}
 		}
@@ -1112,7 +628,7 @@ func forgloop(pc, top *int32, i internal.Inst, stack *[]Val, co *Coroutine, genI
 			return nil
 		}
 	case *Table:
-		// fmt.Println("GETTING GENITER", typeOf(it))
+		// fmt.Println("GETTING GENITER", std.TypeOf(it))
 		it := genIters[i]
 
 		if it == nil {
@@ -1132,7 +648,7 @@ func forgloop(pc, top *int32, i internal.Inst, stack *[]Val, co *Coroutine, genI
 		moveStack(stack, it[:2], res, i.A+3)
 		genIters[i] = it[2:] // q
 	default:
-		return invalidIter(TypeOf(s))
+		return invalidIter(std.TypeOf(s))
 	}
 
 	*top = i.A + 7
@@ -1243,7 +759,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			idx := stack[i.C]
 			t, ok := stack[i.B].(*Table) // SETTABLE or SETTABLEKS on a Vector actually does return "attempt to index vector with 'whatever'"
 			if !ok {
-				return nil, invalidIndex(TypeOf(stack[i.B]), idx)
+				return nil, invalidIndex(std.TypeOf(stack[i.B]), idx)
 			}
 			if t.Readonly {
 				return nil, errReadonly
@@ -1264,8 +780,8 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			idx := i.K
 			t, ok := stack[i.B].(*Table)
 			if !ok {
-				// fmt.Println("indexing", typeOf(stack[i.B]), "with", idx)
-				return nil, invalidIndex(TypeOf(stack[i.B]), idx)
+				// fmt.Println("indexing", std.TypeOf(stack[i.B]), "with", idx)
+				return nil, invalidIndex(std.TypeOf(stack[i.B]), idx)
 			}
 			if t.Readonly {
 				return nil, errReadonly
@@ -1281,7 +797,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			t, ok := stack[i.B].(*Table)
 			if !ok {
 				// fmt.Println("gettableninvalidindex")
-				return nil, invalidIndex(TypeOf(stack[i.B]), float64(idx))
+				return nil, invalidIndex(std.TypeOf(stack[i.B]), float64(idx))
 			}
 
 			stack[i.A] = t.GetInt(int(idx))
@@ -1291,7 +807,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			t, ok := stack[i.B].(*Table)
 			if !ok {
 				// fmt.Println("gettableninvalidindex")
-				return nil, invalidIndex(TypeOf(stack[i.B]), float64(idx))
+				return nil, invalidIndex(std.TypeOf(stack[i.B]), float64(idx))
 			}
 			if t.Readonly {
 				return nil, errReadonly
@@ -1498,7 +1014,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 				toWrite, ok := stack[n].(string)
 				if !ok {
 					// ensure correct order of operands in error message
-					return nil, invalidConcat(TypeOf(stack[n-first]), TypeOf(stack[n+1-first]))
+					return nil, invalidConcat(std.TypeOf(stack[n-first]), std.TypeOf(stack[n+1-first]))
 				}
 				b.WriteString(toWrite)
 			}
@@ -1519,7 +1035,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			case string:
 				stack[i.A] = float64(len(t))
 			default:
-				return nil, invalidLength(TypeOf(t))
+				return nil, invalidLength(std.TypeOf(t))
 			}
 			pc++
 		case 53: // NEWTABLE
@@ -1551,17 +1067,17 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 		case 56: // FORNPREP
 			init, ok := stack[i.A+2].(float64)
 			if !ok {
-				return nil, invalidFor("initial value", TypeOf(stack[i.A+2]))
+				return nil, invalidFor("initial value", std.TypeOf(stack[i.A+2]))
 			}
 
 			limit, ok := stack[i.A].(float64)
 			if !ok {
-				return nil, invalidFor("limit", TypeOf(stack[i.A]))
+				return nil, invalidFor("limit", std.TypeOf(stack[i.A]))
 			}
 
 			step, ok := stack[i.A+1].(float64)
 			if !ok {
-				return nil, invalidFor("step", TypeOf(stack[i.A+1]))
+				return nil, invalidFor("step", std.TypeOf(stack[i.A+1]))
 			}
 
 			if s := step > 0; s && init > limit || !s && init < limit {
@@ -1592,7 +1108,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			}
 		case 59, 61: // FORGPREP_INEXT, FORGPREP_NEXT
 			if _, ok := stack[i.A].(Function); !ok {
-				return nil, invalidIter(TypeOf(stack[i.A])) // -- encountered non-function value
+				return nil, invalidIter(std.TypeOf(stack[i.A])) // -- encountered non-function value
 			}
 			pc += i.D + 1
 		case 60: // FASTCALL3
@@ -1696,12 +1212,12 @@ func wrapclosure(towrap toWrap, existingCo *Coroutine) Function {
 	})
 }
 
-func loadmodule(m compiled, env Env, requireCache map[string]Val, args ProgramArgs) (co Coroutine, cancel func()) {
+func loadmodule(p compile.Program, env Env, requireCache map[string]Val, args ProgramArgs) (co Coroutine, cancel func()) {
 	alive := true
 
 	towrap := toWrap{
-		proto:        m.MainProto,
-		protoList:    m.ProtoList,
+		proto:        p.MainProto,
+		protoList:    p.ProtoList,
 		alive:        &alive,
 		env:          env,
 		requireCache: requireCache,
@@ -1710,12 +1226,16 @@ func loadmodule(m compiled, env Env, requireCache map[string]Val, args ProgramAr
 	return Coroutine{
 		Function:       wrapclosure(towrap, nil),
 		Env:            env,
-		Filepath:       m.Filepath,
-		Dbgpath:        m.Dbgpath,
-		RequireHistory: m.RequireHistory,
+		Filepath:       p.Filepath,
+		Dbgpath:        p.Dbgpath,
+		RequireHistory: p.RequireHistory,
 		YieldChan:      make(chan internal.Yield, 1),
 		ResumeChan:     make(chan []Val, 1),
-		Compiler:       m.Compiler,
+		Compiler:       p.Compiler,
 		ProgramArgs:    args,
 	}, func() { alive = false }
+}
+
+func Load(p compile.Program, env Env, args ProgramArgs) (co Coroutine, cancel func()) {
+	return loadmodule(p, env, map[string]Val{}, args)
 }

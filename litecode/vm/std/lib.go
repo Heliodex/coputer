@@ -1,4 +1,4 @@
-package vm
+package std
 
 import (
 	"fmt"
@@ -26,7 +26,7 @@ type Args struct {
 	Co *Coroutine
 	// List is the list of all arguments passed to the function.
 	List []Val
-	name string
+	Name string
 	pos  int
 }
 
@@ -34,7 +34,7 @@ func getArg[T Val](a *Args, optV []T, tx string) (g T) {
 	a.pos++
 	if a.pos > len(a.List) {
 		if len(optV) == 0 {
-			a.Co.Error(invalidNumArgsExpected(a.name, a.pos, tx))
+			a.Co.Error(invalidNumArgsExpected(a.Name, a.pos, tx))
 		}
 		return optV[0]
 	}
@@ -42,7 +42,7 @@ func getArg[T Val](a *Args, optV []T, tx string) (g T) {
 	possibleArg := a.List[a.pos-1]
 	arg, ok := possibleArg.(T)
 	if !ok {
-		a.Co.Error(invalidArgType(a.pos, a.name, TypeOf(arg), TypeOf(possibleArg)))
+		a.Co.Error(invalidArgType(a.pos, a.Name, TypeOf(arg), TypeOf(possibleArg)))
 	}
 	return arg
 }
@@ -50,7 +50,7 @@ func getArg[T Val](a *Args, optV []T, tx string) (g T) {
 // CheckNextArg ensures that there is at least one more argument to be read. If there isn't, the coroutine yields a missing argument error.
 func (a *Args) CheckNextArg() {
 	if a.pos >= len(a.List) {
-		a.Co.Error(invalidNumArgs(a.name, a.pos+1))
+		a.Co.Error(invalidNumArgs(a.Name, a.pos+1))
 	}
 }
 
@@ -99,7 +99,7 @@ func (a *Args) GetAny(optV ...Val) (arg Val) {
 	a.pos++
 	if a.pos > len(a.List) {
 		if len(optV) == 0 {
-			a.Co.Error(invalidNumArgs(a.name, a.pos))
+			a.Co.Error(invalidNumArgs(a.Name, a.pos))
 		}
 		return optV[0]
 	}
@@ -128,11 +128,11 @@ func NewLib(functions []Function, other ...map[string]Val) *Table {
 
 // MakeFn creates a new function with a given name and body. Functions created by MakeFn can be added to a library using NewLib.
 func MakeFn(name string, f func(args Args) (r []Val, err error)) Function {
-	return fn(name, nil, func(co *Coroutine, vargs ...Val) (r []Val, err error) {
+	return fn(name, func(co *Coroutine, vargs ...Val) (r []Val, err error) {
 		return f(Args{
 			Co:   co,
 			List: vargs,
-			name: name,
+			Name: name,
 		})
 	})
 }

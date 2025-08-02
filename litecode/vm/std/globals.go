@@ -1,4 +1,4 @@
-package vm
+package std
 
 import (
 	"errors"
@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	. "github.com/Heliodex/coputer/litecode/types"
+	"github.com/Heliodex/coputer/litecode/vm/compile"
 )
 
 // p sure that 'globals' is a misnomer here but whatever
@@ -521,28 +522,6 @@ func num2str(n float64) string {
 	return "-" + s
 }
 
-// ToString returns a string representation of any value.
-func ToString(a Val) string {
-	switch v := a.(type) {
-	case nil:
-		return "nil"
-	case bool:
-		if v {
-			return "true"
-		}
-		return "false"
-	case float64:
-		return num2str(v)
-	case Vector:
-		// just 3-wide 4-now
-		return fmt.Sprintf("%s, %s, %s", num2str(float64(v[0])), num2str(float64(v[1])), num2str(float64(v[2])))
-	case string:
-		return strings.ReplaceAll(v, "\n", "\r\n") // bruh
-	}
-	// panic("tostring bad type")
-	return "userdata"
-}
-
 func global_tostring(args Args) (r []Val, err error) {
 	value := args.GetAny()
 
@@ -581,7 +560,7 @@ func global_require(args Args) (r []Val, err error) {
 	}
 
 	// compile bytecodeee
-	p, err := Compile(args.Co.Compiler, path)
+	p, err := compile.Compile(args.Co.Compiler, path)
 	if err != nil {
 		return nil, fmt.Errorf("error requiring module: %w", err)
 	}
@@ -594,4 +573,15 @@ func global_require(args Args) (r []Val, err error) {
 
 	// this is where we take it to the top babbyyyyy (with the same as parent global env)
 	return []Val{p}, nil
+}
+
+var Globals = []Function{
+	MakeFn("type", global_type),
+	// MakeFn("typeof", global_type), // same because no metatables
+	MakeFn("ipairs", global_ipairs),
+	MakeFn("pairs", global_pairs),
+	MakeFn("next", global_next),
+	MakeFn("tonumber", global_tonumber),
+	MakeFn("tostring", global_tostring),
+	MakeFn("require", global_require),
 }

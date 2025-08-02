@@ -1,4 +1,4 @@
-package vm
+package std
 
 import (
 	"errors"
@@ -177,7 +177,7 @@ func utf8_nfdnormalize(args Args) (r []Val, err error) {
 	return []Val{norm.NFD.String(s)}, nil
 }
 
-var libutf8 = NewLib([]Function{
+var Libutf8 = NewLib([]Function{
 	MakeFn("char", utf8_char),
 	MakeFn("codes", utf8_codes),
 	MakeFn("codepoint", utf8_codepoint),

@@ -1,4 +1,4 @@
-package vm
+package std
 
 import (
 	"math"
@@ -9,7 +9,7 @@ import (
 const wide4 = false
 
 func mag(v Vector) float32 {
-	return f32Sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2] + v[3]*v[3])
+	return F32Sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2] + v[3]*v[3])
 }
 
 func vector_create(args Args) (r []Val, err error) {
@@ -63,7 +63,7 @@ func vector_angle(args Args) (r []Val, err error) {
 
 	c := cross(a, b)
 
-	sinA := f32Sqrt(c[0]*c[0] + c[1]*c[1] + c[2]*c[2])
+	sinA := F32Sqrt(c[0]*c[0] + c[1]*c[1] + c[2]*c[2])
 	cosA := a[0]*b[0] + a[1]*b[1] + a[2]*b[2]
 	angle := math.Atan2(float64(sinA), float64(cosA))
 
@@ -76,19 +76,19 @@ func vector_angle(args Args) (r []Val, err error) {
 func vector_floor(args Args) (r []Val, err error) {
 	v := args.GetVector()
 
-	return []Val{Vector{f32Floor(v[0]), f32Floor(v[1]), f32Floor(v[2]), f32Floor(v[3])}}, nil
+	return []Val{Vector{F32Floor(v[0]), F32Floor(v[1]), F32Floor(v[2]), F32Floor(v[3])}}, nil
 }
 
 func vector_ceil(args Args) (r []Val, err error) {
 	v := args.GetVector()
 
-	return []Val{Vector{f32Ceil(v[0]), f32Ceil(v[1]), f32Ceil(v[2]), f32Ceil(v[3])}}, nil
+	return []Val{Vector{F32Ceil(v[0]), F32Ceil(v[1]), F32Ceil(v[2]), F32Ceil(v[3])}}, nil
 }
 
 func vector_abs(args Args) (r []Val, err error) {
 	v := args.GetVector()
 
-	return []Val{Vector{f32Abs(v[0]), f32Abs(v[1]), f32Abs(v[2]), f32Abs(v[3])}}, nil
+	return []Val{Vector{F32Abs(v[0]), F32Abs(v[1]), F32Abs(v[2]), F32Abs(v[3])}}, nil
 }
 
 func sign(v float32) float32 {
@@ -172,7 +172,7 @@ func vector_min(args Args) (r []Val, err error) {
 	return []Val{result}, nil
 }
 
-var libvector = NewLib([]Function{
+var Libvector = NewLib([]Function{
 	MakeFn("create", vector_create),
 	MakeFn("magnitude", vector_magnitude),
 	MakeFn("normalize", vector_normalize),

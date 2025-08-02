@@ -1,4 +1,4 @@
-package vm
+package std
 
 import (
 	"math"
@@ -213,7 +213,7 @@ func grad(hash uint8, x, y, z float32) float32 {
 }
 
 func perlin(x, y, z float32) float64 {
-	xflr, yflr, zflr := f32Floor(x), f32Floor(y), f32Floor(z)
+	xflr, yflr, zflr := F32Floor(x), F32Floor(y), F32Floor(z)
 	xi, yi, zi := uint8(xflr), uint8(yflr), uint8(zflr)
 	xf, yf, zf := x-xflr, y-yflr, z-zflr
 	u, v, w := fade(xf), fade(yf), fade(zf)
@@ -298,7 +298,7 @@ func math_tanh(args Args) (r []Val, err error) {
 	return []Val{math.Tanh(x)}, nil
 }
 
-var libmath = NewLib([]Function{
+var Libmath = NewLib([]Function{
 	MakeFn("abs", math_abs),
 	MakeFn("acos", math_acos),
 	MakeFn("asin", math_asin),

@@ -1,4 +1,4 @@
-package vm
+package std
 
 import "math"
 
@@ -44,7 +44,7 @@ func f32Modf(f float32) (i, frac float32) {
 	return
 }
 
-func f32Floor(x float32) float32 {
+func F32Floor(x float32) float32 {
 	if x == 0 || f32IsNaN(x) || f32IsInf(x, 0) {
 		return x
 	}
@@ -60,7 +60,7 @@ func f32Floor(x float32) float32 {
 	return d
 }
 
-func f32Sqrt(x float32) float32 {
+func F32Sqrt(x float32) float32 {
 	// special cases
 	if x == 0 || f32IsNaN(x) || f32IsInf(x, 1) {
 		return x
@@ -109,10 +109,10 @@ func f32Sqrt(x float32) float32 {
 	return math.Float32frombits(ix)
 }
 
-func f32Ceil(v float32) float32 {
+func F32Ceil(v float32) float32 {
 	return float32(math.Ceil(float64(v)))
 }
 
-func f32Abs(v float32) float32 {
+func F32Abs(v float32) float32 {
 	return float32(math.Abs(float64(v)))
 }

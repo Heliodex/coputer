@@ -12,6 +12,8 @@ import (
 	"time"
 
 	. "github.com/Heliodex/coputer/litecode/types"
+	"github.com/Heliodex/coputer/litecode/vm/compile"
+	"github.com/Heliodex/coputer/litecode/vm/std"
 )
 
 const (
@@ -21,20 +23,20 @@ const (
 )
 
 func trimext(s string) string {
-	return strings.TrimSuffix(s, Ext)
+	return strings.TrimSuffix(s, compile.Ext)
 }
 
 func litecode(t *testing.T, f string, c Compiler) (string, time.Duration) {
-	p, err := Compile(c, f)
+	p, err := compile.Compile(c, f)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	var b strings.Builder
-	luau_print := MakeFn("print", func(args Args) (r []Val, err error) {
+	luau_print := std.MakeFn("print", func(args std.Args) (r []Val, err error) {
 		// b.WriteString(fmt.Sprint(args...))
 		for i, arg := range args.List {
-			b.WriteString(ToString(arg))
+			b.WriteString(std.ToString(arg))
 
 			if i < len(args.List)-1 {
 				b.WriteString("\t")
@@ -47,7 +49,7 @@ func litecode(t *testing.T, f string, c Compiler) (string, time.Duration) {
 	var env Env
 	env.AddFn(luau_print)
 
-	co, _ := p.Load(env, TestArgs{})
+	co, _ := Load(p, env, TestArgs{})
 
 	startTime := time.Now()
 	_, err = co.Resume()
@@ -60,16 +62,16 @@ func litecode(t *testing.T, f string, c Compiler) (string, time.Duration) {
 }
 
 func litecodeE(t *testing.T, f string, c Compiler) (string, error) {
-	p, err := Compile(c, f)
+	p, err := compile.Compile(c, f)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	var b strings.Builder
-	luau_print := MakeFn("print", func(args Args) (r []Val, err error) {
+	luau_print := std.MakeFn("print", func(args std.Args) (r []Val, err error) {
 		// b.WriteString(fmt.Sprint(args...))
 		for i, arg := range args.List {
-			b.WriteString(ToString(arg))
+			b.WriteString(std.ToString(arg))
 
 			if i < len(args.List)-1 {
 				b.WriteString("\t")
@@ -82,7 +84,7 @@ func litecodeE(t *testing.T, f string, c Compiler) (string, error) {
 	var env Env
 	env.AddFn(luau_print)
 
-	co, _ := p.Load(env, TestArgs{})
+	co, _ := Load(p, env, TestArgs{})
 
 	_, err = co.Resume()
 
@@ -90,7 +92,7 @@ func litecodeE(t *testing.T, f string, c Compiler) (string, error) {
 }
 
 func luau(f string) (string, error) {
-	cmd := exec.Command("luau", f+Ext)
+	cmd := exec.Command("luau", f+compile.Ext)
 	o, err := cmd.Output()
 	if err != nil {
 		return "", err
@@ -107,7 +109,7 @@ func TestConformance(t *testing.T) {
 
 	// const onlyTest = "logic"
 
-	c0, c1, c2 := NewCompiler(0), NewCompiler(1), NewCompiler(2)
+	c0, c1, c2 := compile.NewCompiler(0), compile.NewCompiler(1), compile.NewCompiler(2)
 
 	for _, f := range files {
 		if f.IsDir() {
@@ -164,13 +166,13 @@ func TestErrors(t *testing.T) {
 		t.Fatal("error reading error tests directory:", err)
 	}
 
-	c1 := NewCompiler(1) // just test O1 for the time being
+	c1 := compile.NewCompiler(1) // just test O1 for the time being
 
 	// const onlyTest = "rfirst"
 
 	for _, f := range files {
 		fn := f.Name()
-		if !strings.HasSuffix(fn, Ext) {
+		if !strings.HasSuffix(fn, compile.Ext) {
 			continue
 		}
 		name := trimext(fn)
@@ -221,7 +223,7 @@ func TestBenchmark(t *testing.T) {
 
 	// const onlyBench = "luauception"
 
-	compilers := []Compiler{NewCompiler(0), NewCompiler(1), NewCompiler(2)}
+	compilers := []Compiler{compile.NewCompiler(0), compile.NewCompiler(1), compile.NewCompiler(2)}
 
 	for _, f := range files {
 		name := trimext(f.Name())

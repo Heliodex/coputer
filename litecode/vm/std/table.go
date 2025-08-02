@@ -1,4 +1,4 @@
-package vm
+package std
 
 import (
 	"errors"
@@ -9,6 +9,8 @@ import (
 
 	. "github.com/Heliodex/coputer/litecode/types"
 )
+
+var errReadonly = errors.New("attempt to modify a readonly table")
 
 func table_clear(args Args) (r []Val, err error) {
 	t := args.GetTable()
@@ -428,6 +430,26 @@ func sort_rec(t *Table, l, u, limit int, c comp) (err error) {
 	return
 }
 
+func invalidCompare(op, ta, tb string) error {
+	return fmt.Errorf("attempt to compare %s %s %s", ta, op, tb)
+}
+
+func jumpLt(a, b Val) (bool, error) {
+	fa, ok1 := a.(float64)
+	fb, ok2 := b.(float64)
+	if ok1 && ok2 {
+		return fa < fb, nil
+	}
+
+	sa, ok1 := a.(string)
+	sb, ok2 := b.(string)
+	if ok1 && ok2 {
+		return sa < sb, nil
+	}
+
+	return false, invalidCompare("<", TypeOf(a), TypeOf(b))
+}
+
 func table_sort(args Args) (r []Val, err error) {
 	t := args.GetTable()
 	if t.Readonly {
@@ -484,7 +506,7 @@ func table_unpack(args Args) (r []Val, err error) {
 	return
 }
 
-var libtable = NewLib([]Function{
+var Libtable = NewLib([]Function{
 	MakeFn("clear", table_clear),
 	MakeFn("clone", table_clone),
 	MakeFn("concat", table_concat),

@@ -1,4 +1,4 @@
-package vm
+package std
 
 import (
 	"errors"
@@ -179,7 +179,7 @@ func bit32_rshift(args Args) (r []Val, err error) {
 	return []Val{float64(b_shift(x, -disp))}, nil
 }
 
-var libbit32 = NewLib([]Function{
+var Libbit32 = NewLib([]Function{
 	MakeFn("arshift", bit32_arshift),
 	MakeFn("band", bit32_band),
 	MakeFn("bnot", bit32_bnot),

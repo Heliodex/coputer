@@ -1,4 +1,4 @@
-package vm
+package std
 
 import (
 	"errors"
@@ -6,6 +6,17 @@ import (
 	"github.com/Heliodex/coputer/litecode/internal"
 	. "github.com/Heliodex/coputer/litecode/types"
 )
+
+func createCoroutine(body Function, currentCo *Coroutine) *Coroutine {
+	// first time i actually ran into the channel axiom issues
+	return &Coroutine{
+		Function:   body,
+		Filepath:   currentCo.Filepath,
+		Dbgpath:    currentCo.Dbgpath,
+		YieldChan:  make(chan internal.Yield, 1),
+		ResumeChan: make(chan []Val, 1),
+	}
+}
 
 // ngl this might be the easiest library yet (or at least because most of its functionality is coroutines in the main file instead of here)
 
@@ -70,7 +81,7 @@ func coroutine_wrap(args Args) (r []Val, err error) {
 
 	co := createCoroutine(f, args.Co)
 
-	return []Val{fn("wrap", nil, func(_ *Coroutine, args ...Val) (r []Val, err error) {
+	return []Val{fn("wrap", func(_ *Coroutine, args ...Val) (r []Val, err error) {
 		if co.Status == internal.CoDead {
 			return nil, errors.New("cannot resume dead coroutine") // ought to be better (return false, error message) if we can figure out how
 		}
@@ -96,7 +107,7 @@ func coroutine_yield(args Args) (r []Val, err error) {
 	// fmt.Println("C.Y resumed")
 }
 
-var libcoroutine = NewLib([]Function{
+var Libcoroutine = NewLib([]Function{
 	MakeFn("close", coroutine_close),
 	MakeFn("create", coroutine_create),
 	MakeFn("isyieldable", coroutine_isyieldable),

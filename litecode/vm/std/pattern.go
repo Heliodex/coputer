@@ -1,7 +1,7 @@
 // Pattern matching seems to be some sort of "great filter" for Lua/Luau VM implementations in other languages.
 // Where I now stand, many have fallen before me.
 
-package vm
+package std
 
 import (
 	"errors"
