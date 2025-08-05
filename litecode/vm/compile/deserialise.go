@@ -115,12 +115,11 @@ var opList = [83]internal.OpInfo{
 	{Mode: 3, KMode: 2, HasAux: false}, // IDIVK
 }
 
-
 func checkkmode(i *internal.Inst, k []Val) {
-	switch i.KMode {
+	switch aux := i.Aux; i.KMode {
 	case 1: // AUX
-		if i.Aux < uint32(len(k)) { // sometimes huge for some reason
-			i.K = k[i.Aux]
+		if aux < uint32(len(k)) { // sometimes huge for some reason
+			i.K = k[aux]
 		}
 	case 2: // C
 		i.K = k[i.C]
@@ -128,35 +127,34 @@ func checkkmode(i *internal.Inst, k []Val) {
 	case 3: // D
 		i.K = k[i.D]
 	case 4: // AUX import
-		extend := i.Aux
-		count := uint8(extend >> 30)
+		count := uint8(aux >> 30)
 		i.KC = count
 
-		id0 := extend >> 20 & 0x3ff
+		id0 := aux >> 20 & 0x3ff
 		i.K0 = k[id0].(string) // lmk if this panics lol
 		// fmt.Println("AUX", i.K0)
 
 		if count < 2 {
 			break
 		}
-		id1 := extend >> 10 & 0x3ff
+		id1 := aux >> 10 & 0x3ff
 		i.K1 = k[id1].(string)
 
 		if count < 3 { // should never be >3
 			break
 		}
-		id2 := extend & 0x3ff
+		id2 := aux & 0x3ff
 		i.K2 = k[id2].(string)
 	case 5: // AUX boolean low 1 bit
-		i.K = i.Aux&1 == 1
-		i.KN = i.Aux>>31 == 1
+		i.K = aux&1 == 1
+		i.KN = aux>>31 == 1
 	case 6: // AUX number low 24 bits
-		i.K = k[i.Aux&(1<<24-1)]
-		i.KN = i.Aux>>31 == 1
+		i.K = k[aux&(1<<24-1)]
+		i.KN = aux>>31 == 1
 	case 7: // B
 		i.K = k[i.B]
 	case 8: // AUX number low 16 bits ig
-		i.K = uint8(i.Aux & 0xf) // forgloop
+		i.K = uint8(aux & 0xf) // forgloop
 	}
 }
 
@@ -221,6 +219,7 @@ func (s *stream) skipVarInt() {
 
 func (s *stream) rString() (str string) {
 	size := s.rVarInt()
+	// fmt.Println("String size:", size)
 	str = string(s.data[s.pos:][:size])
 
 	s.pos += size
@@ -249,8 +248,8 @@ func (s *stream) readInst(code *[]*internal.Inst) bool {
 	// value >>= 8 // uint24 I guess
 	switch opinfo.Mode {
 	case 5: // other A lol
-		if i.A = int32(value >> 8); i.A >= 0x800000 { // why no arbitrary width integers, go
-			i.A -= 0x1000000
+		if i.A = int32(value >> 8); i.A >= 0x800_000 { // why no arbitrary width integers, go
+			i.A -= 0x1000_000
 		}
 	case 4: // AD
 		i.A = int32(uint8(value >> 8))
@@ -264,6 +263,7 @@ func (s *stream) readInst(code *[]*internal.Inst) bool {
 	case 1: // A
 		i.A = int32(uint8(value >> 8)) // 8 bit
 	}
+	// fmt.Println("Opcode:", opcode, "A:", i.A, "B:", i.B, "C:", i.C, "D:", i.D)
 
 	*code = append(*code, &i)
 	if opinfo.HasAux {
@@ -298,12 +298,14 @@ func (s *stream) readLineInfo(sizecode uint32) (instLineInfo []uint32) {
 	instLineInfo = make([]uint32, sizecode)
 	for i, v := range lineinfo {
 		// -- p->abslineinfo[pc >> p->linegaplog2] + p->lineinfo[pc];
+		// fmt.Println("i:", i, "v:", v)
+		// fmt.Println("linegaplog2:", linegaplog2, "abslineinfo:", abslineinfo)
 		instLineInfo[i] = abslineinfo[i>>linegaplog2] + uint32(v)
 	}
 	return
 }
 
-func (s *stream) readDebugInfo() {
+func (s *stream) skipDebugInfo() {
 	for range s.rVarInt() { // sizel
 		s.skipVarInt()
 		s.skipVarInt()
@@ -332,8 +334,10 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 	s.pos += s.rVarInt() // typesize
 
 	sizecode := s.rVarInt()
+	// fmt.Println("Sizecode:", sizecode)
 	for i := uint32(0); i < sizecode; i++ {
 		if s.readInst(&p.Code) {
+			// fmt.Println("Insts (aux)  ", *p.Code[i-1], *p.Code[i])
 			i++
 		}
 	}
@@ -372,6 +376,7 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 
 	// -- 2nd pass to replace constant references in the instruction
 	for i := range sizecode {
+		// fmt.Println("Checking inst - aux:", p.Code[i].Aux, "kmode:", p.Code[i].KMode)
 		checkkmode(p.Code[i], K)
 	}
 
@@ -396,9 +401,8 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 	}
 
 	if s.rBool() {
-		s.readDebugInfo()
+		s.skipDebugInfo()
 	}
-
 	return
 }
 
@@ -415,9 +419,11 @@ func Deserialise(b []byte) (d internal.Deserialised, err error) {
 	}
 
 	stringCount := s.rVarInt()
+	// fmt.Println("String count:", stringCount)
 	stringList := make([]string, stringCount)
 	for i := range stringCount {
 		stringList[i] = s.rString()
+		// fmt.Println("String:", stringList[i])
 	}
 
 	// const userdataTypeLimit = 32
@@ -441,7 +447,10 @@ func Deserialise(b []byte) (d internal.Deserialised, err error) {
 		if protoList[i], err = s.readProto(stringList); err != nil {
 			return
 		}
+		// fmt.Println("Proto:", protoList[i])
 	}
+
+	// fmt.Println("Rest:", s.data[s.pos:])
 
 	mainProto := protoList[s.rVarInt()]
 	mainProto.Dbgname = "(main)"
