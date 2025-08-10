@@ -12,14 +12,9 @@ const (
 	allones = ^uint32(0)
 )
 
-// trim extra bits
-func trim(x uint32) uint32 {
-	return x & allones
-}
-
 // builds a number with 'n' ones (1 <= n <= nbits)
 func bitmask(n int) uint32 {
-	return ^((allones - 1) << (n - 1))
+	return 1<<n - 1
 }
 
 func andaux(args Args) uint32 {
@@ -27,23 +22,23 @@ func andaux(args Args) uint32 {
 	for range args.List {
 		x &= uint32(args.GetNumber())
 	}
-	return trim(x)
+	return x
 }
 
 func b_shift(r uint32, i int) uint32 {
 	if i < 0 { // shift right?
-		i = -i
+		// i = -i
 		// if i >= nbits {
 		// 	return 0
 		// }
-		return trim(r) >> i
+		return r >> -i
 	}
 
 	// shift left
 	// if i >= nbits {
 	// 	return 0
 	// }
-	return trim(r << i)
+	return r << i
 }
 
 func bit32_arshift(args Args) (r []Val, err error) {
@@ -57,7 +52,7 @@ func bit32_arshift(args Args) (r []Val, err error) {
 		// arithmetic shift for 'negative' number
 		return []Val{float64(allones)}, nil
 	}
-	return []Val{float64(trim(x>>i | ^(allones >> i)))}, nil
+	return []Val{float64(x>>i | ^(allones >> i))}, nil
 }
 
 func bit32_band(args Args) (r []Val, err error) {
@@ -67,7 +62,7 @@ func bit32_band(args Args) (r []Val, err error) {
 func bit32_bnot(args Args) (r []Val, err error) {
 	x := ^uint32(args.GetNumber())
 
-	return []Val{float64(trim(x))}, nil
+	return []Val{float64(x)}, nil
 }
 
 func bit32_bor(args Args) (r []Val, err error) {
@@ -75,7 +70,7 @@ func bit32_bor(args Args) (r []Val, err error) {
 	for range args.List {
 		x |= uint32(args.GetNumber())
 	}
-	return []Val{float64(trim(x))}, nil
+	return []Val{float64(x)}, nil
 }
 
 func bit32_btest(args Args) (r []Val, err error) {
@@ -87,7 +82,7 @@ func bit32_bxor(args Args) (r []Val, err error) {
 	for range args.List {
 		x ^= uint32(args.GetNumber())
 	}
-	return []Val{float64(trim(x))}, nil
+	return []Val{float64(x)}, nil
 }
 
 func bit32_byteswap(args Args) (r []Val, err error) {
@@ -108,10 +103,7 @@ func bit32_countrz(args Args) (r []Val, err error) {
 	return []Val{float64(bits.TrailingZeros32(v))}, nil
 }
 
-/*
-** get field and width arguments for field-manipulation functions,
-** checking whether they are valid.
- */
+// get field and width arguments for field-manipulation functions, checking whether they are valid.
 func fieldargs(args Args) (f, w int, err error) {
 	f = int(args.GetNumber())
 	w = int(args.GetNumber(1))
