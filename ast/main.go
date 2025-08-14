@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	const filepath = AstDir + "/typeoptional.luau"
+	const filepath = AstDir + "/typeoptionals.luau"
 
 	out, err := LuauAst(filepath)
 	if err != nil {

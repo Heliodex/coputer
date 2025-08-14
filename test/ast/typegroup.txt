@@ -10,12 +10,14 @@ Root:
         GenericPacks:
         Value:
             Type: AstTypeUnion
-            Location: 0,9 - 0,27Types:
+            Location: 0,9 - 0,27
+            Types:
                 Type: AstTypeGroup
                 Location: 0,9 - 0,26
                 Inner:
                     Type: AstTypeUnion
-                    Location: 0,10 - 0,25Types:
+                    Location: 0,10 - 0,25
+                    Types:
                         Type: AstTypeReference
                         Location: 0,10 - 0,16
                         Name: number
@@ -26,6 +28,8 @@ Root:
                         Name: string
                         NameLocation: 0,19 - 0,25
                         Parameters:
+                Type: AstTypeOptional
+                Location: 0,26 - 0,27
         Exported: false
 
 Comment Locations:

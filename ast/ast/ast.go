@@ -2380,6 +2380,36 @@ func DecodeTypeList(data json.RawMessage) (INode, error) {
 	}, nil
 }
 
+type TypeOptional struct {
+	Node
+	Location Location `json:"location"`
+}
+
+func (TypeOptional) Type() string {
+	return "AstTypeOptional"
+}
+
+func (n TypeOptional) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+
+	return b.String()
+}
+
+func DecodeTypeOptional(data json.RawMessage) (INode, error) {
+	var raw TypeOptional
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	return TypeOptional{
+		Node:    raw.Node,
+		Location: raw.Location,
+	}, nil
+}
+
 type TypePackExplicit[T any] struct {
 	Node
 	Location Location `json:"location"`
@@ -2683,7 +2713,7 @@ func (n TypeUnion[T]) String() string {
 
 	b.WriteString(n.Node.String())
 	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("Types:")
+	b.WriteString("\nTypes:")
 
 	for _, typ := range n.Types {
 		b.WriteByte('\n')
@@ -2824,6 +2854,8 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeTypeGroup(data))
 	case "AstTypeList":
 		return ret(DecodeTypeList(data))
+	case "AstTypeOptional":
+		return ret(DecodeTypeOptional(data))
 	case "AstTypePackExplicit":
 		return ret(DecodeTypePackExplicit(data))
 	case "AstTypeReference":

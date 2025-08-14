@@ -7,6 +7,25 @@ import (
 	"github.com/Heliodex/coputer/ast/lex"
 )
 
+type Mode uint8
+
+const (
+	NoCheck    Mode = iota // Do not perform any inference
+	Nonstrict              // Unannotated symbols are any
+	Strict                 // Unannotated symbols are inferred
+	Definition             // Type definition module, has special parsing rules
+)
+
+type FragmentParseResumeSettings struct{}
+
+type ParseOptions struct {
+	allowDeclarationSyntax bool
+	captureComments        bool
+	parseFragment          *FragmentParseResumeSettings
+	storeCstData           bool
+	noErrorLimit           bool
+}
+
 type ParseError struct {
 	Location lex.Location
 	Message  string
@@ -25,6 +44,15 @@ type Comment struct {
 
 type ParseResult struct {
 	root  ast.StatBlock[ast.Node]
+	lines uint
+
+	hotcomments []HotComment
+	errors      []ParseError
+
+	commentLocations []Comment
+}
+type ParseExprResult struct {
+	root  AstExpr
 	lines uint
 
 	hotcomments []HotComment
