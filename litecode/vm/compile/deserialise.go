@@ -116,6 +116,7 @@ var opList = [83]internal.OpInfo{
 }
 
 func checkkmode(i *internal.Inst, k []Val) {
+	// fmt.Println("AUX:", i.Aux, "KMODE:", i.KMode)
 	switch aux := i.Aux; i.KMode {
 	case 1: // AUX
 		if aux < uint32(len(k)) { // sometimes huge for some reason
@@ -156,6 +157,8 @@ func checkkmode(i *internal.Inst, k []Val) {
 	case 8: // AUX number low 16 bits ig
 		i.K = uint8(aux & 0xf) // forgloop
 	}
+
+	// fmt.Println("K:", i.K)
 }
 
 type stream struct {
@@ -318,6 +321,7 @@ func (s *stream) skipDebugInfo() {
 }
 
 func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
+	// fmt.Println("Reading proto...", s.data[s.pos:])
 	p = &internal.Proto{
 		MaxStackSize: s.rByte(),
 		NumParams:    s.rByte(),
@@ -346,6 +350,7 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 	K := make([]Val, sizek) // krazy
 
 	for i := range sizek {
+		// fmt.Println("Ktype:", kt)
 		switch kt := s.rByte(); kt {
 		case 0: // Nil
 			// yeah
@@ -373,6 +378,8 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 			return nil, fmt.Errorf("unknown ktype %d", kt)
 		}
 	}
+
+	// fmt.Println("K:", K)
 
 	// -- 2nd pass to replace constant references in the instruction
 	for i := range sizecode {
@@ -418,6 +425,8 @@ func Deserialise(b []byte) (d internal.Deserialised, err error) {
 		return internal.Deserialised{}, errors.New("the types version of the provided bytecode is unsupported")
 	}
 
+	// fmt.Println("Rest:", s.data[s.pos:])
+
 	stringCount := s.rVarInt()
 	// fmt.Println("String count:", stringCount)
 	stringList := make([]string, stringCount)
@@ -441,7 +450,11 @@ func Deserialise(b []byte) (d internal.Deserialised, err error) {
 		s.skipVarInt()
 	}
 
+	// fmt.Println("Rest:", s.data[s.pos:])
+
 	protoCount := s.rVarInt()
+	// fmt.Println("Rest:", s.data[s.pos:])
+
 	protoList := make([]*internal.Proto, protoCount)
 	for i := range protoCount {
 		if protoList[i], err = s.readProto(stringList); err != nil {

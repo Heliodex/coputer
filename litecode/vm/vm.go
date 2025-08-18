@@ -21,7 +21,7 @@ var (
 
 // Functions and Tables are used as pointers normally, as they need to be hashed
 
-func fn(name string, co *Coroutine, f func(co *Coroutine, args ...Val) (r []Val, err error)) Function {
+func fn(name string, co *Coroutine, f func(*Coroutine, ...Val) (r []Val, err error)) Function {
 	return Function{
 		Run:  &f,
 		Name: name,
@@ -450,6 +450,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 		// }
 
 		i := *code[pc]
+		// fmt.Println("Executing opcode", i.Opcode, "at pc", pc, "with stack", len(stack), stack)
 		switch op := i.Opcode; op {
 		case 0: // NOP
 			// -- Do nothing
@@ -473,6 +474,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			pc++
 		case 7: // GETGLOBAL
 			kv := i.K.(string)
+			// fmt.Println("GETTING GLOBAL", kv, "from", towrap.env)
 
 			if e, ok := exts[kv]; ok {
 				stack[i.A] = e
