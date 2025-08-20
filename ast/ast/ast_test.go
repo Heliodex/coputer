@@ -34,7 +34,7 @@ func TestAST(t *testing.T) {
 		}
 
 		// Decode the AST
-		ast, err := DecodeAST(Standardise(out))
+		ast, err := DecodeAST(out)
 		if err != nil {
 			t.Fatal("error decoding AST:", err)
 		}
@@ -101,7 +101,7 @@ func parseFile(t *testing.T, f os.DirEntry, dir string) {
 	st := time.Now()
 
 	// Decode the AST
-	if _, err = DecodeAST(Standardise(out)); err != nil {
+	if _, err = DecodeAST(out); err != nil {
 		t.Fatal("error decoding AST:", err)
 	}
 

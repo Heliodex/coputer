@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
-
-	"github.com/tailscale/hujson"
 )
 
 const (
@@ -28,17 +26,6 @@ func indentStart(s string, n int) string {
 		lines[i] = strings.Repeat(" ", n) + line
 	}
 	return strings.Join(lines, "\n")
-}
-
-// we'll get this fixed on Friday
-func Standardise(in []byte) []byte {
-	v, err := hujson.Parse(in)
-	if err != nil {
-		return in
-	}
-	v.Standardize()
-	v.Format()
-	return v.Pack()
 }
 
 // dot net vibez
@@ -2405,7 +2392,7 @@ func DecodeTypeOptional(data json.RawMessage) (INode, error) {
 	}
 
 	return TypeOptional{
-		Node:    raw.Node,
+		Node:     raw.Node,
 		Location: raw.Location,
 	}, nil
 }
