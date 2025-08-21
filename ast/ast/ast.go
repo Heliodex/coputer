@@ -28,6 +28,14 @@ func indentStart(s string, n int) string {
 	return strings.Join(lines, "\n")
 }
 
+func indentStartTab(s string, n int) string {
+	lines := strings.Split(strings.TrimSpace(s), "\n")
+	for i, line := range lines {
+		lines[i] = strings.Repeat("\t", n) + line
+	}
+	return strings.Join(lines, "\n")
+}
+
 // dot net vibez
 type INode interface {
 	GetLocation() Location
@@ -68,10 +76,11 @@ func (l Location) GetFromSource(source string) (string, error) {
 	var b strings.Builder
 	for i := l.Start.Line; i <= l.End.Line; i++ {
 		line := lines[i]
-		if i == l.Start.Line {
+		if i == l.Start.Line && i == l.End.Line {
+			line = line[l.Start.Column:l.End.Column]
+		} else if i == l.Start.Line {
 			line = line[l.Start.Column:]
-		}
-		if i == l.End.Line {
+		} else if i == l.End.Line {
 			line = line[:min(l.End.Column, len(line))]
 		}
 		b.WriteString(line)
@@ -345,7 +354,25 @@ func (n ExprBinary[T]) String() string {
 }
 
 func (n ExprBinary[T]) Source(og string, comments []Comment) (string, error) {
-	return n.Location.GetFromSource(og)
+	// return n.Location.GetFromSource(og)
+	in, ok := any(n).(ExprBinary[INode])
+	if !ok {
+		return "", fmt.Errorf("expected ExprBinary[INode], got %T", n)
+	}
+
+	l, err := in.Left.Source(og, comments)
+	if err != nil {
+		return "", fmt.Errorf("error getting left source: %w", err)
+	}
+
+	r, err := in.Right.Source(og, comments)
+	if err != nil {
+		return "", fmt.Errorf("error getting right source: %w", err)
+	}
+
+	op := BinopToSource(in.Op)
+
+	return fmt.Sprintf("%s %s %s", l, op, r), nil
 }
 
 func DecodeExprBinary(data json.RawMessage) (INode, error) {
@@ -724,7 +751,8 @@ func (n ExprGlobal) String() string {
 }
 
 func (n ExprGlobal) Source(og string, comments []Comment) (string, error) {
-	return n.Location.GetFromSource(og)
+	// return n.Location.GetFromSource(og)
+	return n.Global, nil
 }
 
 func DecodeExprGlobal(data json.RawMessage) (INode, error) {
@@ -932,7 +960,18 @@ func (n ExprIndexName[T]) String() string {
 }
 
 func (n ExprIndexName[T]) Source(og string, comments []Comment) (string, error) {
-	return n.Location.GetFromSource(og)
+	// return n.Location.GetFromSource(og)
+	in, ok := any(n).(ExprIndexName[INode])
+	if !ok {
+		return "", fmt.Errorf("expected ExprIndexName[INode], got %T", n)
+	}
+
+	es, err := in.Expr.Source(og, comments)
+	if err != nil {
+		return "", fmt.Errorf("error getting expr source: %w", err)
+	}
+
+	return fmt.Sprintf("%s.%s", es, in.Index), nil
 }
 
 func DecodeExprIndexName(data json.RawMessage) (INode, error) {
@@ -1040,6 +1079,11 @@ func (n ExprLocal[T]) String() string {
 
 func (n ExprLocal[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
+	// ilocal, ok := any(n.Local).(Local[INode])
+	// if !ok {
+	// 	return "", fmt.Errorf("expected Local to be Local[INode], got %T", n.Local)
+	// }
+	// return ilocal.Source(og, comments)
 }
 
 func DecodeExprLocal(data json.RawMessage) (INode, error) {
@@ -1411,7 +1455,22 @@ func (n Local[T]) String() string {
 }
 
 func (n Local[T]) Source(og string, comments []Comment) (string, error) {
-	return n.Location.GetFromSource(og)
+	// return n.Location.GetFromSource(og)
+	in, ok := any(n).(Local[INode])
+	if !ok {
+		return "", fmt.Errorf("expected Local[INode], got %T", n)
+	}
+
+	if in.LuauType == nil {
+		return in.Name, nil
+	}
+
+	lts, err := (*in.LuauType).Source(og, comments)
+	if err != nil {
+		return "", fmt.Errorf("error getting luau type source: %w", err)
+	}
+
+	return fmt.Sprintf("%s: %s", in.Name, lts), nil
 }
 
 func DecodeLocal(data json.RawMessage) (INode, error) {
@@ -1470,7 +1529,33 @@ func (n StatAssign[T]) String() string {
 }
 
 func (n StatAssign[T]) Source(og string, comments []Comment) (string, error) {
-	return n.Location.GetFromSource(og)
+	// return n.Location.GetFromSource(og)
+	in, ok := any(n).(StatAssign[INode])
+	if !ok {
+		return "", fmt.Errorf("expected StatAssign[INode], got %T", n)
+	}
+
+	VarStrings := make([]string, len(in.Vars))
+	for i, node := range in.Vars {
+		ns, err := node.Source(og, comments)
+		if err != nil {
+			return "", fmt.Errorf("error getting var source: %w", err)
+		}
+		VarStrings[i] = ns
+	}
+
+	ValueStrings := make([]string, len(in.Values))
+	for i, node := range in.Values {
+		ns, err := node.Source(og, comments)
+		if err != nil {
+			return "", fmt.Errorf("error getting value source: %w", err)
+		}
+		ValueStrings[i] = ns
+	}
+
+	return fmt.Sprintf("%s = %s",
+		strings.Join(VarStrings, ", "),
+		strings.Join(ValueStrings, ", ")), nil
 }
 
 func DecodeStatAssign(data json.RawMessage) (INode, error) {
@@ -1670,7 +1755,25 @@ func (n StatCompoundAssign[T]) String() string {
 }
 
 func (n StatCompoundAssign[T]) Source(og string, comments []Comment) (string, error) {
-	return n.Location.GetFromSource(og)
+	// return n.Location.GetFromSource(og)
+	in, ok := any(n).(StatCompoundAssign[INode])
+	if !ok {
+		return "", fmt.Errorf("expected StatCompoundAssign[INode], got %T", n)
+	}
+
+	svar, err := in.Var.Source(og, comments)
+	if err != nil {
+		return "", fmt.Errorf("error getting var source: %w", err)
+	}
+
+	svalue, err := in.Value.Source(og, comments)
+	if err != nil {
+		return "", fmt.Errorf("error getting value source: %w", err)
+	}
+
+	op := BinopToSource(in.Op)
+
+	return fmt.Sprintf("%s %s= %s", svar, op, svalue), nil
 }
 
 func DecodeStatCompoundAssign(data json.RawMessage) (INode, error) {
@@ -2095,7 +2198,35 @@ func (n StatIf[T]) String() string {
 }
 
 func (n StatIf[T]) Source(og string, comments []Comment) (string, error) {
-	return n.Location.GetFromSource(og)
+	// return n.Location.GetFromSource(og)
+	in, ok := any(n).(StatIf[INode])
+	if !ok {
+		return "", fmt.Errorf("expected StatIf[INode], got %T", n)
+	}
+
+	scond, err := in.Condition.Source(og, comments)
+	if err != nil {
+		return "", fmt.Errorf("error getting condition source: %w", err)
+	}
+
+	sthen, err := in.ThenBody.Source(og, comments)
+	if err != nil {
+		return "", fmt.Errorf("error getting then body source: %w", err)
+	}
+	stheni := indentStartTab(sthen, 1)
+
+	if in.ElseBody == nil {
+		return fmt.Sprintf("if %s then\n%s\nend", scond, stheni), nil
+	}
+
+	selse, err := (*in.ElseBody).Source(og, comments)
+	if err != nil {
+		return "", fmt.Errorf("error getting else body source: %w", err)
+	}
+	selsei := indentStartTab(selse, 1)
+
+	return fmt.Sprintf("if %s then\n%s\nelse\n%s\nend",
+		scond, stheni, selsei), nil
 }
 
 func DecodeStatIf(data json.RawMessage) (INode, error) {
@@ -2166,7 +2297,37 @@ func (n StatLocal[T]) String() string {
 }
 
 func (n StatLocal[T]) Source(og string, comments []Comment) (string, error) {
-	return n.Location.GetFromSource(og)
+	// return n.Location.GetFromSource(og)
+	in, ok := any(n).(StatLocal[INode])
+	if !ok {
+		return "", fmt.Errorf("expected StatLocal[INode], got %T", n)
+	}
+
+	VarStrings := make([]string, len(in.Vars))
+	for i, node := range in.Vars {
+		ns, err := node.Source(og, comments)
+		if err != nil {
+			return "", fmt.Errorf("error getting var source: %w", err)
+		}
+		VarStrings[i] = ns
+	}
+
+	if len(in.Values) == 0 {
+		return fmt.Sprintf("local %s", strings.Join(VarStrings, ", ")), nil
+	}
+
+	ValueStrings := make([]string, len(in.Values))
+	for i, node := range in.Values {
+		ns, err := node.Source(og, comments)
+		if err != nil {
+			return "", fmt.Errorf("error getting value source: %w", err)
+		}
+		ValueStrings[i] = ns
+	}
+
+	return fmt.Sprintf("local %s = %s",
+		strings.Join(VarStrings, ", "),
+		strings.Join(ValueStrings, ", ")), nil
 }
 
 func DecodeStatLocal(data json.RawMessage) (INode, error) {
@@ -2474,7 +2635,12 @@ func (n StatWhile[T]) String() string {
 }
 
 func (n StatWhile[T]) Source(og string, comments []Comment) (string, error) {
-	return n.Location.GetFromSource(og)
+	// return n.Location.GetFromSource(og)
+	in, ok := any(n).(StatWhile[INode])
+	if !ok {
+		return "", fmt.Errorf("expected StatWhile[INode], got %T", n)
+	}
+	return in.Location.GetFromSource(og)
 }
 
 func DecodeStatWhile(data json.RawMessage) (INode, error) {

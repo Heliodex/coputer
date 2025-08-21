@@ -69,7 +69,7 @@ func TestAST(t *testing.T) {
 				}
 
 				if oline, ogline := oLines[i], ogLines[i]; oline != ogline {
-					t.Errorf("mismatched line: \n%s\n%v\n%s\n%v\n", oline, []byte(oline), ogline, []byte(ogline))
+					t.Errorf("mismatched line, expected:\n%s\n%v\ngot:\n%s\n%v\n", ogline, []byte(ogline), oline, []byte(oline))
 				}
 			}
 
