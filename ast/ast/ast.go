@@ -31,6 +31,7 @@ func indentStart(s string, n int) string {
 // dot net vibez
 type INode interface {
 	String() string
+	Source(og string) (string, error)
 	Type() string
 }
 
@@ -47,6 +48,29 @@ func (p Position) String() string {
 type Location struct {
 	Start Position `json:"start"`
 	End   Position `json:"end"`
+}
+
+func (l Location) GetFromSource(source string) (string, error) {
+	lines := strings.Split(source, "\n")
+	if l.Start.Line < 0 || l.End.Line >= len(lines) {
+		return "", errors.New("location out of bounds")
+	}
+
+	var b strings.Builder
+	for i := l.Start.Line; i <= l.End.Line; i++ {
+		line := lines[i]
+		if i == l.Start.Line {
+			line = line[l.Start.Column:]
+		}
+		if i == l.End.Line {
+			line = line[:l.End.Column]
+		}
+		b.WriteString(line)
+		if i < l.End.Line {
+			b.WriteString("\n")
+		}
+	}
+	return b.String(), nil
 }
 
 func (l Location) String() string {
@@ -161,6 +185,10 @@ func (a ArgumentName) String() string {
 	return b.String()
 }
 
+func (a ArgumentName) Source(og string) (string, error) {
+	return a.Location.GetFromSource(og)
+}
+
 func DecodeArgumentName(data json.RawMessage) (INode, error) {
 	var raw ArgumentName
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -187,6 +215,10 @@ func (a Attr) String() string {
 	b.WriteString(fmt.Sprintf("Name: %s\n", a.Name))
 
 	return b.String()
+}
+
+func (a Attr) Source(og string) (string, error) {
+	return a.Location.GetFromSource(og)
 }
 
 func DecodeAttr(data json.RawMessage) (INode, error) {
@@ -220,6 +252,10 @@ func (d DeclaredClassProp[T]) String() string {
 	b.WriteString(indentStart(StringMaybeEvaluated(d.LuauType), 4))
 
 	return b.String()
+}
+
+func (d DeclaredClassProp[INode]) Source(og string) (string, error) {
+	return d.Location.GetFromSource(og)
 }
 
 func DecodeDeclaredClassProp(data json.RawMessage) (INode, error) {
@@ -266,6 +302,10 @@ func (n ExprBinary[T]) String() string {
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Right), 4))
 
 	return b.String()
+}
+
+func (n ExprBinary[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
 }
 
 func DecodeExprBinary(data json.RawMessage) (INode, error) {
@@ -326,6 +366,10 @@ func (n ExprCall[T]) String() string {
 	return b.String()
 }
 
+func (n ExprCall[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
+}
+
 func DecodeExprCall(data json.RawMessage) (INode, error) {
 	var raw ExprCall[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -376,6 +420,10 @@ func (n ExprConstantBool) String() string {
 	return b.String()
 }
 
+func (n ExprConstantBool) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
+}
+
 func DecodeExprConstantBool(data json.RawMessage) (INode, error) {
 	var raw ExprConstantBool
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -400,6 +448,10 @@ func (n ExprConstantNil) String() string {
 	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
 
 	return b.String()
+}
+
+func (n ExprConstantNil) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
 }
 
 func DecodeExprConstantNil(data json.RawMessage) (INode, error) {
@@ -430,6 +482,10 @@ func (n ExprConstantNumber) String() string {
 	return b.String()
 }
 
+func (n ExprConstantNumber) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
+}
+
 func DecodeExprConstantNumber(data json.RawMessage) (INode, error) {
 	var raw ExprConstantNumber
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -456,6 +512,10 @@ func (n ExprConstantString) String() string {
 	b.WriteString(fmt.Sprintf("\nValue: %s", n.Value))
 
 	return b.String()
+}
+
+func (n ExprConstantString) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
 }
 
 func DecodeExprConstantString(data json.RawMessage) (INode, error) {
@@ -517,6 +577,10 @@ func (n ExprFunction[T]) String() string {
 	b.WriteString(fmt.Sprintf("\nDebugname: %s", n.Debugname))
 
 	return b.String()
+}
+
+func (n ExprFunction[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
 }
 
 func DecodeExprFunction(data json.RawMessage) (INode, error) {
@@ -601,6 +665,10 @@ func (n ExprGlobal) String() string {
 	return b.String()
 }
 
+func (n ExprGlobal) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
+}
+
 func DecodeExprGlobal(data json.RawMessage) (INode, error) {
 	var raw ExprGlobal
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -628,6 +696,10 @@ func (n ExprGroup[T]) String() string {
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
 
 	return b.String()
+}
+
+func (n ExprGroup[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
 }
 
 func DecodeExprGroup(data json.RawMessage) (INode, error) {
@@ -677,6 +749,10 @@ func (n ExprIfElse[T]) String() string {
 	b.WriteString(indentStart(StringMaybeEvaluated(n.FalseExpr), 4))
 
 	return b.String()
+}
+
+func (n ExprIfElse[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
 }
 
 func DecodeExprIfElse(data json.RawMessage) (INode, error) {
@@ -735,6 +811,10 @@ func (n ExprIndexExpr[T]) String() string {
 	return b.String()
 }
 
+func (n ExprIndexExpr[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
+}
+
 func DecodeExprIndexExpr(data json.RawMessage) (INode, error) {
 	var raw ExprIndexExpr[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -782,6 +862,10 @@ func (n ExprIndexName[T]) String() string {
 	b.WriteString(fmt.Sprintf("\nIndex: %s", n.Index))
 
 	return b.String()
+}
+
+func (n ExprIndexName[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
 }
 
 func DecodeExprIndexName(data json.RawMessage) (INode, error) {
@@ -835,6 +919,10 @@ func (n ExprInterpString[T]) String() string {
 	return b.String()
 }
 
+func (n ExprInterpString[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
+}
+
 func DecodeExprInterpString(data json.RawMessage) (INode, error) {
 	var raw ExprInterpString[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -879,6 +967,10 @@ func (n ExprLocal[T]) String() string {
 	return b.String()
 }
 
+func (n ExprLocal[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
+}
+
 func DecodeExprLocal(data json.RawMessage) (INode, error) {
 	var raw ExprLocal[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -920,6 +1012,10 @@ func (n ExprTable[T]) String() string {
 	}
 
 	return b.String()
+}
+
+func (n ExprTable[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
 }
 
 func DecodeExprTable(data json.RawMessage) (INode, error) {
@@ -969,6 +1065,11 @@ func (n ExprTableItem[T]) String() string {
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Value), 4))
 
 	return b.String()
+}
+
+func (n ExprTableItem[INode]) Source(og string) (string, error) {
+	// TableItem doesn't seem to have a Location field, using Value's location if possible
+	return "", errors.New("table item has no direct location")
 }
 
 func DecodeExprTableItem(data json.RawMessage) (INode, error) {
@@ -1023,6 +1124,10 @@ func (n ExprTypeAssertion[T]) String() string {
 	return b.String()
 }
 
+func (n ExprTypeAssertion[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
+}
+
 func DecodeExprTypeAssertion(data json.RawMessage) (INode, error) {
 	var raw ExprTypeAssertion[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -1065,6 +1170,10 @@ func (n ExprVarargs) String() string {
 	return b.String()
 }
 
+func (n ExprVarargs) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
+}
+
 func DecodeExprVarargs(data json.RawMessage) (INode, error) {
 	var raw ExprVarargs
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -1094,6 +1203,10 @@ func (n ExprUnary[T]) String() string {
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
 
 	return b.String()
+}
+
+func (n ExprUnary[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
 }
 
 func DecodeExprUnary(data json.RawMessage) (INode, error) {
@@ -1141,6 +1254,11 @@ func DecodeGenericType(data json.RawMessage) (INode, error) {
 	return raw, nil
 }
 
+func (g GenericType) Source(og string) (string, error) {
+	// GenericType doesn't have a Location field
+	return "", errors.New("generic type has no location")
+}
+
 type GenericTypePack struct {
 	Node
 	Name string `json:"name"`
@@ -1167,6 +1285,11 @@ func DecodeGenericTypePack(data json.RawMessage) (INode, error) {
 	return raw, nil
 }
 
+func (g GenericTypePack) Source(og string) (string, error) {
+	// GenericTypePack doesn't have a Location field
+	return "", errors.New("generic type pack has no location")
+}
+
 type Local[T any] struct {
 	LuauType *T     `json:"luauType"` // for now it's probably nil?
 	Name     string `json:"name"`
@@ -1191,6 +1314,10 @@ func (n Local[T]) String() string {
 	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
 
 	return b.String()
+}
+
+func (n Local[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
 }
 
 func DecodeLocal(data json.RawMessage) (INode, error) {
@@ -1244,6 +1371,10 @@ func (n StatAssign[T]) String() string {
 	}
 
 	return b.String()
+}
+
+func (n StatAssign[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
 }
 
 func DecodeStatAssign(data json.RawMessage) (INode, error) {
@@ -1305,6 +1436,10 @@ func (n StatBlock[T]) String() string {
 	return b.String()
 }
 
+func (n StatBlock[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
+}
+
 func DecodeStatBlock(data json.RawMessage) (INode, error) {
 	var raw StatBlock[json.RawMessage] // rawblocks man
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -1346,6 +1481,10 @@ func (n StatBreak) String() string {
 	return b.String()
 }
 
+func (n StatBreak) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
+}
+
 func DecodeStatBreak(data json.RawMessage) (INode, error) {
 	var raw StatBreak
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -1378,6 +1517,10 @@ func (n StatCompoundAssign[T]) String() string {
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Value), 4))
 
 	return b.String()
+}
+
+func (n StatCompoundAssign[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
 }
 
 func DecodeStatCompoundAssign(data json.RawMessage) (INode, error) {
@@ -1423,6 +1566,10 @@ func (n StatContinue) String() string {
 	return b.String()
 }
 
+func (n StatContinue) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
+}
+
 func DecodeStatContinue(data json.RawMessage) (INode, error) {
 	var raw StatContinue
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -1461,6 +1608,10 @@ func (n StatDeclareClass[T]) String() string {
 	}
 
 	return b.String()
+}
+
+func (n StatDeclareClass[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
 }
 
 func DecodeStatDeclareClass(data json.RawMessage) (INode, error) {
@@ -1518,6 +1669,10 @@ func (n StatExpr[T]) String() string {
 	return b.String()
 }
 
+func (n StatExpr[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
+}
+
 func DecodeStatExpr(data json.RawMessage) (INode, error) {
 	var raw StatExpr[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -1566,6 +1721,10 @@ func (n StatFor[T]) String() string {
 	b.WriteString(fmt.Sprintf("\nHasDo: %t\n", n.HasDo))
 
 	return b.String()
+}
+
+func (n StatFor[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
 }
 
 func DecodeStatFor(data json.RawMessage) (INode, error) {
@@ -1642,6 +1801,10 @@ func (n StatForIn[T]) String() string {
 	return b.String()
 }
 
+func (n StatForIn[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
+}
+
 func DecodeStatForIn(data json.RawMessage) (INode, error) {
 	var raw StatForIn[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -1706,6 +1869,10 @@ func (n StatFunction[T]) String() string {
 	return b.String()
 }
 
+func (n StatFunction[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
+}
+
 func DecodeStatFunction(data json.RawMessage) (INode, error) {
 	var raw StatFunction[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -1760,6 +1927,10 @@ func (n StatIf[T]) String() string {
 	b.WriteString(fmt.Sprintf("HasThen: %t\n", n.HasThen))
 
 	return b.String()
+}
+
+func (n StatIf[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
 }
 
 func DecodeStatIf(data json.RawMessage) (INode, error) {
@@ -1827,6 +1998,10 @@ func (n StatLocal[T]) String() string {
 	return b.String()
 }
 
+func (n StatLocal[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
+}
+
 func DecodeStatLocal(data json.RawMessage) (INode, error) {
 	var raw StatLocal[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -1883,6 +2058,10 @@ func (n StatLocalFunction[T]) String() string {
 	return b.String()
 }
 
+func (n StatLocalFunction[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
+}
+
 func DecodeStatLocalFunction(data json.RawMessage) (INode, error) {
 	var raw StatLocalFunction[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -1929,6 +2108,10 @@ func (n StatRepeat[T]) String() string {
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Body), 4))
 
 	return b.String()
+}
+
+func (n StatRepeat[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
 }
 
 func DecodeStatRepeat(data json.RawMessage) (INode, error) {
@@ -1978,6 +2161,10 @@ func (n StatReturn[T]) String() string {
 	}
 
 	return b.String()
+}
+
+func (n StatReturn[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
 }
 
 func DecodeStatReturn(data json.RawMessage) (INode, error) {
@@ -2037,6 +2224,10 @@ func (n StatTypeAlias[T]) String() string {
 	b.WriteString(fmt.Sprintf("\nExported: %t\n", n.Exported))
 
 	return b.String()
+}
+
+func (n StatTypeAlias[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
 }
 
 func DecodeStatTypeAlias(data json.RawMessage) (INode, error) {
@@ -2105,6 +2296,10 @@ func (n StatWhile[T]) String() string {
 	return b.String()
 }
 
+func (n StatWhile[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
+}
+
 func DecodeStatWhile(data json.RawMessage) (INode, error) {
 	var raw StatWhile[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -2151,6 +2346,10 @@ func (n TableProp[T]) String() string {
 	b.WriteString(indentStart(StringMaybeEvaluated(n.PropType), 4))
 
 	return b.String()
+}
+
+func (n TableProp[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
 }
 
 func DecodeTableProp(data json.RawMessage) (INode, error) {
@@ -2218,6 +2417,10 @@ func (n TypeFunction[T]) String() string {
 	b.WriteString(indentStart(StringMaybeEvaluated(n.ReturnTypes), 4))
 
 	return b.String()
+}
+
+func (n TypeFunction[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
 }
 
 func DecodeTypeFunction(data json.RawMessage) (INode, error) {
@@ -2305,6 +2508,10 @@ func (n TypeGroup[T]) String() string {
 	return b.String()
 }
 
+func (n TypeGroup[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
+}
+
 func DecodeTypeGroup(data json.RawMessage) (INode, error) {
 	var raw TypeGroup[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -2346,6 +2553,11 @@ func (n TypeList[T]) String() string {
 	return b.String()
 }
 
+func (n TypeList[INode]) Source(og string) (string, error) {
+	// TypeList doesn't seem to have a Location field
+	return "", errors.New("type list has no location")
+}
+
 func DecodeTypeList(data json.RawMessage) (INode, error) {
 	var raw TypeList[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -2374,6 +2586,10 @@ type TypeOptional struct {
 
 func (TypeOptional) Type() string {
 	return "AstTypeOptional"
+}
+
+func (n TypeOptional) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
 }
 
 func (n TypeOptional) String() string {
@@ -2416,6 +2632,10 @@ func (n TypePackExplicit[T]) String() string {
 	b.WriteString(indentStart(StringMaybeEvaluated(n.TypeList), 4))
 
 	return b.String()
+}
+
+func (n TypePackExplicit[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
 }
 
 func DecodeTypePackExplicit(data json.RawMessage) (INode, error) {
@@ -2465,6 +2685,10 @@ func (n TypeReference[T]) String() string {
 	return b.String()
 }
 
+func (n TypeReference[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
+}
+
 func DecodeTypeReference(data json.RawMessage) (INode, error) {
 	var raw TypeReference[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -2509,6 +2733,10 @@ func (n TypeSingletonBool) String() string {
 	return b.String()
 }
 
+func (n TypeSingletonBool) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
+}
+
 func DecodeTypeSingletonBool(data json.RawMessage) (INode, error) {
 	var raw TypeSingletonBool
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -2540,6 +2768,10 @@ func (n TypeSingletonString) String() string {
 	b.WriteString(fmt.Sprintf("\nValue: %s", n.Value))
 
 	return b.String()
+}
+
+func (n TypeSingletonString) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
 }
 
 func DecodeTypeSingletonString(data json.RawMessage) (INode, error) {
@@ -2605,6 +2837,10 @@ func (n TypeTable[T]) String() string {
 	return b.String()
 }
 
+func (n TypeTable[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
+}
+
 func DecodeTypeTable(data json.RawMessage) (INode, error) {
 	var raw TypeTable[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -2667,6 +2903,10 @@ func (n TypeTypeof[T]) String() string {
 	return b.String()
 }
 
+func (n TypeTypeof[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
+}
+
 func DecodeTypeTypeof(data json.RawMessage) (INode, error) {
 	var raw TypeTypeof[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -2708,6 +2948,10 @@ func (n TypeUnion[T]) String() string {
 	}
 
 	return b.String()
+}
+
+func (n TypeUnion[INode]) Source(og string) (string, error) {
+	return n.Location.GetFromSource(og)
 }
 
 func DecodeTypeUnion(data json.RawMessage) (INode, error) {

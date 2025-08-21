@@ -3,13 +3,19 @@ package main
 import (
 	"fmt"
 	"os"
-	"time"
 
 	. "github.com/Heliodex/coputer/ast/ast"
 )
 
 func main() {
-	const filepath = AstDir + "/typeoptionals.luau"
+	const filepath = ConformanceDir + "/1.luau"
+
+	content, err := os.ReadFile(filepath)
+	if err != nil {
+		fmt.Println("Error reading file:", err)
+		return
+	}
+	source := string(content)
 
 	out, err := LuauAst(filepath)
 	if err != nil {
@@ -27,14 +33,9 @@ func main() {
 	// pprof.StartCPUProfile(f)
 	// defer pprof.StopCPUProfile()
 
-	// write to ast.jsonc
-	if err = os.WriteFile("ast.jsonc", out, 0o644); err != nil {
-		fmt.Println("Error writing to file:", err)
-		return
-	}
-	fmt.Println("AST written to ast.jsonc successfully.")
+	// st := time.Now()
 
-	st := time.Now()
+	fmt.Println(source)
 
 	// encode as AST
 	ast, err := DecodeAST(out)
@@ -44,5 +45,8 @@ func main() {
 	}
 
 	fmt.Println(ast)
-	fmt.Printf("AST decoded in %s\n", time.Since(st))
+
+	new, err := ast.Root.Source(source)
+	fmt.Println(new)
+	// fmt.Printf("AST decoded in %s\n", time.Since(st))
 }
