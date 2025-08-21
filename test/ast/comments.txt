@@ -1,0 +1,115 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 13,0
+    HasEnd: true
+    Body:
+        Type: AstStatExpr
+        Location: 0,0 - 0,25
+        Expr:
+            Type: AstExprCall
+            Location: 0,0 - 0,25
+            Func:
+                Type: AstExprGlobal
+                Location: 0,0 - 0,5
+                Global: print
+            Args:
+                Type: AstExprBinary
+                Location: 0,6 - 0,24
+                Op: Concat
+                Left:
+                    Type: AstExprConstantString
+                    Location: 0,6 - 0,13
+                    Value: hello
+                Right:
+                    Type: AstExprConstantString
+                    Location: 0,17 - 0,24
+                    Value: world
+            Self: false
+            ArgLocation: 0,6 - 0,25
+    
+        Type: AstStatLocal
+        Location: 3,0 - 3,17
+        Vars:
+            LuauType:
+            Name: s
+            Type: AstLocal
+            Location: 3,6 - 3,7
+        Values:
+            Type: AstExprConstantString
+            Location: 3,10 - 3,17
+            Value: Hello
+    
+        Type: AstStatCompoundAssign
+        Location: 5,0 - 6,13
+        Op: Concat
+        Var:
+            Type: AstExprLocal
+            Location: 5,0 - 5,1
+            Local:
+                LuauType:
+                Name: s
+                Type: AstLocal
+                Location: 3,6 - 3,7
+        Value:
+            Type: AstExprConstantString
+            Location: 6,5 - 6,13
+            Value:  World
+    
+        Type: AstStatAssign
+        Location: 7,0 - 9,14
+        Vars:
+            Type: AstExprLocal
+            Location: 7,0 - 7,1
+            Local:
+                LuauType:
+                Name: s
+                Type: AstLocal
+                Location: 3,6 - 3,7
+        Values:
+            Type: AstExprBinary
+            Location: 9,1 - 9,14
+            Op: Concat
+            Left:
+                Type: AstExprLocal
+                Location: 9,1 - 9,2
+                Local:
+                    LuauType:
+                    Name: s
+                    Type: AstLocal
+                    Location: 3,6 - 3,7
+            Right:
+                Type: AstExprConstantString
+                Location: 9,6 - 9,14
+                Value:  World
+    
+        Type: AstStatExpr
+        Location: 10,0 - 10,8
+        Expr:
+            Type: AstExprCall
+            Location: 10,0 - 10,8
+            Func:
+                Type: AstExprGlobal
+                Location: 10,0 - 10,5
+                Global: print
+            Args:
+                Type: AstExprLocal
+                Location: 10,6 - 10,7
+                Local:
+                    LuauType:
+                    Name: s
+                    Type: AstLocal
+                    Location: 3,6 - 3,7
+            Self: false
+            ArgLocation: 10,6 - 10,8
+
+Comment Locations:
+    Type: Comment
+    Location: 1,0 - 1,12
+    Type: Comment
+    Location: 4,0 - 4,12
+    Type: Comment
+    Location: 5,1 - 5,13
+    Type: Comment
+    Location: 8,1 - 8,13
+    Type: Comment
+    Location: 12,0 - 12,16

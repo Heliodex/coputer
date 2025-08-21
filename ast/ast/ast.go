@@ -30,14 +30,19 @@ func indentStart(s string, n int) string {
 
 // dot net vibez
 type INode interface {
+	GetLocation() Location
 	String() string
-	Source(og string) (string, error)
+	Source(og string, comments []Comment) (string, error)
 	Type() string
 }
 
 type Position struct {
 	Line   int `json:"line"`
 	Column int `json:"column"`
+}
+
+func (p Position) After(op Position) bool {
+	return p.Line > op.Line || (p.Line == op.Line && p.Column > op.Column)
 }
 
 func (p Position) String() string {
@@ -48,6 +53,10 @@ func (p Position) String() string {
 type Location struct {
 	Start Position `json:"start"`
 	End   Position `json:"end"`
+}
+
+func (l Location) EndsAfter(ol Location) bool {
+	return l.End.After(ol.End)
 }
 
 func (l Location) GetFromSource(source string) (string, error) {
@@ -63,7 +72,7 @@ func (l Location) GetFromSource(source string) (string, error) {
 			line = line[l.Start.Column:]
 		}
 		if i == l.End.Line {
-			line = line[:l.End.Column]
+			line = line[:min(l.End.Column, len(line))]
 		}
 		b.WriteString(line)
 		if i < l.End.Line {
@@ -97,6 +106,11 @@ func (n Node) String() string {
 	return fmt.Sprintf("Type: %s\n", n.Type)
 }
 
+type NodeLoc struct {
+	Node
+	Location Location `json:"location"`
+}
+
 func StringMaybeEvaluated(val any) string {
 	if v, ok := val.(json.RawMessage); ok {
 		var node Node
@@ -111,8 +125,7 @@ func StringMaybeEvaluated(val any) string {
 // ast
 
 type Comment struct {
-	Node
-	Location Location `json:"location"`
+	NodeLoc
 }
 
 func (c Comment) String() string {
@@ -122,6 +135,10 @@ func (c Comment) String() string {
 	b.WriteString(fmt.Sprintf("Location: %s\n", c.Location))
 
 	return b.String()
+}
+
+func (c Comment) Source(og string) (string, error) {
+	return c.Location.GetFromSource(og)
 }
 
 type AST[T any] struct {
@@ -146,15 +163,24 @@ func (ast AST[T]) String() string {
 	return b.String()
 }
 
+func (ast AST[T]) Source(og string) (string, error) {
+	iroot, ok := any(ast.Root).(StatBlock[INode])
+	if !ok {
+		return "", fmt.Errorf("expected Root to be StatBlock[INode], got %T", ast)
+	}
+
+	return iroot.Source(og, ast.CommentLocations)
+}
+
 func DecodeAST(data json.RawMessage) (AST[INode], error) {
 	var raw AST[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return AST[INode]{}, fmt.Errorf("error decoding AST: %v", err)
+		return AST[INode]{}, fmt.Errorf("error decoding AST: %w", err)
 	}
 
 	rootNode, err := decodeNode(raw.Root)
 	if err != nil {
-		return AST[INode]{}, fmt.Errorf("error decoding root node: %v", err)
+		return AST[INode]{}, fmt.Errorf("error decoding root node: %w", err)
 	}
 
 	return AST[INode]{
@@ -171,6 +197,10 @@ type ArgumentName struct {
 	Location Location `json:"location"`
 }
 
+func (a ArgumentName) GetLocation() Location {
+	return a.Location
+}
+
 func (a ArgumentName) Type() string {
 	return "AstArgumentName"
 }
@@ -185,22 +215,25 @@ func (a ArgumentName) String() string {
 	return b.String()
 }
 
-func (a ArgumentName) Source(og string) (string, error) {
+func (a ArgumentName) Source(og string, comments []Comment) (string, error) {
 	return a.Location.GetFromSource(og)
 }
 
 func DecodeArgumentName(data json.RawMessage) (INode, error) {
 	var raw ArgumentName
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 	return raw, nil
 }
 
 type Attr struct {
-	Node
-	Location Location `json:"location"`
-	Name     string   `json:"name"`
+	NodeLoc
+	Name string `json:"name"`
+}
+
+func (a Attr) GetLocation() Location {
+	return a.Location
 }
 
 func (a Attr) Type() string {
@@ -217,14 +250,14 @@ func (a Attr) String() string {
 	return b.String()
 }
 
-func (a Attr) Source(og string) (string, error) {
+func (a Attr) Source(og string, comments []Comment) (string, error) {
 	return a.Location.GetFromSource(og)
 }
 
 func DecodeAttr(data json.RawMessage) (INode, error) {
 	var raw Attr
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 	return raw, nil
 }
@@ -235,6 +268,10 @@ type DeclaredClassProp[T any] struct {
 	Node
 	LuauType T        `json:"luauType"`
 	Location Location `json:"location"`
+}
+
+func (d DeclaredClassProp[T]) GetLocation() Location {
+	return d.Location
 }
 
 func (d DeclaredClassProp[T]) Type() string {
@@ -254,19 +291,19 @@ func (d DeclaredClassProp[T]) String() string {
 	return b.String()
 }
 
-func (d DeclaredClassProp[INode]) Source(og string) (string, error) {
+func (d DeclaredClassProp[T]) Source(og string, comments []Comment) (string, error) {
 	return d.Location.GetFromSource(og)
 }
 
 func DecodeDeclaredClassProp(data json.RawMessage) (INode, error) {
 	var raw DeclaredClassProp[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	luauTypeNode, err := decodeNode(raw.LuauType)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding luauType: %v", err)
+		return nil, fmt.Errorf("error decoding luauType: %w", err)
 	}
 
 	return DeclaredClassProp[INode]{
@@ -279,11 +316,14 @@ func DecodeDeclaredClassProp(data json.RawMessage) (INode, error) {
 }
 
 type ExprBinary[T any] struct {
-	Node
-	Location Location `json:"location"`
-	Op       string   `json:"op"`
-	Left     T        `json:"left"`
-	Right    T        `json:"right"`
+	NodeLoc
+	Op    string `json:"op"`
+	Left  T      `json:"left"`
+	Right T      `json:"right"`
+}
+
+func (n ExprBinary[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n ExprBinary[T]) Type() string {
@@ -304,42 +344,44 @@ func (n ExprBinary[T]) String() string {
 	return b.String()
 }
 
-func (n ExprBinary[INode]) Source(og string) (string, error) {
+func (n ExprBinary[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeExprBinary(data json.RawMessage) (INode, error) {
 	var raw ExprBinary[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	left, err := decodeNode(raw.Left)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding left: %v", err)
+		return nil, fmt.Errorf("error decoding left: %w", err)
 	}
 
 	right, err := decodeNode(raw.Right)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding right: %v", err)
+		return nil, fmt.Errorf("error decoding right: %w", err)
 	}
 
 	return ExprBinary[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
-		Op:       raw.Op,
-		Left:     left,
-		Right:    right,
+		NodeLoc: raw.NodeLoc,
+		Op:      raw.Op,
+		Left:    left,
+		Right:   right,
 	}, nil
 }
 
 type ExprCall[T any] struct {
-	Node
-	Location    Location `json:"location"`
+	NodeLoc
 	Func        T        `json:"func"`
 	Args        []T      `json:"args"`
 	Self        bool     `json:"self"`
 	ArgLocation Location `json:"argLocation"`
+}
+
+func (n ExprCall[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n ExprCall[T]) Type() string {
@@ -366,33 +408,32 @@ func (n ExprCall[T]) String() string {
 	return b.String()
 }
 
-func (n ExprCall[INode]) Source(og string) (string, error) {
+func (n ExprCall[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeExprCall(data json.RawMessage) (INode, error) {
 	var raw ExprCall[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	funcNode, err := decodeNode(raw.Func)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding func: %v", err)
+		return nil, fmt.Errorf("error decoding func: %w", err)
 	}
 
 	args := make([]INode, len(raw.Args))
 	for i, arg := range raw.Args {
 		n, err := decodeNode(arg)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding arg node: %v", err)
+			return nil, fmt.Errorf("error decoding arg node: %w", err)
 		}
 		args[i] = n
 	}
 
 	return ExprCall[INode]{
-		Node:        raw.Node,
-		Location:    raw.Location,
+		NodeLoc:     raw.NodeLoc,
 		Func:        funcNode,
 		Args:        args,
 		Self:        raw.Self,
@@ -401,9 +442,12 @@ func DecodeExprCall(data json.RawMessage) (INode, error) {
 }
 
 type ExprConstantBool struct {
-	Node
-	Location Location `json:"location"`
-	Value    bool     `json:"value"`
+	NodeLoc
+	Value bool `json:"value"`
+}
+
+func (n ExprConstantBool) GetLocation() Location {
+	return n.Location
 }
 
 func (n ExprConstantBool) Type() string {
@@ -420,21 +464,24 @@ func (n ExprConstantBool) String() string {
 	return b.String()
 }
 
-func (n ExprConstantBool) Source(og string) (string, error) {
+func (n ExprConstantBool) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeExprConstantBool(data json.RawMessage) (INode, error) {
 	var raw ExprConstantBool
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 	return raw, nil
 }
 
 type ExprConstantNil struct {
-	Node
-	Location Location `json:"location"`
+	NodeLoc
+}
+
+func (n ExprConstantNil) GetLocation() Location {
+	return n.Location
 }
 
 func (n ExprConstantNil) Type() string {
@@ -450,22 +497,25 @@ func (n ExprConstantNil) String() string {
 	return b.String()
 }
 
-func (n ExprConstantNil) Source(og string) (string, error) {
+func (n ExprConstantNil) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeExprConstantNil(data json.RawMessage) (INode, error) {
 	var raw ExprConstantNil
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 	return raw, nil
 }
 
 type ExprConstantNumber struct {
-	Node
-	Location Location `json:"location"`
-	Value    float64  `json:"value"`
+	NodeLoc
+	Value float64 `json:"value"`
+}
+
+func (n ExprConstantNumber) GetLocation() Location {
+	return n.Location
 }
 
 func (n ExprConstantNumber) Type() string {
@@ -482,22 +532,25 @@ func (n ExprConstantNumber) String() string {
 	return b.String()
 }
 
-func (n ExprConstantNumber) Source(og string) (string, error) {
+func (n ExprConstantNumber) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeExprConstantNumber(data json.RawMessage) (INode, error) {
 	var raw ExprConstantNumber
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 	return raw, nil
 }
 
 type ExprConstantString struct {
-	Node
-	Location Location `json:"location"`
-	Value    string   `json:"value"`
+	NodeLoc
+	Value string `json:"value"`
+}
+
+func (n ExprConstantString) GetLocation() Location {
+	return n.Location
 }
 
 func (n ExprConstantString) Type() string {
@@ -514,21 +567,20 @@ func (n ExprConstantString) String() string {
 	return b.String()
 }
 
-func (n ExprConstantString) Source(og string) (string, error) {
+func (n ExprConstantString) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeExprConstantString(data json.RawMessage) (INode, error) {
 	var raw ExprConstantString
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 	return raw, nil
 }
 
 type ExprFunction[T any] struct {
-	Node
-	Location       Location `json:"location"`
+	NodeLoc
 	Attributes     []T      `json:"attributes"`
 	Generics       []T      `json:"generics"`
 	GenericPacks   []T      `json:"genericPacks"`
@@ -538,6 +590,10 @@ type ExprFunction[T any] struct {
 	Body           T        `json:"body"`
 	FunctionDepth  int      `json:"functionDepth"`
 	Debugname      string   `json:"debugname"`
+}
+
+func (n ExprFunction[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n ExprFunction[T]) Type() string {
@@ -579,21 +635,21 @@ func (n ExprFunction[T]) String() string {
 	return b.String()
 }
 
-func (n ExprFunction[INode]) Source(og string) (string, error) {
+func (n ExprFunction[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeExprFunction(data json.RawMessage) (INode, error) {
 	var raw ExprFunction[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	attributes := make([]INode, len(raw.Attributes))
 	for i, attr := range raw.Attributes {
 		n, err := decodeNode(attr)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding attribute node: %v", err)
+			return nil, fmt.Errorf("error decoding attribute node: %w", err)
 		}
 		attributes[i] = n
 	}
@@ -602,7 +658,7 @@ func DecodeExprFunction(data json.RawMessage) (INode, error) {
 	for i, gen := range raw.Generics {
 		n, err := decodeNode(gen)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding generic node: %v", err)
+			return nil, fmt.Errorf("error decoding generic node: %w", err)
 		}
 		generics[i] = n
 	}
@@ -611,7 +667,7 @@ func DecodeExprFunction(data json.RawMessage) (INode, error) {
 	for i, pack := range raw.GenericPacks {
 		n, err := decodeNode(pack)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding generic pack node: %v", err)
+			return nil, fmt.Errorf("error decoding generic pack node: %w", err)
 		}
 		genericPacks[i] = n
 	}
@@ -620,19 +676,18 @@ func DecodeExprFunction(data json.RawMessage) (INode, error) {
 	for i, arg := range raw.Args {
 		n, err := decodeNode(arg)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding arg node: %v", err)
+			return nil, fmt.Errorf("error decoding arg node: %w", err)
 		}
 		args[i] = n
 	}
 
 	bodyNode, err := decodeNode(raw.Body)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding body node: %v", err)
+		return nil, fmt.Errorf("error decoding body node: %w", err)
 	}
 
 	return ExprFunction[INode]{
-		Node:           raw.Node,
-		Location:       raw.Location,
+		NodeLoc:        raw.NodeLoc,
 		Attributes:     attributes,
 		Generics:       generics,
 		GenericPacks:   genericPacks,
@@ -646,9 +701,12 @@ func DecodeExprFunction(data json.RawMessage) (INode, error) {
 }
 
 type ExprGlobal struct {
-	Node
-	Location Location `json:"location"`
-	Global   string   `json:"global"`
+	NodeLoc
+	Global string `json:"global"`
+}
+
+func (n ExprGlobal) GetLocation() Location {
+	return n.Location
 }
 
 func (n ExprGlobal) Type() string {
@@ -665,22 +723,25 @@ func (n ExprGlobal) String() string {
 	return b.String()
 }
 
-func (n ExprGlobal) Source(og string) (string, error) {
+func (n ExprGlobal) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeExprGlobal(data json.RawMessage) (INode, error) {
 	var raw ExprGlobal
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 	return raw, nil
 }
 
 type ExprGroup[T any] struct {
-	Node
-	Location Location `json:"location"`
-	Expr     T        `json:"expr"` // only contains one expression right? strange when you first think about it
+	NodeLoc
+	Expr T `json:"expr"` // only contains one expression right? strange when you first think about it
+}
+
+func (n ExprGroup[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n ExprGroup[T]) Type() string {
@@ -698,36 +759,38 @@ func (n ExprGroup[T]) String() string {
 	return b.String()
 }
 
-func (n ExprGroup[INode]) Source(og string) (string, error) {
+func (n ExprGroup[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeExprGroup(data json.RawMessage) (INode, error) {
 	var raw ExprGroup[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	exprNode, err := decodeNode(raw.Expr)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding expr: %v", err)
+		return nil, fmt.Errorf("error decoding expr: %w", err)
 	}
 
 	return ExprGroup[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
-		Expr:     exprNode,
+		NodeLoc: raw.NodeLoc,
+		Expr:    exprNode,
 	}, nil
 }
 
 type ExprIfElse[T any] struct {
-	Node
-	Location  Location `json:"location"`
-	Condition T        `json:"condition"`
-	HasThen   bool     `json:"hasThen"`
-	TrueExpr  T        `json:"trueExpr"`
-	HasElse   bool     `json:"hasElse"`
-	FalseExpr T        `json:"falseExpr"`
+	NodeLoc
+	Condition T    `json:"condition"`
+	HasThen   bool `json:"hasThen"`
+	TrueExpr  T    `json:"trueExpr"`
+	HasElse   bool `json:"hasElse"`
+	FalseExpr T    `json:"falseExpr"`
+}
+
+func (n ExprIfElse[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n ExprIfElse[T]) Type() string {
@@ -751,34 +814,33 @@ func (n ExprIfElse[T]) String() string {
 	return b.String()
 }
 
-func (n ExprIfElse[INode]) Source(og string) (string, error) {
+func (n ExprIfElse[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeExprIfElse(data json.RawMessage) (INode, error) {
 	var raw ExprIfElse[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	conditionNode, err := decodeNode(raw.Condition)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding condition: %v", err)
+		return nil, fmt.Errorf("error decoding condition: %w", err)
 	}
 
 	trueExprNode, err := decodeNode(raw.TrueExpr)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding true expression: %v", err)
+		return nil, fmt.Errorf("error decoding true expression: %w", err)
 	}
 
 	falseExprNode, err := decodeNode(raw.FalseExpr)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding false expression: %v", err)
+		return nil, fmt.Errorf("error decoding false expression: %w", err)
 	}
 
 	return ExprIfElse[INode]{
-		Node:      raw.Node,
-		Location:  raw.Location,
+		NodeLoc:   raw.NodeLoc,
 		Condition: conditionNode,
 		HasThen:   raw.HasThen,
 		TrueExpr:  trueExprNode,
@@ -788,10 +850,13 @@ func DecodeExprIfElse(data json.RawMessage) (INode, error) {
 }
 
 type ExprIndexExpr[T any] struct {
-	Node
-	Location Location `json:"location"`
-	Expr     T        `json:"expr"`
-	Index    T        `json:"index"`
+	NodeLoc
+	Expr  T `json:"expr"`
+	Index T `json:"index"`
+}
+
+func (n ExprIndexExpr[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n ExprIndexExpr[T]) Type() string {
@@ -811,41 +876,43 @@ func (n ExprIndexExpr[T]) String() string {
 	return b.String()
 }
 
-func (n ExprIndexExpr[INode]) Source(og string) (string, error) {
+func (n ExprIndexExpr[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeExprIndexExpr(data json.RawMessage) (INode, error) {
 	var raw ExprIndexExpr[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	exprNode, err := decodeNode(raw.Expr)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding expr: %v", err)
+		return nil, fmt.Errorf("error decoding expr: %w", err)
 	}
 
 	indexNode, err := decodeNode(raw.Index)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding index: %v", err)
+		return nil, fmt.Errorf("error decoding index: %w", err)
 	}
 
 	return ExprIndexExpr[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
-		Expr:     exprNode,
-		Index:    indexNode,
+		NodeLoc: raw.NodeLoc,
+		Expr:    exprNode,
+		Index:   indexNode,
 	}, nil
 }
 
 type ExprIndexName[T any] struct {
-	Node
-	Location      Location `json:"location"`
+	NodeLoc
 	Expr          T        `json:"expr"`
 	Index         string   `json:"index"`
 	IndexLocation Location `json:"indexLocation"`
 	Op            string   `json:"op"`
+}
+
+func (n ExprIndexName[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n ExprIndexName[T]) Type() string {
@@ -864,24 +931,23 @@ func (n ExprIndexName[T]) String() string {
 	return b.String()
 }
 
-func (n ExprIndexName[INode]) Source(og string) (string, error) {
+func (n ExprIndexName[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeExprIndexName(data json.RawMessage) (INode, error) {
 	var raw ExprIndexName[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	exprNode, err := decodeNode(raw.Expr)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding expr: %v", err)
+		return nil, fmt.Errorf("error decoding expr: %w", err)
 	}
 
 	return ExprIndexName[INode]{
-		Node:          raw.Node,
-		Location:      raw.Location,
+		NodeLoc:       raw.NodeLoc,
 		Expr:          exprNode,
 		Index:         raw.Index,
 		IndexLocation: raw.IndexLocation,
@@ -890,10 +956,13 @@ func DecodeExprIndexName(data json.RawMessage) (INode, error) {
 }
 
 type ExprInterpString[T any] struct {
-	Node
-	Location    Location `json:"location"`
+	NodeLoc
 	Strings     []string `json:"strings"`
 	Expressions []T      `json:"expressions"`
+}
+
+func (n ExprInterpString[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n ExprInterpString[T]) Type() string {
@@ -919,37 +988,39 @@ func (n ExprInterpString[T]) String() string {
 	return b.String()
 }
 
-func (n ExprInterpString[INode]) Source(og string) (string, error) {
+func (n ExprInterpString[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeExprInterpString(data json.RawMessage) (INode, error) {
 	var raw ExprInterpString[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	expressions := make([]INode, len(raw.Expressions))
 	for i, expr := range raw.Expressions {
 		n, err := decodeNode(expr)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding expression node: %v", err)
+			return nil, fmt.Errorf("error decoding expression node: %w", err)
 		}
 		expressions[i] = n
 	}
 
 	return ExprInterpString[INode]{
-		Node:        raw.Node,
-		Location:    raw.Location,
+		NodeLoc:     raw.NodeLoc,
 		Strings:     raw.Strings,
 		Expressions: expressions,
 	}, nil
 }
 
 type ExprLocal[T any] struct {
-	Node
-	Location Location `json:"location"`
-	Local    T        `json:"local"`
+	NodeLoc
+	Local T `json:"local"`
+}
+
+func (n ExprLocal[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n ExprLocal[T]) Type() string {
@@ -967,32 +1038,34 @@ func (n ExprLocal[T]) String() string {
 	return b.String()
 }
 
-func (n ExprLocal[INode]) Source(og string) (string, error) {
+func (n ExprLocal[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeExprLocal(data json.RawMessage) (INode, error) {
 	var raw ExprLocal[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	localNode, err := decodeNode(raw.Local)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding local: %v", err)
+		return nil, fmt.Errorf("error decoding local: %w", err)
 	}
 
 	return ExprLocal[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
-		Local:    localNode,
+		NodeLoc: raw.NodeLoc,
+		Local:   localNode,
 	}, nil
 }
 
 type ExprTable[T any] struct {
-	Node
-	Location Location `json:"location"`
-	Items    []T      `json:"items"`
+	NodeLoc
+	Items []T `json:"items"`
+}
+
+func (n ExprTable[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n ExprTable[T]) Type() string {
@@ -1014,29 +1087,28 @@ func (n ExprTable[T]) String() string {
 	return b.String()
 }
 
-func (n ExprTable[INode]) Source(og string) (string, error) {
+func (n ExprTable[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeExprTable(data json.RawMessage) (INode, error) {
 	var raw ExprTable[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	items := make([]INode, len(raw.Items))
 	for i, item := range raw.Items {
 		n, err := decodeNode(item)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding item node: %v", err)
+			return nil, fmt.Errorf("error decoding item node: %w", err)
 		}
 		items[i] = n
 	}
 
 	return ExprTable[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
-		Items:    items,
+		NodeLoc: raw.NodeLoc,
+		Items:   items,
 	}, nil
 }
 
@@ -1045,6 +1117,10 @@ type ExprTableItem[T any] struct {
 	Kind  string `json:"kind"`
 	Key   *T     `json:"key"`
 	Value T      `json:"value"`
+}
+
+func (n ExprTableItem[T]) GetLocation() Location {
+	return Location{}
 }
 
 func (n ExprTableItem[T]) Type() string {
@@ -1067,7 +1143,7 @@ func (n ExprTableItem[T]) String() string {
 	return b.String()
 }
 
-func (n ExprTableItem[INode]) Source(og string) (string, error) {
+func (n ExprTableItem[T]) Source(og string, comments []Comment) (string, error) {
 	// TableItem doesn't seem to have a Location field, using Value's location if possible
 	return "", errors.New("table item has no direct location")
 }
@@ -1075,21 +1151,21 @@ func (n ExprTableItem[INode]) Source(og string) (string, error) {
 func DecodeExprTableItem(data json.RawMessage) (INode, error) {
 	var raw ExprTableItem[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	var keyNodeMaybe *INode
 	if raw.Key != nil {
 		keyNode, err := decodeNode(*raw.Key)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding key: %v", err)
+			return nil, fmt.Errorf("error decoding key: %w", err)
 		}
 		keyNodeMaybe = &keyNode
 	}
 
 	valueNode, err := decodeNode(raw.Value)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding value: %v", err)
+		return nil, fmt.Errorf("error decoding value: %w", err)
 	}
 
 	return ExprTableItem[INode]{
@@ -1101,10 +1177,13 @@ func DecodeExprTableItem(data json.RawMessage) (INode, error) {
 }
 
 type ExprTypeAssertion[T any] struct {
-	Node
-	Location   Location `json:"location"`
-	Expr       T        `json:"expr"`
-	Annotation T        `json:"annotation"`
+	NodeLoc
+	Expr       T `json:"expr"`
+	Annotation T `json:"annotation"`
+}
+
+func (n ExprTypeAssertion[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n ExprTypeAssertion[T]) Type() string {
@@ -1124,37 +1203,39 @@ func (n ExprTypeAssertion[T]) String() string {
 	return b.String()
 }
 
-func (n ExprTypeAssertion[INode]) Source(og string) (string, error) {
+func (n ExprTypeAssertion[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeExprTypeAssertion(data json.RawMessage) (INode, error) {
 	var raw ExprTypeAssertion[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	exprNode, err := decodeNode(raw.Expr)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding expr: %v", err)
+		return nil, fmt.Errorf("error decoding expr: %w", err)
 	}
 
 	annotationNode, err := decodeNode(raw.Annotation)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding annotation: %v", err)
+		return nil, fmt.Errorf("error decoding annotation: %w", err)
 	}
 
 	return ExprTypeAssertion[INode]{
-		Node:       raw.Node,
-		Location:   raw.Location,
+		NodeLoc:    raw.NodeLoc,
 		Expr:       exprNode,
 		Annotation: annotationNode,
 	}, nil
 }
 
 type ExprVarargs struct {
-	Node
-	Location Location `json:"location"`
+	NodeLoc
+}
+
+func (n ExprVarargs) GetLocation() Location {
+	return n.Location
 }
 
 func (n ExprVarargs) Type() string {
@@ -1170,23 +1251,26 @@ func (n ExprVarargs) String() string {
 	return b.String()
 }
 
-func (n ExprVarargs) Source(og string) (string, error) {
+func (n ExprVarargs) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeExprVarargs(data json.RawMessage) (INode, error) {
 	var raw ExprVarargs
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 	return raw, nil
 }
 
 type ExprUnary[T any] struct {
-	Node
-	Location Location `json:"location"`
-	Op       string   `json:"op"`
-	Expr     T        `json:"expr"`
+	NodeLoc
+	Op   string `json:"op"`
+	Expr T      `json:"expr"`
+}
+
+func (n ExprUnary[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n ExprUnary[T]) Type() string {
@@ -1205,32 +1289,35 @@ func (n ExprUnary[T]) String() string {
 	return b.String()
 }
 
-func (n ExprUnary[INode]) Source(og string) (string, error) {
+func (n ExprUnary[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeExprUnary(data json.RawMessage) (INode, error) {
 	var raw ExprUnary[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	exprNode, err := decodeNode(raw.Expr)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding expr: %v", err)
+		return nil, fmt.Errorf("error decoding expr: %w", err)
 	}
 
 	return ExprUnary[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
-		Op:       raw.Op,
-		Expr:     exprNode,
+		NodeLoc: raw.NodeLoc,
+		Op:      raw.Op,
+		Expr:    exprNode,
 	}, nil
 }
 
 type GenericType struct {
 	Node
 	Name string `json:"name"`
+}
+
+func (g GenericType) GetLocation() Location {
+	return Location{}
 }
 
 func (g GenericType) Type() string {
@@ -1249,12 +1336,12 @@ func (g GenericType) String() string {
 func DecodeGenericType(data json.RawMessage) (INode, error) {
 	var raw GenericType
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 	return raw, nil
 }
 
-func (g GenericType) Source(og string) (string, error) {
+func (g GenericType) Source(og string, comments []Comment) (string, error) {
 	// GenericType doesn't have a Location field
 	return "", errors.New("generic type has no location")
 }
@@ -1262,6 +1349,10 @@ func (g GenericType) Source(og string) (string, error) {
 type GenericTypePack struct {
 	Node
 	Name string `json:"name"`
+}
+
+func (g GenericTypePack) GetLocation() Location {
+	return Location{}
 }
 
 func (g GenericTypePack) Type() string {
@@ -1280,12 +1371,12 @@ func (g GenericTypePack) String() string {
 func DecodeGenericTypePack(data json.RawMessage) (INode, error) {
 	var raw GenericTypePack
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 	return raw, nil
 }
 
-func (g GenericTypePack) Source(og string) (string, error) {
+func (g GenericTypePack) Source(og string, comments []Comment) (string, error) {
 	// GenericTypePack doesn't have a Location field
 	return "", errors.New("generic type pack has no location")
 }
@@ -1293,8 +1384,11 @@ func (g GenericTypePack) Source(og string) (string, error) {
 type Local[T any] struct {
 	LuauType *T     `json:"luauType"` // for now it's probably nil?
 	Name     string `json:"name"`
-	Node
-	Location Location `json:"location"`
+	NodeLoc
+}
+
+func (n Local[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n Local[T]) Type() string {
@@ -1316,21 +1410,21 @@ func (n Local[T]) String() string {
 	return b.String()
 }
 
-func (n Local[INode]) Source(og string) (string, error) {
+func (n Local[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeLocal(data json.RawMessage) (INode, error) {
 	var raw Local[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	var luauTypeMaybe *INode
 	if raw.LuauType != nil {
 		luauTypeNode, err := decodeNode(*raw.LuauType)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding luau type: %v", err)
+			return nil, fmt.Errorf("error decoding luau type: %w", err)
 		}
 		luauTypeMaybe = &luauTypeNode
 	}
@@ -1338,16 +1432,18 @@ func DecodeLocal(data json.RawMessage) (INode, error) {
 	return Local[INode]{
 		LuauType: luauTypeMaybe,
 		Name:     raw.Name,
-		Node:     raw.Node,
-		Location: raw.Location,
+		NodeLoc:  raw.NodeLoc,
 	}, nil
 }
 
 type StatAssign[T any] struct {
-	Node
-	Location Location `json:"location"`
-	Vars     []T      `json:"vars"`
-	Values   []T      `json:"values"`
+	NodeLoc
+	Vars   []T `json:"vars"`
+	Values []T `json:"values"`
+}
+
+func (n StatAssign[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n StatAssign[T]) Type() string {
@@ -1373,21 +1469,21 @@ func (n StatAssign[T]) String() string {
 	return b.String()
 }
 
-func (n StatAssign[INode]) Source(og string) (string, error) {
+func (n StatAssign[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeStatAssign(data json.RawMessage) (INode, error) {
 	var raw StatAssign[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	vars := make([]INode, len(raw.Vars))
 	for i, v := range raw.Vars {
 		n, err := decodeNode(v)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding var node: %v", err)
+			return nil, fmt.Errorf("error decoding var node: %w", err)
 		}
 		vars[i] = n
 	}
@@ -1396,24 +1492,26 @@ func DecodeStatAssign(data json.RawMessage) (INode, error) {
 	for i, v := range raw.Values {
 		n, err := decodeNode(v)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding value node: %v", err)
+			return nil, fmt.Errorf("error decoding value node: %w", err)
 		}
 		values[i] = n
 	}
 
 	return StatAssign[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
-		Vars:     vars,
-		Values:   values,
+		NodeLoc: raw.NodeLoc,
+		Vars:    vars,
+		Values:  values,
 	}, nil
 }
 
 type StatBlock[T any] struct {
-	Node
-	Location Location `json:"location"`
-	HasEnd   bool     `json:"hasEnd"`
-	Body     []T      `json:"body"`
+	NodeLoc
+	HasEnd bool `json:"hasEnd"`
+	Body   []T  `json:"body"`
+}
+
+func (n StatBlock[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n StatBlock[T]) Type() string {
@@ -1436,36 +1534,85 @@ func (n StatBlock[T]) String() string {
 	return b.String()
 }
 
-func (n StatBlock[INode]) Source(og string) (string, error) {
-	return n.Location.GetFromSource(og)
+func (n StatBlock[T]) Source(og string, comments []Comment) (string, error) {
+	in, ok := any(n).(StatBlock[INode])
+	if !ok {
+		// return n.Location.GetFromSource(og)
+		return "", fmt.Errorf("expected StatBlock[INode], got %T", n)
+	}
+
+	var b strings.Builder
+	var commentsDone int
+	for _, bnode := range in.Body {
+		loc := bnode.GetLocation()
+		if commentsDone < len(comments) {
+			for _, c := range comments[commentsDone:] {
+				if !loc.EndsAfter(c.Location) {
+					continue
+				}
+
+				cs, err := c.Source(og)
+				if err != nil {
+					return "", fmt.Errorf("error getting comment source: %w", err)
+				}
+
+				b.WriteString(cs)
+				b.WriteByte('\n')
+				commentsDone++
+			}
+		}
+
+		bs, err := bnode.Source(og, comments)
+		if err != nil {
+			return "", err
+		}
+		b.WriteString(bs)
+		b.WriteByte('\n')
+	}
+
+	if commentsDone < len(comments) {
+		for _, c := range comments[commentsDone:] {
+			cs, err := c.Source(og)
+			if err != nil {
+				return "", fmt.Errorf("error getting comment source: %w", err)
+			}
+
+			b.WriteString(cs)
+			b.WriteByte('\n')
+		}
+	}
+
+	return b.String(), nil
 }
 
 func DecodeStatBlock(data json.RawMessage) (INode, error) {
 	var raw StatBlock[json.RawMessage] // rawblocks man
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	body := make([]INode, len(raw.Body))
 	for i, bn := range raw.Body {
 		n, err := decodeNode(bn)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding body node: %v", err)
+			return nil, fmt.Errorf("error decoding body node: %w", err)
 		}
 		body[i] = n
 	}
 
 	return StatBlock[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
-		HasEnd:   raw.HasEnd,
-		Body:     body,
+		NodeLoc: raw.NodeLoc,
+		HasEnd:  raw.HasEnd,
+		Body:    body,
 	}, nil
 }
 
 type StatBreak struct {
-	Node
-	Location Location `json:"location"`
+	NodeLoc
+}
+
+func (n StatBreak) GetLocation() Location {
+	return n.Location
 }
 
 func (n StatBreak) Type() string {
@@ -1481,24 +1628,27 @@ func (n StatBreak) String() string {
 	return b.String()
 }
 
-func (n StatBreak) Source(og string) (string, error) {
+func (n StatBreak) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeStatBreak(data json.RawMessage) (INode, error) {
 	var raw StatBreak
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 	return raw, nil
 }
 
 type StatCompoundAssign[T any] struct {
-	Node
-	Location Location `json:"location"`
-	Op       string   `json:"op"`
-	Var      T        `json:"var"`
-	Value    T        `json:"value"`
+	NodeLoc
+	Op    string `json:"op"`
+	Var   T      `json:"var"`
+	Value T      `json:"value"`
+}
+
+func (n StatCompoundAssign[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n StatCompoundAssign[T]) Type() string {
@@ -1519,38 +1669,40 @@ func (n StatCompoundAssign[T]) String() string {
 	return b.String()
 }
 
-func (n StatCompoundAssign[INode]) Source(og string) (string, error) {
+func (n StatCompoundAssign[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeStatCompoundAssign(data json.RawMessage) (INode, error) {
 	var raw StatCompoundAssign[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	varNode, err := decodeNode(raw.Var)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding var: %v", err)
+		return nil, fmt.Errorf("error decoding var: %w", err)
 	}
 
 	valueNode, err := decodeNode(raw.Value)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding value: %v", err)
+		return nil, fmt.Errorf("error decoding value: %w", err)
 	}
 
 	return StatCompoundAssign[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
-		Op:       raw.Op,
-		Var:      varNode,
-		Value:    valueNode,
+		NodeLoc: raw.NodeLoc,
+		Op:      raw.Op,
+		Var:     varNode,
+		Value:   valueNode,
 	}, nil
 }
 
 type StatContinue struct {
-	Node
-	Location Location `json:"location"`
+	NodeLoc
+}
+
+func (n StatContinue) GetLocation() Location {
+	return n.Location
 }
 
 func (n StatContinue) Type() string {
@@ -1566,24 +1718,27 @@ func (n StatContinue) String() string {
 	return b.String()
 }
 
-func (n StatContinue) Source(og string) (string, error) {
+func (n StatContinue) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeStatContinue(data json.RawMessage) (INode, error) {
 	var raw StatContinue
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 	return raw, nil
 }
 
 type StatDeclareClass[T any] struct {
-	Node
-	Location Location `json:"location"`
-	Name     string   `json:"name"`
-	Props    []T      `json:"props"`
-	Indexer  *T       `json:"indexer"`
+	NodeLoc
+	Name    string `json:"name"`
+	Props   []T    `json:"props"`
+	Indexer *T     `json:"indexer"`
+}
+
+func (n StatDeclareClass[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n StatDeclareClass[T]) Type() string {
@@ -1610,21 +1765,21 @@ func (n StatDeclareClass[T]) String() string {
 	return b.String()
 }
 
-func (n StatDeclareClass[INode]) Source(og string) (string, error) {
+func (n StatDeclareClass[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeStatDeclareClass(data json.RawMessage) (INode, error) {
 	var raw StatDeclareClass[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	props := make([]INode, len(raw.Props))
 	for i, prop := range raw.Props {
 		n, err := decodeNode(prop)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding prop node: %v", err)
+			return nil, fmt.Errorf("error decoding prop node: %w", err)
 		}
 		props[i] = n
 	}
@@ -1633,24 +1788,26 @@ func DecodeStatDeclareClass(data json.RawMessage) (INode, error) {
 	if raw.Indexer != nil {
 		indexerNode, err := decodeNode(*raw.Indexer)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding indexer: %v", err)
+			return nil, fmt.Errorf("error decoding indexer: %w", err)
 		}
 		indexerNodeMaybe = &indexerNode
 	}
 
 	return StatDeclareClass[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
-		Name:     raw.Name,
-		Props:    props,
-		Indexer:  indexerNodeMaybe,
+		NodeLoc: raw.NodeLoc,
+		Name:    raw.Name,
+		Props:   props,
+		Indexer: indexerNodeMaybe,
 	}, nil
 }
 
 type StatExpr[T any] struct {
-	Node
-	Location Location `json:"location"`
-	Expr     T        `json:"expr"`
+	NodeLoc
+	Expr T `json:"expr"`
+}
+
+func (n StatExpr[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n StatExpr[T]) Type() string {
@@ -1669,36 +1826,38 @@ func (n StatExpr[T]) String() string {
 	return b.String()
 }
 
-func (n StatExpr[INode]) Source(og string) (string, error) {
+func (n StatExpr[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeStatExpr(data json.RawMessage) (INode, error) {
 	var raw StatExpr[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	n, err := decodeNode(raw.Expr)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding expr: %v", err)
+		return nil, fmt.Errorf("error decoding expr: %w", err)
 	}
 
 	return StatExpr[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
-		Expr:     n,
+		NodeLoc: raw.NodeLoc,
+		Expr:    n,
 	}, nil
 }
 
 type StatFor[T any] struct {
-	Node
-	Location Location `json:"location"`
-	Var      T        `json:"var"`
-	From     T        `json:"from"`
-	To       T        `json:"to"`
-	Body     T        `json:"body"`
-	HasDo    bool     `json:"hasDo"`
+	NodeLoc
+	Var   T    `json:"var"`
+	From  T    `json:"from"`
+	To    T    `json:"to"`
+	Body  T    `json:"body"`
+	HasDo bool `json:"hasDo"`
+}
+
+func (n StatFor[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n StatFor[T]) Type() string {
@@ -1723,55 +1882,57 @@ func (n StatFor[T]) String() string {
 	return b.String()
 }
 
-func (n StatFor[INode]) Source(og string) (string, error) {
+func (n StatFor[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeStatFor(data json.RawMessage) (INode, error) {
 	var raw StatFor[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	varNode, err := decodeNode(raw.Var)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding var: %v", err)
+		return nil, fmt.Errorf("error decoding var: %w", err)
 	}
 
 	fromNode, err := decodeNode(raw.From)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding from: %v", err)
+		return nil, fmt.Errorf("error decoding from: %w", err)
 	}
 
 	toNode, err := decodeNode(raw.To)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding to: %v", err)
+		return nil, fmt.Errorf("error decoding to: %w", err)
 	}
 
 	bodyNode, err := decodeNode(raw.Body)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding body: %v", err)
+		return nil, fmt.Errorf("error decoding body: %w", err)
 	}
 
 	return StatFor[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
-		Var:      varNode,
-		From:     fromNode,
-		To:       toNode,
-		Body:     bodyNode,
-		HasDo:    raw.HasDo,
+		NodeLoc: raw.NodeLoc,
+		Var:     varNode,
+		From:    fromNode,
+		To:      toNode,
+		Body:    bodyNode,
+		HasDo:   raw.HasDo,
 	}, nil
 }
 
 type StatForIn[T any] struct {
-	Node
-	Location Location `json:"location"`
-	Vars     []T      `json:"vars"`
-	Values   []T      `json:"values"`
-	Body     T        `json:"body"`
-	HasIn    bool     `json:"hasIn"`
-	HasDo    bool     `json:"hasDo"`
+	NodeLoc
+	Vars   []T  `json:"vars"`
+	Values []T  `json:"values"`
+	Body   T    `json:"body"`
+	HasIn  bool `json:"hasIn"`
+	HasDo  bool `json:"hasDo"`
+}
+
+func (n StatForIn[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n StatForIn[T]) Type() string {
@@ -1801,21 +1962,21 @@ func (n StatForIn[T]) String() string {
 	return b.String()
 }
 
-func (n StatForIn[INode]) Source(og string) (string, error) {
+func (n StatForIn[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeStatForIn(data json.RawMessage) (INode, error) {
 	var raw StatForIn[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	vars := make([]INode, len(raw.Vars))
 	for i, v := range raw.Vars {
 		n, err := decodeNode(v)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding var node: %v", err)
+			return nil, fmt.Errorf("error decoding var node: %w", err)
 		}
 		vars[i] = n
 	}
@@ -1824,32 +1985,34 @@ func DecodeStatForIn(data json.RawMessage) (INode, error) {
 	for i, v := range raw.Values {
 		n, err := decodeNode(v)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding value node: %v", err)
+			return nil, fmt.Errorf("error decoding value node: %w", err)
 		}
 		values[i] = n
 	}
 
 	bodyNode, err := decodeNode(raw.Body)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding body: %v", err)
+		return nil, fmt.Errorf("error decoding body: %w", err)
 	}
 
 	return StatForIn[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
-		Vars:     vars,
-		Values:   values,
-		Body:     bodyNode,
-		HasIn:    raw.HasIn,
-		HasDo:    raw.HasDo,
+		NodeLoc: raw.NodeLoc,
+		Vars:    vars,
+		Values:  values,
+		Body:    bodyNode,
+		HasIn:   raw.HasIn,
+		HasDo:   raw.HasDo,
 	}, nil
 }
 
 type StatFunction[T any] struct {
-	Node
-	Location Location `json:"location"`
-	Name     T        `json:"name"`
-	Func     T        `json:"func"`
+	NodeLoc
+	Name T `json:"name"`
+	Func T `json:"func"`
+}
+
+func (n StatFunction[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n StatFunction[T]) Type() string {
@@ -1869,41 +2032,43 @@ func (n StatFunction[T]) String() string {
 	return b.String()
 }
 
-func (n StatFunction[INode]) Source(og string) (string, error) {
+func (n StatFunction[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeStatFunction(data json.RawMessage) (INode, error) {
 	var raw StatFunction[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	nameNode, err := decodeNode(raw.Name)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding name: %v", err)
+		return nil, fmt.Errorf("error decoding name: %w", err)
 	}
 
 	funcNode, err := decodeNode(raw.Func)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding func: %v", err)
+		return nil, fmt.Errorf("error decoding func: %w", err)
 	}
 
 	return StatFunction[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
-		Name:     nameNode,
-		Func:     funcNode,
+		NodeLoc: raw.NodeLoc,
+		Name:    nameNode,
+		Func:    funcNode,
 	}, nil
 }
 
 type StatIf[T any] struct {
-	Node
-	Location  Location `json:"location"`
-	Condition T        `json:"condition"`
-	ThenBody  T        `json:"thenbody"`
-	ElseBody  *T       `json:"elsebody"`
-	HasThen   bool     `json:"hasThen"`
+	NodeLoc
+	Condition T    `json:"condition"`
+	ThenBody  T    `json:"thenbody"`
+	ElseBody  *T   `json:"elsebody"`
+	HasThen   bool `json:"hasThen"`
+}
+
+func (n StatIf[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n StatIf[T]) Type() string {
@@ -1929,38 +2094,37 @@ func (n StatIf[T]) String() string {
 	return b.String()
 }
 
-func (n StatIf[INode]) Source(og string) (string, error) {
+func (n StatIf[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeStatIf(data json.RawMessage) (INode, error) {
 	var raw StatIf[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	condition, err := decodeNode(raw.Condition)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding condition: %v", err)
+		return nil, fmt.Errorf("error decoding condition: %w", err)
 	}
 
 	thenBody, err := decodeNode(raw.ThenBody)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding then body: %v", err)
+		return nil, fmt.Errorf("error decoding then body: %w", err)
 	}
 
 	var elseBodyMaybe *INode
 	if raw.ElseBody != nil {
 		elseBody, err := decodeNode(*raw.ElseBody)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding else body: %v", err)
+			return nil, fmt.Errorf("error decoding else body: %w", err)
 		}
 		elseBodyMaybe = &elseBody
 	}
 
 	return StatIf[INode]{
-		Node:      raw.Node,
-		Location:  raw.Location,
+		NodeLoc:   raw.NodeLoc,
 		Condition: condition,
 		ThenBody:  thenBody,
 		ElseBody:  elseBodyMaybe,
@@ -1969,10 +2133,13 @@ func DecodeStatIf(data json.RawMessage) (INode, error) {
 }
 
 type StatLocal[T any] struct {
-	Node
-	Location Location `json:"location"`
-	Vars     []T      `json:"vars"`
-	Values   []T      `json:"values"`
+	NodeLoc
+	Vars   []T `json:"vars"`
+	Values []T `json:"values"`
+}
+
+func (n StatLocal[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n StatLocal[T]) Type() string {
@@ -1998,21 +2165,21 @@ func (n StatLocal[T]) String() string {
 	return b.String()
 }
 
-func (n StatLocal[INode]) Source(og string) (string, error) {
+func (n StatLocal[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeStatLocal(data json.RawMessage) (INode, error) {
 	var raw StatLocal[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	vars := make([]INode, len(raw.Vars))
 	for i, v := range raw.Vars {
 		n, err := decodeNode(v)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding var node: %v", err)
+			return nil, fmt.Errorf("error decoding var node: %w", err)
 		}
 		vars[i] = n
 	}
@@ -2021,24 +2188,26 @@ func DecodeStatLocal(data json.RawMessage) (INode, error) {
 	for i, v := range raw.Values {
 		n, err := decodeNode(v)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding value node: %v", err)
+			return nil, fmt.Errorf("error decoding value node: %w", err)
 		}
 		values[i] = n
 	}
 
 	return StatLocal[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
-		Vars:     vars,
-		Values:   values,
+		NodeLoc: raw.NodeLoc,
+		Vars:    vars,
+		Values:  values,
 	}, nil
 }
 
 type StatLocalFunction[T any] struct {
-	Node
-	Location Location `json:"location"`
-	Name     T        `json:"name"`
-	Func     T        `json:"func"`
+	NodeLoc
+	Name T `json:"name"`
+	Func T `json:"func"`
+}
+
+func (n StatLocalFunction[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n StatLocalFunction[T]) Type() string {
@@ -2058,39 +2227,41 @@ func (n StatLocalFunction[T]) String() string {
 	return b.String()
 }
 
-func (n StatLocalFunction[INode]) Source(og string) (string, error) {
+func (n StatLocalFunction[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeStatLocalFunction(data json.RawMessage) (INode, error) {
 	var raw StatLocalFunction[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	nameNode, err := decodeNode(raw.Name)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding name: %v", err)
+		return nil, fmt.Errorf("error decoding name: %w", err)
 	}
 
 	funcNode, err := decodeNode(raw.Func)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding func: %v", err)
+		return nil, fmt.Errorf("error decoding func: %w", err)
 	}
 
 	return StatLocalFunction[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
-		Name:     nameNode,
-		Func:     funcNode,
+		NodeLoc: raw.NodeLoc,
+		Name:    nameNode,
+		Func:    funcNode,
 	}, nil
 }
 
 type StatRepeat[T any] struct {
-	Node
-	Location  Location `json:"location"`
-	Condition T        `json:"condition"`
-	Body      T        `json:"body"`
+	NodeLoc
+	Condition T `json:"condition"`
+	Body      T `json:"body"`
+}
+
+func (n StatRepeat[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n StatRepeat[T]) Type() string {
@@ -2110,38 +2281,40 @@ func (n StatRepeat[T]) String() string {
 	return b.String()
 }
 
-func (n StatRepeat[INode]) Source(og string) (string, error) {
+func (n StatRepeat[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeStatRepeat(data json.RawMessage) (INode, error) {
 	var raw StatRepeat[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	condition, err := decodeNode(raw.Condition)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding condition: %v", err)
+		return nil, fmt.Errorf("error decoding condition: %w", err)
 	}
 
 	body, err := decodeNode(raw.Body)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding body: %v", err)
+		return nil, fmt.Errorf("error decoding body: %w", err)
 	}
 
 	return StatRepeat[INode]{
-		Node:      raw.Node,
-		Location:  raw.Location,
+		NodeLoc:   raw.NodeLoc,
 		Condition: condition,
 		Body:      body,
 	}, nil
 }
 
 type StatReturn[T any] struct {
-	Node
-	Location Location `json:"location"`
-	List     []T      `json:"list"`
+	NodeLoc
+	List []T `json:"list"`
+}
+
+func (n StatReturn[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n StatReturn[T]) Type() string {
@@ -2163,40 +2336,42 @@ func (n StatReturn[T]) String() string {
 	return b.String()
 }
 
-func (n StatReturn[INode]) Source(og string) (string, error) {
+func (n StatReturn[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeStatReturn(data json.RawMessage) (INode, error) {
 	var raw StatReturn[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	list := make([]INode, len(raw.List))
 	for i, item := range raw.List {
 		n, err := decodeNode(item)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding list item: %v", err)
+			return nil, fmt.Errorf("error decoding list item: %w", err)
 		}
 		list[i] = n
 	}
 
 	return StatReturn[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
-		List:     list,
+		NodeLoc: raw.NodeLoc,
+		List:    list,
 	}, nil
 }
 
 type StatTypeAlias[T any] struct {
-	Node
-	Location     Location `json:"location"`
-	Name         string   `json:"name"`
-	Generics     []T      `json:"generics"`
-	GenericPacks []T      `json:"genericPacks"`
-	Value        T        `json:"value"`
-	Exported     bool     `json:"exported"`
+	NodeLoc
+	Name         string `json:"name"`
+	Generics     []T    `json:"generics"`
+	GenericPacks []T    `json:"genericPacks"`
+	Value        T      `json:"value"`
+	Exported     bool   `json:"exported"`
+}
+
+func (n StatTypeAlias[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n StatTypeAlias[T]) Type() string {
@@ -2226,21 +2401,21 @@ func (n StatTypeAlias[T]) String() string {
 	return b.String()
 }
 
-func (n StatTypeAlias[INode]) Source(og string) (string, error) {
+func (n StatTypeAlias[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeStatTypeAlias(data json.RawMessage) (INode, error) {
 	var raw StatTypeAlias[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	generics := make([]INode, len(raw.Generics))
 	for i, g := range raw.Generics {
 		n, err := decodeNode(g)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding generic node: %v", err)
+			return nil, fmt.Errorf("error decoding generic node: %w", err)
 		}
 		generics[i] = n
 	}
@@ -2249,19 +2424,18 @@ func DecodeStatTypeAlias(data json.RawMessage) (INode, error) {
 	for i, gp := range raw.GenericPacks {
 		n, err := decodeNode(gp)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding generic pack node: %v", err)
+			return nil, fmt.Errorf("error decoding generic pack node: %w", err)
 		}
 		genericPacks[i] = n
 	}
 
 	valueNode, err := decodeNode(raw.Value)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding value: %v", err)
+		return nil, fmt.Errorf("error decoding value: %w", err)
 	}
 
 	return StatTypeAlias[INode]{
-		Node:         raw.Node,
-		Location:     raw.Location,
+		NodeLoc:      raw.NodeLoc,
 		Name:         raw.Name,
 		Generics:     generics,
 		GenericPacks: genericPacks,
@@ -2271,11 +2445,14 @@ func DecodeStatTypeAlias(data json.RawMessage) (INode, error) {
 }
 
 type StatWhile[T any] struct {
-	Node
-	Location  Location `json:"location"`
-	Condition T        `json:"condition"`
-	Body      T        `json:"body"`
-	HasDo     bool     `json:"hasDo"`
+	NodeLoc
+	Condition T    `json:"condition"`
+	Body      T    `json:"body"`
+	HasDo     bool `json:"hasDo"`
+}
+
+func (n StatWhile[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n StatWhile[T]) Type() string {
@@ -2296,29 +2473,28 @@ func (n StatWhile[T]) String() string {
 	return b.String()
 }
 
-func (n StatWhile[INode]) Source(og string) (string, error) {
+func (n StatWhile[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeStatWhile(data json.RawMessage) (INode, error) {
 	var raw StatWhile[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	condition, err := decodeNode(raw.Condition)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding condition: %v", err)
+		return nil, fmt.Errorf("error decoding condition: %w", err)
 	}
 
 	body, err := decodeNode(raw.Body)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding body: %v", err)
+		return nil, fmt.Errorf("error decoding body: %w", err)
 	}
 
 	return StatWhile[INode]{
-		Node:      raw.Node,
-		Location:  raw.Location,
+		NodeLoc:   raw.NodeLoc,
 		Condition: condition,
 		Body:      body,
 		HasDo:     raw.HasDo,
@@ -2327,9 +2503,12 @@ func DecodeStatWhile(data json.RawMessage) (INode, error) {
 
 type TableProp[T any] struct {
 	Name string `json:"name"`
-	Node
-	Location Location `json:"location"`
-	PropType T        `json:"propType"`
+	NodeLoc
+	PropType T `json:"propType"`
+}
+
+func (n TableProp[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n TableProp[T]) Type() string {
@@ -2348,38 +2527,40 @@ func (n TableProp[T]) String() string {
 	return b.String()
 }
 
-func (n TableProp[INode]) Source(og string) (string, error) {
+func (n TableProp[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeTableProp(data json.RawMessage) (INode, error) {
 	var raw TableProp[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	propTypeNode, err := decodeNode(raw.PropType)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding prop type: %v", err)
+		return nil, fmt.Errorf("error decoding prop type: %w", err)
 	}
 
 	return TableProp[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
+		NodeLoc:  raw.NodeLoc,
 		Name:     raw.Name,
 		PropType: propTypeNode,
 	}, nil
 }
 
 type TypeFunction[T any] struct {
-	Node
-	Location     Location `json:"location"`
-	Attributes   []T      `json:"attributes"`
-	Generics     []T      `json:"generics"`
-	GenericPacks []T      `json:"genericPacks"`
-	ArgTypes     T        `json:"argTypes"`
-	ArgNames     []T      `json:"argNames"`
-	ReturnTypes  T        `json:"returnTypes"`
+	NodeLoc
+	Attributes   []T `json:"attributes"`
+	Generics     []T `json:"generics"`
+	GenericPacks []T `json:"genericPacks"`
+	ArgTypes     T   `json:"argTypes"`
+	ArgNames     []T `json:"argNames"`
+	ReturnTypes  T   `json:"returnTypes"`
+}
+
+func (n TypeFunction[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n TypeFunction[T]) Type() string {
@@ -2419,21 +2600,21 @@ func (n TypeFunction[T]) String() string {
 	return b.String()
 }
 
-func (n TypeFunction[INode]) Source(og string) (string, error) {
+func (n TypeFunction[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeTypeFunction(data json.RawMessage) (INode, error) {
 	var raw TypeFunction[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	attributes := make([]INode, len(raw.Attributes))
 	for i, attr := range raw.Attributes {
 		n, err := decodeNode(attr)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding attribute node: %v", err)
+			return nil, fmt.Errorf("error decoding attribute node: %w", err)
 		}
 		attributes[i] = n
 	}
@@ -2442,7 +2623,7 @@ func DecodeTypeFunction(data json.RawMessage) (INode, error) {
 	for i, gen := range raw.Generics {
 		n, err := decodeNode(gen)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding generic node: %v", err)
+			return nil, fmt.Errorf("error decoding generic node: %w", err)
 		}
 		generics[i] = n
 	}
@@ -2451,33 +2632,32 @@ func DecodeTypeFunction(data json.RawMessage) (INode, error) {
 	for i, pack := range raw.GenericPacks {
 		n, err := decodeNode(pack)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding generic pack node: %v", err)
+			return nil, fmt.Errorf("error decoding generic pack node: %w", err)
 		}
 		genericPacks[i] = n
 	}
 
 	argTypesNode, err := decodeNode(raw.ArgTypes)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding arg types: %v", err)
+		return nil, fmt.Errorf("error decoding arg types: %w", err)
 	}
 
 	argNames := make([]INode, len(raw.ArgNames))
 	for i, name := range raw.ArgNames {
 		n, err := decodeNode(name)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding arg name node: %v", err)
+			return nil, fmt.Errorf("error decoding arg name node: %w", err)
 		}
 		argNames[i] = n
 	}
 
 	returnTypesNode, err := decodeNode(raw.ReturnTypes)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding return types: %v", err)
+		return nil, fmt.Errorf("error decoding return types: %w", err)
 	}
 
 	return TypeFunction[INode]{
-		Node:         raw.Node,
-		Location:     raw.Location,
+		NodeLoc:      raw.NodeLoc,
 		Attributes:   attributes,
 		Generics:     generics,
 		GenericPacks: genericPacks,
@@ -2488,9 +2668,12 @@ func DecodeTypeFunction(data json.RawMessage) (INode, error) {
 }
 
 type TypeGroup[T any] struct {
-	Node
-	Location Location `json:"location"`
-	Inner    T        `json:"inner"`
+	NodeLoc
+	Inner T `json:"inner"`
+}
+
+func (n TypeGroup[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n TypeGroup[T]) Type() string {
@@ -2508,31 +2691,34 @@ func (n TypeGroup[T]) String() string {
 	return b.String()
 }
 
-func (n TypeGroup[INode]) Source(og string) (string, error) {
+func (n TypeGroup[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeTypeGroup(data json.RawMessage) (INode, error) {
 	var raw TypeGroup[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	innerNode, err := decodeNode(raw.Inner)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding inner node: %v", err)
+		return nil, fmt.Errorf("error decoding inner node: %w", err)
 	}
 
 	return TypeGroup[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
-		Inner:    innerNode,
+		NodeLoc: raw.NodeLoc,
+		Inner:   innerNode,
 	}, nil
 }
 
 type TypeList[T any] struct {
 	Node
 	Types []T `json:"types"`
+}
+
+func (n TypeList[T]) GetLocation() Location {
+	return Location{}
 }
 
 func (n TypeList[T]) Type() string {
@@ -2553,7 +2739,7 @@ func (n TypeList[T]) String() string {
 	return b.String()
 }
 
-func (n TypeList[INode]) Source(og string) (string, error) {
+func (n TypeList[T]) Source(og string, comments []Comment) (string, error) {
 	// TypeList doesn't seem to have a Location field
 	return "", errors.New("type list has no location")
 }
@@ -2561,14 +2747,14 @@ func (n TypeList[INode]) Source(og string) (string, error) {
 func DecodeTypeList(data json.RawMessage) (INode, error) {
 	var raw TypeList[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	types := make([]INode, len(raw.Types))
 	for i, typ := range raw.Types {
 		n, err := decodeNode(typ)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding type node: %v", err)
+			return nil, fmt.Errorf("error decoding type node: %w", err)
 		}
 		types[i] = n
 	}
@@ -2580,15 +2766,18 @@ func DecodeTypeList(data json.RawMessage) (INode, error) {
 }
 
 type TypeOptional struct {
-	Node
-	Location Location `json:"location"`
+	NodeLoc
+}
+
+func (n TypeOptional) GetLocation() Location {
+	return n.Location
 }
 
 func (TypeOptional) Type() string {
 	return "AstTypeOptional"
 }
 
-func (n TypeOptional) Source(og string) (string, error) {
+func (n TypeOptional) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
@@ -2604,19 +2793,21 @@ func (n TypeOptional) String() string {
 func DecodeTypeOptional(data json.RawMessage) (INode, error) {
 	var raw TypeOptional
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	return TypeOptional{
-		Node:     raw.Node,
-		Location: raw.Location,
+		NodeLoc: raw.NodeLoc,
 	}, nil
 }
 
 type TypePackExplicit[T any] struct {
-	Node
-	Location Location `json:"location"`
-	TypeList T        `json:"typeList"`
+	NodeLoc
+	TypeList T `json:"typeList"`
+}
+
+func (n TypePackExplicit[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n TypePackExplicit[T]) Type() string {
@@ -2634,34 +2825,36 @@ func (n TypePackExplicit[T]) String() string {
 	return b.String()
 }
 
-func (n TypePackExplicit[INode]) Source(og string) (string, error) {
+func (n TypePackExplicit[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeTypePackExplicit(data json.RawMessage) (INode, error) {
 	var raw TypePackExplicit[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	typeListNode, err := decodeNode(raw.TypeList)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding type list: %v", err)
+		return nil, fmt.Errorf("error decoding type list: %w", err)
 	}
 
 	return TypePackExplicit[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
+		NodeLoc:  raw.NodeLoc,
 		TypeList: typeListNode,
 	}, nil
 }
 
 type TypeReference[T any] struct {
-	Node
-	Location     Location `json:"location"`
+	NodeLoc
 	Name         string   `json:"name"`
 	NameLocation Location `json:"nameLocation"`
 	Parameters   []T      `json:"parameters"`
+}
+
+func (n TypeReference[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n TypeReference[T]) Type() string {
@@ -2685,28 +2878,27 @@ func (n TypeReference[T]) String() string {
 	return b.String()
 }
 
-func (n TypeReference[INode]) Source(og string) (string, error) {
+func (n TypeReference[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeTypeReference(data json.RawMessage) (INode, error) {
 	var raw TypeReference[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	parameters := make([]INode, len(raw.Parameters))
 	for i, param := range raw.Parameters {
 		n, err := decodeNode(param)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding parameter node: %v", err)
+			return nil, fmt.Errorf("error decoding parameter node: %w", err)
 		}
 		parameters[i] = n
 	}
 
 	return TypeReference[INode]{
-		Node:         raw.Node,
-		Location:     raw.Location,
+		NodeLoc:      raw.NodeLoc,
 		Name:         raw.Name,
 		NameLocation: raw.NameLocation,
 		Parameters:   parameters,
@@ -2714,9 +2906,12 @@ func DecodeTypeReference(data json.RawMessage) (INode, error) {
 }
 
 type TypeSingletonBool struct {
-	Node
-	Location Location `json:"location"`
-	Value    bool     `json:"value"`
+	NodeLoc
+	Value bool `json:"value"`
+}
+
+func (n TypeSingletonBool) GetLocation() Location {
+	return n.Location
 }
 
 func (n TypeSingletonBool) Type() string {
@@ -2733,27 +2928,29 @@ func (n TypeSingletonBool) String() string {
 	return b.String()
 }
 
-func (n TypeSingletonBool) Source(og string) (string, error) {
+func (n TypeSingletonBool) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeTypeSingletonBool(data json.RawMessage) (INode, error) {
 	var raw TypeSingletonBool
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	return TypeSingletonBool{
-		Node:     raw.Node,
-		Location: raw.Location,
-		Value:    raw.Value,
+		NodeLoc: raw.NodeLoc,
+		Value:   raw.Value,
 	}, nil
 }
 
 type TypeSingletonString struct {
-	Node
-	Location Location `json:"location"`
-	Value    string   `json:"value"`
+	NodeLoc
+	Value string `json:"value"`
+}
+
+func (n TypeSingletonString) GetLocation() Location {
+	return n.Location
 }
 
 func (n TypeSingletonString) Type() string {
@@ -2770,20 +2967,19 @@ func (n TypeSingletonString) String() string {
 	return b.String()
 }
 
-func (n TypeSingletonString) Source(og string) (string, error) {
+func (n TypeSingletonString) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeTypeSingletonString(data json.RawMessage) (INode, error) {
 	var raw TypeSingletonString
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	return TypeSingletonString{
-		Node:     raw.Node,
-		Location: raw.Location,
-		Value:    raw.Value,
+		NodeLoc: raw.NodeLoc,
+		Value:   raw.Value,
 	}, nil
 }
 
@@ -2806,10 +3002,13 @@ func (n Indexer[T]) String() string {
 }
 
 type TypeTable[T any] struct {
-	Node
-	Location Location    `json:"location"`
-	Props    []T         `json:"props"`
-	Indexer  *Indexer[T] `json:"indexer"`
+	NodeLoc
+	Props   []T         `json:"props"`
+	Indexer *Indexer[T] `json:"indexer"`
+}
+
+func (n TypeTable[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n TypeTable[T]) Type() string {
@@ -2837,21 +3036,21 @@ func (n TypeTable[T]) String() string {
 	return b.String()
 }
 
-func (n TypeTable[INode]) Source(og string) (string, error) {
+func (n TypeTable[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeTypeTable(data json.RawMessage) (INode, error) {
 	var raw TypeTable[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	props := make([]INode, len(raw.Props))
 	for i, prop := range raw.Props {
 		n, err := decodeNode(prop)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding prop node: %v", err)
+			return nil, fmt.Errorf("error decoding prop node: %w", err)
 		}
 		props[i] = n
 	}
@@ -2860,11 +3059,11 @@ func DecodeTypeTable(data json.RawMessage) (INode, error) {
 	if raw.Indexer != nil {
 		indexerNode, err := decodeNode(raw.Indexer.IndexType)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding indexer index type: %v", err)
+			return nil, fmt.Errorf("error decoding indexer index type: %w", err)
 		}
 		resultNode, err := decodeNode(raw.Indexer.ResultType)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding indexer result type: %v", err)
+			return nil, fmt.Errorf("error decoding indexer result type: %w", err)
 		}
 		indexerMaybe = &Indexer[INode]{
 			Location:   raw.Indexer.Location,
@@ -2874,18 +3073,20 @@ func DecodeTypeTable(data json.RawMessage) (INode, error) {
 	}
 
 	return TypeTable[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
-		Props:    props,
-		Indexer:  indexerMaybe,
+		NodeLoc: raw.NodeLoc,
+		Props:   props,
+		Indexer: indexerMaybe,
 	}, nil
 }
 
 // lol
 type TypeTypeof[T any] struct {
-	Node
-	Location Location `json:"location"`
-	Expr     T        `json:"expr"`
+	NodeLoc
+	Expr T `json:"expr"`
+}
+
+func (n TypeTypeof[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n TypeTypeof[T]) Type() string {
@@ -2903,32 +3104,34 @@ func (n TypeTypeof[T]) String() string {
 	return b.String()
 }
 
-func (n TypeTypeof[INode]) Source(og string) (string, error) {
+func (n TypeTypeof[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeTypeTypeof(data json.RawMessage) (INode, error) {
 	var raw TypeTypeof[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	exprNode, err := decodeNode(raw.Expr)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding expr: %v", err)
+		return nil, fmt.Errorf("error decoding expr: %w", err)
 	}
 
 	return TypeTypeof[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
-		Expr:     exprNode,
+		NodeLoc: raw.NodeLoc,
+		Expr:    exprNode,
 	}, nil
 }
 
 type TypeUnion[T any] struct {
-	Node
-	Location Location `json:"location"`
-	Types    []T      `json:"types"`
+	NodeLoc
+	Types []T `json:"types"`
+}
+
+func (n TypeUnion[T]) GetLocation() Location {
+	return n.Location
 }
 
 func (n TypeUnion[T]) Type() string {
@@ -2950,29 +3153,28 @@ func (n TypeUnion[T]) String() string {
 	return b.String()
 }
 
-func (n TypeUnion[INode]) Source(og string) (string, error) {
+func (n TypeUnion[T]) Source(og string, comments []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
 func DecodeTypeUnion(data json.RawMessage) (INode, error) {
 	var raw TypeUnion[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	types := make([]INode, len(raw.Types))
 	for i, typ := range raw.Types {
 		n, err := decodeNode(typ)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding type node: %v", err)
+			return nil, fmt.Errorf("error decoding type node: %w", err)
 		}
 		types[i] = n
 	}
 
 	return TypeUnion[INode]{
-		Node:     raw.Node,
-		Location: raw.Location,
-		Types:    types,
+		NodeLoc: raw.NodeLoc,
+		Types:   types,
 	}, nil
 }
 
@@ -2981,7 +3183,7 @@ func DecodeTypeUnion(data json.RawMessage) (INode, error) {
 func decodeNode(data json.RawMessage) (INode, error) {
 	var node Node
 	if err := json.Unmarshal(data, &node); err != nil {
-		return nil, fmt.Errorf("error decoding node: %v", err)
+		return nil, fmt.Errorf("error decoding node: %w", err)
 	}
 
 	// helper for now

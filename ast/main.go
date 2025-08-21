@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	const filepath = ConformanceDir + "/1.luau"
+	const filepath = AstDir + "/comments.luau"
 
 	content, err := os.ReadFile(filepath)
 	if err != nil {
@@ -46,7 +46,7 @@ func main() {
 
 	fmt.Println(ast)
 
-	new, err := ast.Root.Source(source)
+	new, err := ast.Source(source, )
 	fmt.Println(new)
 	// fmt.Printf("AST decoded in %s\n", time.Since(st))
 }
