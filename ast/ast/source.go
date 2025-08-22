@@ -38,3 +38,16 @@ func BinopToSource(name string) string {
 
 	panic("bad binop: " + name)
 }
+
+func UnopToSource(name string) string {
+	switch name {
+	case "Not":
+		return "not "
+	case "Neg":
+		return "-"
+	case "Len":
+		return "#"
+	}
+
+	panic("bad unop: " + name)
+}

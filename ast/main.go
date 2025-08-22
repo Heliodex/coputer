@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	const filepath = ConformanceDir + "/2.luau"
+	const filepath = ConformanceDir + "/7.luau"
 
 	content, err := os.ReadFile(filepath)
 	if err != nil {
