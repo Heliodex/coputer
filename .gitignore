@@ -4,7 +4,7 @@ coverage.out
 coverage.html
 .vscode
 xc
-ast/ast.jsonc
+ast/ast.json
 litecode/litecode
 litecode/litecode.exe
 wallflower/wallflower

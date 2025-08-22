@@ -43,7 +43,7 @@ func UnopToSource(name string) string {
 	switch name {
 	case "Not":
 		return "not "
-	case "Neg":
+	case "Minus":
 		return "-"
 	case "Len":
 		return "#"

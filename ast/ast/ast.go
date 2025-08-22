@@ -67,7 +67,7 @@ func (l Location) EndsAfter(ol Location) bool {
 	return l.End.After(ol.End)
 }
 
-var gfsCount int
+// var gfsCount int
 
 func (l Location) GetFromSource(source string) (string, error) {
 	lines := strings.Split(source, "\n")
@@ -94,8 +94,8 @@ func (l Location) GetFromSource(source string) (string, error) {
 	}
 	b.WriteRune('»')
 
-	gfsCount++
-	fmt.Println("gotFromSource", gfsCount)
+	// gfsCount++
+	// fmt.Println("gotFromSource", gfsCount)
 	return b.String(), nil
 }
 
@@ -877,7 +877,18 @@ func (n ExprGroup[T]) String() string {
 }
 
 func (n ExprGroup[T]) Source(og string, comments []Comment) (string, error) {
-	return n.Location.GetFromSource(og)
+	// return n.Location.GetFromSource(og)
+	iexpr, ok := any(n.Expr).(INode)
+	if !ok {
+		return "", fmt.Errorf("expected Expr to be INode, got %T", n.Expr)
+	}
+
+	sexpr, err := iexpr.Source(og, comments)
+	if err != nil {
+		return "", fmt.Errorf("error getting source for expr: %w", err)
+	}
+
+	return fmt.Sprintf("(%s)", sexpr), nil
 }
 
 func DecodeExprGroup(data json.RawMessage) (INode, error) {
@@ -932,7 +943,28 @@ func (n ExprIfElse[T]) String() string {
 }
 
 func (n ExprIfElse[T]) Source(og string, comments []Comment) (string, error) {
-	return n.Location.GetFromSource(og)
+	// return n.Location.GetFromSource(og)
+	in, ok := any(n).(ExprIfElse[INode])
+	if !ok {
+		return "", fmt.Errorf("expected ExprIfElse[INode], got %T", n)
+	}
+
+	scond, err := in.Condition.Source(og, comments)
+	if err != nil {
+		return "", fmt.Errorf("error getting condition source: %w", err)
+	}
+
+	strue, err := in.TrueExpr.Source(og, comments)
+	if err != nil {
+		return "", fmt.Errorf("error getting true expression source: %w", err)
+	}
+
+	sfalse, err := in.FalseExpr.Source(og, comments)
+	if err != nil {
+		return "", fmt.Errorf("error getting false expression source: %w", err)
+	}
+
+	return fmt.Sprintf("if %s then %s else %s", scond, strue, sfalse), nil
 }
 
 func DecodeExprIfElse(data json.RawMessage) (INode, error) {
@@ -1236,7 +1268,26 @@ func (n ExprTable[T]) String() string {
 }
 
 func (n ExprTable[T]) Source(og string, comments []Comment) (string, error) {
-	return n.Location.GetFromSource(og)
+	// return n.Location.GetFromSource(og)
+	iitems, ok := any(n.Items).([]INode)
+	if !ok {
+		return "", fmt.Errorf("expected Items to be []INode, got %T", n.Items)
+	}
+
+	if len(iitems) == 0 {
+		return "{}", nil
+	}
+
+	itemStrings := make([]string, len(iitems))
+	for i, item := range iitems {
+		is, err := item.Source(og, comments)
+		if err != nil {
+			return "", fmt.Errorf("error getting source for item %d: %w", i, err)
+		}
+		itemStrings[i] = is
+	}
+
+	return fmt.Sprintf("{ %s }", strings.Join(itemStrings, ", ")), nil
 }
 
 func DecodeExprTable(data json.RawMessage) (INode, error) {
@@ -1293,7 +1344,34 @@ func (n ExprTableItem[T]) String() string {
 
 func (n ExprTableItem[T]) Source(og string, comments []Comment) (string, error) {
 	// TableItem doesn't seem to have a Location field, using Value's location if possible
-	return "", errors.New("table item has no direct location")
+	// return "", errors.New("table item has no direct location")
+	in, ok := any(n).(ExprTableItem[INode])
+	if !ok {
+		return "", fmt.Errorf("expected ExprTableItem[INode], got %T", n)
+	}
+
+	vs, err := in.Value.Source(og, comments)
+	if err != nil {
+		return "", fmt.Errorf("error getting value source: %w", err)
+	}
+
+	if in.Key == nil {
+		return vs, nil
+	}
+
+	ks, err := (*in.Key).Source(og, comments)
+	if err != nil {
+		return "", fmt.Errorf("error getting key source: %w", err)
+	}
+
+	switch in.Kind {
+	case "record":
+		return fmt.Sprintf("%s = %s", ks, vs), nil
+	case "general":
+		return fmt.Sprintf("[%s] = %s", ks, vs), nil
+	}
+
+	return "", fmt.Errorf("unknown table item kind: %s", in.Kind)
 }
 
 func DecodeExprTableItem(data json.RawMessage) (INode, error) {
@@ -1352,7 +1430,23 @@ func (n ExprTypeAssertion[T]) String() string {
 }
 
 func (n ExprTypeAssertion[T]) Source(og string, comments []Comment) (string, error) {
-	return n.Location.GetFromSource(og)
+	// return n.Location.GetFromSource(og)
+	in, ok := any(n).(ExprTypeAssertion[INode])
+	if !ok {
+		return "", fmt.Errorf("expected ExprTypeAssertion[INode], got %T", n)
+	}
+
+	sexpr, err := in.Expr.Source(og, comments)
+	if err != nil {
+		return "", fmt.Errorf("error getting expr source: %w", err)
+	}
+
+	sannotation, err := in.Annotation.Source(og, comments)
+	if err != nil {
+		return "", fmt.Errorf("error getting annotation source: %w", err)
+	}
+
+	return fmt.Sprintf("%s :: %s", sexpr, sannotation), nil
 }
 
 func DecodeExprTypeAssertion(data json.RawMessage) (INode, error) {
@@ -1400,7 +1494,8 @@ func (n ExprVarargs) String() string {
 }
 
 func (n ExprVarargs) Source(og string, comments []Comment) (string, error) {
-	return n.Location.GetFromSource(og)
+	// return n.Location.GetFromSource(og)
+	return "...", nil
 }
 
 func DecodeExprVarargs(data json.RawMessage) (INode, error) {
@@ -2232,7 +2327,38 @@ func (n StatForIn[T]) String() string {
 }
 
 func (n StatForIn[T]) Source(og string, comments []Comment) (string, error) {
-	return n.Location.GetFromSource(og)
+	// return n.Location.GetFromSource(og)
+	in, ok := any(n).(StatForIn[INode])
+	if !ok {
+		return "", fmt.Errorf("expected StatForIn[INode], got %T", n)
+	}
+
+	vars := make([]string, len(in.Vars))
+	for i, v := range in.Vars {
+		svar, err := v.Source(og, comments)
+		if err != nil {
+			return "", fmt.Errorf("error getting source for var: %w", err)
+		}
+		vars[i] = svar
+	}
+
+	values := make([]string, len(in.Values))
+	for i, v := range in.Values {
+		svalue, err := v.Source(og, comments)
+		if err != nil {
+			return "", fmt.Errorf("error getting source for value: %w", err)
+		}
+		values[i] = svalue
+	}
+
+	sbody, err := in.Body.Source(og, comments)
+	if err != nil {
+		return "", fmt.Errorf("error getting source for body: %w", err)
+	}
+	sbodyi := indentStartTab(sbody, 1)
+
+	return fmt.Sprintf("for %s in %s do\n%s\nend",
+		strings.Join(vars, ", "), strings.Join(values, ", "), sbodyi), nil
 }
 
 func DecodeStatForIn(data json.RawMessage) (INode, error) {
@@ -2805,7 +2931,18 @@ func (n StatTypeAlias[T]) String() string {
 }
 
 func (n StatTypeAlias[T]) Source(og string, comments []Comment) (string, error) {
-	return n.Location.GetFromSource(og)
+	// return n.Location.GetFromSource(og)
+	in, ok := any(n).(StatTypeAlias[INode])
+	if !ok {
+		return "", fmt.Errorf("expected StatTypeAlias[INode], got %T", n)
+	}
+
+	svalue, err := in.Value.Source(og, comments)
+	if err != nil {
+		return "", fmt.Errorf("error getting value source: %w", err)
+	}
+
+	return fmt.Sprintf("type %s = %s", in.Name, svalue), nil
 }
 
 func DecodeStatTypeAlias(data json.RawMessage) (INode, error) {
@@ -2972,12 +3109,12 @@ func DecodeTableProp(data json.RawMessage) (INode, error) {
 
 type TypeFunction[T any] struct {
 	NodeLoc
-	Attributes   []T `json:"attributes"`
-	Generics     []T `json:"generics"`
-	GenericPacks []T `json:"genericPacks"`
-	ArgTypes     T   `json:"argTypes"`
-	ArgNames     []T `json:"argNames"`
-	ReturnTypes  T   `json:"returnTypes"`
+	Attributes   []T  `json:"attributes"`
+	Generics     []T  `json:"generics"`
+	GenericPacks []T  `json:"genericPacks"`
+	ArgTypes     T    `json:"argTypes"`
+	ArgNames     []*T `json:"argNames"`
+	ReturnTypes  T    `json:"returnTypes"`
 }
 
 func (n TypeFunction[T]) GetLocation() Location {
@@ -3013,7 +3150,11 @@ func (n TypeFunction[T]) String() string {
 	b.WriteString("\nArgNames:")
 	for _, name := range n.ArgNames {
 		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(name), 4))
+		if name == nil {
+			b.WriteString(indentStart("<nil>", 4))
+			continue
+		}
+		b.WriteString(indentStart(StringMaybeEvaluated(*name), 4))
 	}
 	b.WriteString("\nReturnTypes:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.ReturnTypes), 4))
@@ -3063,13 +3204,16 @@ func DecodeTypeFunction(data json.RawMessage) (INode, error) {
 		return nil, fmt.Errorf("error decoding arg types: %w", err)
 	}
 
-	argNames := make([]INode, len(raw.ArgNames))
+	argNames := make([]*INode, len(raw.ArgNames))
 	for i, name := range raw.ArgNames {
-		n, err := decodeNode(name)
+		if name == nil {
+			continue
+		}
+		n, err := decodeNode(*name)
 		if err != nil {
 			return nil, fmt.Errorf("error decoding arg name node: %w", err)
 		}
-		argNames[i] = n
+		argNames[i] = &n
 	}
 
 	returnTypesNode, err := decodeNode(raw.ReturnTypes)
@@ -3113,7 +3257,19 @@ func (n TypeGroup[T]) String() string {
 }
 
 func (n TypeGroup[T]) Source(og string, comments []Comment) (string, error) {
-	return n.Location.GetFromSource(og)
+	// return n.Location.GetFromSource(og)
+	iinner, ok := any(n.Inner).(INode)
+	if !ok {
+		return "", fmt.Errorf("expected Inner to be INode, got %T", n.Inner)
+	}
+
+	// now you can parse your way out of hell, only 40 000 ast nodes
+	sinner, err := iinner.Source(og, comments)
+	if err != nil {
+		return "", fmt.Errorf("error getting source for inner node: %w", err)
+	}
+
+	return fmt.Sprintf("(%s)", sinner), nil
 }
 
 func DecodeTypeGroup(data json.RawMessage) (INode, error) {
@@ -3199,7 +3355,8 @@ func (TypeOptional) Type() string {
 }
 
 func (n TypeOptional) Source(og string, comments []Comment) (string, error) {
-	return n.Location.GetFromSource(og)
+	// return n.Location.GetFromSource(og)
+	return "?", nil
 }
 
 func (n TypeOptional) String() string {
@@ -3600,7 +3757,49 @@ func (n TypeUnion[T]) String() string {
 }
 
 func (n TypeUnion[T]) Source(og string, comments []Comment) (string, error) {
-	return n.Location.GetFromSource(og)
+	// return n.Location.GetFromSource(og)
+	in, err := any(n).(TypeUnion[INode])
+	if !err {
+		return "", fmt.Errorf("expected TypeUnion[INode], got %T", n)
+	}
+
+	var seenOptional bool
+	var newTypes []INode
+	for _, typ := range in.Types {
+		if typ.Type() == "AstTypeOptional" {
+			seenOptional = true
+			continue
+		}
+		newTypes = append(newTypes, typ)
+	}
+
+	if len(newTypes) == 1 {
+		ts, err := newTypes[0].Source(og, comments)
+		if err != nil {
+			return "", fmt.Errorf("error getting source for type: %w", err)
+		}
+
+		if seenOptional {
+			return ts + "?", nil
+		}
+		return ts, nil
+	}
+
+	var sources []string
+	for _, typ := range newTypes {
+		src, err := typ.Source(og, comments)
+		if err != nil {
+			return "", fmt.Errorf("error getting type source: %w", err)
+		}
+		sources = append(sources, src)
+	}
+
+	joined := strings.Join(sources, " | ")
+
+	if seenOptional {
+		return fmt.Sprintf("(%s)?", joined), nil
+	}
+	return joined, nil
 }
 
 func DecodeTypeUnion(data json.RawMessage) (INode, error) {

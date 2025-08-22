@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	const filepath = ConformanceDir + "/7.luau"
+	const filepath = AstDir + "/typefunction.luau"
 
 	content, err := os.ReadFile(filepath)
 	if err != nil {
@@ -23,6 +23,13 @@ func main() {
 		return
 	}
 	// no more standardisation, yayyy
+
+	// write out to ast.json
+	// err = os.WriteFile("ast.json", out, 0644)
+	// if err != nil {
+	// 	fmt.Println("Error writing AST to file:", err)
+	// 	return
+	// }
 
 	// pprof time
 	// f, err := os.Create("cpu.prof")
@@ -46,7 +53,11 @@ func main() {
 
 	fmt.Println(ast)
 
-	new, err := ast.Source(source, )
+	new, err := ast.Source(source)
+	if err != nil {
+		fmt.Println("Error getting source from AST:", err)
+		return
+	}
 	fmt.Println(new)
 	// fmt.Printf("AST decoded in %s\n", time.Since(st))
 }

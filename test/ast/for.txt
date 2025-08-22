@@ -18,6 +18,8 @@ Root:
             Type: AstExprConstantNumber
             Location: 0,11 - 0,13
             Value: 10.000000
+        Step:
+            <nil>
         Body:
             Type: AstStatBlock
             Location: 0,16 - 1,0

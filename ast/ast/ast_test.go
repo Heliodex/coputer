@@ -127,3 +127,43 @@ func TestParsing(t *testing.T) {
 		parseFile(t, f, ConformanceDir)
 	}
 }
+
+func TestSource(t *testing.T) {
+	files, err := os.ReadDir("../" + AstDir)
+	if err != nil {
+		t.Fatal("error reading benchmark tests directory:", err)
+	}
+
+	for _, f := range files {
+		fn := f.Name()
+		if !strings.HasSuffix(fn, Ext) {
+			continue
+		}
+		name := trimext(fn)
+
+		t.Log(" -- Testing", name, "--")
+		filename := fmt.Sprintf("../%s/%s", AstDir, name)
+
+		content, err := os.ReadFile(filename + Ext)
+		if err != nil {
+			t.Fatal("error reading test file:", err)
+		}
+
+		out, err := LuauAst(filename + Ext)
+		if err != nil {
+			t.Fatal("error running luau-ast:", err)
+		}
+
+		// Decode the AST
+		ast, err := DecodeAST(out)
+		if err != nil {
+			t.Fatal("error decoding AST:", err)
+		}
+		src, err := ast.Source(string(content))
+		if err != nil {
+			t.Fatal("error getting source from AST:", err)
+		}
+
+		fmt.Println(src)
+	}
+}
