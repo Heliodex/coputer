@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	const filepath = AstDir + "/typefunction.luau"
+	const filepath = AstDir + "/attributes.luau"
 
 	content, err := os.ReadFile(filepath)
 	if err != nil {
