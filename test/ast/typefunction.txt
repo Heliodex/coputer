@@ -1,6 +1,6 @@
 Root:
     Type: AstStatBlock
-    Location: 0,0 - 3,0
+    Location: 0,0 - 4,0
     HasEnd: true
     Body:
         Type: AstStatTypeAlias
@@ -111,6 +111,44 @@ Root:
                         Location: 2,32 - 2,38
                         Name: string
                         NameLocation: 2,32 - 2,38
+                        Parameters:
+        Exported: false
+    
+        Type: AstStatTypeAlias
+        Location: 3,0 - 3,37
+        Name: m
+        Generics:
+        GenericPacks:
+        Value:
+            Type: AstTypeFunction
+            Location: 3,9 - 3,37
+            Attributes:
+            Generics:
+            GenericPacks:
+            ArgTypes:
+                Type: AstTypeList
+                Types:
+                    Type: AstTypeReference
+                    Location: 3,10 - 3,16
+                    Name: number
+                    NameLocation: 3,10 - 3,16
+                    Parameters:
+            ArgNames:
+            ReturnTypes:
+                Type: AstTypePackExplicit
+                Location: 3,21 - 3,37
+                TypeList:
+                    Type: AstTypeList
+                    Types:
+                        Type: AstTypeReference
+                        Location: 3,22 - 3,28
+                        Name: string
+                        NameLocation: 3,22 - 3,28
+                        Parameters:
+                        Type: AstTypeReference
+                        Location: 3,30 - 3,36
+                        Name: string
+                        NameLocation: 3,30 - 3,36
                         Parameters:
         Exported: false
 

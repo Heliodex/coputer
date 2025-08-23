@@ -2165,7 +2165,7 @@ func DecodeStatFor(data json.RawMessage) (INode, error) {
 
 type StatForIn[T any] struct {
 	NodeLoc
-	Vars   []Local[T]          `json:"vars"`
+	Vars   []Local[T]   `json:"vars"`
 	Values []T          `json:"values"`
 	Body   StatBlock[T] `json:"body"`
 	HasIn  bool         `json:"hasIn"`
@@ -2905,7 +2905,18 @@ func (n TableProp[T]) String() string {
 }
 
 func (n TableProp[T]) Source(og string, comments []Comment) (string, error) {
-	return n.Location.GetFromSource(og)
+	// return n.Location.GetFromSource(og)
+	in, ok := any(n).(TableProp[INode])
+	if !ok {
+		return "", fmt.Errorf("expected TableProp[INode], got %T", n)
+	}
+
+	propTypeSource, err := in.PropType.Source(og, comments)
+	if err != nil {
+		return "", fmt.Errorf("error getting prop type source: %w", err)
+	}
+
+	return fmt.Sprintf("%s: %s", in.Name, propTypeSource), nil
 }
 
 func DecodeTableProp(data json.RawMessage) (INode, error) {
@@ -2928,12 +2939,12 @@ func DecodeTableProp(data json.RawMessage) (INode, error) {
 
 type TypeFunction[T any] struct {
 	NodeLoc
-	Attributes   []Attr            `json:"attributes"`
-	Generics     []GenericType     `json:"generics"`
-	GenericPacks []GenericTypePack `json:"genericPacks"`
-	ArgTypes     T                 `json:"argTypes"`
-	ArgNames     []*T              `json:"argNames"`
-	ReturnTypes  T                 `json:"returnTypes"`
+	Attributes   []Attr              `json:"attributes"`
+	Generics     []GenericType       `json:"generics"`
+	GenericPacks []GenericTypePack   `json:"genericPacks"`
+	ArgTypes     TypeList[T]         `json:"argTypes"`
+	ArgNames     []*ArgumentName     `json:"argNames"`
+	ReturnTypes  TypePackExplicit[T] `json:"returnTypes"`
 }
 
 func (n TypeFunction[T]) Type() string {
@@ -2978,7 +2989,36 @@ func (n TypeFunction[T]) String() string {
 }
 
 func (n TypeFunction[T]) Source(og string, comments []Comment) (string, error) {
-	return n.Location.GetFromSource(og)
+	// return n.Location.GetFromSource(og)
+	in, ok := any(n).(TypeFunction[INode])
+	if !ok {
+		return "", fmt.Errorf("expected TypeFunction[INode], got %T", n)
+	}
+
+	argTypeStrings := make([]string, len(in.ArgTypes.Types))
+	for i, argType := range in.ArgTypes.Types {
+		sargType, err := argType.Source(og, comments)
+		if err != nil {
+			return "", fmt.Errorf("error getting arg type source: %w", err)
+		}
+		argTypeStrings[i] = sargType
+	}
+
+	for i, argName := range in.ArgNames {
+		if argName == nil {
+			continue
+		}
+		
+		argTypeStrings[i] = fmt.Sprintf("%s: %s", argName.Name, argTypeStrings[i])
+	}
+
+	sreturn, err := in.ReturnTypes.Source(og, comments)
+	if err != nil {
+		return "", fmt.Errorf("error getting return types source: %w", err)
+	}
+
+	// return in.Location.GetFromSource(og)
+	return fmt.Sprintf("(%s) -> %s", strings.Join(argTypeStrings, ", "), sreturn), nil
 }
 
 func DecodeTypeFunction(data json.RawMessage) (INode, error) {
@@ -2987,24 +3027,12 @@ func DecodeTypeFunction(data json.RawMessage) (INode, error) {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	argTypesNode, err := decodeNode(raw.ArgTypes)
+	argTypesNode, err := DecodeTypeListKnown(raw.ArgTypes)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding arg types: %w", err)
 	}
 
-	argNames := make([]*INode, len(raw.ArgNames))
-	for i, name := range raw.ArgNames {
-		if name == nil {
-			continue
-		}
-		n, err := decodeNode(*name)
-		if err != nil {
-			return nil, fmt.Errorf("error decoding arg name node: %w", err)
-		}
-		argNames[i] = &n
-	}
-
-	returnTypesNode, err := decodeNode(raw.ReturnTypes)
+	returnTypesNode, err := DecodeTypePackExplicitKnown(raw.ReturnTypes)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding return types: %w", err)
 	}
@@ -3015,7 +3043,7 @@ func DecodeTypeFunction(data json.RawMessage) (INode, error) {
 		Generics:     raw.Generics,
 		GenericPacks: raw.GenericPacks,
 		ArgTypes:     argTypesNode,
-		ArgNames:     argNames,
+		ArgNames:     raw.ArgNames,
 		ReturnTypes:  returnTypesNode,
 	}, nil
 }
@@ -3102,20 +3130,38 @@ func (n TypeList[T]) String() string {
 
 func (n TypeList[T]) Source(og string, comments []Comment) (string, error) {
 	// TypeList doesn't seem to have a Location field
-	return "", errors.New("type list has no location")
-}
-
-func DecodeTypeList(data json.RawMessage) (INode, error) {
-	var raw TypeList[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("error decoding: %w", err)
+	// return "", errors.New("type list has no location")
+	itypes, ok := any(n.Types).([]INode)
+	if !ok {
+		return "", fmt.Errorf("expected Types to be []INode, got %T", n.Types)
 	}
 
+	if len(itypes) == 0 {
+		return "", nil
+	}
+
+	if len(itypes) == 1 {
+		return itypes[0].Source(og, comments)
+	}
+
+	var typeStrings []string
+	for _, typ := range itypes {
+		s, err := typ.Source(og, comments)
+		if err != nil {
+			return "", fmt.Errorf("error getting source for type: %w", err)
+		}
+		typeStrings = append(typeStrings, s)
+	}
+
+	return strings.Join(typeStrings, ", "), nil
+}
+
+func DecodeTypeListKnown(raw TypeList[json.RawMessage]) (TypeList[INode], error) {
 	types := make([]INode, len(raw.Types))
 	for i, typ := range raw.Types {
 		n, err := decodeNode(typ)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding type node: %w", err)
+			return TypeList[INode]{}, fmt.Errorf("error decoding type node: %w", err)
 		}
 		types[i] = n
 	}
@@ -3124,6 +3170,15 @@ func DecodeTypeList(data json.RawMessage) (INode, error) {
 		Node:  raw.Node,
 		Types: types,
 	}, nil
+}
+
+func DecodeTypeList(data json.RawMessage) (INode, error) {
+	var raw TypeList[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %w", err)
+	}
+
+	return DecodeTypeListKnown(raw)
 }
 
 type TypeOptional struct {
@@ -3161,7 +3216,7 @@ func DecodeTypeOptional(data json.RawMessage) (INode, error) {
 
 type TypePackExplicit[T any] struct {
 	NodeLoc
-	TypeList T `json:"typeList"`
+	TypeList TypeList[T] `json:"typeList"`
 }
 
 func (n TypePackExplicit[T]) Type() string {
@@ -3180,7 +3235,33 @@ func (n TypePackExplicit[T]) String() string {
 }
 
 func (n TypePackExplicit[T]) Source(og string, comments []Comment) (string, error) {
-	return n.Location.GetFromSource(og)
+	itypelist, ok := any(n.TypeList).(TypeList[INode])
+	if !ok {
+		return "", fmt.Errorf("expected TypeList[INode], got %T", n.TypeList)
+	}
+
+	stypelist, err := itypelist.Source(og, comments)
+	if err != nil {
+		return "", fmt.Errorf("error getting type list source: %w", err)
+	}
+
+	if len(itypelist.Types) == 1 {
+		return stypelist, nil
+	}
+
+	return fmt.Sprintf("(%s)", stypelist), nil
+}
+
+func DecodeTypePackExplicitKnown(raw TypePackExplicit[json.RawMessage]) (TypePackExplicit[INode], error) {
+	typeListNode, err := DecodeTypeListKnown(raw.TypeList)
+	if err != nil {
+		return TypePackExplicit[INode]{}, fmt.Errorf("error decoding type list: %w", err)
+	}
+
+	return TypePackExplicit[INode]{
+		NodeLoc:  raw.NodeLoc,
+		TypeList: typeListNode,
+	}, nil
 }
 
 func DecodeTypePackExplicit(data json.RawMessage) (INode, error) {
@@ -3189,15 +3270,7 @@ func DecodeTypePackExplicit(data json.RawMessage) (INode, error) {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	typeListNode, err := decodeNode(raw.TypeList)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding type list: %w", err)
-	}
-
-	return TypePackExplicit[INode]{
-		NodeLoc:  raw.NodeLoc,
-		TypeList: typeListNode,
-	}, nil
+	return DecodeTypePackExplicitKnown(raw)
 }
 
 type TypeReference[T any] struct {
@@ -3368,6 +3441,26 @@ func (n Indexer[T]) String() string {
 	return b.String()
 }
 
+func (n Indexer[T]) Source(og string, comments []Comment) (string, error) {
+	// return n.Location.GetFromSource(og)
+	in, ok := any(n).(Indexer[INode])
+	if !ok {
+		return "", fmt.Errorf("expected Indexer[INode], got %T", n)
+	}
+
+	sindexType, err := in.IndexType.Source(og, comments)
+	if err != nil {
+		return "", fmt.Errorf("error getting source for index type: %w", err)
+	}
+
+	sresultType, err := in.ResultType.Source(og, comments)
+	if err != nil {
+		return "", fmt.Errorf("error getting source for result type: %w", err)
+	}
+
+	return fmt.Sprintf("[%s]: %s", sindexType, sresultType), nil
+}
+
 type TypeTable[T any] struct {
 	NodeLoc
 	Props   []T         `json:"props"`
@@ -3400,7 +3493,54 @@ func (n TypeTable[T]) String() string {
 }
 
 func (n TypeTable[T]) Source(og string, comments []Comment) (string, error) {
-	return n.Location.GetFromSource(og)
+	// return n.Location.GetFromSource(og)
+	in, ok := any(n).(TypeTable[INode])
+	if !ok {
+		return "", fmt.Errorf("expected TypeTable[INode], got %T", n)
+	}
+
+	if len(in.Props) == 0 {
+		if in.Indexer == nil {
+			return "{}", nil
+		}
+
+		// { number } etc, these don't work with additional object/hash fields or whatever
+		ixr := *in.Indexer
+
+		ixrr, ok := any(ixr.IndexType).(TypeReference[INode])
+		if ok && ixrr.Name == "number" { // it doesn't matter if the type is *actually* number. Fun experiment: do `type number = string` in your Luau script and see how much you can upset the typechecker!
+			rt, err := ixr.ResultType.Source(og, comments)
+			if err != nil {
+				return "", fmt.Errorf("error getting source for result type: %w", err)
+			}
+
+			return fmt.Sprintf("{ %s }", rt), nil
+
+		}
+	}
+
+	var parts []string
+	if in.Indexer != nil {
+		sindexer, err := (*in.Indexer).Source(og, comments)
+		if err != nil {
+			return "", fmt.Errorf("error getting indexer index type source: %w", err)
+		}
+		parts = append(parts, sindexer)
+	}
+
+	if len(in.Props) > 0 {
+		var propStrings []string
+		for _, prop := range in.Props {
+			ps, err := prop.Source(og, comments)
+			if err != nil {
+				return "", fmt.Errorf("error getting prop source: %w", err)
+			}
+			propStrings = append(propStrings, ps)
+		}
+		parts = append(parts, propStrings...)
+	}
+
+	return fmt.Sprintf("{ %s }", strings.Join(parts, ", ")), nil
 }
 
 func DecodeTypeTable(data json.RawMessage) (INode, error) {
