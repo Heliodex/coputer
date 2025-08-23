@@ -128,6 +128,10 @@ type NodeLoc struct {
 	Location Location `json:"location"`
 }
 
+func (nl NodeLoc) GetLocation() Location {
+	return nl.Location
+}
+
 func StringMaybeEvaluated(val any) string {
 	if v, ok := val.(json.RawMessage); ok {
 		var node Node
@@ -249,10 +253,6 @@ type Attr struct {
 	Name string `json:"name"`
 }
 
-func (a Attr) GetLocation() Location {
-	return a.Location
-}
-
 func (a Attr) Type() string {
 	return "AstAttr"
 }
@@ -340,10 +340,6 @@ type ExprBinary[T any] struct {
 	Right T      `json:"right"`
 }
 
-func (n ExprBinary[T]) GetLocation() Location {
-	return n.Location
-}
-
 func (n ExprBinary[T]) Type() string {
 	return "AstExprBinary"
 }
@@ -414,10 +410,6 @@ type ExprCall[T any] struct {
 	Args        []T      `json:"args"`
 	Self        bool     `json:"self"`
 	ArgLocation Location `json:"argLocation"`
-}
-
-func (n ExprCall[T]) GetLocation() Location {
-	return n.Location
 }
 
 func (n ExprCall[T]) Type() string {
@@ -517,10 +509,6 @@ type ExprConstantBool struct {
 	Value bool `json:"value"`
 }
 
-func (n ExprConstantBool) GetLocation() Location {
-	return n.Location
-}
-
 func (n ExprConstantBool) Type() string {
 	return "AstExprConstantBool"
 }
@@ -554,10 +542,6 @@ type ExprConstantNil struct {
 	NodeLoc
 }
 
-func (n ExprConstantNil) GetLocation() Location {
-	return n.Location
-}
-
 func (n ExprConstantNil) Type() string {
 	return "AstExprConstantNil"
 }
@@ -586,10 +570,6 @@ func DecodeExprConstantNil(data json.RawMessage) (INode, error) {
 type ExprConstantNumber struct {
 	NodeLoc
 	Value float64 `json:"value"`
-}
-
-func (n ExprConstantNumber) GetLocation() Location {
-	return n.Location
 }
 
 func (n ExprConstantNumber) Type() string {
@@ -621,10 +601,6 @@ func DecodeExprConstantNumber(data json.RawMessage) (INode, error) {
 type ExprConstantString struct {
 	NodeLoc
 	Value string `json:"value"`
-}
-
-func (n ExprConstantString) GetLocation() Location {
-	return n.Location
 }
 
 func (n ExprConstantString) Type() string {
@@ -664,10 +640,6 @@ type ExprFunction[T any] struct {
 	Body           StatBlock[T]      `json:"body"`
 	FunctionDepth  int               `json:"functionDepth"`
 	Debugname      string            `json:"debugname"`
-}
-
-func (n ExprFunction[T]) GetLocation() Location {
-	return n.Location
 }
 
 func (n ExprFunction[T]) Type() string {
@@ -798,10 +770,6 @@ type ExprGlobal struct {
 	Global string `json:"global"`
 }
 
-func (n ExprGlobal) GetLocation() Location {
-	return n.Location
-}
-
 func (n ExprGlobal) Type() string {
 	return "AstExprGlobal"
 }
@@ -832,10 +800,6 @@ func DecodeExprGlobal(data json.RawMessage) (INode, error) {
 type ExprGroup[T any] struct {
 	NodeLoc
 	Expr T `json:"expr"` // only contains one expression right? strange when you first think about it
-}
-
-func (n ExprGroup[T]) GetLocation() Location {
-	return n.Location
 }
 
 func (n ExprGroup[T]) Type() string {
@@ -892,10 +856,6 @@ type ExprIfElse[T any] struct {
 	TrueExpr  T    `json:"trueExpr"`
 	HasElse   bool `json:"hasElse"`
 	FalseExpr T    `json:"falseExpr"`
-}
-
-func (n ExprIfElse[T]) GetLocation() Location {
-	return n.Location
 }
 
 func (n ExprIfElse[T]) Type() string {
@@ -981,10 +941,6 @@ type ExprIndexExpr[T any] struct {
 	Index T `json:"index"`
 }
 
-func (n ExprIndexExpr[T]) GetLocation() Location {
-	return n.Location
-}
-
 func (n ExprIndexExpr[T]) Type() string {
 	return "AstExprIndexExpr"
 }
@@ -1053,10 +1009,6 @@ type ExprIndexName[T any] struct {
 	Op            string   `json:"op"`
 }
 
-func (n ExprIndexName[T]) GetLocation() Location {
-	return n.Location
-}
-
 func (n ExprIndexName[T]) Type() string {
 	return "AstExprIndexName"
 }
@@ -1114,10 +1066,6 @@ type ExprInterpString[T any] struct {
 	Expressions []T      `json:"expressions"`
 }
 
-func (n ExprInterpString[T]) GetLocation() Location {
-	return n.Location
-}
-
 func (n ExprInterpString[T]) Type() string {
 	return "AstExprInterpString"
 }
@@ -1172,10 +1120,6 @@ type ExprLocal[T any] struct {
 	Local T `json:"local"`
 }
 
-func (n ExprLocal[T]) GetLocation() Location {
-	return n.Location
-}
-
 func (n ExprLocal[T]) Type() string {
 	return "AstExprLocal"
 }
@@ -1219,10 +1163,6 @@ func DecodeExprLocal(data json.RawMessage) (INode, error) {
 type ExprTable[T any] struct {
 	NodeLoc
 	Items []T `json:"items"`
-}
-
-func (n ExprTable[T]) GetLocation() Location {
-	return n.Location
 }
 
 func (n ExprTable[T]) Type() string {
@@ -1385,10 +1325,6 @@ type ExprTypeAssertion[T any] struct {
 	Annotation T `json:"annotation"`
 }
 
-func (n ExprTypeAssertion[T]) GetLocation() Location {
-	return n.Location
-}
-
 func (n ExprTypeAssertion[T]) Type() string {
 	return "AstExprTypeAssertion"
 }
@@ -1453,10 +1389,6 @@ type ExprVarargs struct {
 	NodeLoc
 }
 
-func (n ExprVarargs) GetLocation() Location {
-	return n.Location
-}
-
 func (n ExprVarargs) Type() string {
 	return "AstExprVarargs"
 }
@@ -1487,10 +1419,6 @@ type ExprUnary[T any] struct {
 	NodeLoc
 	Op   string `json:"op"`
 	Expr T      `json:"expr"`
-}
-
-func (n ExprUnary[T]) GetLocation() Location {
-	return n.Location
 }
 
 func (n ExprUnary[T]) Type() string {
@@ -1620,10 +1548,6 @@ type Local[T any] struct {
 	NodeLoc
 }
 
-func (n Local[T]) GetLocation() Location {
-	return n.Location
-}
-
 func (n Local[T]) Type() string {
 	return "AstLocal"
 }
@@ -1692,10 +1616,6 @@ type StatAssign[T any] struct {
 	NodeLoc
 	Vars   []T `json:"vars"`
 	Values []T `json:"values"`
-}
-
-func (n StatAssign[T]) GetLocation() Location {
-	return n.Location
 }
 
 func (n StatAssign[T]) Type() string {
@@ -1786,10 +1706,6 @@ type StatBlock[T any] struct {
 	NodeLoc
 	HasEnd bool `json:"hasEnd"`
 	Body   []T  `json:"body"`
-}
-
-func (n StatBlock[T]) GetLocation() Location {
-	return n.Location
 }
 
 func (n StatBlock[T]) Type() string {
@@ -1893,10 +1809,6 @@ type StatBreak struct {
 	NodeLoc
 }
 
-func (n StatBreak) GetLocation() Location {
-	return n.Location
-}
-
 func (n StatBreak) Type() string {
 	return "AstStatBreak"
 }
@@ -1928,10 +1840,6 @@ type StatCompoundAssign[T any] struct {
 	Op    string `json:"op"`
 	Var   T      `json:"var"`
 	Value T      `json:"value"`
-}
-
-func (n StatCompoundAssign[T]) GetLocation() Location {
-	return n.Location
 }
 
 func (n StatCompoundAssign[T]) Type() string {
@@ -2002,10 +1910,6 @@ type StatContinue struct {
 	NodeLoc
 }
 
-func (n StatContinue) GetLocation() Location {
-	return n.Location
-}
-
 func (n StatContinue) Type() string {
 	return "AstStatContinue"
 }
@@ -2037,10 +1941,6 @@ type StatDeclareClass[T any] struct {
 	Name    string `json:"name"`
 	Props   []T    `json:"props"`
 	Indexer *T     `json:"indexer"`
-}
-
-func (n StatDeclareClass[T]) GetLocation() Location {
-	return n.Location
 }
 
 func (n StatDeclareClass[T]) Type() string {
@@ -2108,10 +2008,6 @@ type StatExpr[T any] struct {
 	Expr T `json:"expr"`
 }
 
-func (n StatExpr[T]) GetLocation() Location {
-	return n.Location
-}
-
 func (n StatExpr[T]) Type() string {
 	return "AstStatExpr"
 }
@@ -2163,10 +2059,6 @@ type StatFor[T any] struct {
 	Step  *T           `json:"step"`
 	Body  StatBlock[T] `json:"body"`
 	HasDo bool         `json:"hasDo"`
-}
-
-func (n StatFor[T]) GetLocation() Location {
-	return n.Location
 }
 
 func (n StatFor[T]) Type() string {
@@ -2273,15 +2165,11 @@ func DecodeStatFor(data json.RawMessage) (INode, error) {
 
 type StatForIn[T any] struct {
 	NodeLoc
-	Vars   []T          `json:"vars"`
+	Vars   []Local[T]          `json:"vars"`
 	Values []T          `json:"values"`
 	Body   StatBlock[T] `json:"body"`
 	HasIn  bool         `json:"hasIn"`
 	HasDo  bool         `json:"hasDo"`
-}
-
-func (n StatForIn[T]) GetLocation() Location {
-	return n.Location
 }
 
 func (n StatForIn[T]) Type() string {
@@ -2352,9 +2240,9 @@ func DecodeStatForIn(data json.RawMessage) (INode, error) {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	vars := make([]INode, len(raw.Vars))
+	vars := make([]Local[INode], len(raw.Vars))
 	for i, v := range raw.Vars {
-		n, err := decodeNode(v)
+		n, err := DecodeLocalKnown(v)
 		if err != nil {
 			return nil, fmt.Errorf("error decoding var node: %w", err)
 		}
@@ -2387,12 +2275,8 @@ func DecodeStatForIn(data json.RawMessage) (INode, error) {
 
 type StatFunction[T any] struct {
 	NodeLoc
-	Name T `json:"name"`
-	Func T `json:"func"`
-}
-
-func (n StatFunction[T]) GetLocation() Location {
-	return n.Location
+	Name T               `json:"name"`
+	Func ExprFunction[T] `json:"func"`
 }
 
 func (n StatFunction[T]) Type() string {
@@ -2456,7 +2340,7 @@ func DecodeStatFunction(data json.RawMessage) (INode, error) {
 		return nil, fmt.Errorf("error decoding name: %w", err)
 	}
 
-	funcNode, err := decodeNode(raw.Func)
+	funcNode, err := DecodeExprFunctionKnown(raw.Func)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding func: %w", err)
 	}
@@ -2470,14 +2354,10 @@ func DecodeStatFunction(data json.RawMessage) (INode, error) {
 
 type StatIf[T any] struct {
 	NodeLoc
-	Condition T    `json:"condition"`
-	ThenBody  T    `json:"thenbody"`
-	ElseBody  *T   `json:"elsebody"`
-	HasThen   bool `json:"hasThen"`
-}
-
-func (n StatIf[T]) GetLocation() Location {
-	return n.Location
+	Condition T            `json:"condition"`
+	ThenBody  StatBlock[T] `json:"thenbody"`
+	ElseBody  *T           `json:"elsebody"` // StatBlock[T] | StatIf[T]
+	HasThen   bool         `json:"hasThen"`
 }
 
 func (n StatIf[T]) Type() string {
@@ -2546,7 +2426,7 @@ func DecodeStatIf(data json.RawMessage) (INode, error) {
 		return nil, fmt.Errorf("error decoding condition: %w", err)
 	}
 
-	thenBody, err := decodeNode(raw.ThenBody)
+	thenBody, err := DecodeStatBlockKnown(raw.ThenBody)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding then body: %w", err)
 	}
@@ -2573,10 +2453,6 @@ type StatLocal[T any] struct {
 	NodeLoc
 	Vars   []Local[T] `json:"vars"`
 	Values []T        `json:"values"`
-}
-
-func (n StatLocal[T]) GetLocation() Location {
-	return n.Location
 }
 
 func (n StatLocal[T]) Type() string {
@@ -2673,10 +2549,6 @@ type StatLocalFunction[T any] struct {
 	Func ExprFunction[T] `json:"func"`
 }
 
-func (n StatLocalFunction[T]) GetLocation() Location {
-	return n.Location
-}
-
 func (n StatLocalFunction[T]) Type() string {
 	return "AstStatLocalFunction"
 }
@@ -2752,12 +2624,8 @@ func DecodeStatLocalFunction(data json.RawMessage) (INode, error) {
 
 type StatRepeat[T any] struct {
 	NodeLoc
-	Condition T `json:"condition"`
-	Body      T `json:"body"`
-}
-
-func (n StatRepeat[T]) GetLocation() Location {
-	return n.Location
+	Condition T            `json:"condition"`
+	Body      StatBlock[T] `json:"body"`
 }
 
 func (n StatRepeat[T]) Type() string {
@@ -2792,7 +2660,7 @@ func DecodeStatRepeat(data json.RawMessage) (INode, error) {
 		return nil, fmt.Errorf("error decoding condition: %w", err)
 	}
 
-	body, err := decodeNode(raw.Body)
+	body, err := DecodeStatBlockKnown(raw.Body)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding body: %w", err)
 	}
@@ -2807,10 +2675,6 @@ func DecodeStatRepeat(data json.RawMessage) (INode, error) {
 type StatReturn[T any] struct {
 	NodeLoc
 	List []T `json:"list"`
-}
-
-func (n StatReturn[T]) GetLocation() Location {
-	return n.Location
 }
 
 func (n StatReturn[T]) Type() string {
@@ -2884,10 +2748,6 @@ type StatTypeAlias[T any] struct {
 	Exported     bool              `json:"exported"`
 }
 
-func (n StatTypeAlias[T]) GetLocation() Location {
-	return n.Location
-}
-
 func (n StatTypeAlias[T]) Type() string {
 	return "AstStatTypeAlias"
 }
@@ -2956,10 +2816,6 @@ type StatWhile[T any] struct {
 	Condition T            `json:"condition"`
 	Body      StatBlock[T] `json:"body"`
 	HasDo     bool         `json:"hasDo"`
-}
-
-func (n StatWhile[T]) GetLocation() Location {
-	return n.Location
 }
 
 func (n StatWhile[T]) Type() string {
@@ -3032,10 +2888,6 @@ type TableProp[T any] struct {
 	PropType T `json:"propType"`
 }
 
-func (n TableProp[T]) GetLocation() Location {
-	return n.Location
-}
-
 func (n TableProp[T]) Type() string {
 	return "AstTableProp"
 }
@@ -3076,16 +2928,12 @@ func DecodeTableProp(data json.RawMessage) (INode, error) {
 
 type TypeFunction[T any] struct {
 	NodeLoc
-	Attributes   []Attr               `json:"attributes"`
+	Attributes   []Attr            `json:"attributes"`
 	Generics     []GenericType     `json:"generics"`
 	GenericPacks []GenericTypePack `json:"genericPacks"`
 	ArgTypes     T                 `json:"argTypes"`
 	ArgNames     []*T              `json:"argNames"`
 	ReturnTypes  T                 `json:"returnTypes"`
-}
-
-func (n TypeFunction[T]) GetLocation() Location {
-	return n.Location
 }
 
 func (n TypeFunction[T]) Type() string {
@@ -3175,10 +3023,6 @@ func DecodeTypeFunction(data json.RawMessage) (INode, error) {
 type TypeGroup[T any] struct {
 	NodeLoc
 	Inner T `json:"inner"`
-}
-
-func (n TypeGroup[T]) GetLocation() Location {
-	return n.Location
 }
 
 func (n TypeGroup[T]) Type() string {
@@ -3286,10 +3130,6 @@ type TypeOptional struct {
 	NodeLoc
 }
 
-func (n TypeOptional) GetLocation() Location {
-	return n.Location
-}
-
 func (TypeOptional) Type() string {
 	return "AstTypeOptional"
 }
@@ -3322,10 +3162,6 @@ func DecodeTypeOptional(data json.RawMessage) (INode, error) {
 type TypePackExplicit[T any] struct {
 	NodeLoc
 	TypeList T `json:"typeList"`
-}
-
-func (n TypePackExplicit[T]) GetLocation() Location {
-	return n.Location
 }
 
 func (n TypePackExplicit[T]) Type() string {
@@ -3369,10 +3205,6 @@ type TypeReference[T any] struct {
 	Name         string   `json:"name"`
 	NameLocation Location `json:"nameLocation"`
 	Parameters   []T      `json:"parameters"`
-}
-
-func (n TypeReference[T]) GetLocation() Location {
-	return n.Location
 }
 
 func (n TypeReference[T]) Type() string {
@@ -3449,10 +3281,6 @@ type TypeSingletonBool struct {
 	Value bool `json:"value"`
 }
 
-func (n TypeSingletonBool) GetLocation() Location {
-	return n.Location
-}
-
 func (n TypeSingletonBool) Type() string {
 	return "AstTypeSingletonBool"
 }
@@ -3490,10 +3318,6 @@ func DecodeTypeSingletonBool(data json.RawMessage) (INode, error) {
 type TypeSingletonString struct {
 	NodeLoc
 	Value string `json:"value"`
-}
-
-func (n TypeSingletonString) GetLocation() Location {
-	return n.Location
 }
 
 func (n TypeSingletonString) Type() string {
@@ -3548,10 +3372,6 @@ type TypeTable[T any] struct {
 	NodeLoc
 	Props   []T         `json:"props"`
 	Indexer *Indexer[T] `json:"indexer"`
-}
-
-func (n TypeTable[T]) GetLocation() Location {
-	return n.Location
 }
 
 func (n TypeTable[T]) Type() string {
@@ -3628,10 +3448,6 @@ type TypeTypeof[T any] struct {
 	Expr T `json:"expr"`
 }
 
-func (n TypeTypeof[T]) GetLocation() Location {
-	return n.Location
-}
-
 func (n TypeTypeof[T]) Type() string {
 	return "AstTypeTypeof"
 }
@@ -3682,10 +3498,6 @@ func DecodeTypeTypeof(data json.RawMessage) (INode, error) {
 type TypeUnion[T any] struct {
 	NodeLoc
 	Types []T `json:"types"`
-}
-
-func (n TypeUnion[T]) GetLocation() Location {
-	return n.Location
 }
 
 func (n TypeUnion[T]) Type() string {

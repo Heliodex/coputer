@@ -1,6 +1,6 @@
 Root:
     Type: AstStatBlock
-    Location: 0,0 - 3,0
+    Location: 0,0 - 9,0
     HasEnd: true
     Body:
         Type: AstStatIf
@@ -28,6 +28,37 @@ Root:
                 Body:
             ElseBody:
             HasThen: true
+        HasThen: true
+    
+        Type: AstStatIf
+        Location: 4,0 - 8,3
+        Condition:
+            Type: AstExprConstantBool
+            Location: 4,3 - 4,7
+            Value: true
+        ThenBody:
+            Type: AstStatBlock
+            Location: 4,12 - 5,0
+            HasEnd: true
+            Body:
+        ElseBody:
+            Type: AstStatBlock
+            Location: 5,4 - 8,0
+            HasEnd: true
+            Body:
+                Type: AstStatIf
+                Location: 6,1 - 7,4
+                Condition:
+                    Type: AstExprConstantBool
+                    Location: 6,4 - 6,9
+                    Value: false
+                ThenBody:
+                    Type: AstStatBlock
+                    Location: 6,14 - 7,1
+                    HasEnd: true
+                    Body:
+                ElseBody:
+                HasThen: true
         HasThen: true
 
 Comment Locations:
