@@ -18,13 +18,11 @@ type NameTypePair struct {
 }
 
 type Position struct {
-	Line   uint32
-	Column uint32
+	Line, Column uint32
 }
 
 type Location struct {
-	Start Position
-	End   Position
+	Start, End Position
 }
 
 func LocationLen(start Position, l uint32) Location {

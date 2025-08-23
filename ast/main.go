@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	const filepath = AstDir + "/forin.luau"
+	const filepath = AstDir + "/declareextern.d.luau"
 
 	content, err := os.ReadFile(filepath)
 	if err != nil {
@@ -25,7 +25,7 @@ func main() {
 	// no more standardisation, yayyy
 
 	// write out to ast.json
-	// err = os.WriteFile("ast.json", out, 0644)
+	// err = os.WriteFile("ast.json", out, 0o644)
 	// if err != nil {
 	// 	fmt.Println("Error writing AST to file:", err)
 	// 	return
