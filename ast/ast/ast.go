@@ -2743,7 +2743,7 @@ type StatTypeAlias[T any] struct {
 	NodeLoc
 	Name         string            `json:"name"`
 	Generics     []GenericType     `json:"generics"`
-	GenericPacks []GenericTypePack `json:"genericPacks"`
+	GenericPacks []GenericTypePack `json:"genericPacks"` // genericPacks always come after the generics
 	Value        T                 `json:"value"`
 	Exported     bool              `json:"exported"`
 }
@@ -2787,7 +2787,23 @@ func (n StatTypeAlias[T]) Source(og string, comments []Comment) (string, error) 
 		return "", fmt.Errorf("error getting value source: %w", err)
 	}
 
-	return fmt.Sprintf("type %s = %s", in.Name, svalue), nil
+	if len(in.Generics) == 0 && len(in.GenericPacks) == 0 {
+		return fmt.Sprintf("type %s = %s", in.Name, svalue), nil
+	}
+
+	genericStrings := make([]string, len(in.Generics))
+	for i, g := range in.Generics {
+		genericStrings[i] = g.Name
+	}
+
+	genericPackStrings := make([]string, len(in.GenericPacks))
+	for i, gp := range in.GenericPacks {
+		genericPackStrings[i] = gp.Name + "..."
+	}
+
+	allGenerics := append(genericStrings, genericPackStrings...)
+
+	return fmt.Sprintf("type %s<%s> = %s", in.Name, strings.Join(allGenerics, ", "), svalue), nil
 }
 
 func DecodeStatTypeAlias(data json.RawMessage) (INode, error) {
@@ -3004,12 +3020,18 @@ func (n TypeFunction[T]) Source(og string, comments []Comment) (string, error) {
 		argTypeStrings[i] = sargType
 	}
 
-	for i, argName := range in.ArgNames {
-		if argName == nil {
-			continue
+	if in.ArgTypes.TailType != nil {
+		ts, err := (*in.ArgTypes.TailType).Source(og, comments)
+		if err != nil {
+			return "", fmt.Errorf("error getting source for tail type: %w", err)
 		}
-		
-		argTypeStrings[i] = fmt.Sprintf("%s: %s", argName.Name, argTypeStrings[i])
+		argTypeStrings = append(argTypeStrings, ts)
+	}
+
+	for i, argName := range in.ArgNames {
+		if argName != nil {
+			argTypeStrings[i] = fmt.Sprintf("%s: %s", argName.Name, argTypeStrings[i])
+		}
 	}
 
 	sreturn, err := in.ReturnTypes.Source(og, comments)
@@ -3017,8 +3039,23 @@ func (n TypeFunction[T]) Source(og string, comments []Comment) (string, error) {
 		return "", fmt.Errorf("error getting return types source: %w", err)
 	}
 
-	// return in.Location.GetFromSource(og)
-	return fmt.Sprintf("(%s) -> %s", strings.Join(argTypeStrings, ", "), sreturn), nil
+	if len(in.Generics) == 0 && len(in.GenericPacks) == 0 {
+		return fmt.Sprintf("(%s) -> %s", strings.Join(argTypeStrings, ", "), sreturn), nil
+	}
+
+	genericStrings := make([]string, len(in.Generics))
+	for i, g := range in.Generics {
+		genericStrings[i] = g.Name
+	}
+
+	genericPackStrings := make([]string, len(in.GenericPacks))
+	for i, gp := range in.GenericPacks {
+		genericPackStrings[i] = gp.Name + "..."
+	}
+
+	allGenerics := append(genericStrings, genericPackStrings...)
+
+	return fmt.Sprintf("<%s>(%s) -> %s", strings.Join(allGenerics, ", "), strings.Join(argTypeStrings, ", "), sreturn), nil
 }
 
 func DecodeTypeFunction(data json.RawMessage) (INode, error) {
@@ -3103,7 +3140,8 @@ func DecodeTypeGroup(data json.RawMessage) (INode, error) {
 
 type TypeList[T any] struct {
 	Node
-	Types []T `json:"types"`
+	Types    []T `json:"types"`
+	TailType *T  `json:"tailType"`
 }
 
 func (n TypeList[T]) GetLocation() Location {
@@ -3125,32 +3163,38 @@ func (n TypeList[T]) String() string {
 		b.WriteString(indentStart(StringMaybeEvaluated(typ), 4))
 	}
 
+	b.WriteString("\nTailType:")
+	if n.TailType != nil {
+		b.WriteByte('\n')
+		b.WriteString(indentStart(StringMaybeEvaluated(*n.TailType), 4))
+	}
+
 	return b.String()
 }
 
 func (n TypeList[T]) Source(og string, comments []Comment) (string, error) {
 	// TypeList doesn't seem to have a Location field
 	// return "", errors.New("type list has no location")
-	itypes, ok := any(n.Types).([]INode)
+	in, ok := any(n).(TypeList[INode])
 	if !ok {
 		return "", fmt.Errorf("expected Types to be []INode, got %T", n.Types)
 	}
 
-	if len(itypes) == 0 {
-		return "", nil
-	}
-
-	if len(itypes) == 1 {
-		return itypes[0].Source(og, comments)
-	}
-
 	var typeStrings []string
-	for _, typ := range itypes {
+	for _, typ := range in.Types {
 		s, err := typ.Source(og, comments)
 		if err != nil {
 			return "", fmt.Errorf("error getting source for type: %w", err)
 		}
 		typeStrings = append(typeStrings, s)
+	}
+
+	if in.TailType != nil {
+		ts, err := (*in.TailType).Source(og, comments)
+		if err != nil {
+			return "", fmt.Errorf("error getting source for tail type: %w", err)
+		}
+		typeStrings = append(typeStrings, ts)
 	}
 
 	return strings.Join(typeStrings, ", "), nil
@@ -3166,9 +3210,19 @@ func DecodeTypeListKnown(raw TypeList[json.RawMessage]) (TypeList[INode], error)
 		types[i] = n
 	}
 
+	var tailType *INode
+	if raw.TailType != nil {
+		n, err := decodeNode(*raw.TailType)
+		if err != nil {
+			return TypeList[INode]{}, fmt.Errorf("error decoding tail type node: %w", err)
+		}
+		tailType = &n
+	}
+
 	return TypeList[INode]{
-		Node:  raw.Node,
-		Types: types,
+		Node:     raw.Node,
+		Types:    types,
+		TailType: tailType,
 	}, nil
 }
 
@@ -3271,6 +3325,88 @@ func DecodeTypePackExplicit(data json.RawMessage) (INode, error) {
 	}
 
 	return DecodeTypePackExplicitKnown(raw)
+}
+
+type TypePackGeneric struct {
+	NodeLoc
+	GenericName string `json:"genericName"`
+}
+
+func (n TypePackGeneric) Type() string {
+	return "AstTypePackGeneric"
+}
+
+func (n TypePackGeneric) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString(fmt.Sprintf("\nGenericName: %s", n.GenericName))
+
+	return b.String()
+}
+
+func (n TypePackGeneric) Source(og string, comments []Comment) (string, error) {
+	// return n.Location.GetFromSource(og)
+	return n.GenericName + "...", nil
+}
+
+func DecodeTypePackGeneric(data json.RawMessage) (INode, error) {
+	var raw TypePackGeneric
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %w", err)
+	}
+	return raw, nil
+}
+
+type TypePackVariadic[T any] struct {
+	NodeLoc
+	VariadicType T `json:"variadicType"`
+}
+
+func (n TypePackVariadic[T]) Type() string {
+	return "AstTypePackVariadic"
+}
+
+func (n TypePackVariadic[T]) String() string {
+	var b strings.Builder
+
+	b.WriteString(n.Node.String())
+	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	b.WriteString(fmt.Sprintf("\nVariadicType: %s", StringMaybeEvaluated(n.VariadicType)))
+
+	return b.String()
+}
+
+func (n TypePackVariadic[T]) Source(og string, comments []Comment) (string, error) {
+	ivt, ok := any(n.VariadicType).(INode)
+	if !ok {
+		return "", fmt.Errorf("expected VariadicType to be INode, got %T", n.VariadicType)
+	}
+
+	svt, err := ivt.Source(og, comments)
+	if err != nil {
+		return "", fmt.Errorf("error getting VariadicType source: %w", err)
+	}
+
+	return "..." + svt, nil
+}
+
+func DecodeTypePackVariadic(data json.RawMessage) (INode, error) {
+	var raw TypePackVariadic[json.RawMessage]
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("error decoding: %w", err)
+	}
+
+	variadicType, err := decodeNode(raw.VariadicType)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding VariadicType: %w", err)
+	}
+
+	return TypePackVariadic[INode]{
+		NodeLoc:      raw.NodeLoc,
+		VariadicType: variadicType,
+	}, nil
 }
 
 type TypeReference[T any] struct {
@@ -3839,6 +3975,10 @@ func decodeNode(data json.RawMessage) (INode, error) {
 		return ret(DecodeTypeOptional(data))
 	case "AstTypePackExplicit":
 		return ret(DecodeTypePackExplicit(data))
+	case "AstTypePackGeneric":
+		return ret(DecodeTypePackGeneric(data))
+	case "AstTypePackVariadic":
+		return ret(DecodeTypePackVariadic(data))
 	case "AstTypeReference":
 		return ret(DecodeTypeReference(data))
 	case "AstTypeSingletonBool":

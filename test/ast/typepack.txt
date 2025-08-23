@@ -42,6 +42,10 @@ Root:
                             Name: T
                             NameLocation: 0,39 - 0,40
                             Parameters:
+                        TailType:
+                            Type: AstTypePackGeneric
+                            Location: 0,42 - 0,46
+                            GenericName: U
                     ArgNames:
                     ReturnTypes:
                         Type: AstTypePackExplicit
@@ -49,6 +53,7 @@ Root:
                         TypeList:
                             Type: AstTypeList
                             Types:
+                            TailType:
             Indexer:
         Exported: false
     
@@ -91,6 +96,14 @@ Root:
                             Name: T
                             NameLocation: 1,36 - 1,37
                             Parameters:
+                        TailType:
+                            Type: AstTypePackVariadic
+                            Location: 1,39 - 1,43
+                            VariadicType: Type: AstTypeReference
+                            Location: 1,42 - 1,43
+                            Name: U
+                            NameLocation: 1,42 - 1,43
+                            Parameters:
                     ArgNames:
                     ReturnTypes:
                         Type: AstTypePackExplicit
@@ -98,6 +111,7 @@ Root:
                         TypeList:
                             Type: AstTypeList
                             Types:
+                            TailType:
             Indexer:
         Exported: false
 

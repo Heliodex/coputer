@@ -1,0 +1,72 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 2,0
+    HasEnd: true
+    Body:
+        Type: AstStatTypeAlias
+        Location: 0,0 - 0,17
+        Name: x
+        Generics:
+            Type: AstGenericType
+            Name: T
+        GenericPacks:
+        Value:
+            Type: AstTypeTable
+            Location: 0,12 - 0,17
+            Props:
+            Indexer:
+                Location: 0,14 - 0,15
+                IndexType:
+                    Type: AstTypeReference
+                    Location: 0,14 - 0,15
+                    Name: number
+                    NameLocation: 0,14 - 0,15
+                    Parameters:
+                ResultType:
+                    Type: AstTypeReference
+                    Location: 0,14 - 0,15
+                    Name: T
+                    NameLocation: 0,14 - 0,15
+                    Parameters:
+        Exported: false
+    
+        Type: AstStatTypeAlias
+        Location: 1,0 - 1,43
+        Name: y
+        Generics:
+            Type: AstGenericType
+            Name: T
+            Type: AstGenericType
+            Name: U
+        GenericPacks:
+            Type: AstGenericTypePack
+            Name: V
+            Type: AstGenericTypePack
+            Name: W
+        Value:
+            Type: AstTypeFunction
+            Location: 1,27 - 1,43
+            Attributes:
+            Generics:
+            GenericPacks:
+            ArgTypes:
+                Type: AstTypeList
+                Types:
+                TailType:
+                    Type: AstTypePackGeneric
+                    Location: 1,28 - 1,32
+                    GenericName: V
+            ArgNames:
+            ReturnTypes:
+                Type: AstTypePackExplicit
+                Location: 1,37 - 1,43
+                TypeList:
+                    Type: AstTypeList
+                    Types:
+                    TailType:
+                        Type: AstTypePackGeneric
+                        Location: 1,38 - 1,42
+                        GenericName: W
+        Exported: false
+
+Comment Locations:

@@ -24,6 +24,7 @@ Root:
                     Name: T
                     NameLocation: 0,16 - 0,17
                     Parameters:
+                TailType:
             ArgNames:
                 Type: AstArgumentName
                 Name: a
@@ -39,6 +40,7 @@ Root:
                         Name: T
                         NameLocation: 0,22 - 0,23
                         Parameters:
+                    TailType:
         Exported: false
     
         Type: AstStatTypeAlias

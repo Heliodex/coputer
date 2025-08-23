@@ -22,6 +22,7 @@ Root:
                     Name: number
                     NameLocation: 0,10 - 0,16
                     Parameters:
+                TailType:
             ArgNames:
             ReturnTypes:
                 Type: AstTypePackExplicit
@@ -34,6 +35,7 @@ Root:
                         Name: string
                         NameLocation: 0,21 - 0,27
                         Parameters:
+                    TailType:
         Exported: false
     
         Type: AstStatTypeAlias
@@ -55,6 +57,7 @@ Root:
                     Name: number
                     NameLocation: 1,13 - 1,19
                     Parameters:
+                TailType:
             ArgNames:
                 Type: AstArgumentName
                 Name: n
@@ -70,6 +73,7 @@ Root:
                         Name: string
                         NameLocation: 1,24 - 1,30
                         Parameters:
+                    TailType:
         Exported: false
     
         Type: AstStatTypeAlias
@@ -96,6 +100,7 @@ Root:
                     Name: number
                     NameLocation: 2,21 - 2,27
                     Parameters:
+                TailType:
             ArgNames:
                 <nil>
                 Type: AstArgumentName
@@ -112,6 +117,7 @@ Root:
                         Name: string
                         NameLocation: 2,32 - 2,38
                         Parameters:
+                    TailType:
         Exported: false
     
         Type: AstStatTypeAlias
@@ -133,6 +139,7 @@ Root:
                     Name: number
                     NameLocation: 3,10 - 3,16
                     Parameters:
+                TailType:
             ArgNames:
             ReturnTypes:
                 Type: AstTypePackExplicit
@@ -150,6 +157,7 @@ Root:
                         Name: string
                         NameLocation: 3,30 - 3,36
                         Parameters:
+                    TailType:
         Exported: false
 
 Comment Locations:

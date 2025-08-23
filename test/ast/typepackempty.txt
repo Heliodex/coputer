@@ -24,6 +24,7 @@ Root:
                 TypeList:
                     Type: AstTypeList
                     Types:
+                    TailType:
         Exported: false
 
 Comment Locations:

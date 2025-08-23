@@ -37,6 +37,7 @@ Root:
                         Name: number
                         NameLocation: 2,28 - 2,34
                         Parameters:
+                    TailType:
                 ArgNames:
                     Type: AstArgumentName
                     Name: foo
@@ -52,6 +53,7 @@ Root:
                             Name: string
                             NameLocation: 2,37 - 2,43
                             Parameters:
+                        TailType:
         Indexer:
     
         Type: AstStatDeclareClass
