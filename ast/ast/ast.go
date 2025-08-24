@@ -300,9 +300,9 @@ func (d DeclaredClassProp[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(d.Node.String())
-	b.WriteString(fmt.Sprintf("Name: %s\n", d.Name))
-	b.WriteString(fmt.Sprintf("NameLocation: %s\n", d.NameLocation))
-	b.WriteString(fmt.Sprintf("Location: %s\n", d.Location))
+	b.WriteString(fmt.Sprintf("Name: %s", d.Name))
+	b.WriteString(fmt.Sprintf("\nNameLocation: %s", d.NameLocation))
+	b.WriteString(fmt.Sprintf("\nLocation: %s", d.Location))
 	b.WriteString("\nLuauType:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(d.LuauType), 4))
 
@@ -310,7 +310,18 @@ func (d DeclaredClassProp[T]) String() string {
 }
 
 func (d DeclaredClassProp[T]) Source(og string, comments []Comment) (string, error) {
-	return d.Location.GetFromSource(og)
+	ilt, ok := any(d.LuauType).(INode)
+	if !ok {
+		return "", fmt.Errorf("expected LuauType to be INode, got %T", d.LuauType)
+	}
+
+	// TODO: we have no way of knowing whether the method has a self parameter {;-;}
+	lts, err := ilt.Source(og, comments)
+	if err != nil {
+		return "", fmt.Errorf("error getting LuauType source: %w", err)
+	}
+
+	return fmt.Sprintf("%s: %s", d.Name, lts), nil
 }
 
 func DecodeDeclaredClassProp(data json.RawMessage) (INode, error) {
@@ -1938,9 +1949,10 @@ func DecodeStatContinue(data json.RawMessage) (INode, error) {
 
 type StatDeclareClass[T any] struct {
 	NodeLoc
-	Name    string `json:"name"`
-	Props   []T    `json:"props"`
-	Indexer *T     `json:"indexer"`
+	Name      string  `json:"name"`
+	SuperName *string `json:"superName"`
+	Props     []T     `json:"props"`
+	Indexer   *T      `json:"indexer"`
 }
 
 func (n StatDeclareClass[T]) Type() string {
@@ -1953,6 +1965,9 @@ func (n StatDeclareClass[T]) String() string {
 	b.WriteString(n.Node.String())
 	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
 	b.WriteString(fmt.Sprintf("\nName: %s", n.Name))
+	if n.SuperName != nil {
+		b.WriteString(fmt.Sprintf("\nSuperName: %s", *n.SuperName))
+	}
 	b.WriteString("\nProps:")
 	for _, prop := range n.Props {
 		b.WriteByte('\n')
@@ -1968,7 +1983,27 @@ func (n StatDeclareClass[T]) String() string {
 }
 
 func (n StatDeclareClass[T]) Source(og string, comments []Comment) (string, error) {
-	return n.Location.GetFromSource(og)
+	// return n.Location.GetFromSource(og)
+	in, ok := any(n).(StatDeclareClass[INode])
+	if !ok {
+		return "", fmt.Errorf("expected StatDeclareClass[INode], got %T", n)
+	}
+
+	propStrings := make([]string, len(in.Props))
+	for i, prop := range in.Props {
+		sprop, err := prop.Source(og, comments)
+		if err != nil {
+			return "", fmt.Errorf("error getting prop source: %w", err)
+		}
+		propStrings[i] = sprop
+	}
+
+	psi := indentStartTab(strings.Join(propStrings, "\n"), 1)
+
+	if in.SuperName == nil {
+		return fmt.Sprintf("declare class %s\n%s\nend", in.Name, psi), nil
+	}
+	return fmt.Sprintf("declare class %s extends %s\n%s\nend", in.Name, *in.SuperName, psi), nil
 }
 
 func DecodeStatDeclareClass(data json.RawMessage) (INode, error) {
@@ -1996,10 +2031,11 @@ func DecodeStatDeclareClass(data json.RawMessage) (INode, error) {
 	}
 
 	return StatDeclareClass[INode]{
-		NodeLoc: raw.NodeLoc,
-		Name:    raw.Name,
-		Props:   props,
-		Indexer: indexerNodeMaybe,
+		NodeLoc:   raw.NodeLoc,
+		Name:      raw.Name,
+		SuperName: raw.SuperName,
+		Props:     props,
+		Indexer:   indexerNodeMaybe,
 	}, nil
 }
 

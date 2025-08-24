@@ -12,18 +12,19 @@ Root:
         Type: AstStatDeclareClass
         Location: 2,14 - 2,48
         Name: EnumAASamples
+        SuperName: EnumItem
         Props:
         Indexer:
     
         Type: AstStatDeclareClass
         Location: 3,14 - 7,3
         Name: EnumAASamples_INTERNAL
+        SuperName: Enum
         Props:
             Type: AstDeclaredClassProp
             Name: 4
             NameLocation: 4,2 - 4,5
             Location: 4,1 - 4,21
-            
             LuauType:
                 Type: AstTypeReference
                 Location: 4,8 - 4,21
@@ -34,7 +35,6 @@ Root:
             Name: 8
             NameLocation: 5,2 - 5,5
             Location: 5,1 - 5,21
-            
             LuauType:
                 Type: AstTypeReference
                 Location: 5,8 - 5,21
@@ -45,7 +45,6 @@ Root:
             Name: None
             NameLocation: 6,1 - 6,5
             Location: 6,1 - 6,20
-            
             LuauType:
                 Type: AstTypeReference
                 Location: 6,7 - 6,20

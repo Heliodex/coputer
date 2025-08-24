@@ -1,0 +1,82 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 4,0
+    HasEnd: true
+    Body:
+        Type: AstStatDeclareClass
+        Location: 0,14 - 3,3
+        Name: Test
+        Props:
+            Type: AstDeclaredClassProp
+            Name: method
+            NameLocation: 1,1 - 1,7
+            Location: 1,1 - 1,33
+            LuauType:
+                Type: AstTypeFunction
+                Location: 1,9 - 1,33
+                Attributes:
+                Generics:
+                GenericPacks:
+                ArgTypes:
+                    Type: AstTypeList
+                    Types:
+                        Type: AstTypeReference
+                        Location: 1,16 - 1,22
+                        Name: string
+                        NameLocation: 1,16 - 1,22
+                        Parameters:
+                    TailType:
+                ArgNames:
+                    Type: AstArgumentName
+                    Name: test
+                    Location: 1,10 - 1,14
+                ReturnTypes:
+                    Type: AstTypePackExplicit
+                    Location: 1,27 - 1,33
+                    TypeList:
+                        Type: AstTypeList
+                        Types:
+                            Type: AstTypeReference
+                            Location: 1,27 - 1,33
+                            Name: string
+                            NameLocation: 1,27 - 1,33
+                            Parameters:
+                        TailType:
+            Type: AstDeclaredClassProp
+            Name: method
+            NameLocation: 2,10 - 2,16
+            Location: 2,1 - 2,44
+            LuauType:
+                Type: AstTypeFunction
+                Location: 2,1 - 2,44
+                Attributes:
+                Generics:
+                GenericPacks:
+                ArgTypes:
+                    Type: AstTypeList
+                    Types:
+                        Type: AstTypeReference
+                        Location: 2,29 - 2,35
+                        Name: string
+                        NameLocation: 2,29 - 2,35
+                        Parameters:
+                    TailType:
+                ArgNames:
+                    Type: AstArgumentName
+                    Name: test
+                    Location: 2,23 - 2,27
+                ReturnTypes:
+                    Type: AstTypePackExplicit
+                    Location: 2,38 - 2,44
+                    TypeList:
+                        Type: AstTypeList
+                        Types:
+                            Type: AstTypeReference
+                            Location: 2,38 - 2,44
+                            Name: string
+                            NameLocation: 2,38 - 2,44
+                            Parameters:
+                        TailType:
+        Indexer:
+
+Comment Locations:
