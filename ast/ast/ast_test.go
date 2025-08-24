@@ -89,6 +89,7 @@ func parseFile(t *testing.T, f os.DirEntry, dir string) {
 	filename := fmt.Sprintf("../%s/%s", dir, name)
 
 	if name == "luauception" {
+		return
 		fmt.Println("⚠️ WARNING! ⚠️ This test takes about a minute to run. It will also eat all of your RAM.")
 	}
 

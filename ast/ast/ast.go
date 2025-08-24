@@ -210,7 +210,7 @@ func DecodeAST(data json.RawMessage) (AST[INode], error) {
 	}, nil
 }
 
-// node types
+// node types (ok, real ast now)
 
 type ArgumentName struct {
 	Node
@@ -236,8 +236,8 @@ func (a ArgumentName) String() string {
 	return b.String()
 }
 
-func (a ArgumentName) Source(og string, comments []Comment) (string, error) {
-	return a.Location.GetFromSource(og)
+func (a ArgumentName) Source(string, []Comment) (string, error) {
+	return a.Name, nil
 }
 
 func DecodeArgumentName(data json.RawMessage) (INode, error) {
@@ -267,7 +267,7 @@ func (a Attr) String() string {
 	return b.String()
 }
 
-func (a Attr) Source(og string, comments []Comment) (string, error) {
+func (a Attr) Source(string, []Comment) (string, error) {
 	// return a.Location.GetFromSource(og)
 	return fmt.Sprintf("@%s", a.Name), nil // they're called @ributes for a reason
 }
@@ -459,19 +459,19 @@ func (n ExprCall[T]) Source(og string, comments []Comment) (string, error) {
 		return "", fmt.Errorf("error getting function source: %w", err)
 	}
 
-	if len(in.Args) == 0 {
-		return fmt.Sprintf("%s()", ns), nil
-	}
+	// if len(in.Args) == 0 {
+	// 	return fmt.Sprintf("%s()", ns), nil
+	// }
 
-	if len(in.Args) == 1 {
-		if str, ok := in.Args[0].(ExprConstantString); ok {
-			strs, err := str.Source(og, comments)
-			if err != nil {
-				return "", fmt.Errorf("error getting string source: %w", err)
-			}
-			return fmt.Sprintf("%s %s", ns, strs), nil
-		}
-	}
+	// if len(in.Args) == 1 {
+	// 	if str, ok := in.Args[0].(ExprConstantString); ok {
+	// 		strs, err := str.Source(og, comments)
+	// 		if err != nil {
+	// 			return "", fmt.Errorf("error getting string source: %w", err)
+	// 		}
+	// 		return fmt.Sprintf("%s %s", ns, strs), nil
+	// 	}
+	// }
 
 	argStrings := make([]string, len(in.Args))
 	for i, arg := range in.Args {
@@ -534,7 +534,7 @@ func (n ExprConstantBool) String() string {
 	return b.String()
 }
 
-func (n ExprConstantBool) Source(og string, comments []Comment) (string, error) {
+func (n ExprConstantBool) Source(string, []Comment) (string, error) {
 	if n.Value {
 		return "true", nil
 	}
@@ -566,7 +566,7 @@ func (n ExprConstantNil) String() string {
 	return b.String()
 }
 
-func (n ExprConstantNil) Source(og string, comments []Comment) (string, error) {
+func (n ExprConstantNil) Source(string, []Comment) (string, error) {
 	return "nil", nil // nil
 }
 
@@ -597,7 +597,7 @@ func (n ExprConstantNumber) String() string {
 	return b.String()
 }
 
-func (n ExprConstantNumber) Source(og string, comments []Comment) (string, error) {
+func (n ExprConstantNumber) Source(og string, _ []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
@@ -628,7 +628,7 @@ func (n ExprConstantString) String() string {
 	return b.String()
 }
 
-func (n ExprConstantString) Source(og string, comments []Comment) (string, error) {
+func (n ExprConstantString) Source(og string, _ []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
@@ -795,7 +795,7 @@ func (n ExprGlobal) String() string {
 	return b.String()
 }
 
-func (n ExprGlobal) Source(og string, comments []Comment) (string, error) {
+func (n ExprGlobal) Source(string, []Comment) (string, error) {
 	// return n.Location.GetFromSource(og)
 	return n.Global, nil
 }
@@ -1101,7 +1101,27 @@ func (n ExprInterpString[T]) String() string {
 }
 
 func (n ExprInterpString[T]) Source(og string, comments []Comment) (string, error) {
-	return n.Location.GetFromSource(og)
+	// return n.Location.GetFromSource(og)
+	iexprs, ok := any(n.Expressions).([]INode)
+	if !ok {
+		return "", fmt.Errorf("expected Expressions to be []INode, got %T", n.Expressions)
+	}
+
+	ls := len(n.Strings)
+	if len(iexprs) != ls-1 {
+		return "", fmt.Errorf("mismatched string and expression counts: %d vs %d", len(n.Strings), len(iexprs))
+	}
+
+	parts := n.Strings
+	for i, expr := range iexprs {
+		ies, err := expr.Source(og, comments)
+		if err != nil {
+			return "", fmt.Errorf("error getting expr source: %w", err)
+		}
+		parts[i] += fmt.Sprintf("{%s}", ies)
+	}
+
+	return fmt.Sprintf("`%s`", strings.Join(parts, "")), nil
 }
 
 func DecodeExprInterpString(data json.RawMessage) (INode, error) {
@@ -1413,7 +1433,7 @@ func (n ExprVarargs) String() string {
 	return b.String()
 }
 
-func (n ExprVarargs) Source(og string, comments []Comment) (string, error) {
+func (n ExprVarargs) Source(string, []Comment) (string, error) {
 	// return n.Location.GetFromSource(og)
 	return "...", nil
 }
@@ -1513,7 +1533,7 @@ func DecodeGenericType(data json.RawMessage) (INode, error) {
 	return raw, nil
 }
 
-func (g GenericType) Source(og string, comments []Comment) (string, error) {
+func (g GenericType) Source(string, []Comment) (string, error) {
 	// GenericType doesn't have a Location field
 	return "", errors.New("generic type has no location")
 }
@@ -1548,7 +1568,7 @@ func DecodeGenericTypePack(data json.RawMessage) (INode, error) {
 	return raw, nil
 }
 
-func (g GenericTypePack) Source(og string, comments []Comment) (string, error) {
+func (g GenericTypePack) Source(string, []Comment) (string, error) {
 	// GenericTypePack doesn't have a Location field
 	return "", errors.New("generic type pack has no location")
 }
@@ -1833,7 +1853,7 @@ func (n StatBreak) String() string {
 	return b.String()
 }
 
-func (n StatBreak) Source(og string, comments []Comment) (string, error) {
+func (n StatBreak) Source(string, []Comment) (string, error) {
 	// return n.Location.GetFromSource(og)
 	return "break", nil
 }
@@ -1934,7 +1954,7 @@ func (n StatContinue) String() string {
 	return b.String()
 }
 
-func (n StatContinue) Source(og string, comments []Comment) (string, error) {
+func (n StatContinue) Source(string, []Comment) (string, error) {
 	// return n.Location.GetFromSource(og)
 	return "continue", nil
 }
@@ -2682,7 +2702,24 @@ func (n StatRepeat[T]) String() string {
 }
 
 func (n StatRepeat[T]) Source(og string, comments []Comment) (string, error) {
-	return n.Location.GetFromSource(og)
+	// return n.Location.GetFromSource(og)
+	in, ok := any(n).(StatRepeat[INode])
+	if !ok {
+		return "", fmt.Errorf("expected StatRepeat[INode], got %T", n)
+	}
+
+	scond, err := in.Condition.Source(og, comments)
+	if err != nil {
+		return "", fmt.Errorf("error getting condition source: %w", err)
+	}
+
+	sbody, err := in.Body.Source(og, comments)
+	if err != nil {
+		return "", fmt.Errorf("error getting body source: %w", err)
+	}
+	sbodyi := indentStartTab(sbody, 1)
+
+	return fmt.Sprintf("repeat\n%s\nuntil %s", sbodyi, scond), nil
 }
 
 func DecodeStatRepeat(data json.RawMessage) (INode, error) {
@@ -3279,7 +3316,7 @@ func (TypeOptional) Type() string {
 	return "AstTypeOptional"
 }
 
-func (n TypeOptional) Source(og string, comments []Comment) (string, error) {
+func (n TypeOptional) Source(string, []Comment) (string, error) {
 	// return n.Location.GetFromSource(og)
 	return "?", nil
 }
@@ -3382,7 +3419,7 @@ func (n TypePackGeneric) String() string {
 	return b.String()
 }
 
-func (n TypePackGeneric) Source(og string, comments []Comment) (string, error) {
+func (n TypePackGeneric) Source(string, []Comment) (string, error) {
 	// return n.Location.GetFromSource(og)
 	return n.GenericName + "...", nil
 }
@@ -3540,7 +3577,7 @@ func (n TypeSingletonBool) String() string {
 	return b.String()
 }
 
-func (n TypeSingletonBool) Source(og string, comments []Comment) (string, error) {
+func (n TypeSingletonBool) Source(string, []Comment) (string, error) {
 	// return n.Location.GetFromSource(og)
 	if n.Value {
 		return "true", nil
@@ -3579,7 +3616,7 @@ func (n TypeSingletonString) String() string {
 	return b.String()
 }
 
-func (n TypeSingletonString) Source(og string, comments []Comment) (string, error) {
+func (n TypeSingletonString) Source(og string, _ []Comment) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 

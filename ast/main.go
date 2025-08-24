@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	const filepath = AstDir + "/declaremethods.d.luau"
+	const filepath = AstDir + "/typestring.luau"
 
 	content, err := os.ReadFile(filepath)
 	if err != nil {
