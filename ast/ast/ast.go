@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"slices"
 	"strings"
 )
 
@@ -32,7 +33,7 @@ func indentStart(s string, n int) string {
 type INode interface {
 	GetLocation() Location
 	String() string
-	Source(og string, comments []Comment, indent int) (string, error)
+	Source(og string, indent int) (string, error)
 	Type() string
 }
 
@@ -59,10 +60,11 @@ type Location struct {
 	End   Position `json:"end"`
 }
 
-func (l Location) EndsAfter(ol Location) bool {
-	return l.End.After(ol.End)
+func (l Location) Contains(ol Location) bool {
+	return ol.Start.After(l.Start) && l.End.After(ol.End)
 }
 
+// infinite gfs (or, well, 9223372036854775807)
 // var gfsCount int
 
 func (l Location) GetFromSource(source string) (string, error) {
@@ -158,6 +160,12 @@ func (c Comment) Source(og string) (string, error) {
 	return c.Location.GetFromSource(og)
 }
 
+// statblocks are the most important node for comments
+type StatBlockDepth struct {
+	StatBlock[INode]
+	Depth int
+}
+
 type AST[T any] struct {
 	Root             StatBlock[T] `json:"root"`
 	CommentLocations []Comment    `json:"commentLocations"`
@@ -186,7 +194,7 @@ func (ast AST[T]) Source(og string) (string, error) {
 		return "", fmt.Errorf("expected Root to be StatBlock[INode], got %T", ast)
 	}
 
-	rs, err := iroot.Source(og, ast.CommentLocations, 0) // ewh, rs
+	rs, err := iroot.Source(og, 0) // ewh, rs
 	if err != nil {
 		return "", fmt.Errorf("error getting root source: %w", err)
 	}
@@ -194,15 +202,37 @@ func (ast AST[T]) Source(og string) (string, error) {
 	return rs + "\n", nil
 }
 
+type AddStatBlock func(StatBlock[INode], int)
+
 func DecodeAST(data json.RawMessage) (AST[INode], error) {
 	var raw AST[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return AST[INode]{}, fmt.Errorf("error decoding AST: %w", err)
 	}
 
-	rootNode, err := DecodeStatBlockKnown(raw.Root)
+	var statBlocks []StatBlockDepth
+	addStatBlock := func(sb StatBlock[INode], depth int) {
+		statBlocks = append(statBlocks, StatBlockDepth{StatBlock: sb, Depth: depth})
+	}
+
+	rootNode, err := DecodeStatBlockKnown(raw.Root, addStatBlock, 0)
 	if err != nil {
 		return AST[INode]{}, fmt.Errorf("error decoding root node: %w", err)
+	}
+
+	slices.SortFunc(statBlocks, func(a, b StatBlockDepth) int {
+		return b.Depth - a.Depth
+	})
+
+	// for each comment, add it to the deepest statblock that fully contains it
+	for _, comment := range raw.CommentLocations {
+		for _, sb := range statBlocks {
+			if !sb.Location.Contains(comment.Location) {
+				continue
+			}
+			*sb.CommentsContained = append(*sb.CommentsContained, comment)
+			break
+		}
 	}
 
 	return AST[INode]{
@@ -237,7 +267,7 @@ func (a ArgumentName) String() string {
 	return b.String()
 }
 
-func (a ArgumentName) Source(string, []Comment, int) (string, error) {
+func (a ArgumentName) Source(string, int) (string, error) {
 	return a.Name, nil
 }
 
@@ -268,7 +298,7 @@ func (a Attr) String() string {
 	return b.String()
 }
 
-func (a Attr) Source(string, []Comment, int) (string, error) {
+func (a Attr) Source(string, int) (string, error) {
 	// return a.Location.GetFromSource(og)
 	return fmt.Sprintf("@%s", a.Name), nil // they're called @ributes for a reason
 }
@@ -310,14 +340,14 @@ func (d DeclaredClassProp[T]) String() string {
 	return b.String()
 }
 
-func (d DeclaredClassProp[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (d DeclaredClassProp[T]) Source(og string, indent int) (string, error) {
 	ilt, ok := any(d.LuauType).(INode)
 	if !ok {
 		return "", fmt.Errorf("expected LuauType to be INode, got %T", d.LuauType)
 	}
 
 	// TODO: we have no way of knowing whether the method has a self parameter {;-;}
-	lts, err := ilt.Source(og, comments, indent)
+	lts, err := ilt.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting LuauType source: %w", err)
 	}
@@ -325,13 +355,13 @@ func (d DeclaredClassProp[T]) Source(og string, comments []Comment, indent int) 
 	return IndentSize(indent) + fmt.Sprintf("%s: %s", d.Name, lts), nil
 }
 
-func DecodeDeclaredClassProp(data json.RawMessage) (INode, error) {
+func DecodeDeclaredClassProp(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw DeclaredClassProp[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	luauTypeNode, err := decodeNode(raw.LuauType)
+	luauTypeNode, err := decodeNode(raw.LuauType, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding luauType: %w", err)
 	}
@@ -370,19 +400,19 @@ func (n ExprBinary[T]) String() string {
 	return b.String()
 }
 
-func (n ExprBinary[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n ExprBinary[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, ok := any(n).(ExprBinary[INode])
 	if !ok {
 		return "", fmt.Errorf("expected ExprBinary[INode], got %T", n)
 	}
 
-	l, err := in.Left.Source(og, comments, indent)
+	l, err := in.Left.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting left source: %w", err)
 	}
 
-	r, err := in.Right.Source(og, comments, indent)
+	r, err := in.Right.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting right source: %w", err)
 	}
@@ -392,18 +422,18 @@ func (n ExprBinary[T]) Source(og string, comments []Comment, indent int) (string
 	return fmt.Sprintf("%s %s %s", l, op, r), nil
 }
 
-func DecodeExprBinary(data json.RawMessage) (INode, error) {
+func DecodeExprBinary(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw ExprBinary[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	left, err := decodeNode(raw.Left)
+	left, err := decodeNode(raw.Left, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding left: %w", err)
 	}
 
-	right, err := decodeNode(raw.Right)
+	right, err := decodeNode(raw.Right, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding right: %w", err)
 	}
@@ -448,14 +478,14 @@ func (n ExprCall[T]) String() string {
 	return b.String()
 }
 
-func (n ExprCall[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n ExprCall[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, ok := any(n).(ExprCall[INode])
 	if !ok {
 		return "", fmt.Errorf("expected ExprCall[INode], got %T", n)
 	}
 
-	ns, err := in.Func.Source(og, comments, indent)
+	ns, err := in.Func.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting function source: %w", err)
 	}
@@ -466,7 +496,7 @@ func (n ExprCall[T]) Source(og string, comments []Comment, indent int) (string, 
 
 	// if len(in.Args) == 1 {
 	// 	if str, ok := in.Args[0].(ExprConstantString); ok {
-	// 		strs, err := str.Source(og, comments, indent)
+	// 		strs, err := str.Source(og, indent)
 	// 		if err != nil {
 	// 			return "", fmt.Errorf("error getting string source: %w", err)
 	// 		}
@@ -476,7 +506,7 @@ func (n ExprCall[T]) Source(og string, comments []Comment, indent int) (string, 
 
 	argStrings := make([]string, len(in.Args))
 	for i, arg := range in.Args {
-		ns, err := arg.Source(og, comments, indent)
+		ns, err := arg.Source(og, indent)
 		if err != nil {
 			return "", fmt.Errorf("error getting argument source: %w", err)
 		}
@@ -487,20 +517,20 @@ func (n ExprCall[T]) Source(og string, comments []Comment, indent int) (string, 
 	return fmt.Sprintf("%s(%s)", ns, strings.Join(argStrings, ", ")), nil
 }
 
-func DecodeExprCall(data json.RawMessage) (INode, error) {
+func DecodeExprCall(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw ExprCall[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	funcNode, err := decodeNode(raw.Func)
+	funcNode, err := decodeNode(raw.Func, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding func: %w", err)
 	}
 
 	args := make([]INode, len(raw.Args))
 	for i, arg := range raw.Args {
-		n, err := decodeNode(arg)
+		n, err := decodeNode(arg, addStatBlock, depth+1)
 		if err != nil {
 			return nil, fmt.Errorf("error decoding arg node: %w", err)
 		}
@@ -535,7 +565,7 @@ func (n ExprConstantBool) String() string {
 	return b.String()
 }
 
-func (n ExprConstantBool) Source(string, []Comment, int) (string, error) {
+func (n ExprConstantBool) Source(string, int) (string, error) {
 	if n.Value {
 		return "true", nil
 	}
@@ -567,7 +597,7 @@ func (n ExprConstantNil) String() string {
 	return b.String()
 }
 
-func (n ExprConstantNil) Source(string, []Comment, int) (string, error) {
+func (n ExprConstantNil) Source(string, int) (string, error) {
 	return "nil", nil // nil
 }
 
@@ -598,7 +628,7 @@ func (n ExprConstantNumber) String() string {
 	return b.String()
 }
 
-func (n ExprConstantNumber) Source(og string, _ []Comment, _ int) (string, error) {
+func (n ExprConstantNumber) Source(og string, _ int) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
@@ -629,7 +659,7 @@ func (n ExprConstantString) String() string {
 	return b.String()
 }
 
-func (n ExprConstantString) Source(og string, _ []Comment, _ int) (string, error) {
+func (n ExprConstantString) Source(og string, _ int) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
@@ -693,7 +723,7 @@ func (n ExprFunction[T]) String() string {
 	return b.String()
 }
 
-func (n ExprFunction[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n ExprFunction[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, ok := any(n).(ExprFunction[INode])
 	if !ok {
@@ -708,7 +738,7 @@ func (n ExprFunction[T]) Source(og string, comments []Comment, indent int) (stri
 			return "", fmt.Errorf("expected Local, got %T", arg)
 		}
 
-		as, err := iarg.Source(og, comments, indent)
+		as, err := iarg.Source(og, indent)
 		if err != nil {
 			return "", fmt.Errorf("error getting source for arg %d: %w", i, err)
 		}
@@ -718,7 +748,7 @@ func (n ExprFunction[T]) Source(og string, comments []Comment, indent int) (stri
 			continue
 		}
 
-		lts, err := (*iarg.LuauType).Source(og, comments, indent)
+		lts, err := (*iarg.LuauType).Source(og, indent)
 		if err != nil {
 			return "", fmt.Errorf("error getting source for arg %d LuauType: %w", i, err)
 		}
@@ -726,7 +756,7 @@ func (n ExprFunction[T]) Source(og string, comments []Comment, indent int) (stri
 		argStrings[i] = fmt.Sprintf("%s: %s", as, lts)
 	}
 
-	bs, err := in.Body.Source(og, comments, indent+1)
+	bs, err := in.Body.Source(og, indent+1)
 	if err != nil {
 		return "", fmt.Errorf("error getting body source: %w", err)
 	}
@@ -743,17 +773,17 @@ func (n ExprFunction[T]) Source(og string, comments []Comment, indent int) (stri
 	return b.String(), nil
 }
 
-func DecodeExprFunctionKnown(raw ExprFunction[json.RawMessage]) (ExprFunction[INode], error) {
+func DecodeExprFunctionKnown(raw ExprFunction[json.RawMessage], addStatBlock AddStatBlock, depth int) (ExprFunction[INode], error) {
 	args := make([]INode, len(raw.Args))
 	for i, arg := range raw.Args {
-		n, err := decodeNode(arg)
+		n, err := decodeNode(arg, addStatBlock, depth+1)
 		if err != nil {
 			return ExprFunction[INode]{}, fmt.Errorf("error decoding arg node: %w", err)
 		}
 		args[i] = n
 	}
 
-	bodyNode, err := DecodeStatBlockKnown(raw.Body)
+	bodyNode, err := DecodeStatBlockKnown(raw.Body, addStatBlock, depth+1)
 	if err != nil {
 		return ExprFunction[INode]{}, fmt.Errorf("error decoding body node: %w", err)
 	}
@@ -772,13 +802,13 @@ func DecodeExprFunctionKnown(raw ExprFunction[json.RawMessage]) (ExprFunction[IN
 	}, nil
 }
 
-func DecodeExprFunction(data json.RawMessage) (INode, error) {
+func DecodeExprFunction(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw ExprFunction[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	return DecodeExprFunctionKnown(raw)
+	return DecodeExprFunctionKnown(raw, addStatBlock, depth+1)
 }
 
 type ExprGlobal struct {
@@ -800,7 +830,7 @@ func (n ExprGlobal) String() string {
 	return b.String()
 }
 
-func (n ExprGlobal) Source(string, []Comment, int) (string, error) {
+func (n ExprGlobal) Source(string, int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	return n.Global, nil
 }
@@ -833,14 +863,14 @@ func (n ExprGroup[T]) String() string {
 	return b.String()
 }
 
-func (n ExprGroup[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n ExprGroup[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	iexpr, ok := any(n.Expr).(INode)
 	if !ok {
 		return "", fmt.Errorf("expected Expr to be INode, got %T", n.Expr)
 	}
 
-	sexpr, err := iexpr.Source(og, comments, indent)
+	sexpr, err := iexpr.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting source for expr: %w", err)
 	}
@@ -848,13 +878,13 @@ func (n ExprGroup[T]) Source(og string, comments []Comment, indent int) (string,
 	return fmt.Sprintf("(%s)", sexpr), nil
 }
 
-func DecodeExprGroup(data json.RawMessage) (INode, error) {
+func DecodeExprGroup(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw ExprGroup[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	exprNode, err := decodeNode(raw.Expr)
+	exprNode, err := decodeNode(raw.Expr, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding expr: %w", err)
 	}
@@ -895,24 +925,24 @@ func (n ExprIfElse[T]) String() string {
 	return b.String()
 }
 
-func (n ExprIfElse[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n ExprIfElse[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, ok := any(n).(ExprIfElse[INode])
 	if !ok {
 		return "", fmt.Errorf("expected ExprIfElse[INode], got %T", n)
 	}
 
-	scond, err := in.Condition.Source(og, comments, indent)
+	scond, err := in.Condition.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting condition source: %w", err)
 	}
 
-	strue, err := in.TrueExpr.Source(og, comments, indent)
+	strue, err := in.TrueExpr.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting true expression source: %w", err)
 	}
 
-	sfalse, err := in.FalseExpr.Source(og, comments, indent)
+	sfalse, err := in.FalseExpr.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting false expression source: %w", err)
 	}
@@ -920,23 +950,23 @@ func (n ExprIfElse[T]) Source(og string, comments []Comment, indent int) (string
 	return fmt.Sprintf("if %s then %s else %s", scond, strue, sfalse), nil
 }
 
-func DecodeExprIfElse(data json.RawMessage) (INode, error) {
+func DecodeExprIfElse(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw ExprIfElse[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	conditionNode, err := decodeNode(raw.Condition)
+	conditionNode, err := decodeNode(raw.Condition, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding condition: %w", err)
 	}
 
-	trueExprNode, err := decodeNode(raw.TrueExpr)
+	trueExprNode, err := decodeNode(raw.TrueExpr, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding true expression: %w", err)
 	}
 
-	falseExprNode, err := decodeNode(raw.FalseExpr)
+	falseExprNode, err := decodeNode(raw.FalseExpr, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding false expression: %w", err)
 	}
@@ -974,19 +1004,19 @@ func (n ExprIndexExpr[T]) String() string {
 	return b.String()
 }
 
-func (n ExprIndexExpr[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n ExprIndexExpr[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, ok := any(n).(ExprIndexExpr[INode])
 	if !ok {
 		return "", fmt.Errorf("expected ExprIndexExpr[INode], got %T", n)
 	}
 
-	exprSource, err := in.Expr.Source(og, comments, indent)
+	exprSource, err := in.Expr.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting expr source: %w", err)
 	}
 
-	indexSource, err := in.Index.Source(og, comments, indent)
+	indexSource, err := in.Index.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting index source: %w", err)
 	}
@@ -994,18 +1024,18 @@ func (n ExprIndexExpr[T]) Source(og string, comments []Comment, indent int) (str
 	return fmt.Sprintf("%s[%s]", exprSource, indexSource), nil
 }
 
-func DecodeExprIndexExpr(data json.RawMessage) (INode, error) {
+func DecodeExprIndexExpr(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw ExprIndexExpr[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	exprNode, err := decodeNode(raw.Expr)
+	exprNode, err := decodeNode(raw.Expr, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding expr: %w", err)
 	}
 
-	indexNode, err := decodeNode(raw.Index)
+	indexNode, err := decodeNode(raw.Index, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding index: %w", err)
 	}
@@ -1041,14 +1071,14 @@ func (n ExprIndexName[T]) String() string {
 	return b.String()
 }
 
-func (n ExprIndexName[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n ExprIndexName[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, ok := any(n).(ExprIndexName[INode])
 	if !ok {
 		return "", fmt.Errorf("expected ExprIndexName[INode], got %T", n)
 	}
 
-	es, err := in.Expr.Source(og, comments, indent)
+	es, err := in.Expr.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting expr source: %w", err)
 	}
@@ -1056,13 +1086,13 @@ func (n ExprIndexName[T]) Source(og string, comments []Comment, indent int) (str
 	return fmt.Sprintf("%s.%s", es, in.Index), nil
 }
 
-func DecodeExprIndexName(data json.RawMessage) (INode, error) {
+func DecodeExprIndexName(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw ExprIndexName[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	exprNode, err := decodeNode(raw.Expr)
+	exprNode, err := decodeNode(raw.Expr, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding expr: %w", err)
 	}
@@ -1105,7 +1135,7 @@ func (n ExprInterpString[T]) String() string {
 	return b.String()
 }
 
-func (n ExprInterpString[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n ExprInterpString[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	iexprs, ok := any(n.Expressions).([]INode)
 	if !ok {
@@ -1119,7 +1149,7 @@ func (n ExprInterpString[T]) Source(og string, comments []Comment, indent int) (
 
 	parts := n.Strings
 	for i, expr := range iexprs {
-		ies, err := expr.Source(og, comments, indent)
+		ies, err := expr.Source(og, indent)
 		if err != nil {
 			return "", fmt.Errorf("error getting expr source: %w", err)
 		}
@@ -1129,7 +1159,7 @@ func (n ExprInterpString[T]) Source(og string, comments []Comment, indent int) (
 	return fmt.Sprintf("`%s`", strings.Join(parts, "")), nil
 }
 
-func DecodeExprInterpString(data json.RawMessage) (INode, error) {
+func DecodeExprInterpString(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw ExprInterpString[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
@@ -1137,7 +1167,7 @@ func DecodeExprInterpString(data json.RawMessage) (INode, error) {
 
 	expressions := make([]INode, len(raw.Expressions))
 	for i, expr := range raw.Expressions {
-		n, err := decodeNode(expr)
+		n, err := decodeNode(expr, addStatBlock, depth+1)
 		if err != nil {
 			return nil, fmt.Errorf("error decoding expression node: %w", err)
 		}
@@ -1171,21 +1201,21 @@ func (n ExprLocal[T]) String() string {
 	return b.String()
 }
 
-func (n ExprLocal[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n ExprLocal[T]) Source(og string, indent int) (string, error) {
 	ilocal, ok := any(n.Local).(Local[INode])
 	if !ok {
 		return "", fmt.Errorf("expected Local to be Local[INode], got %T", n.Local)
 	}
-	return ilocal.Source(og, comments, indent)
+	return ilocal.Source(og, indent)
 }
 
-func DecodeExprLocal(data json.RawMessage) (INode, error) {
+func DecodeExprLocal(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw ExprLocal[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	localNode, err := decodeNode(raw.Local)
+	localNode, err := decodeNode(raw.Local, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding local: %w", err)
 	}
@@ -1220,7 +1250,7 @@ func (n ExprTable[T]) String() string {
 	return b.String()
 }
 
-func (n ExprTable[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n ExprTable[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	iitems, ok := any(n.Items).([]INode)
 	if !ok {
@@ -1233,7 +1263,7 @@ func (n ExprTable[T]) Source(og string, comments []Comment, indent int) (string,
 
 	itemStrings := make([]string, len(iitems))
 	for i, item := range iitems {
-		is, err := item.Source(og, comments, indent)
+		is, err := item.Source(og, indent)
 		if err != nil {
 			return "", fmt.Errorf("error getting source for item %d: %w", i, err)
 		}
@@ -1243,7 +1273,7 @@ func (n ExprTable[T]) Source(og string, comments []Comment, indent int) (string,
 	return fmt.Sprintf("{ %s }", strings.Join(itemStrings, ", ")), nil
 }
 
-func DecodeExprTable(data json.RawMessage) (INode, error) {
+func DecodeExprTable(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw ExprTable[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
@@ -1251,7 +1281,7 @@ func DecodeExprTable(data json.RawMessage) (INode, error) {
 
 	items := make([]INode, len(raw.Items))
 	for i, item := range raw.Items {
-		n, err := decodeNode(item)
+		n, err := decodeNode(item, addStatBlock, depth+1)
 		if err != nil {
 			return nil, fmt.Errorf("error decoding item node: %w", err)
 		}
@@ -1295,7 +1325,7 @@ func (n ExprTableItem[T]) String() string {
 	return b.String()
 }
 
-func (n ExprTableItem[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n ExprTableItem[T]) Source(og string, indent int) (string, error) {
 	// TableItem doesn't seem to have a Location field, using Value's location if possible
 	// return "", errors.New("table item has no direct location")
 	in, ok := any(n).(ExprTableItem[INode])
@@ -1303,7 +1333,7 @@ func (n ExprTableItem[T]) Source(og string, comments []Comment, indent int) (str
 		return "", fmt.Errorf("expected ExprTableItem[INode], got %T", n)
 	}
 
-	vs, err := in.Value.Source(og, comments, indent)
+	vs, err := in.Value.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting value source: %w", err)
 	}
@@ -1312,7 +1342,7 @@ func (n ExprTableItem[T]) Source(og string, comments []Comment, indent int) (str
 		return vs, nil
 	}
 
-	ks, err := (*in.Key).Source(og, comments, indent)
+	ks, err := (*in.Key).Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting key source: %w", err)
 	}
@@ -1327,7 +1357,7 @@ func (n ExprTableItem[T]) Source(og string, comments []Comment, indent int) (str
 	return "", fmt.Errorf("unknown table item kind: %s", in.Kind)
 }
 
-func DecodeExprTableItem(data json.RawMessage) (INode, error) {
+func DecodeExprTableItem(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw ExprTableItem[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
@@ -1335,14 +1365,14 @@ func DecodeExprTableItem(data json.RawMessage) (INode, error) {
 
 	var keyNodeMaybe *INode
 	if raw.Key != nil {
-		keyNode, err := decodeNode(*raw.Key)
+		keyNode, err := decodeNode(*raw.Key, addStatBlock, depth+1)
 		if err != nil {
 			return nil, fmt.Errorf("error decoding key: %w", err)
 		}
 		keyNodeMaybe = &keyNode
 	}
 
-	valueNode, err := decodeNode(raw.Value)
+	valueNode, err := decodeNode(raw.Value, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding value: %w", err)
 	}
@@ -1378,19 +1408,19 @@ func (n ExprTypeAssertion[T]) String() string {
 	return b.String()
 }
 
-func (n ExprTypeAssertion[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n ExprTypeAssertion[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, ok := any(n).(ExprTypeAssertion[INode])
 	if !ok {
 		return "", fmt.Errorf("expected ExprTypeAssertion[INode], got %T", n)
 	}
 
-	sexpr, err := in.Expr.Source(og, comments, indent)
+	sexpr, err := in.Expr.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting expr source: %w", err)
 	}
 
-	sannotation, err := in.Annotation.Source(og, comments, indent)
+	sannotation, err := in.Annotation.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting annotation source: %w", err)
 	}
@@ -1398,18 +1428,18 @@ func (n ExprTypeAssertion[T]) Source(og string, comments []Comment, indent int) 
 	return fmt.Sprintf("%s :: %s", sexpr, sannotation), nil
 }
 
-func DecodeExprTypeAssertion(data json.RawMessage) (INode, error) {
+func DecodeExprTypeAssertion(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw ExprTypeAssertion[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	exprNode, err := decodeNode(raw.Expr)
+	exprNode, err := decodeNode(raw.Expr, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding expr: %w", err)
 	}
 
-	annotationNode, err := decodeNode(raw.Annotation)
+	annotationNode, err := decodeNode(raw.Annotation, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding annotation: %w", err)
 	}
@@ -1438,7 +1468,7 @@ func (n ExprVarargs) String() string {
 	return b.String()
 }
 
-func (n ExprVarargs) Source(string, []Comment, int) (string, error) {
+func (n ExprVarargs) Source(string, int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	return "...", nil
 }
@@ -1473,14 +1503,14 @@ func (n ExprUnary[T]) String() string {
 	return b.String()
 }
 
-func (n ExprUnary[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n ExprUnary[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, ok := any(n).(ExprUnary[INode])
 	if !ok {
 		return "", fmt.Errorf("expected ExprUnary[INode], got %T", n)
 	}
 
-	exprSource, err := in.Expr.Source(og, comments, indent)
+	exprSource, err := in.Expr.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting expr source: %w", err)
 	}
@@ -1490,13 +1520,13 @@ func (n ExprUnary[T]) Source(og string, comments []Comment, indent int) (string,
 	return op + exprSource, nil
 }
 
-func DecodeExprUnary(data json.RawMessage) (INode, error) {
+func DecodeExprUnary(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw ExprUnary[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	exprNode, err := decodeNode(raw.Expr)
+	exprNode, err := decodeNode(raw.Expr, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding expr: %w", err)
 	}
@@ -1538,7 +1568,7 @@ func DecodeGenericType(data json.RawMessage) (INode, error) {
 	return raw, nil
 }
 
-func (g GenericType) Source(string, []Comment, int) (string, error) {
+func (g GenericType) Source(string, int) (string, error) {
 	// GenericType doesn't have a Location field
 	return "", errors.New("generic type has no location")
 }
@@ -1573,7 +1603,7 @@ func DecodeGenericTypePack(data json.RawMessage) (INode, error) {
 	return raw, nil
 }
 
-func (g GenericTypePack) Source(string, []Comment, int) (string, error) {
+func (g GenericTypePack) Source(string, int) (string, error) {
 	// GenericTypePack doesn't have a Location field
 	return "", errors.New("generic type pack has no location")
 }
@@ -1603,7 +1633,7 @@ func (n Local[T]) String() string {
 	return b.String()
 }
 
-func (n Local[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n Local[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, ok := any(n).(Local[INode])
 	if !ok {
@@ -1614,7 +1644,7 @@ func (n Local[T]) Source(og string, comments []Comment, indent int) (string, err
 	return in.Name, nil
 	// }
 
-	// lts, err := (*in.LuauType).Source(og, comments, indent)
+	// lts, err := (*in.LuauType).Source(og, indent)
 	// if err != nil {
 	// 	return "", fmt.Errorf("error getting luau type source: %w", err)
 	// }
@@ -1622,10 +1652,10 @@ func (n Local[T]) Source(og string, comments []Comment, indent int) (string, err
 	// return fmt.Sprintf("%s: %s", in.Name, lts), nil
 }
 
-func DecodeLocalKnown(raw Local[json.RawMessage]) (Local[INode], error) {
+func DecodeLocalKnown(raw Local[json.RawMessage], addStatBlock AddStatBlock, depth int) (Local[INode], error) {
 	var luauTypeMaybe *INode
 	if raw.LuauType != nil {
-		luauTypeNode, err := decodeNode(*raw.LuauType)
+		luauTypeNode, err := decodeNode(*raw.LuauType, addStatBlock, depth+1)
 		if err != nil {
 			return Local[INode]{}, fmt.Errorf("error decoding luau type: %w", err)
 		}
@@ -1639,13 +1669,13 @@ func DecodeLocalKnown(raw Local[json.RawMessage]) (Local[INode], error) {
 	}, nil
 }
 
-func DecodeLocal(data json.RawMessage) (INode, error) {
+func DecodeLocal(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw Local[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	return DecodeLocalKnown(raw)
+	return DecodeLocalKnown(raw, addStatBlock, depth+1)
 }
 
 type StatAssign[T any] struct {
@@ -1677,7 +1707,7 @@ func (n StatAssign[T]) String() string {
 	return b.String()
 }
 
-func (n StatAssign[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n StatAssign[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, ok := any(n).(StatAssign[INode])
 	if !ok {
@@ -1686,7 +1716,7 @@ func (n StatAssign[T]) Source(og string, comments []Comment, indent int) (string
 
 	VarStrings := make([]string, len(in.Vars))
 	for i, node := range in.Vars {
-		ns, err := node.Source(og, comments, indent)
+		ns, err := node.Source(og, indent)
 		if err != nil {
 			return "", fmt.Errorf("error getting var source: %w", err)
 		}
@@ -1695,7 +1725,7 @@ func (n StatAssign[T]) Source(og string, comments []Comment, indent int) (string
 
 	ValueStrings := make([]string, len(in.Values))
 	for i, node := range in.Values {
-		ns, err := node.Source(og, comments, indent)
+		ns, err := node.Source(og, indent)
 		if err != nil {
 			return "", fmt.Errorf("error getting value source: %w", err)
 		}
@@ -1705,7 +1735,7 @@ func (n StatAssign[T]) Source(og string, comments []Comment, indent int) (string
 	return IndentSize(indent) + fmt.Sprintf("%s = %s", strings.Join(VarStrings, ", "), strings.Join(ValueStrings, ", ")), nil
 }
 
-func DecodeStatAssign(data json.RawMessage) (INode, error) {
+func DecodeStatAssign(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw StatAssign[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
@@ -1713,7 +1743,7 @@ func DecodeStatAssign(data json.RawMessage) (INode, error) {
 
 	vars := make([]INode, len(raw.Vars))
 	for i, v := range raw.Vars {
-		n, err := decodeNode(v)
+		n, err := decodeNode(v, addStatBlock, depth+1)
 		if err != nil {
 			return nil, fmt.Errorf("error decoding var node: %w", err)
 		}
@@ -1722,7 +1752,7 @@ func DecodeStatAssign(data json.RawMessage) (INode, error) {
 
 	values := make([]INode, len(raw.Values))
 	for i, v := range raw.Values {
-		n, err := decodeNode(v)
+		n, err := decodeNode(v, addStatBlock, depth+1)
 		if err != nil {
 			return nil, fmt.Errorf("error decoding value node: %w", err)
 		}
@@ -1738,8 +1768,9 @@ func DecodeStatAssign(data json.RawMessage) (INode, error) {
 
 type StatBlock[T any] struct {
 	NodeLoc
-	HasEnd bool `json:"hasEnd"`
-	Body   []T  `json:"body"`
+	HasEnd            bool       `json:"hasEnd"`
+	Body              []T        `json:"body"`
+	CommentsContained *[]Comment // not in json
 }
 
 func (n StatBlock[T]) Type() string {
@@ -1762,19 +1793,21 @@ func (n StatBlock[T]) String() string {
 	return b.String()
 }
 
-func (n StatBlock[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n StatBlock[T]) Source(og string, indent int) (string, error) {
 	in, ok := any(n).(StatBlock[INode])
 	if !ok {
 		// return n.Location.GetFromSource(og)
 		return "", fmt.Errorf("expected StatBlock[INode], got %T", n)
 	}
 
+	ccs := *in.CommentsContained
+
 	var b strings.Builder
 	for i, bnode := range in.Body {
 		loc := bnode.GetLocation()
 
 		var commentsDone int
-		for _, c := range comments {
+		for _, c := range ccs {
 			if c.Location.Start.After(loc.End) {
 				break
 			}
@@ -1788,11 +1821,10 @@ func (n StatBlock[T]) Source(og string, comments []Comment, indent int) (string,
 			b.WriteByte('\n')
 			commentsDone++
 		}
-
-		comments = comments[commentsDone:]
+		ccs = ccs[commentsDone:]
 
 		if bnode.Type() == "AstStatBlock" {
-			bs, err := bnode.Source(og, comments, indent+1)
+			bs, err := bnode.Source(og, indent+1)
 			if err != nil {
 				return "", err
 			}
@@ -1802,7 +1834,7 @@ func (n StatBlock[T]) Source(og string, comments []Comment, indent int) (string,
 			continue
 		}
 
-		bs, err := bnode.Source(og, comments, indent)
+		bs, err := bnode.Source(og, indent)
 		if err != nil {
 			return "", err
 		}
@@ -1813,7 +1845,7 @@ func (n StatBlock[T]) Source(og string, comments []Comment, indent int) (string,
 		}
 	}
 
-	for _, c := range comments {
+	for _, c := range ccs {
 		cs, err := c.Source(og)
 		if err != nil {
 			return "", fmt.Errorf("error getting comment source: %w", err)
@@ -1826,30 +1858,34 @@ func (n StatBlock[T]) Source(og string, comments []Comment, indent int) (string,
 	return b.String(), nil
 }
 
-func DecodeStatBlockKnown(raw StatBlock[json.RawMessage]) (StatBlock[INode], error) {
+func DecodeStatBlockKnown(raw StatBlock[json.RawMessage], addStatBlock AddStatBlock, depth int) (StatBlock[INode], error) {
 	body := make([]INode, len(raw.Body))
 	for i, bn := range raw.Body {
-		n, err := decodeNode(bn)
+		n, err := decodeNode(bn, addStatBlock, depth+1)
 		if err != nil {
 			return StatBlock[INode]{}, fmt.Errorf("error decoding body node: %w", err)
 		}
 		body[i] = n
 	}
 
-	return StatBlock[INode]{
-		NodeLoc: raw.NodeLoc,
-		HasEnd:  raw.HasEnd,
-		Body:    body,
-	}, nil
+	// hi sb, my good old friend
+	sb := StatBlock[INode]{
+		NodeLoc:           raw.NodeLoc,
+		HasEnd:            raw.HasEnd,
+		Body:              body,
+		CommentsContained: &[]Comment{},
+	}
+	addStatBlock(sb, depth)
+	return sb, nil
 }
 
-func DecodeStatBlock(data json.RawMessage) (INode, error) {
+func DecodeStatBlock(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw StatBlock[json.RawMessage] // rawblocks man
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	return DecodeStatBlockKnown(raw)
+	return DecodeStatBlockKnown(raw, addStatBlock, depth+1)
 }
 
 type StatBreak struct {
@@ -1869,7 +1905,7 @@ func (n StatBreak) String() string {
 	return b.String()
 }
 
-func (n StatBreak) Source(_ string, _ []Comment, indent int) (string, error) {
+func (n StatBreak) Source(_ string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	return IndentSize(indent) + "break", nil
 }
@@ -1907,19 +1943,19 @@ func (n StatCompoundAssign[T]) String() string {
 	return b.String()
 }
 
-func (n StatCompoundAssign[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n StatCompoundAssign[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, ok := any(n).(StatCompoundAssign[INode])
 	if !ok {
 		return "", fmt.Errorf("expected StatCompoundAssign[INode], got %T", n)
 	}
 
-	svar, err := in.Var.Source(og, comments, indent)
+	svar, err := in.Var.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting var source: %w", err)
 	}
 
-	svalue, err := in.Value.Source(og, comments, indent)
+	svalue, err := in.Value.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting value source: %w", err)
 	}
@@ -1929,18 +1965,18 @@ func (n StatCompoundAssign[T]) Source(og string, comments []Comment, indent int)
 	return fmt.Sprintf("%s %s= %s", svar, op, svalue), nil
 }
 
-func DecodeStatCompoundAssign(data json.RawMessage) (INode, error) {
+func DecodeStatCompoundAssign(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw StatCompoundAssign[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	varNode, err := decodeNode(raw.Var)
+	varNode, err := decodeNode(raw.Var, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding var: %w", err)
 	}
 
-	valueNode, err := decodeNode(raw.Value)
+	valueNode, err := decodeNode(raw.Value, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding value: %w", err)
 	}
@@ -1970,7 +2006,7 @@ func (n StatContinue) String() string {
 	return b.String()
 }
 
-func (n StatContinue) Source(_ string, _ []Comment, indent int) (string, error) {
+func (n StatContinue) Source(_ string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	return IndentSize(indent) + "continue", nil
 }
@@ -2018,7 +2054,7 @@ func (n StatDeclareClass[T]) String() string {
 	return b.String()
 }
 
-func (n StatDeclareClass[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n StatDeclareClass[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, ok := any(n).(StatDeclareClass[INode])
 	if !ok {
@@ -2027,7 +2063,7 @@ func (n StatDeclareClass[T]) Source(og string, comments []Comment, indent int) (
 
 	propStrings := make([]string, len(in.Props))
 	for i, prop := range in.Props {
-		sprop, err := prop.Source(og, comments, indent+1)
+		sprop, err := prop.Source(og, indent+1)
 		if err != nil {
 			return "", fmt.Errorf("error getting prop source: %w", err)
 		}
@@ -2042,7 +2078,7 @@ func (n StatDeclareClass[T]) Source(og string, comments []Comment, indent int) (
 	return fmt.Sprintf("declare class %s extends %s\n%s\nend", in.Name, *in.SuperName, psi), nil
 }
 
-func DecodeStatDeclareClass(data json.RawMessage) (INode, error) {
+func DecodeStatDeclareClass(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw StatDeclareClass[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
@@ -2050,7 +2086,7 @@ func DecodeStatDeclareClass(data json.RawMessage) (INode, error) {
 
 	props := make([]INode, len(raw.Props))
 	for i, prop := range raw.Props {
-		n, err := decodeNode(prop)
+		n, err := decodeNode(prop, addStatBlock, depth+1)
 		if err != nil {
 			return nil, fmt.Errorf("error decoding prop node: %w", err)
 		}
@@ -2059,7 +2095,7 @@ func DecodeStatDeclareClass(data json.RawMessage) (INode, error) {
 
 	var indexerNodeMaybe *INode
 	if raw.Indexer != nil {
-		indexerNode, err := decodeNode(*raw.Indexer)
+		indexerNode, err := decodeNode(*raw.Indexer, addStatBlock, depth+1)
 		if err != nil {
 			return nil, fmt.Errorf("error decoding indexer: %w", err)
 		}
@@ -2096,14 +2132,14 @@ func (n StatExpr[T]) String() string {
 	return b.String()
 }
 
-func (n StatExpr[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n StatExpr[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, ok := any(n).(StatExpr[INode])
 	if !ok {
 		return "", fmt.Errorf("expected StatExpr[INode], got %T", n)
 	}
 
-	sexpr, err := in.Expr.Source(og, comments, indent)
+	sexpr, err := in.Expr.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting expr source: %w", err)
 	}
@@ -2111,13 +2147,13 @@ func (n StatExpr[T]) Source(og string, comments []Comment, indent int) (string, 
 	return IndentSize(indent) + sexpr, nil
 }
 
-func DecodeStatExpr(data json.RawMessage) (INode, error) {
+func DecodeStatExpr(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw StatExpr[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	n, err := decodeNode(raw.Expr)
+	n, err := decodeNode(raw.Expr, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding expr: %w", err)
 	}
@@ -2162,29 +2198,29 @@ func (n StatFor[T]) String() string {
 	return b.String()
 }
 
-func (n StatFor[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n StatFor[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, ok := any(n).(StatFor[INode])
 	if !ok {
 		return "", fmt.Errorf("expected StatFor[INode], got %T", n)
 	}
 
-	svar, err := in.Var.Source(og, comments, indent)
+	svar, err := in.Var.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting var source: %w", err)
 	}
 
-	sfrom, err := in.From.Source(og, comments, indent)
+	sfrom, err := in.From.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting from source: %w", err)
 	}
 
-	sto, err := in.To.Source(og, comments, indent)
+	sto, err := in.To.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting to source: %w", err)
 	}
 
-	sbody, err := in.Body.Source(og, comments, indent)
+	sbody, err := in.Body.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting body source: %w", err)
 	}
@@ -2195,7 +2231,7 @@ func (n StatFor[T]) Source(og string, comments []Comment, indent int) (string, e
 			svar, sfrom, sto, sbodyi), nil
 	}
 
-	sstep, err := (*in.Step).Source(og, comments, indent)
+	sstep, err := (*in.Step).Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting step source: %w", err)
 	}
@@ -2204,28 +2240,28 @@ func (n StatFor[T]) Source(og string, comments []Comment, indent int) (string, e
 		svar, sfrom, sto, sstep, sbodyi), nil
 }
 
-func DecodeStatFor(data json.RawMessage) (INode, error) {
+func DecodeStatFor(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw StatFor[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	svar, err := decodeNode(raw.Var)
+	svar, err := decodeNode(raw.Var, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding var: %w", err)
 	}
 
-	sfrom, err := decodeNode(raw.From)
+	sfrom, err := decodeNode(raw.From, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding from: %w", err)
 	}
 
-	sto, err := decodeNode(raw.To)
+	sto, err := decodeNode(raw.To, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding to: %w", err)
 	}
 
-	sbody, err := DecodeStatBlockKnown(raw.Body)
+	sbody, err := DecodeStatBlockKnown(raw.Body, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding body: %w", err)
 	}
@@ -2276,7 +2312,7 @@ func (n StatForIn[T]) String() string {
 	return b.String()
 }
 
-func (n StatForIn[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n StatForIn[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, ok := any(n).(StatForIn[INode])
 	if !ok {
@@ -2285,7 +2321,7 @@ func (n StatForIn[T]) Source(og string, comments []Comment, indent int) (string,
 
 	vars := make([]string, len(in.Vars))
 	for i, v := range in.Vars {
-		svar, err := v.Source(og, comments, indent)
+		svar, err := v.Source(og, indent)
 		if err != nil {
 			return "", fmt.Errorf("error getting source for var: %w", err)
 		}
@@ -2294,14 +2330,14 @@ func (n StatForIn[T]) Source(og string, comments []Comment, indent int) (string,
 
 	values := make([]string, len(in.Values))
 	for i, v := range in.Values {
-		svalue, err := v.Source(og, comments, indent)
+		svalue, err := v.Source(og, indent)
 		if err != nil {
 			return "", fmt.Errorf("error getting source for value: %w", err)
 		}
 		values[i] = svalue
 	}
 
-	sbody, err := in.Body.Source(og, comments, indent+1)
+	sbody, err := in.Body.Source(og, indent+1)
 	if err != nil {
 		return "", fmt.Errorf("error getting source for body: %w", err)
 	}
@@ -2310,7 +2346,7 @@ func (n StatForIn[T]) Source(og string, comments []Comment, indent int) (string,
 		strings.Join(vars, ", "), strings.Join(values, ", "), sbody), nil
 }
 
-func DecodeStatForIn(data json.RawMessage) (INode, error) {
+func DecodeStatForIn(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw StatForIn[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
@@ -2318,7 +2354,7 @@ func DecodeStatForIn(data json.RawMessage) (INode, error) {
 
 	vars := make([]Local[INode], len(raw.Vars))
 	for i, v := range raw.Vars {
-		n, err := DecodeLocalKnown(v)
+		n, err := DecodeLocalKnown(v, addStatBlock, depth+1)
 		if err != nil {
 			return nil, fmt.Errorf("error decoding var node: %w", err)
 		}
@@ -2327,14 +2363,14 @@ func DecodeStatForIn(data json.RawMessage) (INode, error) {
 
 	values := make([]INode, len(raw.Values))
 	for i, v := range raw.Values {
-		n, err := decodeNode(v)
+		n, err := decodeNode(v, addStatBlock, depth+1)
 		if err != nil {
 			return nil, fmt.Errorf("error decoding value node: %w", err)
 		}
 		values[i] = n
 	}
 
-	bodyNode, err := DecodeStatBlockKnown(raw.Body)
+	bodyNode, err := DecodeStatBlockKnown(raw.Body, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding body: %w", err)
 	}
@@ -2372,7 +2408,7 @@ func (n StatFunction[T]) String() string {
 	return b.String()
 }
 
-func (n StatFunction[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n StatFunction[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, ok := any(n).(StatFunction[INode])
 	if !ok {
@@ -2384,7 +2420,7 @@ func (n StatFunction[T]) Source(og string, comments []Comment, indent int) (stri
 		return "", fmt.Errorf("expected Func to be ExprFunction[INode], got %T", in.Func)
 	}
 
-	fs, err := ifunc.Source(og, comments, indent)
+	fs, err := ifunc.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting function source: %w", err)
 	}
@@ -2395,7 +2431,7 @@ func (n StatFunction[T]) Source(og string, comments []Comment, indent int) (stri
 
 	attributeStrings := make([]string, len(ifunc.Attributes))
 	for i, attr := range ifunc.Attributes {
-		ns, err := attr.Source(og, comments, indent)
+		ns, err := attr.Source(og, indent)
 		if err != nil {
 			return "", fmt.Errorf("error getting attribute source: %w", err)
 		}
@@ -2405,18 +2441,18 @@ func (n StatFunction[T]) Source(og string, comments []Comment, indent int) (stri
 	return fmt.Sprintf("%s\n%s", strings.Join(attributeStrings, "\n"), fs), nil
 }
 
-func DecodeStatFunction(data json.RawMessage) (INode, error) {
+func DecodeStatFunction(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw StatFunction[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	nameNode, err := decodeNode(raw.Name)
+	nameNode, err := decodeNode(raw.Name, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding name: %w", err)
 	}
 
-	funcNode, err := DecodeExprFunctionKnown(raw.Func)
+	funcNode, err := DecodeExprFunctionKnown(raw.Func, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding func: %w", err)
 	}
@@ -2459,19 +2495,19 @@ func (n StatIf[T]) String() string {
 	return b.String()
 }
 
-func (n StatIf[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n StatIf[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, ok := any(n).(StatIf[INode])
 	if !ok {
 		return "", fmt.Errorf("expected StatIf[INode], got %T", n)
 	}
 
-	scond, err := in.Condition.Source(og, comments, indent)
+	scond, err := in.Condition.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting condition source: %w", err)
 	}
 
-	sthen, err := in.ThenBody.Source(og, comments, indent+1)
+	sthen, err := in.ThenBody.Source(og, indent+1)
 	if err != nil {
 		return "", fmt.Errorf("error getting then body source: %w", err)
 	}
@@ -2485,7 +2521,7 @@ func (n StatIf[T]) Source(og string, comments []Comment, indent int) (string, er
 	}
 
 	if (*in.ElseBody).Type() == "AstStatIf" {
-		selse, err := (*in.ElseBody).Source(og, comments, indent)
+		selse, err := (*in.ElseBody).Source(og, indent)
 		if err != nil {
 			return "", fmt.Errorf("error getting else-if source: %w", err)
 		}
@@ -2493,7 +2529,7 @@ func (n StatIf[T]) Source(og string, comments []Comment, indent int) (string, er
 		return b.String(), nil
 	}
 
-	selse, err := (*in.ElseBody).Source(og, comments, indent+1)
+	selse, err := (*in.ElseBody).Source(og, indent+1)
 	if err != nil {
 		return "", fmt.Errorf("error getting else body source: %w", err)
 	}
@@ -2503,25 +2539,25 @@ func (n StatIf[T]) Source(og string, comments []Comment, indent int) (string, er
 	return b.String(), nil
 }
 
-func DecodeStatIf(data json.RawMessage) (INode, error) {
+func DecodeStatIf(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw StatIf[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	condition, err := decodeNode(raw.Condition)
+	condition, err := decodeNode(raw.Condition, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding condition: %w", err)
 	}
 
-	thenBody, err := DecodeStatBlockKnown(raw.ThenBody)
+	thenBody, err := DecodeStatBlockKnown(raw.ThenBody, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding then body: %w", err)
 	}
 
 	var elseBodyMaybe *INode
 	if raw.ElseBody != nil {
-		elseBody, err := decodeNode(*raw.ElseBody)
+		elseBody, err := decodeNode(*raw.ElseBody, addStatBlock, depth+1)
 		if err != nil {
 			return nil, fmt.Errorf("error decoding else body: %w", err)
 		}
@@ -2566,7 +2602,7 @@ func (n StatLocal[T]) String() string {
 	return b.String()
 }
 
-func (n StatLocal[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n StatLocal[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, ok := any(n).(StatLocal[INode])
 	if !ok {
@@ -2575,7 +2611,7 @@ func (n StatLocal[T]) Source(og string, comments []Comment, indent int) (string,
 
 	VarStrings := make([]string, len(in.Vars))
 	for i, node := range in.Vars {
-		ns, err := node.Source(og, comments, indent)
+		ns, err := node.Source(og, indent)
 		if err != nil {
 			return "", fmt.Errorf("error getting var source: %w", err)
 		}
@@ -2588,7 +2624,7 @@ func (n StatLocal[T]) Source(og string, comments []Comment, indent int) (string,
 
 	ValueStrings := make([]string, len(in.Values))
 	for i, node := range in.Values {
-		ns, err := node.Source(og, comments, indent)
+		ns, err := node.Source(og, indent)
 		if err != nil {
 			return "", fmt.Errorf("error getting value source: %w", err)
 		}
@@ -2598,7 +2634,7 @@ func (n StatLocal[T]) Source(og string, comments []Comment, indent int) (string,
 	return IndentSize(indent) + fmt.Sprintf("local %s = %s", strings.Join(VarStrings, ", "), strings.Join(ValueStrings, ", ")), nil
 }
 
-func DecodeStatLocal(data json.RawMessage) (INode, error) {
+func DecodeStatLocal(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw StatLocal[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
@@ -2606,7 +2642,7 @@ func DecodeStatLocal(data json.RawMessage) (INode, error) {
 
 	vars := make([]Local[INode], len(raw.Vars))
 	for i, v := range raw.Vars {
-		n, err := DecodeLocalKnown(v)
+		n, err := DecodeLocalKnown(v, addStatBlock, depth+1)
 		if err != nil {
 			return nil, fmt.Errorf("error decoding var node: %w", err)
 		}
@@ -2615,7 +2651,7 @@ func DecodeStatLocal(data json.RawMessage) (INode, error) {
 
 	values := make([]INode, len(raw.Values))
 	for i, v := range raw.Values {
-		n, err := decodeNode(v)
+		n, err := decodeNode(v, addStatBlock, depth+1)
 		if err != nil {
 			return nil, fmt.Errorf("error decoding value node: %w", err)
 		}
@@ -2652,7 +2688,7 @@ func (n StatLocalFunction[T]) String() string {
 	return b.String()
 }
 
-func (n StatLocalFunction[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n StatLocalFunction[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, ok := any(n).(StatLocalFunction[INode])
 	if !ok {
@@ -2664,7 +2700,7 @@ func (n StatLocalFunction[T]) Source(og string, comments []Comment, indent int) 
 		return "", fmt.Errorf("expected Func to be ExprFunction[INode], got %T", in.Func)
 	}
 
-	fs, err := ifunc.Source(og, comments, indent)
+	fs, err := ifunc.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting function source: %w", err)
 	}
@@ -2675,7 +2711,7 @@ func (n StatLocalFunction[T]) Source(og string, comments []Comment, indent int) 
 
 	attributeStrings := make([]string, len(ifunc.Attributes))
 	for i, attr := range ifunc.Attributes {
-		ns, err := attr.Source(og, comments, indent)
+		ns, err := attr.Source(og, indent)
 		if err != nil {
 			return "", fmt.Errorf("error getting attribute source: %w", err)
 		}
@@ -2685,18 +2721,18 @@ func (n StatLocalFunction[T]) Source(og string, comments []Comment, indent int) 
 	return fmt.Sprintf("%s\nlocal %s", strings.Join(attributeStrings, "\n"), fs), nil
 }
 
-func DecodeStatLocalFunction(data json.RawMessage) (INode, error) {
+func DecodeStatLocalFunction(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw StatLocalFunction[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	nameNode, err := DecodeLocalKnown(raw.Name)
+	nameNode, err := DecodeLocalKnown(raw.Name, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding name: %w", err)
 	}
 
-	funcNode, err := DecodeExprFunctionKnown(raw.Func)
+	funcNode, err := DecodeExprFunctionKnown(raw.Func, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding func: %w", err)
 	}
@@ -2731,19 +2767,19 @@ func (n StatRepeat[T]) String() string {
 	return b.String()
 }
 
-func (n StatRepeat[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n StatRepeat[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, ok := any(n).(StatRepeat[INode])
 	if !ok {
 		return "", fmt.Errorf("expected StatRepeat[INode], got %T", n)
 	}
 
-	scond, err := in.Condition.Source(og, comments, indent)
+	scond, err := in.Condition.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting condition source: %w", err)
 	}
 
-	sbody, err := in.Body.Source(og, comments, indent+1)
+	sbody, err := in.Body.Source(og, indent+1)
 	if err != nil {
 		return "", fmt.Errorf("error getting body source: %w", err)
 	}
@@ -2755,18 +2791,18 @@ func (n StatRepeat[T]) Source(og string, comments []Comment, indent int) (string
 	return b.String(), nil
 }
 
-func DecodeStatRepeat(data json.RawMessage) (INode, error) {
+func DecodeStatRepeat(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw StatRepeat[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	condition, err := decodeNode(raw.Condition)
+	condition, err := decodeNode(raw.Condition, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding condition: %w", err)
 	}
 
-	body, err := DecodeStatBlockKnown(raw.Body)
+	body, err := DecodeStatBlockKnown(raw.Body, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding body: %w", err)
 	}
@@ -2802,7 +2838,7 @@ func (n StatReturn[T]) String() string {
 	return b.String()
 }
 
-func (n StatReturn[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n StatReturn[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, ok := any(n).(StatReturn[INode])
 	if !ok {
@@ -2815,7 +2851,7 @@ func (n StatReturn[T]) Source(og string, comments []Comment, indent int) (string
 
 	listStrings := make([]string, len(in.List))
 	for i, item := range in.List {
-		sitem, err := item.Source(og, comments, indent)
+		sitem, err := item.Source(og, indent)
 		if err != nil {
 			return "", fmt.Errorf("error getting item source: %w", err)
 		}
@@ -2824,7 +2860,7 @@ func (n StatReturn[T]) Source(og string, comments []Comment, indent int) (string
 	return IndentSize(indent) + fmt.Sprintf("return %s", strings.Join(listStrings, ", ")), nil
 }
 
-func DecodeStatReturn(data json.RawMessage) (INode, error) {
+func DecodeStatReturn(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw StatReturn[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
@@ -2832,7 +2868,7 @@ func DecodeStatReturn(data json.RawMessage) (INode, error) {
 
 	list := make([]INode, len(raw.List))
 	for i, item := range raw.List {
-		n, err := decodeNode(item)
+		n, err := decodeNode(item, addStatBlock, depth+1)
 		if err != nil {
 			return nil, fmt.Errorf("error decoding list item: %w", err)
 		}
@@ -2881,14 +2917,14 @@ func (n StatTypeAlias[T]) String() string {
 	return b.String()
 }
 
-func (n StatTypeAlias[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n StatTypeAlias[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, ok := any(n).(StatTypeAlias[INode])
 	if !ok {
 		return "", fmt.Errorf("expected StatTypeAlias[INode], got %T", n)
 	}
 
-	svalue, err := in.Value.Source(og, comments, indent)
+	svalue, err := in.Value.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting value source: %w", err)
 	}
@@ -2912,13 +2948,13 @@ func (n StatTypeAlias[T]) Source(og string, comments []Comment, indent int) (str
 	return fmt.Sprintf("type %s<%s> = %s", in.Name, strings.Join(allGenerics, ", "), svalue), nil
 }
 
-func DecodeStatTypeAlias(data json.RawMessage) (INode, error) {
+func DecodeStatTypeAlias(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw StatTypeAlias[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	valueNode, err := decodeNode(raw.Value)
+	valueNode, err := decodeNode(raw.Value, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding value: %w", err)
 	}
@@ -2958,7 +2994,7 @@ func (n StatWhile[T]) String() string {
 	return b.String()
 }
 
-func (n StatWhile[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n StatWhile[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, ok := any(n).(StatWhile[INode])
 	if !ok {
@@ -2966,12 +3002,12 @@ func (n StatWhile[T]) Source(og string, comments []Comment, indent int) (string,
 	}
 	// return in.Location.GetFromSource(og)
 
-	scond, err := in.Condition.Source(og, comments, indent)
+	scond, err := in.Condition.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting condition source: %w", err)
 	}
 
-	sbody, err := in.Body.Source(og, comments, indent+1)
+	sbody, err := in.Body.Source(og, indent+1)
 	if err != nil {
 		return "", fmt.Errorf("error getting body source: %w", err)
 	}
@@ -2982,18 +3018,18 @@ func (n StatWhile[T]) Source(og string, comments []Comment, indent int) (string,
 	return b.String(), nil
 }
 
-func DecodeStatWhile(data json.RawMessage) (INode, error) {
+func DecodeStatWhile(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw StatWhile[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	condition, err := decodeNode(raw.Condition)
+	condition, err := decodeNode(raw.Condition, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding condition: %w", err)
 	}
 
-	body, err := DecodeStatBlockKnown(raw.Body)
+	body, err := DecodeStatBlockKnown(raw.Body, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding body: %w", err)
 	}
@@ -3028,14 +3064,14 @@ func (n TableProp[T]) String() string {
 	return b.String()
 }
 
-func (n TableProp[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n TableProp[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, ok := any(n).(TableProp[INode])
 	if !ok {
 		return "", fmt.Errorf("expected TableProp[INode], got %T", n)
 	}
 
-	propTypeSource, err := in.PropType.Source(og, comments, indent)
+	propTypeSource, err := in.PropType.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting prop type source: %w", err)
 	}
@@ -3043,13 +3079,13 @@ func (n TableProp[T]) Source(og string, comments []Comment, indent int) (string,
 	return fmt.Sprintf("%s: %s", in.Name, propTypeSource), nil
 }
 
-func DecodeTableProp(data json.RawMessage) (INode, error) {
+func DecodeTableProp(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw TableProp[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	propTypeNode, err := decodeNode(raw.PropType)
+	propTypeNode, err := decodeNode(raw.PropType, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding prop type: %w", err)
 	}
@@ -3112,7 +3148,7 @@ func (n TypeFunction[T]) String() string {
 	return b.String()
 }
 
-func (n TypeFunction[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n TypeFunction[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, ok := any(n).(TypeFunction[INode])
 	if !ok {
@@ -3121,7 +3157,7 @@ func (n TypeFunction[T]) Source(og string, comments []Comment, indent int) (stri
 
 	argTypeStrings := make([]string, len(in.ArgTypes.Types))
 	for i, argType := range in.ArgTypes.Types {
-		sargType, err := argType.Source(og, comments, indent)
+		sargType, err := argType.Source(og, indent)
 		if err != nil {
 			return "", fmt.Errorf("error getting arg type source: %w", err)
 		}
@@ -3129,7 +3165,7 @@ func (n TypeFunction[T]) Source(og string, comments []Comment, indent int) (stri
 	}
 
 	if in.ArgTypes.TailType != nil {
-		ts, err := (*in.ArgTypes.TailType).Source(og, comments, indent)
+		ts, err := (*in.ArgTypes.TailType).Source(og, indent)
 		if err != nil {
 			return "", fmt.Errorf("error getting source for tail type: %w", err)
 		}
@@ -3142,7 +3178,7 @@ func (n TypeFunction[T]) Source(og string, comments []Comment, indent int) (stri
 		}
 	}
 
-	sreturn, err := in.ReturnTypes.Source(og, comments, indent)
+	sreturn, err := in.ReturnTypes.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting return types source: %w", err)
 	}
@@ -3166,18 +3202,18 @@ func (n TypeFunction[T]) Source(og string, comments []Comment, indent int) (stri
 	return fmt.Sprintf("<%s>(%s) -> %s", strings.Join(allGenerics, ", "), strings.Join(argTypeStrings, ", "), sreturn), nil
 }
 
-func DecodeTypeFunction(data json.RawMessage) (INode, error) {
+func DecodeTypeFunction(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw TypeFunction[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	argTypesNode, err := DecodeTypeListKnown(raw.ArgTypes)
+	argTypesNode, err := DecodeTypeListKnown(raw.ArgTypes, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding arg types: %w", err)
 	}
 
-	returnTypesNode, err := DecodeTypePackExplicitKnown(raw.ReturnTypes)
+	returnTypesNode, err := DecodeTypePackExplicitKnown(raw.ReturnTypes, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding return types: %w", err)
 	}
@@ -3213,7 +3249,7 @@ func (n TypeGroup[T]) String() string {
 	return b.String()
 }
 
-func (n TypeGroup[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n TypeGroup[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	iinner, ok := any(n.Inner).(INode)
 	if !ok {
@@ -3221,7 +3257,7 @@ func (n TypeGroup[T]) Source(og string, comments []Comment, indent int) (string,
 	}
 
 	// now you can parse your way out of hell, only 40 000 ast nodes
-	sinner, err := iinner.Source(og, comments, indent)
+	sinner, err := iinner.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting source for inner node: %w", err)
 	}
@@ -3229,13 +3265,13 @@ func (n TypeGroup[T]) Source(og string, comments []Comment, indent int) (string,
 	return fmt.Sprintf("(%s)", sinner), nil
 }
 
-func DecodeTypeGroup(data json.RawMessage) (INode, error) {
+func DecodeTypeGroup(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw TypeGroup[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	innerNode, err := decodeNode(raw.Inner)
+	innerNode, err := decodeNode(raw.Inner, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding inner node: %w", err)
 	}
@@ -3280,7 +3316,7 @@ func (n TypeList[T]) String() string {
 	return b.String()
 }
 
-func (n TypeList[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n TypeList[T]) Source(og string, indent int) (string, error) {
 	// TypeList doesn't seem to have a Location field
 	// return "", errors.New("type list has no location")
 	in, ok := any(n).(TypeList[INode])
@@ -3290,7 +3326,7 @@ func (n TypeList[T]) Source(og string, comments []Comment, indent int) (string, 
 
 	var typeStrings []string
 	for _, typ := range in.Types {
-		s, err := typ.Source(og, comments, indent)
+		s, err := typ.Source(og, indent)
 		if err != nil {
 			return "", fmt.Errorf("error getting source for type: %w", err)
 		}
@@ -3298,7 +3334,7 @@ func (n TypeList[T]) Source(og string, comments []Comment, indent int) (string, 
 	}
 
 	if in.TailType != nil {
-		ts, err := (*in.TailType).Source(og, comments, indent)
+		ts, err := (*in.TailType).Source(og, indent)
 		if err != nil {
 			return "", fmt.Errorf("error getting source for tail type: %w", err)
 		}
@@ -3308,10 +3344,10 @@ func (n TypeList[T]) Source(og string, comments []Comment, indent int) (string, 
 	return strings.Join(typeStrings, ", "), nil
 }
 
-func DecodeTypeListKnown(raw TypeList[json.RawMessage]) (TypeList[INode], error) {
+func DecodeTypeListKnown(raw TypeList[json.RawMessage], addStatBlock AddStatBlock, depth int) (TypeList[INode], error) {
 	types := make([]INode, len(raw.Types))
 	for i, typ := range raw.Types {
-		n, err := decodeNode(typ)
+		n, err := decodeNode(typ, addStatBlock, depth+1)
 		if err != nil {
 			return TypeList[INode]{}, fmt.Errorf("error decoding type node: %w", err)
 		}
@@ -3320,7 +3356,7 @@ func DecodeTypeListKnown(raw TypeList[json.RawMessage]) (TypeList[INode], error)
 
 	var tailType *INode
 	if raw.TailType != nil {
-		n, err := decodeNode(*raw.TailType)
+		n, err := decodeNode(*raw.TailType, addStatBlock, depth+1)
 		if err != nil {
 			return TypeList[INode]{}, fmt.Errorf("error decoding tail type node: %w", err)
 		}
@@ -3334,13 +3370,13 @@ func DecodeTypeListKnown(raw TypeList[json.RawMessage]) (TypeList[INode], error)
 	}, nil
 }
 
-func DecodeTypeList(data json.RawMessage) (INode, error) {
+func DecodeTypeList(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw TypeList[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	return DecodeTypeListKnown(raw)
+	return DecodeTypeListKnown(raw, addStatBlock, depth+1)
 }
 
 type TypeOptional struct {
@@ -3351,7 +3387,7 @@ func (TypeOptional) Type() string {
 	return "AstTypeOptional"
 }
 
-func (n TypeOptional) Source(string, []Comment, int) (string, error) {
+func (n TypeOptional) Source(string, int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	return "?", nil
 }
@@ -3396,13 +3432,13 @@ func (n TypePackExplicit[T]) String() string {
 	return b.String()
 }
 
-func (n TypePackExplicit[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n TypePackExplicit[T]) Source(og string, indent int) (string, error) {
 	itypelist, ok := any(n.TypeList).(TypeList[INode])
 	if !ok {
 		return "", fmt.Errorf("expected TypeList[INode], got %T", n.TypeList)
 	}
 
-	stypelist, err := itypelist.Source(og, comments, indent)
+	stypelist, err := itypelist.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting type list source: %w", err)
 	}
@@ -3414,8 +3450,8 @@ func (n TypePackExplicit[T]) Source(og string, comments []Comment, indent int) (
 	return fmt.Sprintf("(%s)", stypelist), nil
 }
 
-func DecodeTypePackExplicitKnown(raw TypePackExplicit[json.RawMessage]) (TypePackExplicit[INode], error) {
-	typeListNode, err := DecodeTypeListKnown(raw.TypeList)
+func DecodeTypePackExplicitKnown(raw TypePackExplicit[json.RawMessage], addStatBlock AddStatBlock, depth int) (TypePackExplicit[INode], error) {
+	typeListNode, err := DecodeTypeListKnown(raw.TypeList, addStatBlock, depth+1)
 	if err != nil {
 		return TypePackExplicit[INode]{}, fmt.Errorf("error decoding type list: %w", err)
 	}
@@ -3426,13 +3462,13 @@ func DecodeTypePackExplicitKnown(raw TypePackExplicit[json.RawMessage]) (TypePac
 	}, nil
 }
 
-func DecodeTypePackExplicit(data json.RawMessage) (INode, error) {
+func DecodeTypePackExplicit(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw TypePackExplicit[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	return DecodeTypePackExplicitKnown(raw)
+	return DecodeTypePackExplicitKnown(raw, addStatBlock, depth+1)
 }
 
 type TypePackGeneric struct {
@@ -3454,7 +3490,7 @@ func (n TypePackGeneric) String() string {
 	return b.String()
 }
 
-func (n TypePackGeneric) Source(string, []Comment, int) (string, error) {
+func (n TypePackGeneric) Source(string, int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	return n.GenericName + "...", nil
 }
@@ -3486,13 +3522,13 @@ func (n TypePackVariadic[T]) String() string {
 	return b.String()
 }
 
-func (n TypePackVariadic[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n TypePackVariadic[T]) Source(og string, indent int) (string, error) {
 	ivt, ok := any(n.VariadicType).(INode)
 	if !ok {
 		return "", fmt.Errorf("expected VariadicType to be INode, got %T", n.VariadicType)
 	}
 
-	svt, err := ivt.Source(og, comments, indent)
+	svt, err := ivt.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting VariadicType source: %w", err)
 	}
@@ -3500,13 +3536,13 @@ func (n TypePackVariadic[T]) Source(og string, comments []Comment, indent int) (
 	return "..." + svt, nil
 }
 
-func DecodeTypePackVariadic(data json.RawMessage) (INode, error) {
+func DecodeTypePackVariadic(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw TypePackVariadic[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	variadicType, err := decodeNode(raw.VariadicType)
+	variadicType, err := decodeNode(raw.VariadicType, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding VariadicType: %w", err)
 	}
@@ -3545,7 +3581,7 @@ func (n TypeReference[T]) String() string {
 	return b.String()
 }
 
-func (n TypeReference[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n TypeReference[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, ok := any(n).(TypeReference[INode])
 	if !ok {
@@ -3558,7 +3594,7 @@ func (n TypeReference[T]) Source(og string, comments []Comment, indent int) (str
 
 	paramStrings := make([]string, len(in.Parameters))
 	for i, param := range in.Parameters {
-		ns, err := param.Source(og, comments, indent)
+		ns, err := param.Source(og, indent)
 		if err != nil {
 			return "", fmt.Errorf("error getting parameter source: %w", err)
 		}
@@ -3570,7 +3606,7 @@ func (n TypeReference[T]) Source(og string, comments []Comment, indent int) (str
 		strings.Join(paramStrings, ", ")), nil
 }
 
-func DecodeTypeReference(data json.RawMessage) (INode, error) {
+func DecodeTypeReference(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw TypeReference[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
@@ -3578,7 +3614,7 @@ func DecodeTypeReference(data json.RawMessage) (INode, error) {
 
 	parameters := make([]INode, len(raw.Parameters))
 	for i, param := range raw.Parameters {
-		n, err := decodeNode(param)
+		n, err := decodeNode(param, addStatBlock, depth+1)
 		if err != nil {
 			return nil, fmt.Errorf("error decoding parameter node: %w", err)
 		}
@@ -3612,7 +3648,7 @@ func (n TypeSingletonBool) String() string {
 	return b.String()
 }
 
-func (n TypeSingletonBool) Source(string, []Comment, int) (string, error) {
+func (n TypeSingletonBool) Source(string, int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	if n.Value {
 		return "true", nil
@@ -3651,7 +3687,7 @@ func (n TypeSingletonString) String() string {
 	return b.String()
 }
 
-func (n TypeSingletonString) Source(og string, _ []Comment, _ int) (string, error) {
+func (n TypeSingletonString) Source(og string, _ int) (string, error) {
 	return n.Location.GetFromSource(og)
 }
 
@@ -3685,19 +3721,19 @@ func (n Indexer[T]) String() string {
 	return b.String()
 }
 
-func (n Indexer[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n Indexer[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, ok := any(n).(Indexer[INode])
 	if !ok {
 		return "", fmt.Errorf("expected Indexer[INode], got %T", n)
 	}
 
-	sindexType, err := in.IndexType.Source(og, comments, indent)
+	sindexType, err := in.IndexType.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting source for index type: %w", err)
 	}
 
-	sresultType, err := in.ResultType.Source(og, comments, indent)
+	sresultType, err := in.ResultType.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting source for result type: %w", err)
 	}
@@ -3736,7 +3772,7 @@ func (n TypeTable[T]) String() string {
 	return b.String()
 }
 
-func (n TypeTable[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n TypeTable[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, ok := any(n).(TypeTable[INode])
 	if !ok {
@@ -3753,7 +3789,7 @@ func (n TypeTable[T]) Source(og string, comments []Comment, indent int) (string,
 
 		ixrr, ok := any(ixr.IndexType).(TypeReference[INode])
 		if ok && ixrr.Name == "number" { // it doesn't matter if the type is *actually* number. Fun experiment: do `type number = string` in your Luau script and see how much you can upset the typechecker!
-			rt, err := ixr.ResultType.Source(og, comments, indent)
+			rt, err := ixr.ResultType.Source(og, indent)
 			if err != nil {
 				return "", fmt.Errorf("error getting source for result type: %w", err)
 			}
@@ -3765,7 +3801,7 @@ func (n TypeTable[T]) Source(og string, comments []Comment, indent int) (string,
 
 	var parts []string
 	if in.Indexer != nil {
-		sindexer, err := (*in.Indexer).Source(og, comments, indent)
+		sindexer, err := (*in.Indexer).Source(og, indent)
 		if err != nil {
 			return "", fmt.Errorf("error getting indexer index type source: %w", err)
 		}
@@ -3775,7 +3811,7 @@ func (n TypeTable[T]) Source(og string, comments []Comment, indent int) (string,
 	if len(in.Props) > 0 {
 		var propStrings []string
 		for _, prop := range in.Props {
-			ps, err := prop.Source(og, comments, indent)
+			ps, err := prop.Source(og, indent)
 			if err != nil {
 				return "", fmt.Errorf("error getting prop source: %w", err)
 			}
@@ -3787,7 +3823,7 @@ func (n TypeTable[T]) Source(og string, comments []Comment, indent int) (string,
 	return fmt.Sprintf("{ %s }", strings.Join(parts, ", ")), nil
 }
 
-func DecodeTypeTable(data json.RawMessage) (INode, error) {
+func DecodeTypeTable(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw TypeTable[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
@@ -3795,7 +3831,7 @@ func DecodeTypeTable(data json.RawMessage) (INode, error) {
 
 	props := make([]INode, len(raw.Props))
 	for i, prop := range raw.Props {
-		n, err := decodeNode(prop)
+		n, err := decodeNode(prop, addStatBlock, depth+1)
 		if err != nil {
 			return nil, fmt.Errorf("error decoding prop node: %w", err)
 		}
@@ -3804,11 +3840,11 @@ func DecodeTypeTable(data json.RawMessage) (INode, error) {
 
 	var indexerMaybe *Indexer[INode]
 	if raw.Indexer != nil {
-		indexerNode, err := decodeNode(raw.Indexer.IndexType)
+		indexerNode, err := decodeNode(raw.Indexer.IndexType, addStatBlock, depth+1)
 		if err != nil {
 			return nil, fmt.Errorf("error decoding indexer index type: %w", err)
 		}
-		resultNode, err := decodeNode(raw.Indexer.ResultType)
+		resultNode, err := decodeNode(raw.Indexer.ResultType, addStatBlock, depth+1)
 		if err != nil {
 			return nil, fmt.Errorf("error decoding indexer result type: %w", err)
 		}
@@ -3847,14 +3883,14 @@ func (n TypeTypeof[T]) String() string {
 	return b.String()
 }
 
-func (n TypeTypeof[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n TypeTypeof[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	iexpr, ok := any(n.Expr).(INode)
 	if !ok {
 		return "", fmt.Errorf("expected INode, got %T", n.Expr)
 	}
 
-	sexpr, err := iexpr.Source(og, comments, indent)
+	sexpr, err := iexpr.Source(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting source for expr: %w", err)
 	}
@@ -3862,13 +3898,13 @@ func (n TypeTypeof[T]) Source(og string, comments []Comment, indent int) (string
 	return fmt.Sprintf("typeof(%s)", sexpr), nil
 }
 
-func DecodeTypeTypeof(data json.RawMessage) (INode, error) {
+func DecodeTypeTypeof(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw TypeTypeof[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	exprNode, err := decodeNode(raw.Expr)
+	exprNode, err := decodeNode(raw.Expr, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding expr: %w", err)
 	}
@@ -3903,7 +3939,7 @@ func (n TypeUnion[T]) String() string {
 	return b.String()
 }
 
-func (n TypeUnion[T]) Source(og string, comments []Comment, indent int) (string, error) {
+func (n TypeUnion[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, err := any(n).(TypeUnion[INode])
 	if !err {
@@ -3921,7 +3957,7 @@ func (n TypeUnion[T]) Source(og string, comments []Comment, indent int) (string,
 	}
 
 	if len(newTypes) == 1 {
-		ts, err := newTypes[0].Source(og, comments, indent)
+		ts, err := newTypes[0].Source(og, indent)
 		if err != nil {
 			return "", fmt.Errorf("error getting source for type: %w", err)
 		}
@@ -3934,7 +3970,7 @@ func (n TypeUnion[T]) Source(og string, comments []Comment, indent int) (string,
 
 	var sources []string
 	for _, typ := range newTypes {
-		src, err := typ.Source(og, comments, indent)
+		src, err := typ.Source(og, indent)
 		if err != nil {
 			return "", fmt.Errorf("error getting type source: %w", err)
 		}
@@ -3949,7 +3985,7 @@ func (n TypeUnion[T]) Source(og string, comments []Comment, indent int) (string,
 	return joined, nil
 }
 
-func DecodeTypeUnion(data json.RawMessage) (INode, error) {
+func DecodeTypeUnion(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var raw TypeUnion[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
@@ -3957,7 +3993,7 @@ func DecodeTypeUnion(data json.RawMessage) (INode, error) {
 
 	types := make([]INode, len(raw.Types))
 	for i, typ := range raw.Types {
-		n, err := decodeNode(typ)
+		n, err := decodeNode(typ, addStatBlock, depth+1)
 		if err != nil {
 			return nil, fmt.Errorf("error decoding type node: %w", err)
 		}
@@ -3972,7 +4008,7 @@ func DecodeTypeUnion(data json.RawMessage) (INode, error) {
 
 // decoding
 
-func decodeNode(data json.RawMessage) (INode, error) {
+func decodeNode(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
 	var node Node
 	if err := json.Unmarshal(data, &node); err != nil {
 		return nil, fmt.Errorf("error decoding node: %w", err)
@@ -3992,11 +4028,11 @@ func decodeNode(data json.RawMessage) (INode, error) {
 	case "AstAttr":
 		return ret(DecodeAttr(data))
 	case "AstDeclaredClassProp":
-		return ret(DecodeDeclaredClassProp(data))
+		return ret(DecodeDeclaredClassProp(data, addStatBlock, depth))
 	case "AstExprBinary":
-		return ret(DecodeExprBinary(data))
+		return ret(DecodeExprBinary(data, addStatBlock, depth))
 	case "AstExprCall":
-		return ret(DecodeExprCall(data))
+		return ret(DecodeExprCall(data, addStatBlock, depth))
 	case "AstExprConstantBool":
 		return ret(DecodeExprConstantBool(data))
 	case "AstExprConstantNil":
@@ -4006,99 +4042,99 @@ func decodeNode(data json.RawMessage) (INode, error) {
 	case "AstExprConstantString":
 		return ret(DecodeExprConstantString(data))
 	case "AstExprFunction":
-		return ret(DecodeExprFunction(data))
+		return ret(DecodeExprFunction(data, addStatBlock, depth))
 	case "AstExprGlobal":
 		return ret(DecodeExprGlobal(data))
 	case "AstExprGroup":
-		return ret(DecodeExprGroup(data))
+		return ret(DecodeExprGroup(data, addStatBlock, depth))
 	case "AstExprIfElse":
-		return ret(DecodeExprIfElse(data))
+		return ret(DecodeExprIfElse(data, addStatBlock, depth))
 	case "AstExprIndexExpr":
-		return ret(DecodeExprIndexExpr(data))
+		return ret(DecodeExprIndexExpr(data, addStatBlock, depth))
 	case "AstExprIndexName":
-		return ret(DecodeExprIndexName(data))
+		return ret(DecodeExprIndexName(data, addStatBlock, depth))
 	case "AstExprInterpString":
-		return ret(DecodeExprInterpString(data))
+		return ret(DecodeExprInterpString(data, addStatBlock, depth))
 	case "AstExprLocal":
-		return ret(DecodeExprLocal(data))
+		return ret(DecodeExprLocal(data, addStatBlock, depth))
 	case "AstExprTable":
-		return ret(DecodeExprTable(data))
+		return ret(DecodeExprTable(data, addStatBlock, depth))
 	case "AstExprTableItem":
-		return ret(DecodeExprTableItem(data))
+		return ret(DecodeExprTableItem(data, addStatBlock, depth))
 	case "AstExprTypeAssertion":
-		return ret(DecodeExprTypeAssertion(data))
+		return ret(DecodeExprTypeAssertion(data, addStatBlock, depth))
 	case "AstExprVarargs":
 		return ret(DecodeExprVarargs(data))
 	case "AstExprUnary":
-		return ret(DecodeExprUnary(data))
+		return ret(DecodeExprUnary(data, addStatBlock, depth))
 	case "AstGenericType":
 		return ret(DecodeGenericType(data))
 	case "AstGenericTypePack":
 		return ret(DecodeGenericTypePack(data))
 	case "AstLocal":
-		return ret(DecodeLocal(data))
+		return ret(DecodeLocal(data, addStatBlock, depth))
 	case "AstStatAssign":
-		return ret(DecodeStatAssign(data))
+		return ret(DecodeStatAssign(data, addStatBlock, depth))
 	case "AstStatBlock":
-		return ret(DecodeStatBlock(data))
+		return ret(DecodeStatBlock(data, addStatBlock, depth))
 	case "AstStatBreak":
 		return ret(DecodeStatBreak(data))
 	case "AstStatCompoundAssign":
-		return ret(DecodeStatCompoundAssign(data))
+		return ret(DecodeStatCompoundAssign(data, addStatBlock, depth))
 	case "AstStatContinue":
 		return ret(DecodeStatContinue(data))
 	case "AstStatDeclareClass":
-		return ret(DecodeStatDeclareClass(data))
+		return ret(DecodeStatDeclareClass(data, addStatBlock, depth))
 	case "AstStatExpr":
-		return ret(DecodeStatExpr(data))
+		return ret(DecodeStatExpr(data, addStatBlock, depth))
 	case "AstStatFor":
-		return ret(DecodeStatFor(data))
+		return ret(DecodeStatFor(data, addStatBlock, depth))
 	case "AstStatForIn":
-		return ret(DecodeStatForIn(data))
+		return ret(DecodeStatForIn(data, addStatBlock, depth))
 	case "AstStatFunction":
-		return ret(DecodeStatFunction(data))
+		return ret(DecodeStatFunction(data, addStatBlock, depth))
 	case "AstStatIf":
-		return ret(DecodeStatIf(data))
+		return ret(DecodeStatIf(data, addStatBlock, depth))
 	case "AstStatLocal":
-		return ret(DecodeStatLocal(data))
+		return ret(DecodeStatLocal(data, addStatBlock, depth))
 	case "AstStatLocalFunction":
-		return ret(DecodeStatLocalFunction(data))
+		return ret(DecodeStatLocalFunction(data, addStatBlock, depth))
 	case "AstStatRepeat":
-		return ret(DecodeStatRepeat(data))
+		return ret(DecodeStatRepeat(data, addStatBlock, depth))
 	case "AstStatReturn":
-		return ret(DecodeStatReturn(data))
+		return ret(DecodeStatReturn(data, addStatBlock, depth))
 	case "AstStatTypeAlias":
-		return ret(DecodeStatTypeAlias(data))
+		return ret(DecodeStatTypeAlias(data, addStatBlock, depth))
 	case "AstStatWhile":
-		return ret(DecodeStatWhile(data))
+		return ret(DecodeStatWhile(data, addStatBlock, depth))
 	case "AstTableProp":
-		return ret(DecodeTableProp(data))
+		return ret(DecodeTableProp(data, addStatBlock, depth))
 	case "AstTypeFunction":
-		return ret(DecodeTypeFunction(data))
+		return ret(DecodeTypeFunction(data, addStatBlock, depth))
 	case "AstTypeGroup":
-		return ret(DecodeTypeGroup(data))
+		return ret(DecodeTypeGroup(data, addStatBlock, depth))
 	case "AstTypeList":
-		return ret(DecodeTypeList(data))
+		return ret(DecodeTypeList(data, addStatBlock, depth))
 	case "AstTypeOptional":
 		return ret(DecodeTypeOptional(data))
 	case "AstTypePackExplicit":
-		return ret(DecodeTypePackExplicit(data))
+		return ret(DecodeTypePackExplicit(data, addStatBlock, depth))
 	case "AstTypePackGeneric":
 		return ret(DecodeTypePackGeneric(data))
 	case "AstTypePackVariadic":
-		return ret(DecodeTypePackVariadic(data))
+		return ret(DecodeTypePackVariadic(data, addStatBlock, depth))
 	case "AstTypeReference":
-		return ret(DecodeTypeReference(data))
+		return ret(DecodeTypeReference(data, addStatBlock, depth))
 	case "AstTypeSingletonBool":
 		return ret(DecodeTypeSingletonBool(data))
 	case "AstTypeSingletonString":
 		return ret(DecodeTypeSingletonString(data))
 	case "AstTypeTable":
-		return ret(DecodeTypeTable(data))
+		return ret(DecodeTypeTable(data, addStatBlock, depth))
 	case "AstTypeTypeof":
-		return ret(DecodeTypeTypeof(data))
+		return ret(DecodeTypeTypeof(data, addStatBlock, depth))
 	case "AstTypeUnion":
-		return ret(DecodeTypeUnion(data))
+		return ret(DecodeTypeUnion(data, addStatBlock, depth))
 	}
 	return ret(nil, errors.New("unknown node type"))
 }
