@@ -1,0 +1,85 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 10,0
+    HasEnd: true
+    Body:
+        Type: AstStatLocal
+        Location: 0,0 - 0,28
+        Vars:
+            LuauType:
+            Name: x
+            Type: AstLocal
+            Location: 0,6 - 0,7
+        Values:
+            Type: AstExprConstantString
+            Location: 0,10 - 0,28
+            Value: this is a "test"
+    
+        Type: AstStatLocal
+        Location: 1,0 - 1,30
+        Vars:
+            LuauType:
+            Name: y
+            Type: AstLocal
+            Location: 1,6 - 1,7
+        Values:
+            Type: AstExprConstantString
+            Location: 1,10 - 1,30
+            Value: this is a "test"
+    
+        Type: AstStatLocal
+        Location: 2,0 - 2,28
+        Vars:
+            LuauType:
+            Name: z
+            Type: AstLocal
+            Location: 2,6 - 2,7
+        Values:
+            Type: AstExprConstantString
+            Location: 2,10 - 2,28
+            Value: this is a "test"
+    
+        Type: AstStatBlock
+        Location: 4,0 - 9,3
+        HasEnd: true
+        Body:
+            Type: AstStatLocal
+            Location: 5,1 - 5,28
+            Vars:
+                LuauType:
+                Name: x
+                Type: AstLocal
+                Location: 5,7 - 5,8
+            Values:
+                Type: AstExprConstantString
+                Location: 5,11 - 5,28
+                Value: this is
+                a test
+        
+            Type: AstStatLocal
+            Location: 6,1 - 7,8
+            Vars:
+                LuauType:
+                Name: y
+                Type: AstLocal
+                Location: 6,7 - 6,8
+            Values:
+                Type: AstExprConstantString
+                Location: 6,11 - 7,8
+                Value: this is
+                a test
+        
+            Type: AstStatLocal
+            Location: 8,1 - 8,28
+            Vars:
+                LuauType:
+                Name: z
+                Type: AstLocal
+                Location: 8,7 - 8,8
+            Values:
+                Type: AstExprConstantString
+                Location: 8,11 - 8,28
+                Value: this is
+                a test
+
+Comment Locations:

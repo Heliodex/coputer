@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	const filepath = AstDir + "/typestring.luau"
+	const filepath = AstDir + "/nestedblock.luau"
 
 	content, err := os.ReadFile(filepath)
 	if err != nil {
