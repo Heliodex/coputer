@@ -67,6 +67,7 @@ func (l Location) Contains(ol Location) bool {
 // infinite gfs (or, well, 9223372036854775807)
 // var gfsCount int
 
+// we've pretty much eliminated calls to this function lel, it'll always be needed for comments though
 func (l Location) GetFromSource(source string) (string, error) {
 	lines := strings.Split(source, "\n")
 	if l.Start.Line < 0 || l.End.Line >= len(lines) {
@@ -660,7 +661,8 @@ func (n ExprConstantString) String() string {
 }
 
 func (n ExprConstantString) Source(og string, _ int) (string, error) {
-	return n.Location.GetFromSource(og)
+	// return n.Location.GetFromSource(og)
+	return StringToSource(n.Value), nil
 }
 
 func DecodeExprConstantString(data json.RawMessage) (INode, error) {
@@ -3688,7 +3690,7 @@ func (n TypeSingletonString) String() string {
 }
 
 func (n TypeSingletonString) Source(og string, _ int) (string, error) {
-	return n.Location.GetFromSource(og)
+	return StringToSource(n.Value), nil
 }
 
 func DecodeTypeSingletonString(data json.RawMessage) (INode, error) {

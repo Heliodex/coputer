@@ -28,7 +28,7 @@ Root:
             Value: this is a "test"
     
         Type: AstStatLocal
-        Location: 2,0 - 2,28
+        Location: 2,0 - 2,30
         Vars:
             LuauType:
             Name: z
@@ -36,15 +36,15 @@ Root:
             Location: 2,6 - 2,7
         Values:
             Type: AstExprConstantString
-            Location: 2,10 - 2,28
-            Value: this is a "test"
+            Location: 2,10 - 2,30
+            Value: this 'is' a "test"
     
         Type: AstStatBlock
         Location: 4,0 - 9,3
         HasEnd: true
         Body:
             Type: AstStatLocal
-            Location: 5,1 - 5,28
+            Location: 5,1 - 5,30
             Vars:
                 LuauType:
                 Name: x
@@ -52,9 +52,9 @@ Root:
                 Location: 5,7 - 5,8
             Values:
                 Type: AstExprConstantString
-                Location: 5,11 - 5,28
+                Location: 5,11 - 5,30
                 Value: this is
-                a test
+                ]]a test
         
             Type: AstStatLocal
             Location: 6,1 - 7,8
