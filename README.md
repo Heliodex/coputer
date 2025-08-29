@@ -1,6 +1,6 @@
 # Coputer
 
-![Coputer flower logo](/coflower.svg)
+![Coputer flower logo](/Assets/coflower.svg)
 
 Collaborative, distributed execution environment for [Luau](https://luau.org) programs.
 
