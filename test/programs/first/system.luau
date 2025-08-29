@@ -30,6 +30,14 @@ return function(): layout.Tags
 					"Source code for the gateway reference implementation",
 				},
 			},
+			e.box { padding = { top = 4, left = 4 } } {
+				e.image(
+					"https://raw.githubusercontent.com/Heliodex/coputer/refs/heads/main/Assets/gatewaydiagram.svg",
+					"Diagram with a cloud representing the internet in the top left, a rounded rectangle for the gateway, and an oval for the communication system. 2 arrows show the request coming from the internet to the gateway, and the gateway sending the request to the communication system.",
+					{ "Diagram showing the gateway sending requests to the communication system" },
+					75
+				),
+			},
 		},
 
 		e.h(2, { "Communication system" }),
@@ -47,6 +55,14 @@ return function(): layout.Tags
 					"Source code for the communication system reference implementation",
 				},
 			},
+			e.box { padding = { top = 4, left = 4 } } {
+				e.image(
+					"https://raw.githubusercontent.com/Heliodex/coputer/refs/heads/main/Assets/communicationsystemdiagram.svg",
+					"Diagram with 4 circles representing communication systems in the network, and arrows going between them representing the transfer of requests and responses. The first node asks for the program, 2 others do not have it, and the final one returns the response",
+					{ "Diagram showing transfers between communication systems over a network" },
+					75
+				),
+			},
 		},
 
 		e.h(2, { "Execution system" }),
@@ -61,6 +77,14 @@ return function(): layout.Tags
 				e.outlink "https://github.com/Heliodex/coputer/tree/main/litecode" {
 					"Source code for the execution system reference implementation",
 				},
+			},
+			e.box { padding = { top = 4, left = 4 } } {
+				e.image(
+					"https://raw.githubusercontent.com/Heliodex/coputer/refs/heads/main/Assets/executionsystemdiagram.svg",
+					"Diagram with the communication system displayed as an oval on the top, the execution system as a rectangle on the bottom, and two arrows going between them representing the transfer",
+					{ "Diagram showing transferring the program to the execution system, then sending the results back to the communication system" },
+					75
+				),
 			},
 		},
 	}

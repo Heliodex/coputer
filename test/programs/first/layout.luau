@@ -160,10 +160,13 @@ end
 function elements.image(
 	src: string,
 	alt: string,
-	caption: html.Tags
+	caption: html.Tags,
+	width: number?
 ): html.ContentTag
+	local attrs = { src = src, alt = alt }
+	if width then attrs.style = `width: {width * unit}{unitunit};` end
 	return html.tag "figure" {} {
-		html.tagVoid "img" { src = src, alt = alt },
+		html.tagVoid "img"(attrs),
 		html.tag "figcaption" {}(caption),
 	}
 end
