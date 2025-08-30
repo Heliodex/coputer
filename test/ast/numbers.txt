@@ -1,0 +1,42 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 3,0
+    HasEnd: true
+    Body:
+        Type: AstStatLocal
+        Location: 0,0 - 0,13
+        Vars:
+            LuauType:
+            Name: x
+            Type: AstLocal
+            Location: 0,6 - 0,7
+        Values:
+            Type: AstExprConstantNumber
+            Location: 0,10 - 0,13
+            Value: 500.000000
+    
+        Type: AstStatLocal
+        Location: 1,0 - 1,15
+        Vars:
+            LuauType:
+            Name: y
+            Type: AstLocal
+            Location: 1,6 - 1,7
+        Values:
+            Type: AstExprConstantNumber
+            Location: 1,10 - 1,15
+            Value: 500.000000
+    
+        Type: AstStatLocal
+        Location: 2,0 - 2,23
+        Vars:
+            LuauType:
+            Name: z
+            Type: AstLocal
+            Location: 2,6 - 2,7
+        Values:
+            Type: AstExprConstantNumber
+            Location: 2,10 - 2,23
+            Value: 500.000000
+
+Comment Locations:

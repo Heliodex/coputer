@@ -1,6 +1,9 @@
 package ast
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 func BinopToSource(name string) string {
 	switch name {
@@ -57,11 +60,11 @@ func UnopToSource(name string) string {
 // we're not gonna use `string`s here, to reserve those for only interpolated strings
 func StringToSource(str string) string {
 	containsNewline := strings.ContainsRune(str, '\n')
-	containsSquote := strings.ContainsRune(str, '\'')
 	containsDquote := strings.ContainsRune(str, '"')
+	containsSquote := strings.ContainsRune(str, '\'')
 
 	if containsNewline {
-		// [[string]]
+		// [[string]] or [=...[string]=...]
 		for eqCount := 0; ; eqCount++ {
 			eqs := strings.Repeat("=", eqCount)
 			endDelimiter := "]" + eqs + "]"
@@ -75,25 +78,28 @@ func StringToSource(str string) string {
 		}
 	}
 
-	if !containsSquote {
-		// "string"
-		return "'" + str + "'"
-	}
-
 	if !containsDquote {
 		// 'string'
 		return "\"" + str + "\""
 	}
 
+	if !containsSquote {
+		// "string"
+		return "'" + str + "'"
+	}
+
 	// string contains both single and double quotes
-	squoteCount := strings.Count(str, "'")
-	dquoteCount := strings.Count(str, "\"")
 
 	// prefer double quotes in cases which each are equal
-	if dquoteCount <= squoteCount {
+	if strings.Count(str, "\"") <= strings.Count(str, "'") {
 		replaced := strings.ReplaceAll(str, "\"", "\\\"")
 		return "\"" + replaced + "\""
 	}
 	replaced := strings.ReplaceAll(str, "'", "\\'")
 	return "'" + replaced + "'"
+}
+
+// oh god
+func NumberToSource(n float64) string {
+	replaced := fmt.Sprintf("%g", n)
 }

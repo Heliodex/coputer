@@ -630,7 +630,7 @@ func (n ExprConstantNumber) String() string {
 }
 
 func (n ExprConstantNumber) Source(og string, _ int) (string, error) {
-	return n.Location.GetFromSource(og)
+	return NumberToSource(n.Value), nil
 }
 
 func DecodeExprConstantNumber(data json.RawMessage) (INode, error) {

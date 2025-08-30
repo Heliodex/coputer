@@ -168,3 +168,8 @@ func TestSource(t *testing.T) {
 		fmt.Println(src)
 	}
 }
+
+func TestNumberToSource(t *testing.T) {
+	fmt.Println(NumberToSource(1))
+	fmt.Println(NumberToSource(400e5))
+}
