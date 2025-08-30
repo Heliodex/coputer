@@ -329,11 +329,8 @@ func handleRequire(towrap toWrap, p compile.Program, co *Coroutine) (rets []Val,
 }
 
 func call(top *int32, A int32, B, C uint8, towrap toWrap, stack *[]Val, co *Coroutine) (err error) {
-	// fmt.Println(A, B, C, (*stack)[A], params)
-
 	f := (*stack)[A]
 	fn, ok := f.(Function)
-	// fmt.Println("calling with", (*stack)[A+1:][:params])
 	if !ok {
 		return uncallableType(std.TypeOf(f))
 	}
@@ -344,6 +341,9 @@ func call(top *int32, A int32, B, C uint8, towrap toWrap, stack *[]Val, co *Coro
 	} else {
 		params = int32(B)
 	}
+
+	// fmt.Println(A, B, C, (*stack)[A], params)
+	// fmt.Println("calling with", (*stack)[A+1:][:params-1])
 
 	// fmt.Println("upvals1", len(upvals))
 	rco := fn.Co
@@ -400,7 +400,7 @@ func forgloop(pc, top *int32, i internal.Inst, stack *[]Val, co *Coroutine, genI
 			return nil
 		}
 	case *Table:
-		// fmt.Println("GETTING GENITER", std.TypeOf(it))
+		// fmt.Println("GETTING GENITER", genIters)
 		it := genIters[i]
 
 		if it == nil {
@@ -411,6 +411,8 @@ func forgloop(pc, top *int32, i internal.Inst, stack *[]Val, co *Coroutine, genI
 			}
 		}
 
+		// fmt.Println("it's", it, it == nil)
+
 		if len(it) == 0 {
 			delete(genIters, i) // don't touch my geniters
 			*pc += 2
@@ -418,7 +420,7 @@ func forgloop(pc, top *int32, i internal.Inst, stack *[]Val, co *Coroutine, genI
 		}
 
 		moveStack(stack, it[:2], res, i.A+3)
-		genIters[i] = it[2:] // q
+		genIters[i] = it[2:]
 	default:
 		return invalidIter(std.TypeOf(s))
 	}
@@ -434,7 +436,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 	// int32 > uint32 lel
 	var pc, top int32
 	var openUpvals []*upval
-	var genIters map[internal.Inst][]Val
+	genIters := map[internal.Inst][]Val{}
 
 	// a a a a
 	// stayin' alive
@@ -450,7 +452,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 		// }
 
 		i := *code[pc]
-		// fmt.Println("Executing opcode", i.Opcode, "at pc", pc, "with stack", len(stack), stack)
+		// fmt.Println("OP", i.Opcode, "at pc", pc)
 		switch op := i.Opcode; op {
 		case 0: // NOP
 			// -- Do nothing
@@ -673,6 +675,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 				pc += 2
 			}
 		case 33: // arithmetic
+			// fmt.Println("adding", stack[i.B], stack[i.C])
 			if stack[i.A], err = std.Add(stack[i.B], stack[i.C]); err != nil {
 				return
 			}
@@ -873,10 +876,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			} else {
 				pc++
 			}
-		case 58: // FORGLOOP
-			if genIters == nil {
-				genIters = map[internal.Inst][]Val{}
-			}
+		case 58: // forgloop
 			if err = forgloop(&pc, &top, i, &stack, co, genIters); err != nil {
 				return
 			}
@@ -921,7 +921,10 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			// Skipped
 			pc += 2 // adjust for aux
 		case 76: // FORGPREP
-			pc += i.D + 1 // what are we even supposed to do here, there's nothing to prepare
+			loopInst := *code[pc+i.D+1]
+			delete(genIters, loopInst) // REST IN PIECES A 2HR BUG, IF A LOOP IS BROKEN OUT OF THEN THE GENITER IS STILL LEFT BEHIND
+
+			pc += i.D + 1
 		case 77: // JUMPXEQKNIL
 			if ra := stack[i.A]; ra == nil != i.KN {
 				pc += i.D + 1

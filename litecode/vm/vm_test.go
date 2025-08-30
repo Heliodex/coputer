@@ -107,7 +107,7 @@ func TestConformance(t *testing.T) {
 		t.Fatal("error reading conformance tests directory:", err)
 	}
 
-	// const onlyTest = "logic"
+	// const onlyTest = "doubleloop"
 
 	c0, c1, c2 := compile.NewCompiler(0), compile.NewCompiler(1), compile.NewCompiler(2)
 
