@@ -2,6 +2,7 @@ package ast
 
 import (
 	"fmt"
+	"math"
 	"strings"
 )
 
@@ -100,6 +101,20 @@ func StringToSource(str string) string {
 }
 
 // oh god
-func NumberToSource(n float64) string {
-	replaced := fmt.Sprintf("%g", n)
+func NumberToSource(n Number) string {
+	if math.IsInf(float64(n), 1) {
+		return "math.huge" // luau's max number is 1e308, so 1e309 is inf
+	}
+
+	rep := fmt.Sprintf("%g", n)
+	rep = strings.Replace(rep, "e+", "e", 1)
+
+	for strings.Contains(rep, "e0") {
+		rep = strings.Replace(rep, "e0", "e", 1)
+	}
+
+	for strings.Contains(rep, "e-0") {
+		rep = strings.Replace(rep, "e-0", "e-", 1)
+	}
+	return rep
 }

@@ -1,6 +1,6 @@
 Root:
     Type: AstStatBlock
-    Location: 0,0 - 3,0
+    Location: 0,0 - 6,0
     HasEnd: true
     Body:
         Type: AstStatLocal
@@ -38,5 +38,49 @@ Root:
             Type: AstExprConstantNumber
             Location: 2,10 - 2,23
             Value: 500.000000
+    
+        Type: AstStatLocal
+        Location: 3,0 - 3,22
+        Vars:
+            LuauType:
+            Name: overflow
+            Type: AstLocal
+            Location: 3,6 - 3,14
+        Values:
+            Type: AstExprConstantNumber
+            Location: 3,17 - 3,22
+            Value: +Inf
+    
+        Type: AstStatLocal
+        Location: 4,0 - 4,13
+        Vars:
+            LuauType:
+            Name: n
+            Type: AstLocal
+            Location: 4,6 - 4,7
+        Values:
+            Type: AstExprUnary
+            Location: 4,10 - 4,13
+            Op: Minus
+            Expr:
+                Type: AstExprConstantNumber
+                Location: 4,11 - 4,13
+                Value: 42.000000
+    
+        Type: AstStatLocal
+        Location: 5,0 - 5,24
+        Vars:
+            LuauType:
+            Name: noverflow
+            Type: AstLocal
+            Location: 5,6 - 5,15
+        Values:
+            Type: AstExprUnary
+            Location: 5,18 - 5,24
+            Op: Minus
+            Expr:
+                Type: AstExprConstantNumber
+                Location: 5,19 - 5,24
+                Value: +Inf
 
 Comment Locations:

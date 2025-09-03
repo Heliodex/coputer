@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os/exec"
 	"slices"
 	"strings"
@@ -16,9 +17,17 @@ const (
 	ConformanceDir = "../test/conformance"
 )
 
-func LuauAst(path string) (output []byte, err error) {
+func LuauAst(path string) (out []byte, err error) {
 	cmd := exec.Command("luau-ast", path)
-	return cmd.Output()
+	out, err = cmd.Output()
+	if err != nil {
+		return
+	}
+
+	strout := string(out)
+	strout = strings.ReplaceAll(strout, `"value":Infinity`, `"value":"Infinity"`)
+
+	return []byte(strout), nil
 }
 
 func indentStart(s string, n int) string {
@@ -27,6 +36,30 @@ func indentStart(s string, n int) string {
 		lines[i] = strings.Repeat(" ", n) + line
 	}
 	return strings.Join(lines, "\n")
+}
+
+type Number float64
+
+func (n Number) MarshalJSON() ([]byte, error) {
+	if float64(n) == math.Inf(1) {
+		return json.Marshal("Infinity")
+	}
+	return json.Marshal(float64(n))
+}
+
+func (n *Number) UnmarshalJSON(data []byte) (err error) {
+	// check if it's "Infinity"
+	if string(data) == `"Infinity"` {
+		*n = Number(math.Inf(1))
+		return
+	}
+
+	var f float64
+	if err = json.Unmarshal(data, &f); err != nil {
+		return
+	}
+	*n = Number(f)
+	return
 }
 
 // dot net vibez
@@ -208,7 +241,7 @@ type AddStatBlock func(StatBlock[INode], int)
 func DecodeAST(data json.RawMessage) (AST[INode], error) {
 	var raw AST[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return AST[INode]{}, fmt.Errorf("error decoding AST: %w", err)
+		return AST[INode]{}, fmt.Errorf("error unmarshalling AST: %w", err)
 	}
 
 	var statBlocks []StatBlockDepth
@@ -612,7 +645,7 @@ func DecodeExprConstantNil(data json.RawMessage) (INode, error) {
 
 type ExprConstantNumber struct {
 	NodeLoc
-	Value float64 `json:"value"`
+	Value Number `json:"value"`
 }
 
 func (n ExprConstantNumber) Type() string {
@@ -949,6 +982,9 @@ func (n ExprIfElse[T]) Source(og string, indent int) (string, error) {
 		return "", fmt.Errorf("error getting false expression source: %w", err)
 	}
 
+	if in.FalseExpr.Type() == "AstExprIfElse" {
+		return fmt.Sprintf("if %s then %s else%s", scond, strue, sfalse), nil
+	}
 	return fmt.Sprintf("if %s then %s else %s", scond, strue, sfalse), nil
 }
 
@@ -2521,17 +2557,28 @@ func (n StatIf[T]) Source(og string, indent int) (string, error) {
 		b.WriteString(IndentSize(indent) + "end")
 		return b.String(), nil
 	}
+	eb := *in.ElseBody
 
-	if (*in.ElseBody).Type() == "AstStatIf" {
-		selse, err := (*in.ElseBody).Source(og, indent)
+	if eb.Type() == "AstStatIf" {
+		selse, err := eb.Source(og, indent)
 		if err != nil {
 			return "", fmt.Errorf("error getting else-if source: %w", err)
 		}
 		b.WriteString(IndentSize(indent) + "else" + selse)
 		return b.String(), nil
+	} else if eb.Type() == "AstStatBlock" {
+		ebb := eb.(StatBlock[INode])
+		if len(ebb.Body) == 1 && ebb.Body[0].Type() == "AstStatIf" {
+			selse, err := ebb.Body[0].Source(og, indent)
+			if err != nil {
+				return "", fmt.Errorf("error getting else-if source: %w", err)
+			}
+			b.WriteString(IndentSize(indent) + "else" + selse)
+			return b.String(), nil
+		}
 	}
 
-	selse, err := (*in.ElseBody).Source(og, indent+1)
+	selse, err := eb.Source(og, indent+1)
 	if err != nil {
 		return "", fmt.Errorf("error getting else body source: %w", err)
 	}

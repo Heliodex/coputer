@@ -169,7 +169,24 @@ func TestSource(t *testing.T) {
 	}
 }
 
+type NumberTest struct {
+	In  float64
+	Out string
+}
+
+var numberTests = []NumberTest{
+	{1, "1"},
+	{4e7, "4e7"},
+	{4e99, "4e99"},
+	{0.1 + 0.2, "0.3"},
+	{1e308, "1e308"},
+}
+
 func TestNumberToSource(t *testing.T) {
-	fmt.Println(NumberToSource(1))
-	fmt.Println(NumberToSource(400e5))
+	for _, tt := range numberTests {
+		fmt.Println(tt.Out)
+		if out := NumberToSource(Number(tt.In)); out != tt.Out {
+			t.Errorf("NumberToSource(%g): expected %q, got %q", tt.In, tt.Out, out)
+		}
+	}
 }
