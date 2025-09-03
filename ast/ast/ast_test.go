@@ -2,6 +2,7 @@ package ast
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"strings"
 	"testing"
@@ -174,19 +175,32 @@ type NumberTest struct {
 	Out string
 }
 
+// Numbers in AST will never be negative (they'll be a positive number with a unary minus operator)
 var numberTests = []NumberTest{
+	{0, "0"},
+	{math.Copysign(0, -1), "-0"}, // luau does have support for -0 but it's equal (==) to 0 (unless stringified or written in a buffer)
 	{1, "1"},
+	{1 / float64(3), "0.3333333333333333"},
+	{1 / float64(7), "0.14285714285714285"},
 	{4e7, "4e7"},
 	{4e99, "4e99"},
 	{0.1 + 0.2, "0.3"},
+	{0.5, "0.5"},
 	{1e308, "1e308"},
+	{1e-308, "1e-308"},
+	{3e-308, "3e-308"},
+	{5e-324, "5e-324"},
+	{3e-324, "5e-324"}, // precision
+	{2e-324, "0"},
+	// {1<<20, "1048576"},
+	{math.Inf(1), "math.huge"},
 }
 
 func TestNumberToSource(t *testing.T) {
 	for _, tt := range numberTests {
 		fmt.Println(tt.Out)
-		if out := NumberToSource(Number(tt.In)); out != tt.Out {
-			t.Errorf("NumberToSource(%g): expected %q, got %q", tt.In, tt.Out, out)
+		if out := NumberToSource(Number(tt.In)); tt.Out != out {
+			t.Errorf("expected %q, got %q", tt.Out, out)
 		}
 	}
 }

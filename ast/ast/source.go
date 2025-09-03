@@ -104,6 +104,10 @@ func StringToSource(str string) string {
 func NumberToSource(n Number) string {
 	if math.IsInf(float64(n), 1) {
 		return "math.huge" // luau's max number is 1e308, so 1e309 is inf
+	} 
+
+	if math.IsInf(float64(n), -1) {
+		return "-math.huge" // shouldn't ever happen because negative numbers aren't possible in the AST, but whatever
 	}
 
 	rep := fmt.Sprintf("%g", n)
