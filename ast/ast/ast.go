@@ -108,8 +108,6 @@ func (l Location) GetFromSource(source string) (string, error) {
 	}
 
 	var b strings.Builder
-	b.WriteRune('«')
-
 	for i := l.Start.Line; i <= l.End.Line; i++ {
 		line := lines[i]
 		if i == l.Start.Line && i == l.End.Line {
@@ -124,7 +122,6 @@ func (l Location) GetFromSource(source string) (string, error) {
 			b.WriteString("\n")
 		}
 	}
-	b.WriteRune('»')
 
 	// gfsCount++
 	// fmt.Println("gotFromSource", gfsCount)
@@ -2000,7 +1997,7 @@ func (n StatCompoundAssign[T]) Source(og string, indent int) (string, error) {
 
 	op := BinopToSource(in.Op)
 
-	return fmt.Sprintf("%s %s= %s", svar, op, svalue), nil
+	return IndentSize(indent) + fmt.Sprintf("%s %s= %s", svar, op, svalue), nil
 }
 
 func DecodeStatCompoundAssign(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {
@@ -2258,24 +2255,26 @@ func (n StatFor[T]) Source(og string, indent int) (string, error) {
 		return "", fmt.Errorf("error getting to source: %w", err)
 	}
 
-	sbody, err := in.Body.Source(og, indent)
+	sbody, err := in.Body.Source(og, indent+1)
 	if err != nil {
 		return "", fmt.Errorf("error getting body source: %w", err)
 	}
-	sbodyi := indentStart(sbody, 4)
 
-	if in.Step == nil {
-		return fmt.Sprintf("for %s = %s, %s do\n%s\nend",
-			svar, sfrom, sto, sbodyi), nil
+	var b strings.Builder
+	b.WriteString(IndentSize(indent) + fmt.Sprintf("for %s = %s, %s", svar, sfrom, sto))
+
+	if in.Step != nil {
+		sstep, err := (*in.Step).Source(og, indent)
+		if err != nil {
+			return "", fmt.Errorf("error getting step source: %w", err)
+		}
+
+		b.WriteString(fmt.Sprintf(", %s\n", sstep))
 	}
 
-	sstep, err := (*in.Step).Source(og, indent)
-	if err != nil {
-		return "", fmt.Errorf("error getting step source: %w", err)
-	}
-
-	return fmt.Sprintf("for %s = %s, %s, %s do\n%s\nend",
-		svar, sfrom, sto, sstep, sbodyi), nil
+	b.WriteString(fmt.Sprintf(" do\n%s\n", sbody))
+	b.WriteString(IndentSize(indent) + "end")
+	return b.String(), nil
 }
 
 func DecodeStatFor(data json.RawMessage, addStatBlock AddStatBlock, depth int) (INode, error) {

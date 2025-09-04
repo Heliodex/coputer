@@ -104,7 +104,7 @@ func StringToSource(str string) string {
 func NumberToSource(n Number) string {
 	if math.IsInf(float64(n), 1) {
 		return "math.huge" // luau's max number is 1e308, so 1e309 is inf
-	} 
+	}
 
 	if math.IsInf(float64(n), -1) {
 		return "-math.huge" // shouldn't ever happen because negative numbers aren't possible in the AST, but whatever
@@ -119,6 +119,26 @@ func NumberToSource(n Number) string {
 
 	for strings.Contains(rep, "e-0") {
 		rep = strings.Replace(rep, "e-0", "e-", 1)
+	}
+
+	if strings.Contains(rep, "e-") || !strings.Contains(rep, "e") {
+		return rep
+	}
+
+	// check if the exponent matches the number of decimal places, in which case we can just remove it
+	eSplit := strings.Split(rep, "e")
+	if len(eSplit) == 1 {
+		return rep
+	}
+	dotSplit := strings.Split(eSplit[0], ".")
+	if len(dotSplit) == 1 {
+		return rep
+	}
+
+	start, decimal, exponent := dotSplit[0], dotSplit[1], eSplit[1]
+
+	if exponent == fmt.Sprintf("%d", len(decimal)) {
+		return start + decimal
 	}
 	return rep
 }

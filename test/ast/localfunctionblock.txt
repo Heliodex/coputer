@@ -1,0 +1,74 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 6,0
+    HasEnd: true
+    Body:
+        Type: AstStatLocalFunction
+        Location: 0,0 - 5,3
+        Name:
+            LuauType:
+            Name: horizontal
+            Type: AstLocal
+            Location: 0,15 - 0,25
+        Func:
+            Type: AstExprFunction
+            Location: 0,0 - 5,3
+            Attributes:
+            Generics:
+            GenericPacks:
+            Args:
+            Vararg: false
+            VarargLocation: 0,0 - 0,0
+            Body:
+                Type: AstStatBlock
+                Location: 0,27 - 5,0
+                HasEnd: true
+                Body:
+                    Type: AstStatWhile
+                    Location: 1,1 - 2,4
+                    Condition:
+                        Type: AstExprConstantBool
+                        Location: 1,7 - 1,11
+                        Value: true
+                    Body:
+                        Type: AstStatBlock
+                        Location: 1,14 - 2,1
+                        HasEnd: true
+                        Body:
+                    HasDo: true
+                
+                    Type: AstStatFor
+                    Location: 3,1 - 4,4
+                    Var:
+                        LuauType:
+                        Name: x
+                        Type: AstLocal
+                        Location: 3,5 - 3,6
+                    From:
+                        Type: AstExprConstantNumber
+                        Location: 3,9 - 3,10
+                        Value: 0.000000
+                    To:
+                        Type: AstExprBinary
+                        Location: 3,12 - 3,23
+                        Op: Sub
+                        Left:
+                            Type: AstExprGlobal
+                            Location: 3,12 - 3,16
+                            Global: size
+                        Right:
+                            Type: AstExprGlobal
+                            Location: 3,19 - 3,23
+                            Global: nums
+                    Step:
+                        <nil>
+                    Body:
+                        Type: AstStatBlock
+                        Location: 3,26 - 4,1
+                        HasEnd: true
+                        Body:
+                    HasDo: true
+            FunctionDepth: 1
+            Debugname: horizontal
+
+Comment Locations:

@@ -130,8 +130,8 @@ func TestParsing(t *testing.T) {
 	}
 }
 
-func TestSource(t *testing.T) {
-	files, err := os.ReadDir("../" + AstDir)
+func sourceFiles(t *testing.T, dir string) {
+	files, err := os.ReadDir("../" + dir)
 	if err != nil {
 		t.Fatal("error reading benchmark tests directory:", err)
 	}
@@ -144,7 +144,7 @@ func TestSource(t *testing.T) {
 		name := trimext(fn)
 
 		t.Log(" -- Testing", name, "--")
-		filename := fmt.Sprintf("../%s/%s", AstDir, name)
+		filename := fmt.Sprintf("../%s/%s", dir, name)
 
 		content, err := os.ReadFile(filename + Ext)
 		if err != nil {
@@ -168,6 +168,14 @@ func TestSource(t *testing.T) {
 
 		fmt.Println(src)
 	}
+}
+
+func TestSourceAST(t *testing.T) {
+	sourceFiles(t, AstDir)
+}
+
+func TestSourceConformance(t *testing.T) {
+	sourceFiles(t, ConformanceDir)
 }
 
 type NumberTest struct {
@@ -194,6 +202,9 @@ var numberTests = []NumberTest{
 	{2e-324, "0"},
 	// {1<<20, "1048576"},
 	{math.Inf(1), "math.huge"},
+	{math.Inf(-1), "-math.huge"},
+	{600851475143, "600851475143"},
+	{6008514751430, "6.00851475143e12"},
 }
 
 func TestNumberToSource(t *testing.T) {
