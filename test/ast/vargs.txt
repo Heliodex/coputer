@@ -1,0 +1,44 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 1,0
+    HasEnd: true
+    Body:
+        Type: AstStatLocalFunction
+        Location: 0,0 - 0,40
+        Name:
+            LuauType:
+            Name: vargs
+            Type: AstLocal
+            Location: 0,15 - 0,20
+        Func:
+            Type: AstExprFunction
+            Location: 0,0 - 0,40
+            Attributes:
+            Generics:
+            GenericPacks:
+            Args:
+            Vararg: true
+            VarargLocation: 0,21 - 0,24
+            Body:
+                Type: AstStatBlock
+                Location: 0,25 - 0,37
+                HasEnd: true
+                Body:
+                    Type: AstStatExpr
+                    Location: 0,26 - 0,36
+                    Expr:
+                        Type: AstExprCall
+                        Location: 0,26 - 0,36
+                        Func:
+                            Type: AstExprGlobal
+                            Location: 0,26 - 0,31
+                            Global: print
+                        Args:
+                            Type: AstExprVarargs
+                            Location: 0,32 - 0,35
+                        Self: false
+                        ArgLocation: 0,32 - 0,36
+            FunctionDepth: 1
+            Debugname: vargs
+
+Comment Locations:
