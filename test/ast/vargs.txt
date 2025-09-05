@@ -17,6 +17,7 @@ Root:
             Generics:
             GenericPacks:
             Args:
+            ReturnAnnotation:
             Vararg: true
             VarargLocation: 0,21 - 0,24
             Body:

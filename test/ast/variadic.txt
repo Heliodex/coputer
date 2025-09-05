@@ -21,6 +21,7 @@ Root:
                 Name: a
                 Type: AstLocal
                 Location: 0,17 - 0,18
+            ReturnAnnotation:
             Vararg: true
             VarargLocation: 0,20 - 0,23
             Body:

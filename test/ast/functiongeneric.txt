@@ -28,6 +28,18 @@ Root:
                 Name: a
                 Type: AstLocal
                 Location: 0,20 - 0,21
+            ReturnAnnotation:
+                Type: AstTypePackExplicit
+                Location: 0,27 - 0,28
+                TypeList:
+                    Type: AstTypeList
+                    Types:
+                        Type: AstTypeReference
+                        Location: 0,27 - 0,28
+                        Name: T
+                        NameLocation: 0,27 - 0,28
+                        Parameters:
+                    TailType:
             Vararg: false
             VarargLocation: 0,0 - 0,0
             Body:

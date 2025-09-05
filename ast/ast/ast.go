@@ -704,15 +704,16 @@ func DecodeExprConstantString(data json.RawMessage) (Node, error) {
 
 type ExprFunction[T any] struct {
 	NodeLoc
-	Attributes     []Attr            `json:"attributes"`
-	Generics       []GenericType     `json:"generics"`
-	GenericPacks   []GenericTypePack `json:"genericPacks"`
-	Args           []T               `json:"args"`
-	Vararg         bool              `json:"vararg"`
-	VarargLocation Location          `json:"varargLocation"`
-	Body           StatBlock[T]      `json:"body"`
-	FunctionDepth  int               `json:"functionDepth"`
-	Debugname      string            `json:"debugname"`
+	Attributes       []Attr               `json:"attributes"`
+	Generics         []GenericType        `json:"generics"`
+	GenericPacks     []GenericTypePack    `json:"genericPacks"`
+	Args             []T                  `json:"args"`
+	ReturnAnnotation *TypePackExplicit[T] `json:"returnAnnotation"`
+	Vararg           bool                 `json:"vararg"`
+	VarargLocation   Location             `json:"varargLocation"`
+	Body             StatBlock[T]         `json:"body"`
+	FunctionDepth    int                  `json:"functionDepth"`
+	Debugname        string               `json:"debugname"`
 }
 
 func (n ExprFunction[T]) Type() string {
@@ -744,6 +745,12 @@ func (n ExprFunction[T]) String() string {
 		b.WriteByte('\n')
 		b.WriteString(indentStart(StringMaybeEvaluated(arg), 4))
 	}
+	b.WriteString("\nReturnAnnotation:")
+	if n.ReturnAnnotation != nil {
+		b.WriteByte('\n')
+		b.WriteString(indentStart(StringMaybeEvaluated(*n.ReturnAnnotation), 4))
+	}
+
 	b.WriteString(fmt.Sprintf("\nVararg: %t", n.Vararg))
 	b.WriteString(fmt.Sprintf("\nVarargLocation: %s", n.VarargLocation))
 	b.WriteString("\nBody:\n")
@@ -823,7 +830,17 @@ func (n ExprFunction[T]) Source(og string, indent int) (string, error) {
 		b.WriteString(fmt.Sprintf("<%s>", strings.Join(allGenerics, ", ")))
 	}
 
-	b.WriteString(fmt.Sprintf("(%s)\n%s\n", strings.Join(argStrings, ", "), bs))
+	b.WriteString(fmt.Sprintf("(%s)", strings.Join(argStrings, ", ")))
+
+	if in.ReturnAnnotation != nil {
+		rts, err := in.ReturnAnnotation.Source(og, indent)
+		if err != nil {
+			return "", fmt.Errorf("error getting return annotation source: %w", err)
+		}
+		b.WriteString(fmt.Sprintf(": %s", rts))
+	}
+
+	b.WriteString(fmt.Sprintf("\n%s\n", bs))
 	b.WriteString(IndentSize(indent) + "end")
 	return b.String(), nil
 }
@@ -838,22 +855,32 @@ func DecodeExprFunctionKnown(raw ExprFunction[json.RawMessage], addStatBlock Add
 		args[i] = n
 	}
 
+	var returnAnnotationNodeMaybe *TypePackExplicit[Node]
+	if raw.ReturnAnnotation != nil {
+		ran, err := DecodeTypePackExplicitKnown(*raw.ReturnAnnotation, addStatBlock, depth+1)
+		if err != nil {
+			return ExprFunction[Node]{}, fmt.Errorf("error decoding return annotation node: %w", err)
+		}
+		returnAnnotationNodeMaybe = &ran
+	}
+
 	bodyNode, err := DecodeStatBlockKnown(raw.Body, addStatBlock, depth+1)
 	if err != nil {
 		return ExprFunction[Node]{}, fmt.Errorf("error decoding body node: %w", err)
 	}
 
 	return ExprFunction[Node]{
-		NodeLoc:        raw.NodeLoc,
-		Attributes:     raw.Attributes,
-		Generics:       raw.Generics,
-		GenericPacks:   raw.GenericPacks,
-		Args:           args,
-		Vararg:         raw.Vararg,
-		VarargLocation: raw.VarargLocation,
-		Body:           bodyNode,
-		FunctionDepth:  raw.FunctionDepth,
-		Debugname:      raw.Debugname,
+		NodeLoc:          raw.NodeLoc,
+		Attributes:       raw.Attributes,
+		Generics:         raw.Generics,
+		GenericPacks:     raw.GenericPacks,
+		Args:             args,
+		ReturnAnnotation: returnAnnotationNodeMaybe,
+		Vararg:           raw.Vararg,
+		VarargLocation:   raw.VarargLocation,
+		Body:             bodyNode,
+		FunctionDepth:    raw.FunctionDepth,
+		Debugname:        raw.Debugname,
 	}, nil
 }
 

@@ -25,6 +25,7 @@ Root:
                 Name: z
                 Type: AstLocal
                 Location: 0,20 - 0,21
+            ReturnAnnotation:
             Vararg: false
             VarargLocation: 0,0 - 0,0
             Body:

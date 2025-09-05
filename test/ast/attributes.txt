@@ -20,6 +20,7 @@ Root:
             Generics:
             GenericPacks:
             Args:
+            ReturnAnnotation:
             Vararg: false
             VarargLocation: 0,0 - 0,0
             Body:
