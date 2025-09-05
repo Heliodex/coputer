@@ -20,7 +20,7 @@ type AstType AstNode
 type AstExpr AstNode
 
 type Local struct {
-	local  *ast.Local[ast.Node]
+	local  *ast.Local[ast.ASTNode]
 	offset uint32
 }
 
@@ -53,7 +53,7 @@ func (p *Parser) blockFollow(l lex.Lexeme) bool {
 	return l.Type == lex.Eof || l.Type == lex.ReservedElse || l.Type == lex.ReservedElseif || l.Type == lex.ReservedEnd || l.Type == lex.ReservedUntil
 }
 
-func (p *Parser) parseChunk() ast.StatBlock[ast.Node] {
+func (p *Parser) parseChunk() ast.StatBlock[ast.ASTNode] {
 	result := p.parseBlock()
 
 	if p.lexer.Current().Type != lex.Eof {
@@ -65,13 +65,13 @@ func (p *Parser) parseChunk() ast.StatBlock[ast.Node] {
 
 // chunk ::= {stat [`;']} [laststat [`;']]
 // block ::= chunk
-func (p *Parser) parseBlock() ast.StatBlock[ast.Node] {
+func (p *Parser) parseBlock() ast.StatBlock[ast.ASTNode] {
 	localsBegin := p.saveLocals()
 
 	result := p.parseBlockNoScope()
 
 	p.restoreLocals(localsBegin)
-	
+
 	return result
 }
 

@@ -43,7 +43,7 @@ type Comment struct {
 }
 
 type ParseResult struct {
-	root  ast.StatBlock[ast.Node]
+	root  ast.StatBlock[ast.ASTNode]
 	lines uint
 
 	hotcomments []HotComment
