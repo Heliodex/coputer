@@ -762,8 +762,12 @@ func (n ExprFunction[T]) Source(og string, indent int) (string, error) {
 		return "", fmt.Errorf("expected ExprFunction[INode], got %T", n)
 	}
 	// return in.Location.GetFromSource(og)
+	l := len(in.Args)
+	if in.Vararg {
+		l++
+	}
 
-	argStrings := make([]string, len(in.Args))
+	argStrings := make([]string, l)
 	for i, arg := range in.Args {
 		iarg, ok := arg.(Local[INode])
 		if !ok {
@@ -788,6 +792,10 @@ func (n ExprFunction[T]) Source(og string, indent int) (string, error) {
 		argStrings[i] = fmt.Sprintf("%s: %s", as, lts)
 	}
 
+	if in.Vararg {
+		argStrings[l-1] = "..."
+	}
+
 	bs, err := in.Body.Source(og, indent+1)
 	if err != nil {
 		return "", fmt.Errorf("error getting body source: %w", err)
@@ -798,6 +806,22 @@ func (n ExprFunction[T]) Source(og string, indent int) (string, error) {
 	if in.Debugname != "" {
 		b.WriteByte(' ')
 		b.WriteString(in.Debugname)
+	}
+
+	if len(in.Generics) > 0 || len(in.GenericPacks) > 0 {
+		genericStrings := make([]string, len(in.Generics))
+		for i, g := range in.Generics {
+			genericStrings[i] = g.Name
+		}
+
+		genericPackStrings := make([]string, len(in.GenericPacks))
+		for i, gp := range in.GenericPacks {
+			genericPackStrings[i] = gp.Name + "..."
+		}
+
+		allGenerics := append(genericStrings, genericPackStrings...)
+
+		b.WriteString(fmt.Sprintf("<%s>", strings.Join(allGenerics, ", ")))
 	}
 
 	b.WriteString(fmt.Sprintf("(%s)\n%s\n", strings.Join(argStrings, ", "), bs))

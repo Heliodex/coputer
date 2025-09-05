@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	const filepath = AstDir + "/vargs.luau"
+	const filepath = AstDir + "/functiongeneric.luau"
 
 	content, err := os.ReadFile(filepath)
 	if err != nil {
