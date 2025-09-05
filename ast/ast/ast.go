@@ -1916,15 +1916,15 @@ func (n StatBlock[T]) Source(og string, indent int) (string, error) {
 
 			b.WriteString(IndentSize(indent) + fmt.Sprintf("do\n%s\n", bs))
 			b.WriteString(IndentSize(indent) + "end")
-			continue
+		} else {
+			bs, err := bnode.Source(og, indent)
+			if err != nil {
+				return "", err
+			}
+
+			b.WriteString(bs)
 		}
 
-		bs, err := bnode.Source(og, indent)
-		if err != nil {
-			return "", err
-		}
-
-		b.WriteString(bs)
 		if i < len(in.Body)-1 {
 			b.WriteByte('\n')
 		}
@@ -2429,8 +2429,10 @@ func (n StatForIn[T]) Source(og string, indent int) (string, error) {
 		return "", fmt.Errorf("error getting source for body: %w", err)
 	}
 
-	return fmt.Sprintf("for %s in %s do\n%s\nend",
-		strings.Join(vars, ", "), strings.Join(values, ", "), sbody), nil
+	var b strings.Builder
+	b.WriteString(IndentSize(indent) + fmt.Sprintf("for %s in %s do\n%s\n", strings.Join(vars, ", "), strings.Join(values, ", "), sbody))
+	b.WriteString(IndentSize(indent) + "end")
+	return b.String(), nil
 }
 
 func DecodeStatForIn(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
@@ -2513,19 +2515,21 @@ func (n StatFunction[T]) Source(og string, indent int) (string, error) {
 	}
 
 	if len(ifunc.Attributes) == 0 {
-		return fs, err
+		return IndentSize(indent) + fs, err
 	}
 
-	attributeStrings := make([]string, len(ifunc.Attributes))
-	for i, attr := range ifunc.Attributes {
+	var b strings.Builder
+	for _, attr := range ifunc.Attributes {
 		ns, err := attr.Source(og, indent)
 		if err != nil {
 			return "", fmt.Errorf("error getting attribute source: %w", err)
 		}
-		attributeStrings[i] = ns
+		b.WriteString(IndentSize(indent) + ns)
+		b.WriteByte('\n')
 	}
 
-	return fmt.Sprintf("%s\n%s", strings.Join(attributeStrings, "\n"), fs), nil
+	b.WriteString(IndentSize(indent) + fs)
+	return b.String(), nil
 }
 
 func DecodeStatFunction(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
@@ -2882,10 +2886,9 @@ func (n StatRepeat[T]) Source(og string, indent int) (string, error) {
 		return "", fmt.Errorf("error getting body source: %w", err)
 	}
 
-	// return fmt.Sprintf("repeat\n%s\nuntil %s", sbody, scond), nil
 	var b strings.Builder
-	b.WriteString(IndentSize(indent) + fmt.Sprintf("repeat\n%s\nuntil %s", sbody, scond))
-	b.WriteString(IndentSize(indent) + "end")
+	b.WriteString(IndentSize(indent) + fmt.Sprintf("repeat\n%s\n", sbody))
+	b.WriteString(IndentSize(indent) + fmt.Sprintf("until %s\n", scond))
 	return b.String(), nil
 }
 

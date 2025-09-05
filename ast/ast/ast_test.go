@@ -143,6 +143,11 @@ func sourceFiles(t *testing.T, dir string) {
 		}
 		name := trimext(fn)
 
+		// yk the deal, this one takes forever
+		// if name == "abomination" {
+		// 	continue
+		// }
+
 		t.Log(" -- Testing", name, "--")
 		filename := fmt.Sprintf("../%s/%s", dir, name)
 
