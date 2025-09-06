@@ -1516,15 +1516,21 @@ func (n ExprTableItem[T]) Source(og string, indent int) (string, error) {
 		return vs, nil
 	}
 
-	ks, err := (*in.Key).Source(og, indent)
-	if err != nil {
-		return "", fmt.Errorf("error getting key source: %w", err)
-	}
-
 	switch in.Kind {
 	case "record":
-		return fmt.Sprintf("%s = %s", ks, vs), nil
+		key, ok := (*in.Key).(ExprConstantString)
+		if !ok {
+			return "", fmt.Errorf("expected key to be ExprConstantString for record kind, got %T", *in.Key)
+		}
+
+		// key Value
+		return fmt.Sprintf("%s = %s", key.Value, vs), nil
 	case "general":
+		ks, err := (*in.Key).Source(og, indent)
+		if err != nil {
+			return "", fmt.Errorf("error getting key source: %w", err)
+		}
+
 		return fmt.Sprintf("[%s] = %s", ks, vs), nil
 	}
 

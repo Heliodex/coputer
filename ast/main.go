@@ -27,7 +27,7 @@ func processFile(filepath string) error {
 		return fmt.Errorf("error decoding AST: %w", err)
 	}
 
-	fmt.Printf("AST: %+v\n", ast)
+	fmt.Println(ast)
 
 	newsource, err := ast.Source(string(content))
 	if err != nil {
