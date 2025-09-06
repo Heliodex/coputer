@@ -30,10 +30,12 @@ print(`Welcome to \
 print(`empty`)
 
 print(`Escaped brace: \{}`)
+print(`Escaped brace: \{} {1}`)
 print(`Escaped brace \{} with {"expression"}`)
 print(`Backslash \ that escapes the space is not a part of the string...`)
 print(`Escaped backslash \\`)
-print(`Escaped backtick: \``)
+print(`Escaped backslash and braces \\ \{} {1}`)
+print(`Escaped backtick: \` \\\` {1}`)
 
 print(`Hello {`from inside {"a nested string"}`}`)
 
@@ -48,3 +50,4 @@ print(shadowsString "hello")
 print(shadowsString(1))
 
 print(`\u{0041}\t`, "A\t")
+print("A        ", "A   ")

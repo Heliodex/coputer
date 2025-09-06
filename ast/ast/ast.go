@@ -1,6 +1,7 @@
 package ast
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -59,6 +60,77 @@ func (n *Number) UnmarshalJSON(data []byte) (err error) {
 		return
 	}
 	*n = Number(f)
+	return
+}
+
+type String string
+
+func (s String) MarshalJSON() ([]byte, error) {
+	return json.Marshal(string(s))
+}
+
+// oh god
+// trying to get the JSON strings from luau-ast's insane format
+func (s *String) UnmarshalJSON(data []byte) (err error) {
+	// dataNoQuotes := strings.Trim(string(data), `"`)
+	dataNoQuotes := string(data[1 : len(data)-1])
+
+	var data2 []byte
+	lnq := len(dataNoQuotes)
+	for i := 0; i < lnq; i++ {
+		lenLeft := lnq - i
+
+		next10 := dataNoQuotes[i:][:min(10, lenLeft)]
+		if lenLeft < 10 || next10[:8] != `\uffffff` { // fix luau-ast invalid unicode escapes
+			data2 = append(data2, dataNoQuotes[i])
+			continue
+		}
+
+		char := next10[8:]
+		decoded, err := hex.DecodeString(char)
+		if err != nil {
+			return err
+		}
+
+		data2 = append(data2, decoded[0])
+		i += 9
+	}
+
+	// fmt.Println("UnmarshalJSON", string(data2))
+
+	// another pass to check and replace \u escapes
+	d2s := string(data2)
+	d2s = strings.ReplaceAll(d2s, `\"`, `"`)
+	d2s = strings.ReplaceAll(d2s, `\\`, `\`)
+
+	var data3 []byte
+	ld2 := len(d2s)
+	for i := 0; i < ld2; i++ {
+		lenLeft := ld2 - i
+
+		next6 := d2s[i:][:min(6, lenLeft)]
+		if lenLeft < 6 || next6[:2] != `\u` {
+			data3 = append(data3, d2s[i])
+			continue
+		}
+
+		char := next6[2:]
+		decoded, err := hex.DecodeString(char)
+		if err != nil {
+			return err
+		}
+
+		if decoded[0] == 0 {
+			decoded = decoded[1:]
+		}
+
+		// fmt.Println("decoded", decoded)
+		data3 = append(data3, decoded...)
+		i += 5
+	}
+
+	*s = String(string(data3))
+
 	return
 }
 
@@ -672,7 +744,7 @@ func DecodeExprConstantNumber(data json.RawMessage) (Node, error) {
 
 type ExprConstantString struct {
 	NodeLoc
-	Value string `json:"value"`
+	Value String `json:"value"`
 }
 
 func (n ExprConstantString) Type() string {
@@ -691,7 +763,7 @@ func (n ExprConstantString) String() string {
 
 func (n ExprConstantString) Source(og string, _ int) (string, error) {
 	// return n.Location.GetFromSource(og)
-	return StringToSource(n.Value), nil
+	return StringToSource(string(n.Value)), nil
 }
 
 func DecodeExprConstantString(data json.RawMessage) (Node, error) {
@@ -1233,6 +1305,13 @@ func (n ExprInterpString[T]) Source(og string, indent int) (string, error) {
 	}
 
 	parts := n.Strings
+	for i, part := range parts {
+		part = strings.ReplaceAll(part, "\\", "\\\\")
+		part = strings.ReplaceAll(part, "`", "\\`")
+		part = strings.ReplaceAll(part, "{", "\\{")
+		parts[i] = part
+	}
+
 	for i, expr := range iexprs {
 		ies, err := expr.Source(og, indent)
 		if err != nil {

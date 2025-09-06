@@ -8,3 +8,5 @@ do
 a test]]
 	local z = `this is\na test`
 end
+
+local esc = "\a\b\f\n\r\t\v"

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"unicode"
 )
 
 func BinopToSource(name string) string {
@@ -58,14 +59,27 @@ func UnopToSource(name string) string {
 	panic("bad unop: " + name)
 }
 
+var escapes = map[byte][]byte{
+	'\a': []byte("\\a"),
+	'\b': []byte("\\b"),
+	'\f': []byte("\\f"),
+	'\n': []byte("\\n"),
+	'\r': []byte("\\r"),
+	'\t': []byte("\\t"),
+	'\v': []byte("\\v"),
+	// idk about \z
+}
+
 // we're not gonna use `string`s here, to reserve those for only interpolated strings
 func StringToSource(str string) string {
 	containsNewline := strings.ContainsRune(str, '\n')
+	containsOtherControl := strings.ContainsAny(str, "\a\b\f\r\t\v")
 	containsDquote := strings.ContainsRune(str, '"')
 	containsSquote := strings.ContainsRune(str, '\'')
 
-	if containsNewline {
+	if containsNewline && !containsOtherControl {
 		// [[string]] or [=...[string]=...]
+		// these types of strings can't hold escapes
 		for eqCount := 0; ; eqCount++ {
 			eqs := strings.Repeat("=", eqCount)
 			endDelimiter := "]" + eqs + "]"
@@ -78,6 +92,44 @@ func StringToSource(str string) string {
 			return startDelimiter + str + endDelimiter
 		}
 	}
+
+	str = strings.ReplaceAll(str, "\\", "\\\\")
+	str = strings.ReplaceAll(str, "\r", "\\r")
+	str = strings.ReplaceAll(str, "\t", "\\t")
+
+	// fmt.Println([]byte(str))
+
+	// UTF-8 MANGLING!!!!
+
+	// fmt.Println("StringToSource", str)
+
+	sbs := []byte(str)
+	var bs []byte
+	for i := 0; i < len(sbs); i++ {
+		b := sbs[i]
+		// fmt.Println(str, "b", b, string(b))
+
+		if esc, ok := escapes[b]; ok {
+			bs = append(bs, esc...)
+			continue
+		}
+
+		r := []rune(string(sbs[i:]))[0]
+		if unicode.IsControl(r) {
+			bs = append(bs, []byte(fmt.Sprintf("\\%d", r))...)
+			i += len(string(r)) - 1
+			continue
+		}
+
+		if r == unicode.ReplacementChar && unicode.IsControl(rune(b)) {
+			// invalid utf-8 byte
+			bs = append(bs, []byte(fmt.Sprintf("\\%d", b))...)
+			continue
+		}
+
+		bs = append(bs, b)
+	}
+	str = string(bs)
 
 	if !containsDquote {
 		// 'string'

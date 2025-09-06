@@ -62,7 +62,7 @@ const (
 	cap_position   = -2
 	l_esc          = byte('%')
 	specials       = "^$*+?.([%-"
-	maxcalls       = 200
+	// maxcalls       = 200
 )
 
 func tolower(c byte) byte {

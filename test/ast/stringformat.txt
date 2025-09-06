@@ -1,6 +1,6 @@
 Root:
     Type: AstStatBlock
-    Location: 0,0 - 10,0
+    Location: 0,0 - 12,0
     HasEnd: true
     Body:
         Type: AstStatLocal
@@ -81,5 +81,17 @@ Root:
                 Location: 8,11 - 8,28
                 Value: this is
                 a test
+    
+        Type: AstStatLocal
+        Location: 11,0 - 11,28
+        Vars:
+            LuauType:
+            Name: esc
+            Type: AstLocal
+            Location: 11,6 - 11,9
+        Values:
+            Type: AstExprConstantString
+            Location: 11,12 - 11,28
+            Value: 
 
 Comment Locations:

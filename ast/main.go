@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	const filepath = AstDir + "/functiongeneric.luau"
+	const filepath = AstDir + "/stringunicode.luau"
 
 	content, err := os.ReadFile(filepath)
 	if err != nil {

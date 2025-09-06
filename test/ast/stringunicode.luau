@@ -1,0 +1,5 @@
+local ctrl = "\a\b\f\r\t\v"
+local normal = "hello"
+local uni = "àôéé"
+local bad = "\128"
+local quoted = "quote\"d"
