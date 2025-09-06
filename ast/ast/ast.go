@@ -2408,7 +2408,7 @@ func (n StatFor[T]) Source(og string, indent int) (string, error) {
 			return "", fmt.Errorf("error getting step source: %w", err)
 		}
 
-		b.WriteString(fmt.Sprintf(", %s\n", sstep))
+		b.WriteString(fmt.Sprintf(", %s", sstep))
 	}
 
 	b.WriteString(fmt.Sprintf(" do\n%s\n", sbody))
@@ -2437,6 +2437,15 @@ func DecodeStatFor(data json.RawMessage, addStatBlock AddStatBlock, depth int) (
 		return nil, fmt.Errorf("error decoding to: %w", err)
 	}
 
+	var stepMaybe *Node
+	if raw.Step != nil {
+		stepNode, err := decodeNode(*raw.Step, addStatBlock, depth+1)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding step: %w", err)
+		}
+		stepMaybe = &stepNode
+	}
+
 	sbody, err := DecodeStatBlockKnown(raw.Body, addStatBlock, depth+1)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding body: %w", err)
@@ -2447,6 +2456,7 @@ func DecodeStatFor(data json.RawMessage, addStatBlock AddStatBlock, depth int) (
 		Var:     svar,
 		From:    sfrom,
 		To:      sto,
+		Step:    stepMaybe,
 		Body:    sbody,
 		HasDo:   raw.HasDo,
 	}, nil

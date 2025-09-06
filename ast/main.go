@@ -3,61 +3,93 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	. "github.com/Heliodex/coputer/ast/ast"
 )
 
-func main() {
-	const filepath = AstDir + "/method.luau"
+const LuauExt = ".luau"
 
+func processFile(filepath string) error {
 	content, err := os.ReadFile(filepath)
 	if err != nil {
-		fmt.Println("Error reading file:", err)
-		return
+		return fmt.Errorf("error reading file: %w", err)
 	}
-	source := string(content)
 
 	out, err := LuauAst(filepath)
 	if err != nil {
-		fmt.Println("Error:", err)
-		return
+		return fmt.Errorf("error converting to Luau AST: %w", err)
 	}
-	// no more standardisation, yayyy
-
-	// write out to ast.json
-	// err = os.WriteFile("ast.json", out, 0o644)
-	// if err != nil {
-	// 	fmt.Println("Error writing AST to file:", err)
-	// 	return
-	// }
-
-	// pprof time
-	// f, err := os.Create("cpu.prof")
-	// if err != nil {
-	// 	fmt.Println("Error creating CPU profile file:", err)
-	// 	return
-	// }
-	// pprof.StartCPUProfile(f)
-	// defer pprof.StopCPUProfile()
-
-	// st := time.Now()
-
-	fmt.Println(source)
 
 	// encode as AST
 	ast, err := DecodeAST(out)
 	if err != nil {
-		fmt.Println("Error decoding AST:", err)
-		return
+		return fmt.Errorf("error decoding AST: %w", err)
 	}
 
-	fmt.Println(ast)
+	fmt.Printf("AST: %+v\n", ast)
 
-	new, err := ast.Source(source)
+	newsource, err := ast.Source(string(content))
 	if err != nil {
-		fmt.Println("Error getting source from AST:", err)
+		return fmt.Errorf("error encoding AST: %w", err)
+	}
+	// fmt.Println(new)
+
+	err = os.WriteFile(filepath, []byte(newsource), 0o644)
+	if err != nil {
+		return fmt.Errorf("error writing file: %w", err)
+	}
+
+	return nil
+}
+
+func main() {
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: <path>")
 		return
 	}
-	fmt.Println(new)
-	// fmt.Printf("AST decoded in %s\n", time.Since(st))
+
+	filearg := os.Args[1]
+
+	info, err := os.Stat(filearg)
+	if err != nil {
+		fmt.Println("Error getting file stat:", err)
+		return
+	}
+
+	var files []string
+	if info.IsDir() {
+		dirEntries, err := os.ReadDir(filearg)
+		if err != nil {
+			fmt.Println("Error reading directory:", err)
+			return
+		}
+
+		for _, entry := range dirEntries {
+			if entry.IsDir() {
+				continue
+			}
+
+			ext := filepath.Ext(entry.Name())
+			if ext != LuauExt {
+				continue
+			}
+
+			files = append(files, filearg+"/"+entry.Name())
+		}
+	} else {
+		if filepath.Ext(filearg) != LuauExt {
+			fmt.Println("File is not a .luau file")
+			return
+		}
+		files = append(files, filearg)
+	}
+
+	for _, file := range files {
+		fmt.Println("Processing file", file)
+		err := processFile(file)
+		if err != nil {
+			fmt.Println("Error processing file:", err)
+		}
+	}
 }
