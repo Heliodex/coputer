@@ -833,7 +833,7 @@ func (n ExprFunction[T]) String() string {
 	return b.String()
 }
 
-func (n ExprFunction[T]) Source(og string, indent int) (string, error) {
+func (n ExprFunction[T]) SourceMain(og string, indent int, isExpr bool) (string, error) {
 	// return n.Location.GetFromSource(og)
 	in, ok := any(n).(ExprFunction[Node])
 	if !ok {
@@ -880,11 +880,13 @@ func (n ExprFunction[T]) Source(og string, indent int) (string, error) {
 	}
 
 	var b strings.Builder
-	b.WriteString("function")
-	if in.Debugname != "" {
-		b.WriteByte(' ')
-		b.WriteString(in.Debugname)
+	if isExpr {
+		b.WriteString("function")
 	}
+	// if in.Debugname != "" {
+	// 	b.WriteByte(' ')
+	// 	b.WriteString(in.Debugname)
+	// }
 
 	if len(in.Generics) > 0 || len(in.GenericPacks) > 0 {
 		genericStrings := make([]string, len(in.Generics))
@@ -915,6 +917,14 @@ func (n ExprFunction[T]) Source(og string, indent int) (string, error) {
 	b.WriteString(fmt.Sprintf("\n%s\n", bs))
 	b.WriteString(IndentSize(indent) + "end")
 	return b.String(), nil
+}
+
+func (n ExprFunction[T]) Source(og string, indent int) (string, error) {
+	return n.SourceMain(og, indent, true)
+}
+
+func (n ExprFunction[T]) SourceStmt(og string, indent int) (string, error) {
+	return n.SourceMain(og, indent, false)
 }
 
 func DecodeExprFunctionKnown(raw ExprFunction[json.RawMessage], addStatBlock AddStatBlock, depth int) (ExprFunction[Node], error) {
@@ -1240,7 +1250,7 @@ func (n ExprIndexName[T]) Source(og string, indent int) (string, error) {
 		return "", fmt.Errorf("error getting expr source: %w", err)
 	}
 
-	return fmt.Sprintf("%s.%s", es, in.Index), nil
+	return es + n.Op + in.Index, nil
 }
 
 func DecodeExprIndexName(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
@@ -2588,13 +2598,14 @@ func (n StatFunction[T]) Source(og string, indent int) (string, error) {
 		return "", fmt.Errorf("expected Func to be ExprFunction[INode], got %T", in.Func)
 	}
 
-	fs, err := ifunc.Source(og, indent)
+	fs, err := ifunc.SourceStmt(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting function source: %w", err)
 	}
 
-	if len(ifunc.Attributes) == 0 {
-		return IndentSize(indent) + fs, err
+	ns, err := in.Name.Source(og, indent)
+	if err != nil {
+		return "", fmt.Errorf("error getting name source: %w", err)
 	}
 
 	var b strings.Builder
@@ -2607,7 +2618,7 @@ func (n StatFunction[T]) Source(og string, indent int) (string, error) {
 		b.WriteByte('\n')
 	}
 
-	b.WriteString(IndentSize(indent) + fs)
+	b.WriteString(IndentSize(indent) + fmt.Sprintf("function %s%s", ns, fs))
 	return b.String(), nil
 }
 
@@ -2881,25 +2892,28 @@ func (n StatLocalFunction[T]) Source(og string, indent int) (string, error) {
 		return "", fmt.Errorf("expected Func to be ExprFunction[INode], got %T", in.Func)
 	}
 
-	fs, err := ifunc.Source(og, indent)
+	fs, err := ifunc.SourceStmt(og, indent)
 	if err != nil {
 		return "", fmt.Errorf("error getting function source: %w", err)
 	}
 
-	if len(ifunc.Attributes) == 0 {
-		return fmt.Sprintf("local %s", fs), nil
+	ns, err := in.Name.Source(og, indent)
+	if err != nil {
+		return "", fmt.Errorf("error getting name source: %w", err)
 	}
 
-	attributeStrings := make([]string, len(ifunc.Attributes))
-	for i, attr := range ifunc.Attributes {
+	var b strings.Builder
+	for _, attr := range ifunc.Attributes {
 		ns, err := attr.Source(og, indent)
 		if err != nil {
 			return "", fmt.Errorf("error getting attribute source: %w", err)
 		}
-		attributeStrings[i] = ns
+		b.WriteString(IndentSize(indent) + ns)
+		b.WriteByte('\n')
 	}
 
-	return fmt.Sprintf("%s\nlocal %s", strings.Join(attributeStrings, "\n"), fs), nil
+	b.WriteString(IndentSize(indent) + fmt.Sprintf("local function %s%s", ns, fs))
+	return b.String(), nil
 }
 
 func DecodeStatLocalFunction(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
