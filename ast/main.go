@@ -21,6 +21,12 @@ func processFile(filepath string) error {
 		return fmt.Errorf("error converting to Luau AST: %w", err)
 	}
 
+	// write to ast.json
+	// err = os.WriteFile("ast.json", out, 0o644)
+	// if err != nil {
+	// 	return fmt.Errorf("error writing ast.json: %w", err)
+	// }
+
 	// encode as AST
 	ast, err := DecodeAST(out)
 	if err != nil {

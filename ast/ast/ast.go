@@ -2826,8 +2826,10 @@ func (n StatLocal[T]) Source(og string, indent int) (string, error) {
 		VarStrings[i] = ns
 	}
 
+	start := IndentSize(indent) + fmt.Sprintf("local %s", strings.Join(VarStrings, ", "))
+
 	if len(in.Values) == 0 {
-		return fmt.Sprintf("local %s", strings.Join(VarStrings, ", ")), nil
+		return start, nil
 	}
 
 	ValueStrings := make([]string, len(in.Values))
@@ -2839,7 +2841,7 @@ func (n StatLocal[T]) Source(og string, indent int) (string, error) {
 		ValueStrings[i] = ns
 	}
 
-	return IndentSize(indent) + fmt.Sprintf("local %s = %s", strings.Join(VarStrings, ", "), strings.Join(ValueStrings, ", ")), nil
+	return fmt.Sprintf("%s = %s", start, strings.Join(ValueStrings, ", ")), nil
 }
 
 func DecodeStatLocal(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
