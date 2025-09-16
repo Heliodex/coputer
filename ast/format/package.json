@@ -1,34 +1,54 @@
 {
-  "name": "coputer",
-  "displayName": "Coputer",
-  "description": "Coputer tools",
-  "version": "0.0.1",
-  "engines": {
-    "vscode": "^1.104.0"
-  },
-  "categories": [
-    "Other"
-  ],
-  "activationEvents": [],
-  "main": "./dist/extension.js",
-  "contributes": {
-    "commands": [
-      {
-        "command": "coputer.helloWorld",
-        "title": "Hello World"
-      }
-    ]
-  },
-  "scripts": {
-    "build": "bun esbuild.ts"
-  },
-  "devDependencies": {
-    "@biomejs/biome": "^2.2.4",
-    "@types/node": "22.x",
-    "@types/vscode": "^1.104.0",
-    "typescript": "^5.9.2"
-},
-"dependencies": {
-	"esbuild": "^0.25.9"
-  }
+	"name": "coputer",
+	"displayName": "Coputer",
+	"description": "Coputer tools",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Heliodex/coputer",
+		"directory": "ast/format"
+	},
+	"version": "0.0.1",
+	"engines": {
+		"vscode": "^1.104.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"activationEvents": [
+		"onLanguage:luau"
+	],
+	"main": "./dist/extension.js",
+	"scripts": {
+		"build": "bun esbuild.ts",
+		"pack": "bunx vsce package"
+	},
+	"contributes": {
+		"commands": [
+			{
+				"command": "coputer.helloWorld",
+				"title": "Hello World"
+			}
+		],
+		"languages": [
+			{
+				"id": "luau",
+				"aliases": [
+					"Luau",
+					"luau"
+				],
+				"extensions": [
+					".luau"
+				]
+			}
+		]
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.2.4",
+		"@types/node": "22.x",
+		"@types/vscode": "^1.104.0",
+		"typescript": "^5.9.2"
+	},
+	"dependencies": {
+		"esbuild": "^0.25.9"
+	}
 }
