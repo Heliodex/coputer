@@ -1,0 +1,12 @@
+.vscode/**
+.vscode-test/**
+node_modules/**
+src/**
+.gitignore
+**/tsconfig.json
+**/*.map
+**/*.ts
+**/.vscode-test.*
+**/biome.json
+**/bun.lock
+**/package.json
