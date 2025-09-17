@@ -39,9 +39,9 @@ async function main() {
 			esbuildProblemMatcherPlugin,
 		],
 	})
-	if (watch) {
+	if (watch) 
 		await ctx.watch()
-	} else {
+	 else {
 		await ctx.rebuild()
 		await ctx.dispose()
 	}

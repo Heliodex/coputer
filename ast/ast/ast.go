@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"os/exec"
 	"slices"
 	"strings"
@@ -18,17 +19,35 @@ const (
 	ConformanceDir = "../test/conformance"
 )
 
+func transformAst(in []byte) []byte {
+	strin := string(in)
+	out := strings.ReplaceAll(strin, `"value":Infinity`, `"value":"Infinity"`)
+	return []byte(out)
+}
+
 func LuauAst(path string) (out []byte, err error) {
 	cmd := exec.Command("luau-ast", path)
 	out, err = cmd.Output()
 	if err != nil {
 		return
 	}
+	return transformAst(out), nil
+}
 
-	strout := string(out)
-	strout = strings.ReplaceAll(strout, `"value":Infinity`, `"value":"Infinity"`)
+func LuauAstInput(source string) (out []byte, err error) {
+	tempfile, err := os.CreateTemp("", "luau-ast-*.luau")
+	if err != nil {
+		return nil, fmt.Errorf("error creating temp file: %w", err)
+	}
+	defer os.Remove(tempfile.Name())
 
-	return []byte(strout), nil
+	if _, err = tempfile.WriteString(source); err != nil {
+		return nil, fmt.Errorf("error writing to temp file: %w", err)
+	}
+	if err = tempfile.Close(); err != nil {
+		return nil, fmt.Errorf("error closing temp file: %w", err)
+	}
+	return LuauAst(tempfile.Name())
 }
 
 func indentStart(s string, n int) string {

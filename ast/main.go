@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -49,46 +50,61 @@ func processFile(filepath string) error {
 	return nil
 }
 
-func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: <path>")
-		return
-	}
-
-	filearg := os.Args[1]
-
+func cmdFile(filearg string) error {
 	info, err := os.Stat(filearg)
 	if err != nil {
-		fmt.Println("Error getting file stat:", err)
-		return
+		// fmt.Println("Error getting file stat:", err)
+		return fmt.Errorf("error getting file stat: %w", err)
+	}
+
+	if info.IsDir() {
+		// fmt.Println("Provided path is a directory, use 'dir' command instead")
+		return fmt.Errorf("provided path is a directory, use 'dir' command instead")
+	}
+
+	if filepath.Ext(filearg) != LuauExt {
+		// fmt.Println("File is not a .luau file")
+		return fmt.Errorf("file is not a .luau file")
+	}
+
+	fmt.Println("Processing file", filearg)
+
+	if err = processFile(filearg); err != nil {
+		fmt.Println("Error processing file:", err)
+	}
+	return nil
+}
+
+func cmdDir(dirarg string) error {
+	info, err := os.Stat(dirarg)
+	if err != nil {
+		// fmt.Println("Error getting file stat:", err)
+		return fmt.Errorf("error getting file stat: %w", err)
+	}
+
+	if !info.IsDir() {
+		// fmt.Println("Provided path is not a directory, use 'file' command instead")
+		return fmt.Errorf("provided path is not a directory, use 'file' command instead")
+	}
+
+	dirEntries, err := os.ReadDir(dirarg)
+	if err != nil {
+		// fmt.Println("Error reading directory:", err)
+		return fmt.Errorf("error reading directory: %w", err)
 	}
 
 	var files []string
-	if info.IsDir() {
-		dirEntries, err := os.ReadDir(filearg)
-		if err != nil {
-			fmt.Println("Error reading directory:", err)
-			return
+	for _, entry := range dirEntries {
+		if entry.IsDir() {
+			continue
 		}
 
-		for _, entry := range dirEntries {
-			if entry.IsDir() {
-				continue
-			}
-
-			ext := filepath.Ext(entry.Name())
-			if ext != LuauExt {
-				continue
-			}
-
-			files = append(files, filearg+"/"+entry.Name())
+		ext := filepath.Ext(entry.Name())
+		if ext != LuauExt {
+			continue
 		}
-	} else {
-		if filepath.Ext(filearg) != LuauExt {
-			fmt.Println("File is not a .luau file")
-			return
-		}
-		files = append(files, filearg)
+
+		files = append(files, dirarg+"/"+entry.Name())
 	}
 
 	for _, file := range files {
@@ -97,5 +113,55 @@ func main() {
 		if err != nil {
 			fmt.Println("Error processing file:", err)
 		}
+	}
+	return nil
+}
+
+func cmdInput(content []byte) error {
+	return nil
+}
+
+func main() {
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: <command>")
+		fmt.Println("Available commands: file, dir, input")
+		return
+	}
+
+	switch command := os.Args[1]; command {
+	case "file":
+		if len(os.Args) < 3 {
+			fmt.Println("Usage: file <path>")
+			return
+		}
+		filearg := os.Args[2]
+		if err := cmdFile(filearg); err != nil {
+			fmt.Println("Error:", err)
+			os.Exit(1)
+		}
+	case "dir":
+		if len(os.Args) < 3 {
+			fmt.Println("Usage: dir <path>")
+			return
+		}
+		dirarg := os.Args[2]
+		if err := cmdDir(dirarg); err != nil {
+			fmt.Println("Error:", err)
+			os.Exit(1)
+		}
+	case "input":
+		content, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			fmt.Println("Error reading from stdin:", err)
+			os.Exit(1)
+		}
+		if err := cmdInput(content); err != nil {
+			fmt.Println("Error:", err)
+			os.Exit(1)
+		}
+	default:
+		fmt.Println("Unknown command:", command)
+		fmt.Println("Available commands: file, dir, input")
+		os.Exit(1)
 	}
 }
