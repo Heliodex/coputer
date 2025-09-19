@@ -5,14 +5,33 @@ import { formatContent, formatFile } from "./format"
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
-async function format(document: vscode.TextDocument): Promise<vscode.TextEdit[]> {
+async function format(
+	document: vscode.TextDocument
+): Promise<vscode.TextEdit[]> {
 	vscode.window.showInformationMessage("Formatting document...")
+
+	const config = vscode.workspace.getConfiguration("coputer")
+	const tool = config.get<string>("tools.path")
+
+	if (!tool) {
+		vscode.window.showErrorMessage("Coputer tools path is not configured.")
+		return []
+	}
 
 	// Disk files can be formatted directly, content files will need to be written to a temp file by the formatter
 	const isDiskFile = document.uri.scheme === "file"
-	const formatted = isDiskFile
-		? formatFile(document.uri.fsPath)
-		: formatContent(document.getText())
+	let formatted: string
+	try {
+		formatted = isDiskFile
+			? formatFile(tool, document.uri.fsPath)
+			: await formatContent(tool, document.getText())
+	} catch (err) {
+		const e = err as Error
+		vscode.window.showErrorMessage(
+			`Failed to format document: ${e.message}`
+		)
+		return []
+	}
 
 	const end = document.lineAt(document.lineCount - 1)
 	const replaced = vscode.TextEdit.replace(

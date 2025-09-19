@@ -34,14 +34,14 @@ func LuauAst(path string) (out []byte, err error) {
 	return transformAst(out), nil
 }
 
-func LuauAstInput(source string) (out []byte, err error) {
+func LuauAstInput(source []byte) (out []byte, err error) {
 	tempfile, err := os.CreateTemp("", "luau-ast-*.luau")
 	if err != nil {
 		return nil, fmt.Errorf("error creating temp file: %w", err)
 	}
 	defer os.Remove(tempfile.Name())
 
-	if _, err = tempfile.WriteString(source); err != nil {
+	if _, err = tempfile.Write(source); err != nil {
 		return nil, fmt.Errorf("error writing to temp file: %w", err)
 	}
 	if err = tempfile.Close(); err != nil {

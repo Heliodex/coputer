@@ -11,7 +11,7 @@ import (
 
 const LuauExt = ".luau"
 
-func processFile(filepath string) error {
+func processFile(filepath string, stdout bool) error {
 	content, err := os.ReadFile(filepath)
 	if err != nil {
 		return fmt.Errorf("error reading file: %w", err)
@@ -34,7 +34,7 @@ func processFile(filepath string) error {
 		return fmt.Errorf("error decoding AST: %w", err)
 	}
 
-	fmt.Println(ast)
+	// fmt.Println(ast)
 
 	newsource, err := ast.Source(string(content))
 	if err != nil {
@@ -42,11 +42,14 @@ func processFile(filepath string) error {
 	}
 	// fmt.Println(new)
 
-	err = os.WriteFile(filepath, []byte(newsource), 0o644)
-	if err != nil {
-		return fmt.Errorf("error writing file: %w", err)
+	if stdout {
+		fmt.Print(newsource)
+		return nil
 	}
 
+	if err = os.WriteFile(filepath, []byte(newsource), 0o644); err != nil {
+		return fmt.Errorf("error writing file: %w", err)
+	}
 	return nil
 }
 
@@ -67,10 +70,11 @@ func cmdFile(filearg string) error {
 		return fmt.Errorf("file is not a .luau file")
 	}
 
-	fmt.Println("Processing file", filearg)
+	// fmt.Println("Processing file", filearg)
 
-	if err = processFile(filearg); err != nil {
-		fmt.Println("Error processing file:", err)
+	if err = processFile(filearg, true); err != nil {
+		// fmt.Println("Error processing file:", err)
+		return fmt.Errorf("error processing file: %w", err)
 	}
 	return nil
 }
@@ -109,7 +113,7 @@ func cmdDir(dirarg string) error {
 
 	for _, file := range files {
 		fmt.Println("Processing file", file)
-		err := processFile(file)
+		err := processFile(file, false)
 		if err != nil {
 			fmt.Println("Error processing file:", err)
 		}
@@ -118,6 +122,23 @@ func cmdDir(dirarg string) error {
 }
 
 func cmdInput(content []byte) error {
+	out, err := LuauAstInput(content)
+	if err != nil {
+		return fmt.Errorf("error converting to Luau AST: %w", err)
+	}
+
+	// encode as AST
+	ast, err := DecodeAST(out)
+	if err != nil {
+		return fmt.Errorf("error decoding AST: %w", err)
+	}
+
+	newsource, err := ast.Source(string(content))
+	if err != nil {
+		return fmt.Errorf("error encoding AST: %w", err)
+	}
+
+	fmt.Print(newsource)
 	return nil
 }
 

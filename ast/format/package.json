@@ -40,7 +40,16 @@
 					".luau"
 				]
 			}
-		]
+		],
+		"configuration": {
+			"title": "Coputer",
+			"properties": {
+				"coputer.tools.path": {
+					"type": "string",
+					"description": "Path to the Coputer tools executable."
+				}
+			}
+		}
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.2.4",
