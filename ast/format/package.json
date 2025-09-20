@@ -14,9 +14,6 @@
 	"categories": [
 		"Other"
 	],
-	"activationEvents": [
-		"onLanguage:luau"
-	],
 	"main": "./dist/extension.js",
 	"scripts": {
 		"build": "bun esbuild.ts",
@@ -38,7 +35,50 @@
 				],
 				"extensions": [
 					".luau"
-				]
+				],
+				"configuration": "./language-configuration.json"
+			}
+		],
+		"grammars": [
+			{
+				"language": "luau",
+				"scopeName": "source.luau",
+				"path": "./syntaxes/Luau.tmLanguage.json",
+				"unbalancedBracketScopes": [
+					"keyword.operator.comparison",
+					"keyword.operator.type.function"
+				],
+				"tokenTypes": {
+					"meta.template.expression": "other",
+					"meta.template.expression string": "string",
+					"meta.template.expression comment": "comment"
+				}
+			},
+			{
+				"scopeName": "markdown.luau.codeblock",
+				"path": "./syntaxes/codeblock.json",
+				"injectTo": [
+					"text.html.markdown"
+				],
+				"embeddedLanguages": {
+					"meta.embedded.block.luau": "luau"
+				}
+			}
+		],
+		"semanticTokenScopes": [
+			{
+				"language": "luau",
+				"scopes": {
+					"variable.defaultLibrary.readonly": [
+						"constant.language.global.luau"
+					],
+					"property.defaultLibrary": [
+						"variable.language.luau"
+					],
+					"enum.defaultLibrary": [
+						"constant.language.enum.luau"
+					]
+				}
 			}
 		],
 		"configuration": {
