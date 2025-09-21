@@ -442,9 +442,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 	// stayin' alive
 	// fmt.Println("starting with upvals", upvals)
 	code, lineInfo, protos := p.Code, p.InstLineInfo, p.Protos
-	co.Dbg.Name = p.Dbgname
-
-	for ; *towrap.alive; co.Dbg.Line = lineInfo[pc] {
+	for co.Dbg.Name = p.Dbgname; *towrap.alive; co.Dbg.Line = lineInfo[pc] {
 		// fmt.Println(top)
 
 		// if len(upvals) > 0 {

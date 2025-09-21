@@ -22,13 +22,18 @@ func table_clear(args Args) (r []Val, err error) {
 	return
 }
 
+// The cloned table is not readonly
+func clone(t *Table) *Table {
+	return &Table{
+		List: slices.Clone(t.List),
+		Hash: maps.Clone(t.Hash),
+	}
+}
+
 func table_clone(args Args) (r []Val, err error) {
 	t := args.GetTable()
 
-	return []Val{&Table{
-		List: slices.Clone(t.List),
-		Hash: maps.Clone(t.Hash),
-	}}, nil
+	return []Val{clone(t)}, nil
 }
 
 func table_concat(args Args) (r []Val, err error) {
@@ -173,36 +178,46 @@ func table_isfrozen(args Args) (r []Val, err error) {
 	return []Val{t.Readonly}, nil
 }
 
+func maxArray(list []Val) (maxn float64) {
+	for i, v := range list {
+		if v == nil {
+			continue
+		}
+		if fi := float64(i + 1); fi > maxn {
+			maxn = fi
+		}
+	}
+	return
+}
+
+func maxHash(hash map[Val]Val) (maxn float64) {
+	for k, v := range hash {
+		if v == nil {
+			continue
+		}
+		if fk, ok := k.(float64); ok && fk > maxn {
+			maxn = fk
+		}
+	}
+	return
+}
+
 func table_maxn(args Args) (r []Val, err error) {
 	t := args.GetTable()
 
-	var maxn float64
-
 	// array kvs
+	var maxa float64
 	if t.List != nil {
-		for i, v := range t.List {
-			if v == nil {
-				continue
-			}
-			if fi := float64(i + 1); fi > maxn {
-				maxn = fi
-			}
-		}
+		maxa = maxArray(t.List)
 	}
 
 	// hash kvs
+	var maxh float64
 	if t.Hash != nil {
-		for k, v := range t.Hash {
-			if v == nil {
-				continue
-			}
-			if fk, ok := k.(float64); ok && fk > maxn {
-				maxn = fk
-			}
-		}
+		maxh = maxHash(t.Hash)
 	}
 
-	return []Val{maxn}, nil
+	return []Val{max(maxa, maxh)}, nil
 }
 
 func table_move(args Args) (r []Val, err error) {
@@ -213,8 +228,8 @@ func table_move(args Args) (r []Val, err error) {
 		return nil, errReadonly
 	}
 
-	for i := a; i <= b; i++ {
-		dst.SetInt(t+i-a, src.GetInt(i))
+	for i := range b - a + 1 {
+		dst.SetInt(t+i, src.GetInt(i+a))
 	}
 
 	return []Val{dst}, nil

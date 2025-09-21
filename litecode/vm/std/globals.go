@@ -138,14 +138,15 @@ func global_tonumber(args Args) (r []Val, err error) {
 		n += uint64(index)
 	}
 
-	if negative {
-		if ogRadix == 10 {
-			// this is wild Luau, fix yo shit
-			return []Val{-float64(n)}, nil
-		}
-		return []Val{float64(-n)}, nil
+	if !negative {
+		return []Val{float64(n)}, nil
 	}
-	return []Val{float64(n)}, nil
+
+	if ogRadix == 10 {
+		// this is wild Luau, fix yo shit
+		return []Val{-float64(n)}, nil
+	}
+	return []Val{float64(-n)}, nil
 }
 
 const kPow10TableMin = -292
@@ -198,6 +199,14 @@ var kPow10Table = [39][3]uint64{
 
 var kDigitTable = [200]byte([]byte("00010203040506070809101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899"))
 
+func mul128hi(x, y uint64) uint64 {
+	x0, x1 := uint64(uint32(x)), uint64(uint32(x>>32))
+	y0, y1 := uint64(uint32(y)), uint64(uint32(y>>32))
+	p11, p01, p10, p00 := x1*y1, x0*y1, x1*y0, x0*y0
+	mid := p10 + p00>>32 + uint64(uint32(p01))
+	return p11 + mid>>32 + p01>>32
+}
+
 // x*y => 128-bit product (lo+hi)
 func mul128(x, y uint64) (uint64, uint64) {
 	x0, x1 := uint64(uint32(x)), uint64(uint32(x>>32))
@@ -205,14 +214,6 @@ func mul128(x, y uint64) (uint64, uint64) {
 	p11, p01, p10, p00 := x1*y1, x0*y1, x1*y0, x0*y0
 	mid := p10 + p00>>32 + uint64(uint32(p01))
 	return p11 + mid>>32 + p01>>32, mid<<32 | uint64(uint32(p00))
-}
-
-func mul128hi(x, y uint64) uint64 {
-	x0, x1 := uint64(uint32(x)), uint64(uint32(x>>32))
-	y0, y1 := uint64(uint32(y)), uint64(uint32(y>>32))
-	p11, p01, p10, p00 := x1*y1, x0*y1, x1*y0, x0*y0
-	mid := p10 + p00>>32 + uint64(uint32(p01))
-	return p11 + mid>>32 + p01>>32
 }
 
 func b2i(b bool) uint64 {
@@ -305,11 +306,7 @@ func schubfach(exponent int, c uint64) (uint64, int) {
 	s := vb / 4
 	if s >= 10 {
 		sp := s / 10
-
-		upin := vbl+out <= 40*sp
-		wpin := vbr >= 40*sp+40+out
-
-		if upin != wpin {
+		if upin, wpin := vbl+out <= 40*sp, vbr >= 40*sp+40+out; upin != wpin {
 			return sp + b2i(wpin), k + 1
 		}
 	}
@@ -334,15 +331,23 @@ func (b *bufPos) String() string {
 	return string(b.buf[:b.pos])
 }
 
+func (b *bufPos) Get0() byte {
+	return b.buf[b.pos]
+}
+
 func (b *bufPos) Get(i int) byte {
 	return b.buf[b.pos+i]
+}
+
+func (b *bufPos) Set0(v byte) {
+	b.buf[b.pos] = v
 }
 
 func (b *bufPos) Set(i int, v byte) {
 	b.buf[b.pos+i] = v
 }
 
-func printunsignedrev(end *bufPos, num uint64) *bufPos {
+func printunsignedrev(end *bufPos, num uint64) {
 	for num >= 10000 {
 		tail := num % 10000
 
@@ -367,10 +372,8 @@ func printunsignedrev(end *bufPos, num uint64) *bufPos {
 
 	if num != 0 {
 		end.pos--
-		end.Set(0, '0'+byte(num))
+		end.Set0('0' + byte(num))
 	}
-
-	return end
 }
 
 func printexp(buf *bufPos, v int) string {
@@ -396,22 +399,21 @@ func printexp(buf *bufPos, v int) string {
 	return string(b[:p+4])
 }
 
-func trimzero(end *bufPos) *bufPos {
+func trimzero(end *bufPos) {
 	for end.Get(-1) == '0' {
 		end.pos--
 	}
-
-	return end
 }
 
 func num2str2(exponent int, fraction uint64, buf *bufPos) string {
 	// convert binary to decimal using Schubfach
+	// fmt.Print("Schubfach: ", exponent, fraction, "\n")
 	s, k := schubfach(exponent, fraction)
 
 	// print the decimal to a temporary buffer; we'll need to insert the decimal point and figure out the format
 	const decend = 20 // significand needs at most 17 digits; the rest of the buffer may be copied using fixed length memcpy
-	db2 := &bufPos{[48]byte{}, decend}
-	dec := printunsignedrev(db2, s)
+	dec := &bufPos{[48]byte{}, decend}
+	printunsignedrev(dec, s)
 
 	declen := decend - dec.pos
 	dot := declen + k
@@ -419,42 +421,37 @@ func num2str2(exponent int, fraction uint64, buf *bufPos) string {
 	// the limits are somewhat not arbitrary
 	if dot < -5 || dot > 21 {
 		// scientific format
-		buf.Set(0, dec.Get(0))
+		buf.Set0(dec.Get0())
 		buf.Set(1, '.')
-		for i := range declen - 1 {
-			buf.Set(i+2, dec.Get(i+1))
-		}
+		copy(buf.buf[buf.pos+2:], dec.buf[dec.pos+1:])
 
 		buf.pos += declen + 1
-		exp := trimzero(buf)
+		trimzero(buf)
 
-		if exp.Get(-1) == '.' {
-			exp.pos--
+		if buf.Get(-1) == '.' {
+			buf.pos--
 		}
 
-		return printexp(exp, dot-1)
+		return printexp(buf, dot-1)
 	}
 
 	// fixed point format
 	if dot <= 0 {
-		buf.Set(0, '0')
+		buf.Set0('0')
 		buf.Set(1, '.')
 
 		for i := range -dot {
 			buf.Set(i+2, '0')
 		}
-		for i := range declen {
-			buf.Set(i+2-dot, dec.Get(i))
-		}
+		copy(buf.buf[buf.pos+2-dot:], dec.buf[dec.pos:])
 
 		buf.pos += 2 + -dot + declen
-		return trimzero(buf).String()
+		trimzero(buf)
+		return buf.String()
 	}
 	if dot == declen {
 		// no dot
-		for i := range dot {
-			buf.Set(i, dec.Get(i))
-		}
+		copy(buf.buf[buf.pos:], dec.buf[dec.pos:])
 
 		// fmt.Println("no dot", dec, buf, dot, declen)
 
@@ -463,9 +460,7 @@ func num2str2(exponent int, fraction uint64, buf *bufPos) string {
 	}
 	if dot > declen {
 		// fmt.Println("no dot, zero padding", declen, dot)
-		for i := range declen {
-			buf.Set(i, dec.Get(i))
-		}
+		copy(buf.buf[buf.pos:], dec.buf[dec.pos:])
 		for i := range dot - declen {
 			buf.Set(i+declen, '0')
 		}
@@ -474,19 +469,15 @@ func num2str2(exponent int, fraction uint64, buf *bufPos) string {
 	}
 
 	// dot in the middle
-	for i := range dot {
-		buf.Set(i, dec.Get(i))
-	}
+	copy(buf.buf[buf.pos:][:dot], dec.buf[dec.pos:][:dot])
 
 	buf.Set(dot, '.')
 
-	dec.pos += dot
-	for i := range declen - dot {
-		buf.Set(i+dot+1, dec.Get(i))
-	}
+	copy(buf.buf[buf.pos+dot+1:], dec.buf[dec.pos+dot:])
 
 	buf.pos += declen + 1
-	return trimzero(buf).String()
+	trimzero(buf)
+	return buf.String()
 }
 
 func num2str(n float64) string {

@@ -1,0 +1,5 @@
+print(#{ 1, 2, 3, 5, 6 })
+print(#{ 1, 2, 3, nil, 5, 6 })
+print(#{ 1, 2, 3, nil, nil, 5, 6 })
+print(#{ 1, 2, 3, nil, nil, nil, 5, 6 })
+print(#{ 1, 2, 3, nil, nil, nil, nil, 5, 6 })
