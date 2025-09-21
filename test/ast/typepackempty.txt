@@ -1,0 +1,30 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 1,0
+    HasEnd: true
+    Body:
+        Type: AstStatTypeAlias
+        Location: 0,0 - 0,22
+        Name: D
+        Generics:
+        GenericPacks:
+        Value:
+            Type: AstTypeReference
+            Location: 0,9 - 0,22
+            Name: A
+            NameLocation: 0,9 - 0,10
+            Parameters:
+                Type: AstTypeReference
+                Location: 0,11 - 0,17
+                Name: number
+                NameLocation: 0,11 - 0,17
+                Parameters:
+                Type: AstTypePackExplicit
+                Location: 0,19 - 0,20
+                TypeList:
+                    Type: AstTypeList
+                    Types:
+                    TailType:
+        Exported: false
+
+Comment Locations:

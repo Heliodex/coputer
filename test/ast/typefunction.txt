@@ -1,0 +1,163 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 4,0
+    HasEnd: true
+    Body:
+        Type: AstStatTypeAlias
+        Location: 0,0 - 0,27
+        Name: x
+        Generics:
+        GenericPacks:
+        Value:
+            Type: AstTypeFunction
+            Location: 0,9 - 0,27
+            Attributes:
+            Generics:
+            GenericPacks:
+            ArgTypes:
+                Type: AstTypeList
+                Types:
+                    Type: AstTypeReference
+                    Location: 0,10 - 0,16
+                    Name: number
+                    NameLocation: 0,10 - 0,16
+                    Parameters:
+                TailType:
+            ArgNames:
+            ReturnTypes:
+                Type: AstTypePackExplicit
+                Location: 0,21 - 0,27
+                TypeList:
+                    Type: AstTypeList
+                    Types:
+                        Type: AstTypeReference
+                        Location: 0,21 - 0,27
+                        Name: string
+                        NameLocation: 0,21 - 0,27
+                        Parameters:
+                    TailType:
+        Exported: false
+    
+        Type: AstStatTypeAlias
+        Location: 1,0 - 1,30
+        Name: y
+        Generics:
+        GenericPacks:
+        Value:
+            Type: AstTypeFunction
+            Location: 1,9 - 1,30
+            Attributes:
+            Generics:
+            GenericPacks:
+            ArgTypes:
+                Type: AstTypeList
+                Types:
+                    Type: AstTypeReference
+                    Location: 1,13 - 1,19
+                    Name: number
+                    NameLocation: 1,13 - 1,19
+                    Parameters:
+                TailType:
+            ArgNames:
+                Type: AstArgumentName
+                Name: n
+                Location: 1,10 - 1,11
+            ReturnTypes:
+                Type: AstTypePackExplicit
+                Location: 1,24 - 1,30
+                TypeList:
+                    Type: AstTypeList
+                    Types:
+                        Type: AstTypeReference
+                        Location: 1,24 - 1,30
+                        Name: string
+                        NameLocation: 1,24 - 1,30
+                        Parameters:
+                    TailType:
+        Exported: false
+    
+        Type: AstStatTypeAlias
+        Location: 2,0 - 2,38
+        Name: z
+        Generics:
+        GenericPacks:
+        Value:
+            Type: AstTypeFunction
+            Location: 2,9 - 2,38
+            Attributes:
+            Generics:
+            GenericPacks:
+            ArgTypes:
+                Type: AstTypeList
+                Types:
+                    Type: AstTypeReference
+                    Location: 2,10 - 2,16
+                    Name: number
+                    NameLocation: 2,10 - 2,16
+                    Parameters:
+                    Type: AstTypeReference
+                    Location: 2,21 - 2,27
+                    Name: number
+                    NameLocation: 2,21 - 2,27
+                    Parameters:
+                TailType:
+            ArgNames:
+                <nil>
+                Type: AstArgumentName
+                Name: n
+                Location: 2,18 - 2,19
+            ReturnTypes:
+                Type: AstTypePackExplicit
+                Location: 2,32 - 2,38
+                TypeList:
+                    Type: AstTypeList
+                    Types:
+                        Type: AstTypeReference
+                        Location: 2,32 - 2,38
+                        Name: string
+                        NameLocation: 2,32 - 2,38
+                        Parameters:
+                    TailType:
+        Exported: false
+    
+        Type: AstStatTypeAlias
+        Location: 3,0 - 3,37
+        Name: m
+        Generics:
+        GenericPacks:
+        Value:
+            Type: AstTypeFunction
+            Location: 3,9 - 3,37
+            Attributes:
+            Generics:
+            GenericPacks:
+            ArgTypes:
+                Type: AstTypeList
+                Types:
+                    Type: AstTypeReference
+                    Location: 3,10 - 3,16
+                    Name: number
+                    NameLocation: 3,10 - 3,16
+                    Parameters:
+                TailType:
+            ArgNames:
+            ReturnTypes:
+                Type: AstTypePackExplicit
+                Location: 3,21 - 3,37
+                TypeList:
+                    Type: AstTypeList
+                    Types:
+                        Type: AstTypeReference
+                        Location: 3,22 - 3,28
+                        Name: string
+                        NameLocation: 3,22 - 3,28
+                        Parameters:
+                        Type: AstTypeReference
+                        Location: 3,30 - 3,36
+                        Name: string
+                        NameLocation: 3,30 - 3,36
+                        Parameters:
+                    TailType:
+        Exported: false
+
+Comment Locations:

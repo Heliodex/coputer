@@ -1,0 +1,68 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 1,0
+    HasEnd: true
+    Body:
+        Type: AstStatLocalFunction
+        Location: 0,0 - 0,41
+        Name:
+            LuauType:
+            Name: x
+            Type: AstLocal
+            Location: 0,15 - 0,16
+        Func:
+            Type: AstExprFunction
+            Location: 0,0 - 0,41
+            Attributes:
+            Generics:
+                Type: AstGenericType
+                Name: T
+            GenericPacks:
+            Args:
+                LuauType:
+                    Type: AstTypeReference
+                    Location: 0,23 - 0,24
+                    Name: T
+                    NameLocation: 0,23 - 0,24
+                    Parameters:
+                Name: a
+                Type: AstLocal
+                Location: 0,20 - 0,21
+            ReturnAnnotation:
+                Type: AstTypePackExplicit
+                Location: 0,27 - 0,28
+                TypeList:
+                    Type: AstTypeList
+                    Types:
+                        Type: AstTypeReference
+                        Location: 0,27 - 0,28
+                        Name: T
+                        NameLocation: 0,27 - 0,28
+                        Parameters:
+                    TailType:
+            Vararg: false
+            VarargLocation: 0,0 - 0,0
+            Body:
+                Type: AstStatBlock
+                Location: 0,28 - 0,38
+                HasEnd: true
+                Body:
+                    Type: AstStatReturn
+                    Location: 0,29 - 0,37
+                    List:
+                        Type: AstExprLocal
+                        Location: 0,36 - 0,37
+                        Local:
+                            LuauType:
+                                Type: AstTypeReference
+                                Location: 0,23 - 0,24
+                                Name: T
+                                NameLocation: 0,23 - 0,24
+                                Parameters:
+                            Name: a
+                            Type: AstLocal
+                            Location: 0,20 - 0,21
+            FunctionDepth: 1
+            Debugname: x
+
+Comment Locations:

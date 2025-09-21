@@ -1,0 +1,30 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 1,0
+    HasEnd: true
+    Body:
+        Type: AstStatFunction
+        Location: 0,0 - 0,16
+        Name:
+            Type: AstExprGlobal
+            Location: 0,9 - 0,10
+            Global: x
+        Func:
+            Type: AstExprFunction
+            Location: 0,0 - 0,16
+            Attributes:
+            Generics:
+            GenericPacks:
+            Args:
+            ReturnAnnotation:
+            Vararg: false
+            VarargLocation: 0,0 - 0,0
+            Body:
+                Type: AstStatBlock
+                Location: 0,12 - 0,13
+                HasEnd: true
+                Body:
+            FunctionDepth: 1
+            Debugname: x
+
+Comment Locations:

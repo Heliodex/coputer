@@ -1,0 +1,27 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 1,0
+    HasEnd: true
+    Body:
+        Type: AstStatTypeAlias
+        Location: 0,0 - 0,24
+        Name: x
+        Generics:
+        GenericPacks:
+        Value:
+            Type: AstTypeUnion
+            Location: 0,9 - 0,24
+            Types:
+                Type: AstTypeReference
+                Location: 0,9 - 0,15
+                Name: number
+                NameLocation: 0,9 - 0,15
+                Parameters:
+                Type: AstTypeReference
+                Location: 0,18 - 0,24
+                Name: string
+                NameLocation: 0,18 - 0,24
+                Parameters:
+        Exported: false
+
+Comment Locations:

@@ -1,0 +1,19 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 2,0
+    HasEnd: true
+    Body:
+        Type: AstStatAssign
+        Location: 1,0 - 1,8
+        Vars:
+            Type: AstExprGlobal
+            Location: 1,0 - 1,1
+            Global: x
+        Values:
+            Type: AstExprConstantString
+            Location: 1,4 - 1,8
+            Value: hi
+
+Comment Locations:
+    Type: Comment
+    Location: 0,0 - 0,15

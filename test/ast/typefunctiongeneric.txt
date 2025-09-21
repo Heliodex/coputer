@@ -1,0 +1,40 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 1,0
+    HasEnd: true
+    Body:
+        Type: AstStatTypeAlias
+        Location: 0,0 - 0,36
+        Name: x
+        Generics:
+        GenericPacks:
+        Value:
+            Type: AstTypeFunction
+            Location: 0,9 - 0,36
+            Attributes:
+            Generics:
+                Type: AstGenericType
+                Name: T
+            GenericPacks:
+                Type: AstGenericTypePack
+                Name: U
+                Type: AstGenericTypePack
+                Name: V
+            ArgTypes:
+                Type: AstTypeList
+                Types:
+                TailType:
+                    Type: AstTypePackGeneric
+                    Location: 0,25 - 0,29
+                    GenericName: U
+            ArgNames:
+            ReturnTypes:
+                Type: AstTypePackExplicit
+                Location: 0,34 - 0,36
+                TypeList:
+                    Type: AstTypeList
+                    Types:
+                    TailType:
+        Exported: false
+
+Comment Locations:

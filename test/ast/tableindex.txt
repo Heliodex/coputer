@@ -1,0 +1,61 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 3,0
+    HasEnd: true
+    Body:
+        Type: AstStatLocal
+        Location: 0,0 - 0,12
+        Vars:
+            LuauType:
+            Name: x
+            Type: AstLocal
+            Location: 0,6 - 0,7
+        Values:
+            Type: AstExprTable
+            Location: 0,10 - 0,12
+            Items:
+    
+        Type: AstStatAssign
+        Location: 1,0 - 1,14
+        Vars:
+            Type: AstExprIndexName
+            Location: 1,0 - 1,7
+            Expr:
+                Type: AstExprLocal
+                Location: 1,0 - 1,1
+                Local:
+                    LuauType:
+                    Name: x
+                    Type: AstLocal
+                    Location: 0,6 - 0,7
+            Index: hello
+        Values:
+            Type: AstExprConstantString
+            Location: 1,10 - 1,14
+            Value: hi
+    
+        Type: AstStatExpr
+        Location: 2,0 - 2,14
+        Expr:
+            Type: AstExprCall
+            Location: 2,0 - 2,14
+            Func:
+                Type: AstExprGlobal
+                Location: 2,0 - 2,5
+                Global: print
+            Args:
+                Type: AstExprIndexName
+                Location: 2,6 - 2,13
+                Expr:
+                    Type: AstExprLocal
+                    Location: 2,6 - 2,7
+                    Local:
+                        LuauType:
+                        Name: x
+                        Type: AstLocal
+                        Location: 0,6 - 0,7
+                Index: hello
+            Self: false
+            ArgLocation: 2,6 - 2,14
+
+Comment Locations:

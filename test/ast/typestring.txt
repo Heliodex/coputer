@@ -1,0 +1,28 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 2,0
+    HasEnd: true
+    Body:
+        Type: AstStatTypeAlias
+        Location: 0,0 - 0,16
+        Name: x
+        Generics:
+        GenericPacks:
+        Value:
+            Type: AstTypeSingletonString
+            Location: 0,9 - 0,16
+            Value: hello
+        Exported: false
+    
+        Type: AstStatTypeAlias
+        Location: 1,0 - 1,18
+        Name: y
+        Generics:
+        GenericPacks:
+        Value:
+            Type: AstTypeSingletonString
+            Location: 1,9 - 1,18
+            Value: hello
+        Exported: false
+
+Comment Locations:

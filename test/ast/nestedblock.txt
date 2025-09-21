@@ -1,0 +1,218 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 16,0
+    HasEnd: true
+    Body:
+        Type: AstStatWhile
+        Location: 0,0 - 15,3
+        Condition:
+            Type: AstExprConstantNumber
+            Location: 0,6 - 0,7
+            Value: 1.000000
+        Body:
+            Type: AstStatBlock
+            Location: 0,10 - 15,0
+            HasEnd: true
+            Body:
+                Type: AstStatExpr
+                Location: 2,1 - 2,31
+                Expr:
+                    Type: AstExprCall
+                    Location: 2,1 - 2,31
+                    Func:
+                        Type: AstExprGlobal
+                        Location: 2,1 - 2,6
+                        Global: print
+                    Args:
+                        Type: AstExprFunction
+                        Location: 2,7 - 2,30
+                        Attributes:
+                        Generics:
+                        GenericPacks:
+                        Args:
+                        ReturnAnnotation:
+                        Vararg: false
+                        VarargLocation: 0,0 - 0,0
+                        Body:
+                            Type: AstStatBlock
+                            Location: 2,17 - 2,27
+                            HasEnd: true
+                            Body:
+                                Type: AstStatReturn
+                                Location: 2,18 - 2,26
+                                List:
+                                    Type: AstExprConstantNumber
+                                    Location: 2,25 - 2,26
+                                    Value: 5.000000
+                        FunctionDepth: 1
+                        Debugname:
+                    Self: false
+                    ArgLocation: 2,7 - 2,31
+            
+                Type: AstStatWhile
+                Location: 3,1 - 14,4
+                Condition:
+                    Type: AstExprConstantNumber
+                    Location: 3,7 - 3,8
+                    Value: 2.000000
+                Body:
+                    Type: AstStatBlock
+                    Location: 3,11 - 14,1
+                    HasEnd: true
+                    Body:
+                        Type: AstStatExpr
+                        Location: 5,2 - 5,32
+                        Expr:
+                            Type: AstExprCall
+                            Location: 5,2 - 5,32
+                            Func:
+                                Type: AstExprGlobal
+                                Location: 5,2 - 5,7
+                                Global: print
+                            Args:
+                                Type: AstExprFunction
+                                Location: 5,8 - 5,31
+                                Attributes:
+                                Generics:
+                                GenericPacks:
+                                Args:
+                                ReturnAnnotation:
+                                Vararg: false
+                                VarargLocation: 0,0 - 0,0
+                                Body:
+                                    Type: AstStatBlock
+                                    Location: 5,18 - 5,28
+                                    HasEnd: true
+                                    Body:
+                                        Type: AstStatReturn
+                                        Location: 5,19 - 5,27
+                                        List:
+                                            Type: AstExprConstantNumber
+                                            Location: 5,26 - 5,27
+                                            Value: 5.000000
+                                FunctionDepth: 1
+                                Debugname:
+                            Self: false
+                            ArgLocation: 5,8 - 5,32
+                    
+                        Type: AstStatWhile
+                        Location: 6,2 - 13,5
+                        Condition:
+                            Type: AstExprConstantNumber
+                            Location: 6,8 - 6,9
+                            Value: 3.000000
+                        Body:
+                            Type: AstStatBlock
+                            Location: 6,12 - 13,2
+                            HasEnd: true
+                            Body:
+                                Type: AstStatExpr
+                                Location: 8,3 - 8,33
+                                Expr:
+                                    Type: AstExprCall
+                                    Location: 8,3 - 8,33
+                                    Func:
+                                        Type: AstExprGlobal
+                                        Location: 8,3 - 8,8
+                                        Global: print
+                                    Args:
+                                        Type: AstExprFunction
+                                        Location: 8,9 - 8,32
+                                        Attributes:
+                                        Generics:
+                                        GenericPacks:
+                                        Args:
+                                        ReturnAnnotation:
+                                        Vararg: false
+                                        VarargLocation: 0,0 - 0,0
+                                        Body:
+                                            Type: AstStatBlock
+                                            Location: 8,19 - 8,29
+                                            HasEnd: true
+                                            Body:
+                                                Type: AstStatReturn
+                                                Location: 8,20 - 8,28
+                                                List:
+                                                    Type: AstExprConstantNumber
+                                                    Location: 8,27 - 8,28
+                                                    Value: 5.000000
+                                        FunctionDepth: 1
+                                        Debugname:
+                                    Self: false
+                                    ArgLocation: 8,9 - 8,33
+                            
+                                Type: AstStatWhile
+                                Location: 9,3 - 12,6
+                                Condition:
+                                    Type: AstExprConstantNumber
+                                    Location: 9,9 - 9,10
+                                    Value: 4.000000
+                                Body:
+                                    Type: AstStatBlock
+                                    Location: 9,13 - 12,3
+                                    HasEnd: true
+                                    Body:
+                                        Type: AstStatExpr
+                                        Location: 11,4 - 11,34
+                                        Expr:
+                                            Type: AstExprCall
+                                            Location: 11,4 - 11,34
+                                            Func:
+                                                Type: AstExprGlobal
+                                                Location: 11,4 - 11,9
+                                                Global: print
+                                            Args:
+                                                Type: AstExprFunction
+                                                Location: 11,10 - 11,33
+                                                Attributes:
+                                                Generics:
+                                                GenericPacks:
+                                                Args:
+                                                ReturnAnnotation:
+                                                Vararg: false
+                                                VarargLocation: 0,0 - 0,0
+                                                Body:
+                                                    Type: AstStatBlock
+                                                    Location: 11,20 - 11,30
+                                                    HasEnd: true
+                                                    Body:
+                                                        Type: AstStatReturn
+                                                        Location: 11,21 - 11,29
+                                                        List:
+                                                            Type: AstExprConstantNumber
+                                                            Location: 11,28 - 11,29
+                                                            Value: 5.000000
+                                                FunctionDepth: 1
+                                                Debugname:
+                                            Self: false
+                                            ArgLocation: 11,10 - 11,34
+                                HasDo: true
+                        HasDo: true
+                HasDo: true
+        HasDo: true
+
+Comment Locations:
+    Type: Comment
+    Location: 0,11 - 0,27
+    Type: Comment
+    Location: 1,1 - 1,17
+    Type: Comment
+    Location: 3,12 - 3,28
+    Type: Comment
+    Location: 4,2 - 4,18
+    Type: Comment
+    Location: 6,13 - 6,29
+    Type: Comment
+    Location: 7,3 - 7,19
+    Type: Comment
+    Location: 9,14 - 9,30
+    Type: Comment
+    Location: 10,4 - 10,20
+    Type: Comment
+    Location: 12,7 - 12,21
+    Type: Comment
+    Location: 13,6 - 13,20
+    Type: Comment
+    Location: 14,5 - 14,19
+    Type: Comment
+    Location: 15,4 - 15,18

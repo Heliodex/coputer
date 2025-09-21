@@ -1,0 +1,103 @@
+{
+	"name": "coputer",
+	"displayName": "Coputer",
+	"description": "Coputer tools",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Heliodex/coputer",
+		"directory": "ast/format"
+	},
+	"version": "0.0.1",
+	"engines": {
+		"vscode": "^1.104.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"main": "./dist/extension.js",
+	"scripts": {
+		"build": "bun esbuild.ts",
+		"pack": "bunx vsce package"
+	},
+	"contributes": {
+		"commands": [
+			{
+				"command": "coputer.helloWorld",
+				"title": "Hello World"
+			}
+		],
+		"languages": [
+			{
+				"id": "luau",
+				"aliases": [
+					"Luau",
+					"luau"
+				],
+				"extensions": [
+					".luau"
+				],
+				"configuration": "./language-configuration.json"
+			}
+		],
+		"grammars": [
+			{
+				"language": "luau",
+				"scopeName": "source.luau",
+				"path": "./syntaxes/Luau.tmLanguage.json",
+				"unbalancedBracketScopes": [
+					"keyword.operator.comparison",
+					"keyword.operator.type.function"
+				],
+				"tokenTypes": {
+					"meta.template.expression": "other",
+					"meta.template.expression string": "string",
+					"meta.template.expression comment": "comment"
+				}
+			},
+			{
+				"scopeName": "markdown.luau.codeblock",
+				"path": "./syntaxes/codeblock.json",
+				"injectTo": [
+					"text.html.markdown"
+				],
+				"embeddedLanguages": {
+					"meta.embedded.block.luau": "luau"
+				}
+			}
+		],
+		"semanticTokenScopes": [
+			{
+				"language": "luau",
+				"scopes": {
+					"variable.defaultLibrary.readonly": [
+						"constant.language.global.luau"
+					],
+					"property.defaultLibrary": [
+						"variable.language.luau"
+					],
+					"enum.defaultLibrary": [
+						"constant.language.enum.luau"
+					]
+				}
+			}
+		],
+		"configuration": {
+			"title": "Coputer",
+			"properties": {
+				"coputer.tools.path": {
+					"type": "string",
+					"description": "Path to the Coputer tools executable."
+				}
+			}
+		}
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.2.4",
+		"@types/node": "22.x",
+		"@types/vscode": "^1.104.0",
+		"typescript": "^5.9.2"
+	},
+	"dependencies": {
+		"esbuild": "^0.25.9"
+	}
+}

@@ -1,0 +1,31 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 1,0
+    HasEnd: true
+    Body:
+        Type: AstStatLocalFunction
+        Location: 0,0 - 0,22
+        Name:
+            LuauType:
+            Name: x
+            Type: AstLocal
+            Location: 0,15 - 0,16
+        Func:
+            Type: AstExprFunction
+            Location: 0,0 - 0,22
+            Attributes:
+            Generics:
+            GenericPacks:
+            Args:
+            ReturnAnnotation:
+            Vararg: false
+            VarargLocation: 0,0 - 0,0
+            Body:
+                Type: AstStatBlock
+                Location: 0,18 - 0,19
+                HasEnd: true
+                Body:
+            FunctionDepth: 1
+            Debugname: x
+
+Comment Locations:

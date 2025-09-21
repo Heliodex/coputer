@@ -1,0 +1,41 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 2,0
+    HasEnd: true
+    Body:
+        Type: AstStatLocal
+        Location: 0,0 - 0,12
+        Vars:
+            LuauType:
+            Name: x
+            Type: AstLocal
+            Location: 0,6 - 0,7
+        Values:
+            Type: AstExprTable
+            Location: 0,10 - 0,12
+            Items:
+    
+        Type: AstStatTypeAlias
+        Location: 1,0 - 1,25
+        Name: X
+        Generics:
+        GenericPacks:
+        Value:
+            Type: AstTypeReference
+            Location: 1,9 - 1,25
+            Name: keyof
+            NameLocation: 1,9 - 1,14
+            Parameters:
+                Type: AstTypeTypeof
+                Location: 1,15 - 1,24
+                Expr:
+                    Type: AstExprLocal
+                    Location: 1,22 - 1,23
+                    Local:
+                        LuauType:
+                        Name: x
+                        Type: AstLocal
+                        Location: 0,6 - 0,7
+        Exported: false
+
+Comment Locations:

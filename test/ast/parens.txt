@@ -1,0 +1,65 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 2,0
+    HasEnd: true
+    Body:
+        Type: AstStatLocal
+        Location: 0,0 - 0,21
+        Vars:
+            LuauType:
+            Name: x
+            Type: AstLocal
+            Location: 0,6 - 0,7
+        Values:
+            Type: AstExprBinary
+            Location: 0,10 - 0,21
+            Op: Mul
+            Left:
+                Type: AstExprGroup
+                Location: 0,10 - 0,17
+                Expr:
+                    Type: AstExprBinary
+                    Location: 0,11 - 0,16
+                    Op: Add
+                    Left:
+                        Type: AstExprConstantNumber
+                        Location: 0,11 - 0,12
+                        Value: 1.000000
+                    Right:
+                        Type: AstExprConstantNumber
+                        Location: 0,15 - 0,16
+                        Value: 2.000000
+            Right:
+                Type: AstExprConstantNumber
+                Location: 0,20 - 0,21
+                Value: 3.000000
+    
+        Type: AstStatLocal
+        Location: 1,0 - 1,19
+        Vars:
+            LuauType:
+            Name: y
+            Type: AstLocal
+            Location: 1,6 - 1,7
+        Values:
+            Type: AstExprBinary
+            Location: 1,10 - 1,19
+            Op: Add
+            Left:
+                Type: AstExprConstantNumber
+                Location: 1,10 - 1,11
+                Value: 1.000000
+            Right:
+                Type: AstExprBinary
+                Location: 1,14 - 1,19
+                Op: Mul
+                Left:
+                    Type: AstExprConstantNumber
+                    Location: 1,14 - 1,15
+                    Value: 2.000000
+                Right:
+                    Type: AstExprConstantNumber
+                    Location: 1,18 - 1,19
+                    Value: 3.000000
+
+Comment Locations:

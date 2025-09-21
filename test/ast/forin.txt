@@ -1,0 +1,66 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 4,0
+    HasEnd: true
+    Body:
+        Type: AstStatLocal
+        Location: 0,0 - 0,21
+        Vars:
+            LuauType:
+            Name: x
+            Type: AstLocal
+            Location: 0,6 - 0,7
+        Values:
+            Type: AstExprTable
+            Location: 0,10 - 0,21
+            Items:
+                Type: AstExprTableItem
+                Kind: item
+                Key:
+                Value:
+                    Type: AstExprConstantNumber
+                    Location: 0,12 - 0,13
+                    Value: 1.000000
+                Type: AstExprTableItem
+                Kind: item
+                Key:
+                Value:
+                    Type: AstExprConstantNumber
+                    Location: 0,15 - 0,16
+                    Value: 2.000000
+                Type: AstExprTableItem
+                Kind: item
+                Key:
+                Value:
+                    Type: AstExprConstantNumber
+                    Location: 0,18 - 0,19
+                    Value: 3.000000
+    
+        Type: AstStatForIn
+        Location: 2,0 - 3,3
+        Vars:
+            LuauType:
+            Name: i
+            Type: AstLocal
+            Location: 2,4 - 2,5
+            LuauType:
+            Name: v
+            Type: AstLocal
+            Location: 2,7 - 2,8
+        Values:
+            Type: AstExprLocal
+            Location: 2,12 - 2,13
+            Local:
+                LuauType:
+                Name: x
+                Type: AstLocal
+                Location: 0,6 - 0,7
+        Body:
+            Type: AstStatBlock
+            Location: 2,16 - 3,0
+            HasEnd: true
+            Body:
+        HasIn: true
+        HasDo: true
+
+Comment Locations:

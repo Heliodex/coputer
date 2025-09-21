@@ -1,0 +1,44 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 1,15
+    HasEnd: true
+    Body:
+        Type: AstStatExpr
+        Location: 0,0 - 0,20
+        Expr:
+            Type: AstExprCall
+            Location: 0,0 - 0,20
+            Func:
+                Type: AstExprGlobal
+                Location: 0,0 - 0,5
+                Global: print
+            Args:
+                Type: AstExprInterpString
+                Location: 0,6 - 0,19
+                Strings:
+                    Hello,
+                    !
+                Expressions:
+                    Type: AstExprGlobal
+                    Location: 0,15 - 0,16
+                    Global: x
+            Self: false
+            ArgLocation: 0,6 - 0,20
+    
+        Type: AstStatExpr
+        Location: 1,0 - 1,15
+        Expr:
+            Type: AstExprCall
+            Location: 1,0 - 1,15
+            Func:
+                Type: AstExprGlobal
+                Location: 1,0 - 1,5
+                Global: print
+            Args:
+                Type: AstExprConstantString
+                Location: 1,6 - 1,14
+                Value: Hello!
+            Self: false
+            ArgLocation: 1,6 - 1,15
+
+Comment Locations:

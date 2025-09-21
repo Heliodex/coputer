@@ -1,0 +1,111 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 18,0
+    HasEnd: true
+    Body:
+        Type: AstStatLocal
+        Location: 0,0 - 0,15
+        Vars:
+            LuauType:
+            Name: babyShark
+            Type: AstLocal
+            Location: 0,6 - 0,15
+        Values:
+    
+        Type: AstStatBlock
+        Location: 1,0 - 17,3
+        HasEnd: true
+        Body:
+            Type: AstStatBlock
+            Location: 2,1 - 16,4
+            HasEnd: true
+            Body:
+                Type: AstStatBlock
+                Location: 3,2 - 15,5
+                HasEnd: true
+                Body:
+                    Type: AstStatBlock
+                    Location: 4,3 - 14,6
+                    HasEnd: true
+                    Body:
+                        Type: AstStatBlock
+                        Location: 5,4 - 13,7
+                        HasEnd: true
+                        Body:
+                            Type: AstStatBlock
+                            Location: 6,5 - 12,8
+                            HasEnd: true
+                            Body:
+                                Type: AstStatLocal
+                                Location: 7,6 - 7,22
+                                Vars:
+                                    LuauType:
+                                    Name: lol
+                                    Type: AstLocal
+                                    Location: 7,12 - 7,15
+                                Values:
+                                    Type: AstExprConstantBool
+                                    Location: 7,18 - 7,22
+                                    Value: true
+                            
+                                Type: AstStatLocalFunction
+                                Location: 8,6 - 10,9
+                                Name:
+                                    LuauType:
+                                    Name: thing
+                                    Type: AstLocal
+                                    Location: 8,21 - 8,26
+                                Func:
+                                    Type: AstExprFunction
+                                    Location: 8,6 - 10,9
+                                    Attributes:
+                                    Generics:
+                                    GenericPacks:
+                                    Args:
+                                    ReturnAnnotation:
+                                    Vararg: false
+                                    VarargLocation: 0,0 - 0,0
+                                    Body:
+                                        Type: AstStatBlock
+                                        Location: 8,28 - 10,6
+                                        HasEnd: true
+                                        Body:
+                                            Type: AstStatReturn
+                                            Location: 9,7 - 9,23
+                                            List:
+                                                Type: AstExprLocal
+                                                Location: 9,14 - 9,23
+                                                Local:
+                                                    LuauType:
+                                                    Name: babyShark
+                                                    Type: AstLocal
+                                                    Location: 0,6 - 0,15
+                                    FunctionDepth: 1
+                                    Debugname: thing
+                            
+                                Type: AstStatAssign
+                                Location: 11,6 - 11,19
+                                Vars:
+                                    Type: AstExprLocal
+                                    Location: 11,6 - 11,9
+                                    Local:
+                                        LuauType:
+                                        Name: lol
+                                        Type: AstLocal
+                                        Location: 7,12 - 7,15
+                                Values:
+                                    Type: AstExprCall
+                                    Location: 11,12 - 11,19
+                                    Func:
+                                        Type: AstExprLocal
+                                        Location: 11,12 - 11,17
+                                        Local:
+                                            LuauType:
+                                            Name: thing
+                                            Type: AstLocal
+                                            Location: 8,21 - 8,26
+                                    Args:
+                                    Self: false
+                                    ArgLocation: 11,18 - 11,19
+
+Comment Locations:

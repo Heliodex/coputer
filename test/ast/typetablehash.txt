@@ -1,0 +1,31 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 1,0
+    HasEnd: true
+    Body:
+        Type: AstStatTypeAlias
+        Location: 0,0 - 0,29
+        Name: x
+        Generics:
+        GenericPacks:
+        Value:
+            Type: AstTypeTable
+            Location: 0,9 - 0,29
+            Props:
+            Indexer:
+                Location: 0,11 - 0,27
+                IndexType:
+                    Type: AstTypeReference
+                    Location: 0,12 - 0,18
+                    Name: string
+                    NameLocation: 0,12 - 0,18
+                    Parameters:
+                ResultType:
+                    Type: AstTypeReference
+                    Location: 0,21 - 0,27
+                    Name: number
+                    NameLocation: 0,21 - 0,27
+                    Parameters:
+        Exported: false
+
+Comment Locations:

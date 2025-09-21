@@ -1,0 +1,66 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 5,0
+    HasEnd: true
+    Body:
+        Type: AstStatLocal
+        Location: 0,0 - 0,27
+        Vars:
+            LuauType:
+            Name: ctrl
+            Type: AstLocal
+            Location: 0,6 - 0,10
+        Values:
+            Type: AstExprConstantString
+            Location: 0,13 - 0,27
+            Value: 
+    
+        Type: AstStatLocal
+        Location: 1,0 - 1,22
+        Vars:
+            LuauType:
+            Name: normal
+            Type: AstLocal
+            Location: 1,6 - 1,12
+        Values:
+            Type: AstExprConstantString
+            Location: 1,15 - 1,22
+            Value: hello
+    
+        Type: AstStatLocal
+        Location: 2,0 - 2,22
+        Vars:
+            LuauType:
+            Name: uni
+            Type: AstLocal
+            Location: 2,6 - 2,9
+        Values:
+            Type: AstExprConstantString
+            Location: 2,12 - 2,22
+            Value: àôéé
+    
+        Type: AstStatLocal
+        Location: 3,0 - 3,18
+        Vars:
+            LuauType:
+            Name: bad
+            Type: AstLocal
+            Location: 3,6 - 3,9
+        Values:
+            Type: AstExprConstantString
+            Location: 3,12 - 3,18
+            Value: �
+    
+        Type: AstStatLocal
+        Location: 4,0 - 4,25
+        Vars:
+            LuauType:
+            Name: quoted
+            Type: AstLocal
+            Location: 4,6 - 4,12
+        Values:
+            Type: AstExprConstantString
+            Location: 4,15 - 4,25
+            Value: quote"d
+
+Comment Locations:

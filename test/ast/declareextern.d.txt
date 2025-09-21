@@ -1,0 +1,74 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 8,0
+    HasEnd: true
+    Body:
+        Type: AstStatDeclareClass
+        Location: 0,20 - 3,3
+        Name: Foo
+        Props:
+            Type: AstDeclaredClassProp
+            Name: prop
+            NameLocation: 1,1 - 1,5
+            Location: 1,1 - 1,13
+            LuauType:
+                Type: AstTypeReference
+                Location: 1,7 - 1,13
+                Name: number
+                NameLocation: 1,7 - 1,13
+                Parameters:
+            Type: AstDeclaredClassProp
+            Name: method
+            NameLocation: 2,10 - 2,16
+            Location: 2,1 - 2,43
+            LuauType:
+                Type: AstTypeFunction
+                Location: 2,1 - 2,43
+                Attributes:
+                Generics:
+                GenericPacks:
+                ArgTypes:
+                    Type: AstTypeList
+                    Types:
+                        Type: AstTypeReference
+                        Location: 2,28 - 2,34
+                        Name: number
+                        NameLocation: 2,28 - 2,34
+                        Parameters:
+                    TailType:
+                ArgNames:
+                    Type: AstArgumentName
+                    Name: foo
+                    Location: 2,23 - 2,26
+                ReturnTypes:
+                    Type: AstTypePackExplicit
+                    Location: 2,37 - 2,43
+                    TypeList:
+                        Type: AstTypeList
+                        Types:
+                            Type: AstTypeReference
+                            Location: 2,37 - 2,43
+                            Name: string
+                            NameLocation: 2,37 - 2,43
+                            Parameters:
+                        TailType:
+        Indexer:
+    
+        Type: AstStatDeclareClass
+        Location: 5,20 - 7,3
+        Name: Bar
+        SuperName: Foo
+        Props:
+            Type: AstDeclaredClassProp
+            Name: prop2
+            NameLocation: 6,1 - 6,6
+            Location: 6,1 - 6,14
+            LuauType:
+                Type: AstTypeReference
+                Location: 6,8 - 6,14
+                Name: string
+                NameLocation: 6,8 - 6,14
+                Parameters:
+        Indexer:
+
+Comment Locations:

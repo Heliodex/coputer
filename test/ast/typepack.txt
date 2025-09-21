@@ -1,0 +1,118 @@
+Root:
+    Type: AstStatBlock
+    Location: 0,0 - 2,0
+    HasEnd: true
+    Body:
+        Type: AstStatTypeAlias
+        Location: 0,0 - 0,55
+        Name: Signal1
+        Generics:
+            Type: AstGenericType
+            Name: T
+        GenericPacks:
+            Type: AstGenericTypePack
+            Name: U
+        Value:
+            Type: AstTypeTable
+            Location: 0,24 - 0,55
+            Props:
+                Type: AstTableProp
+                Location: 0,26 - 0,30
+                Name: data
+                PropType:
+                    Type: AstTypeReference
+                    Location: 0,32 - 0,33
+                    Name: T
+                    NameLocation: 0,32 - 0,33
+                    Parameters:
+                Type: AstTableProp
+                Location: 0,35 - 0,36
+                Name: f
+                PropType:
+                    Type: AstTypeFunction
+                    Location: 0,38 - 0,53
+                    Attributes:
+                    Generics:
+                    GenericPacks:
+                    ArgTypes:
+                        Type: AstTypeList
+                        Types:
+                            Type: AstTypeReference
+                            Location: 0,39 - 0,40
+                            Name: T
+                            NameLocation: 0,39 - 0,40
+                            Parameters:
+                        TailType:
+                            Type: AstTypePackGeneric
+                            Location: 0,42 - 0,46
+                            GenericName: U
+                    ArgNames:
+                    ReturnTypes:
+                        Type: AstTypePackExplicit
+                        Location: 0,51 - 0,53
+                        TypeList:
+                            Type: AstTypeList
+                            Types:
+                            TailType:
+            Indexer:
+        Exported: false
+    
+        Type: AstStatTypeAlias
+        Location: 1,0 - 1,52
+        Name: Signal2
+        Generics:
+            Type: AstGenericType
+            Name: T
+            Type: AstGenericType
+            Name: U
+        GenericPacks:
+        Value:
+            Type: AstTypeTable
+            Location: 1,21 - 1,52
+            Props:
+                Type: AstTableProp
+                Location: 1,23 - 1,27
+                Name: data
+                PropType:
+                    Type: AstTypeReference
+                    Location: 1,29 - 1,30
+                    Name: T
+                    NameLocation: 1,29 - 1,30
+                    Parameters:
+                Type: AstTableProp
+                Location: 1,32 - 1,33
+                Name: f
+                PropType:
+                    Type: AstTypeFunction
+                    Location: 1,35 - 1,50
+                    Attributes:
+                    Generics:
+                    GenericPacks:
+                    ArgTypes:
+                        Type: AstTypeList
+                        Types:
+                            Type: AstTypeReference
+                            Location: 1,36 - 1,37
+                            Name: T
+                            NameLocation: 1,36 - 1,37
+                            Parameters:
+                        TailType:
+                            Type: AstTypePackVariadic
+                            Location: 1,39 - 1,43
+                            VariadicType: Type: AstTypeReference
+                            Location: 1,42 - 1,43
+                            Name: U
+                            NameLocation: 1,42 - 1,43
+                            Parameters:
+                    ArgNames:
+                    ReturnTypes:
+                        Type: AstTypePackExplicit
+                        Location: 1,48 - 1,50
+                        TypeList:
+                            Type: AstTypeList
+                            Types:
+                            TailType:
+            Indexer:
+        Exported: false
+
+Comment Locations:
