@@ -13,16 +13,16 @@ type debugging struct {
 // Coroutine represents a Luau coroutine, including the main coroutine. Luau type `thread`
 // As coroutines are compared by reference, this type must always be used as a pointer.
 type Coroutine struct {
-	Body              Function
-	Env               Env
+	Function
+	Env
 	Filepath, Dbgpath string   // actually does well here
 	RequireHistory    []string // prevents cyclic module dependencies
 	YieldChan         chan internal.Yield
 	ResumeChan        chan []Val
 	Dbg               debugging
-	Compiler          Compiler // for require()
-	Status            internal.Status
-	ProgramArgs       ProgramArgs // idk how
+	Compiler          // for require()
+	internal.Status
+	ProgramArgs // idk how
 }
 
 // Error yields an error to the coroutine, killing it shortly after.
@@ -42,7 +42,7 @@ func (co *Coroutine) Error(err error) {
 
 func startCoroutine(co *Coroutine, args []Val) {
 	// fmt.Println(" RG calling coroutine body with", args)
-	r, err := (*co.Body.Run)(co, args...)
+	r, err := (*co.Run)(co, args...)
 
 	co.Status = internal.CoDead
 	// fmt.Println("RG  yielding", r)

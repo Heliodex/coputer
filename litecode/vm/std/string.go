@@ -1,4 +1,4 @@
-package vm
+package std
 
 import (
 	"errors"
@@ -60,7 +60,7 @@ func string_char(args Args) (r []Val, err error) {
 const (
 	cap_unfinished = -1
 	cap_position   = -2
-	l_esc          = byte('%')
+	l_esc          = '%'
 	specials       = "^$*+?.([%-"
 	// maxcalls       = 200
 )
@@ -200,7 +200,7 @@ func formatItem(args *Args, formatIndicator byte, form string, b *strings.Builde
 	return nil
 }
 
-func fmtstring(strfrmt string, args Args) (string, error) {
+func Fmtstring(strfrmt string, args Args) (string, error) {
 	var b strings.Builder
 	for i, sfl := 0, len(strfrmt); i < sfl; {
 		if strfrmt[i] != l_esc {
@@ -241,7 +241,7 @@ func fmtstring(strfrmt string, args Args) (string, error) {
 func string_format(args Args) (r []Val, err error) {
 	strfrmt := args.GetString()
 
-	res, err := fmtstring(strfrmt, args)
+	res, err := Fmtstring(strfrmt, args)
 	if err != nil {
 		return
 	}
@@ -471,7 +471,7 @@ func string_upper(args Args) (r []Val, err error) {
 	return []Val{strings.ToUpper(s)}, nil
 }
 
-var libstring = NewLib([]Function{
+var Libstring = NewLib([]Function{
 	MakeFn("byte", string_byte),
 	MakeFn("char", string_char),
 	MakeFn("find", string_find),

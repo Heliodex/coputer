@@ -340,7 +340,7 @@ func dev(path string) {
 func main() {
 	if len(os.Args) <= 1 {
 		fmt.Println("Usage: <command>")
-		fmt.Println("Available commands: genkeys, start")
+		fmt.Println("Available commands: genkeys, start, dev")
 		os.Exit(1)
 	}
 

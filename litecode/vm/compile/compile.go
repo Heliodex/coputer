@@ -1,4 +1,4 @@
-package vm
+package compile
 
 import (
 	"crypto/sha3"
@@ -18,7 +18,7 @@ func luauCompile(path string, o uint8) (bytecode []byte, err error) {
 	return cmd.Output()
 }
 
-type compiled struct {
+type Program struct {
 	internal.Deserpath
 	Filepath       string
 	Compiler       Compiler
@@ -34,11 +34,11 @@ func NewCompiler(o uint8) Compiler {
 }
 
 // Compile compiles a program at a specific path to bytecode and returns its deserialised form.
-func Compile(c Compiler, path string) (p compiled, err error) {
+func Compile(c Compiler, path string) (p Program, err error) {
 	// hash path instead of bytecode
 	hash := sha3.Sum256([]byte(path))
 	if dp, ok := c.Cache[hash]; ok {
-		return compiled{
+		return Program{
 			Deserpath: dp,
 			Filepath:  path,
 			Compiler:  c,
@@ -49,7 +49,7 @@ func Compile(c Compiler, path string) (p compiled, err error) {
 	// find if file at path exists
 	if _, err := os.Stat(pathext); err != nil {
 		if _, err := os.Stat(path); err != nil {
-			return compiled{}, errors.New("error finding file")
+			return Program{}, errors.New("error finding file")
 		}
 		// main.luau directory
 		pathext = path + "/main" + Ext
@@ -57,13 +57,13 @@ func Compile(c Compiler, path string) (p compiled, err error) {
 
 	b, err := luauCompile(pathext, c.O)
 	if err != nil {
-		return compiled{}, fmt.Errorf("error compiling file: %w", err)
+		return Program{}, fmt.Errorf("error compiling file: %w", err)
 	}
 
 	// dbgpath has the extension and all
-	d, err := deserialise(b)
+	d, err := Deserialise(b)
 	if err != nil {
-		return compiled{}, fmt.Errorf("error deserialising bytecode: %w", err)
+		return Program{}, fmt.Errorf("error deserialising bytecode: %w", err)
 	}
 
 	dp := internal.Deserpath{
@@ -72,13 +72,9 @@ func Compile(c Compiler, path string) (p compiled, err error) {
 	}
 	c.Cache[hash] = dp
 
-	return compiled{
+	return Program{
 		Deserpath: dp,
 		Filepath:  path,
 		Compiler:  c,
 	}, nil
-}
-
-func (p compiled) Load(env Env, args ProgramArgs) (co Coroutine, cancel func()) {
-	return loadmodule(p, env, map[string]Val{}, args)
 }

@@ -19,9 +19,9 @@ const (
 	Entrypoint         = "main"
 	EntrypointFilename = Entrypoint + ".luau"
 	// (okay, init.luau doesn't work since *that* RFC)
-	InvalidEntrypiont  = "init.luau"
-	DataDir            = "./data"
-	ProgramsDir        = DataDir + "/programs"
+	InvalidEntrypiont = "init.luau"
+	DataDir           = "./data"
+	ProgramsDir       = DataDir + "/programs"
 )
 
 func Bundle(path string) (b []byte, err error) {

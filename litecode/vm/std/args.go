@@ -1,4 +1,4 @@
-package vm
+package std
 
 import (
 	"errors"
@@ -59,6 +59,6 @@ func args_web(args Args) (r []Val, err error) {
 	return []Val{webargs}, nil
 }
 
-var libargs = NewLib([]Function{
+var Libargs = NewLib([]Function{
 	MakeFn("web", args_web),
 })

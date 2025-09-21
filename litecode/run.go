@@ -10,12 +10,12 @@ import (
 	"github.com/Heliodex/coputer/bundle"
 	. "github.com/Heliodex/coputer/litecode/types"
 	"github.com/Heliodex/coputer/litecode/vm"
+	"github.com/Heliodex/coputer/litecode/vm/compile"
 )
 
 func startWeb(v any) (rets WebRets, err error) {
 	t, ok := v.(*Table)
 	if !ok {
-		fmt.Println("no table", v, vm.TypeOf(v))
 		return WebRets{}, errors.New("web program did not return a table")
 	}
 
@@ -73,12 +73,12 @@ func startWeb(v any) (rets WebRets, err error) {
 }
 
 func Start(c Compiler, hash string, args ProgramArgs) (output ProgramRets, err error) {
-	p, err := vm.Compile(c, filepath.Join(bundle.ProgramsDir, hash, bundle.Entrypoint))
+	p, err := compile.Compile(c, filepath.Join(bundle.ProgramsDir, hash, bundle.Entrypoint))
 	if err != nil {
 		return
 	}
 
-	co, cancel := p.Load(nil, args)
+	co, cancel := vm.Load(p, nil, args)
 
 	go func() {
 		time.Sleep(5 * time.Second)

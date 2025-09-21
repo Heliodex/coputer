@@ -17,7 +17,13 @@ end
 
 function elements.bold(text: string) return html.tag "b" {} { text } end
 
+function elements.italic(text: string) return html.tag "i" {} { text } end
+
+function elements.small(text: string) return html.tag "small" {} { text } end
+
 function elements.p(children: html.Tags) return html.tag "p" {}(children) end
+
+function elements.nav(children: html.Tags) return html.tag "nav" {}(children) end
 
 function elements.link(url: string)
 	return function(children: html.Tags)
@@ -46,7 +52,13 @@ local unit = 0.25
 local unitunit = "rem"
 
 type Options = {
+	list: List?,
 	padding: Padding?,
+}
+
+type List = {
+	direction: "horizontal" | "vertical",
+	gap: number?,
 }
 
 type Padding = {
@@ -55,6 +67,20 @@ type Padding = {
 	bottom: number?,
 	left: number?,
 }
+
+function config.listHorizontal(gap: number?): List
+	return {
+		direction = "horizontal",
+		gap = gap,
+	}
+end
+
+function config.listVertical(gap: number?): List
+	return {
+		direction = "vertical",
+		gap = gap,
+	}
+end
 
 function config.paddingAll(padding: number): Padding
 	return {
@@ -77,9 +103,28 @@ end
 local function parseOptions(options: Options)
 	local attrs: html.Attrs = {}
 
+	if options.list then
+		local style = if attrs.style and type(attrs.style) == "string"
+			then attrs.style
+			else ""
+
+		style ..= "display: flex;"
+
+		style ..= if options.list.direction == "horizontal"
+			then "flex-direction: row;"
+			else "flex-direction: column;"
+
+		if options.list.gap then
+			style ..= `gap: {options.list.gap * unit}{unitunit};`
+		end
+
+		attrs.style = style
+	end
+
 	if options.padding then
-		local style = ""
-		if attrs.style and attrs.style ~= true then style = attrs.style end
+		local style = if attrs.style and type(attrs.style) == "string"
+			then attrs.style
+			else ""
 
 		if options.padding.top then
 			style ..= `padding-top: {options.padding.top * unit}{unitunit};`
@@ -115,10 +160,13 @@ end
 function elements.image(
 	src: string,
 	alt: string,
-	caption: html.Tags
+	caption: html.Tags,
+	width: number?
 ): html.ContentTag
+	local attrs = { src = src, alt = alt }
+	if width then attrs.style = `width: {width * unit}{unitunit};` end
 	return html.tag "figure" {} {
-		html.tagVoid "img" { src = src, alt = alt },
+		html.tagVoid "img"(attrs),
 		html.tag "figcaption" {}(caption),
 	}
 end

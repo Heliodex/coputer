@@ -35,15 +35,36 @@ func TestEncode(t *testing.T) {
 	pk, err := DecodePK(pkf1)
 	Assert(t, err)
 
-	sk, err := DecodeSK(skf1)
-	Assert(t, err)
-
 	if pk.Encode() != pkf1 {
 		t.Fatal("public key encoding mismatch")
 	}
 
+	sk, err := DecodeSK(skf1)
+	Assert(t, err)
+
 	if sk.Encode() != skf1 {
 		t.Fatal("secret key encoding mismatch")
+	}
+
+	pkn, err := DecodePKNoPrefix(pkf1[6:])
+	Assert(t, err)
+
+	if pkn.Encode() != pkf1 {
+		t.Fatal("public key no prefix encoding mismatch")
+	}
+
+	skn, err := DecodeSKNoPrefix(skf1[6:])
+	Assert(t, err)
+
+	if skn.Encode() != skf1 {
+		t.Fatal("secret key no prefix encoding mismatch")
+	}
+
+	kp, err := KeypairSK(sk)
+	Assert(t, err)
+
+	if kp.Pk.Encode() != pkf1 {
+		t.Fatal("public key generated from secret key encoding mismatch")
 	}
 }
 

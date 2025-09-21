@@ -1,6 +1,6 @@
 -- type WebConf = {}
 
-type WebArgs = {
+export type WebArgs = {
 	url: {
 		--[[
 			Raw path of the web request, after the base URL has been removed. Includes starting '/'.

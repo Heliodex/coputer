@@ -1,4 +1,4 @@
-package vm
+package std
 
 import (
 	"math"
@@ -51,26 +51,41 @@ func vector_cross(args Args) (r []Val, err error) {
 	return []Val{cross(a, b)}, nil
 }
 
+func dot(a, b Vector) float32 {
+	return a[0]*b[0] + a[1]*b[1] + a[2]*b[2] + a[3]*b[3]
+}
+
 func vector_dot(args Args) (r []Val, err error) {
 	a, b := args.GetVector(), args.GetVector()
 
-	return []Val{float64(a[0]*b[0] + a[1]*b[1] + a[2]*b[2] + a[3]*b[3])}, nil
+	return []Val{float64(dot(a, b))}, nil
+}
+
+func angle(a, b, axis Vector) float64 {
+	// cross(a, b)
+	c := Vector{
+		a[1]*b[2] - a[2]*b[1],
+		a[2]*b[0] - a[0]*b[2],
+		a[0]*b[1] - a[1]*b[0],
+	}
+
+	sinA := f32Sqrt(c[0]*c[0] + c[1]*c[1] + c[2]*c[2])
+	// dot(a, b)
+	cosA := a[0]*b[0] + a[1]*b[1] + a[2]*b[2]
+	angle := math.Atan2(float64(sinA), float64(cosA))
+
+	// dot(c, axis)
+	if c[0]*axis[0]+c[1]*axis[1]+c[2]*axis[2] < 0 {
+		return -angle
+	}
+	return angle
 }
 
 func vector_angle(args Args) (r []Val, err error) {
 	a, b := args.GetVector(), args.GetVector()
 	axis := args.GetVector(Vector{})
 
-	c := cross(a, b)
-
-	sinA := f32Sqrt(c[0]*c[0] + c[1]*c[1] + c[2]*c[2])
-	cosA := a[0]*b[0] + a[1]*b[1] + a[2]*b[2]
-	angle := math.Atan2(float64(sinA), float64(cosA))
-
-	if c[0]*axis[0]+c[1]*axis[1]+c[2]*axis[2] < 0 {
-		return []Val{-angle}, nil
-	}
-	return []Val{angle}, nil
+	return []Val{angle(a, b, axis)}, nil
 }
 
 func vector_floor(args Args) (r []Val, err error) {
@@ -107,12 +122,12 @@ func vector_sign(args Args) (r []Val, err error) {
 	return []Val{Vector{sign(v[0]), sign(v[1]), sign(v[2]), sign(v[3])}}, nil
 }
 
-func clamp(v, min, max float32) float32 {
-	if v < min {
-		return min
+func clamp(v, minv, maxv float32) float32 {
+	if v < minv {
+		return minv
 	}
-	if v > max {
-		return max
+	if v > maxv {
+		return maxv
 	}
 	return v
 }
@@ -172,7 +187,7 @@ func vector_min(args Args) (r []Val, err error) {
 	return []Val{result}, nil
 }
 
-var libvector = NewLib([]Function{
+var Libvector = NewLib([]Function{
 	MakeFn("create", vector_create),
 	MakeFn("magnitude", vector_magnitude),
 	MakeFn("normalize", vector_normalize),
