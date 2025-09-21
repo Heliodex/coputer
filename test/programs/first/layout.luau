@@ -181,13 +181,14 @@ local defaultCss = [[
 
 local defaultStyle = html.tag "style" {} { defaultCss }
 
-function elements.rets(head: html.Tags, body: html.Tags): WebRes
+function elements.rets(code: number, head: html.Tags, body: html.Tags): WebRes
 	local root = html.tag "html" { lang = "en" } {
 		html.tag "head" {} { table.unpack(head), defaultStyle },
 		html.tag "body" {}(body),
 	}
 
 	return {
+		statuscode = code,
 		headers = {
 			["content-type"] = "text/html; charset=utf-8",
 		},
