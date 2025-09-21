@@ -61,7 +61,7 @@ return function(webargs: WebArgs): layout.Tags
 			},
 		},
 
-		e.h(2, { "What is a Coputer?" }),
+		e.h(2, { "What is a Coputer?" }, "what-is-a-coputer"),
 		e.box { padding = c.paddingXY(0, 4) } {
 			e.box { padding = { top = 2, bottom = 4, left = 4 } } {
 				e.image(
@@ -89,7 +89,9 @@ return function(webargs: WebArgs): layout.Tags
 		e.p {
 			"See the ",
 			e.link "/system" { "System" },
-			" page for more information about how the Coputer network works.",
+			" page for more information about how the Coputer network works. See the ",
+			e.link "/programs" { "Programs" },
+			" page for more information about how Coputer programs are written and executed.",
 		},
 
 		e.box { padding = c.paddingXY(0, 4) } {

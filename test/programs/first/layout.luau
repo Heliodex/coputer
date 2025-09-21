@@ -5,14 +5,15 @@ local html = require "./html"
 
 export type Tags = html.Tags
 
-function elements.h(level: number, children: html.Tags)
-	if level == 1 then return html.tag "h1" {}(children) end
-	if level == 2 then return html.tag "h2" {}(children) end
-	if level == 3 then return html.tag "h3" {}(children) end
-	if level == 4 then return html.tag "h4" {}(children) end
-	if level == 5 then return html.tag "h5" {}(children) end
-	if level == 6 then return html.tag "h6" {}(children) end
-	return html.tag "h1" {}(children) -- default to h1 if level is invalid
+function elements.h(level: number, children: html.Tags, id: string?)
+	local attrs = { id = id }
+	if level == 1 then return html.tag "h1"(attrs)(children) end
+	if level == 2 then return html.tag "h2"(attrs)(children) end
+	if level == 3 then return html.tag "h3"(attrs)(children) end
+	if level == 4 then return html.tag "h4"(attrs)(children) end
+	if level == 5 then return html.tag "h5"(attrs)(children) end
+	if level == 6 then return html.tag "h6"(attrs)(children) end
+	return html.tag "h1"(attrs)(children) -- default to h1 if level is invalid
 end
 
 function elements.bold(text: string) return html.tag "b" {} { text } end
@@ -170,6 +171,8 @@ function elements.image(
 		html.tag "figcaption" {}(caption),
 	}
 end
+
+function elements.code(text: string) return html.tag "code" {} { text } end
 
 local defaultCss = [[
 * {

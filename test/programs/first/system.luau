@@ -9,7 +9,7 @@ return {
 		},
 	},
 
-	e.h(2, { "Gateway" }),
+	e.h(2, { "Gateway" }, "gateway"),
 	e.box { padding = { top = 4, bottom = 6 } } {
 		e.p {
 			"The process begins when your browser sends a request is sent to a ",
@@ -41,7 +41,7 @@ return {
 		},
 	},
 
-	e.h(2, { "Communication system" }),
+	e.h(2, { "Communication system" }, "communication-system"),
 	e.box { padding = { top = 4, bottom = 6 } } {
 		e.p {
 			"The communication system is a service responsible for key management and connecting and distributing Coputer programs and their outputs. The program's publisher will have used it to store the program and distribute it across the network.",
@@ -68,7 +68,7 @@ return {
 		},
 	},
 
-	e.h(2, { "Execution system" }),
+	e.h(2, { "Execution system" }, "execution system"),
 	e.box { padding = { top = 4, bottom = 6 } } {
 		e.p {
 			"The execution system is responsible for storing, executing, and caching responses of Coputer programs. Upon receiving the request to process the program, it checks if the program is stored, returning an error if it isn't. Then it will check if the program output is already cached, returning the cached response if it is.",
