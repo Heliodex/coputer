@@ -14,7 +14,11 @@ return {
 		e.p {
 			"All Coputer programs are written in ",
 			e.outlink "https://luau.org" { "Luau" },
-			", a gradually typed scripting language derived from Lua.",
+			", a gradually typed scripting language derived from Lua. Luau is ",
+			e.outlink "https://create.roblox.com/docs/luau" {
+				"maintained and developed by Roblox",
+			},
+			".",
 		},
 		e.box {
 			padding = { top = 2, bottom = 4, left = 4 },
@@ -63,7 +67,17 @@ return {
 			e.bold "Web",
 			" program, meaning it takes HTTP request parameters as input and returns a response as output. The Coputer execution environment provides an ",
 			e.bold "args",
-			" package, allowing programs to access their input parameters. For a web program, this includes the HTTP method, headers, query parameters, and body.",
+			" package, allowing programs to access their input parameters. For a web program, this includes the HTTP method, headers, query parameters, and body. The program must also return a value in a specific format depending on its type.",
+		},
+	},
+
+	e.h(2, { "Development" }, "development"),
+	e.box { padding = { top = 4, bottom = 6 } } {
+		e.p {
+			"A Communication system can also implement a development mode, allowing for a program to be re-uploaded and re-executed automatically whenever its source code changes.",
+		},
+		e.p {
+			"A development extension for VSCode, providing help to write Coputer programs, is currently a work in progress. It currently provides syntax highlighting and code formatting.",
 		},
 	},
 } :: layout.Tags
