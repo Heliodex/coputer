@@ -14,8 +14,7 @@ return {
 		e.p {
 			"The process begins when your browser sends a request is sent to a ",
 			e.bold "gateway",
-			", the entrypoint for the Coputer network for any programs written to produce web requests. ",
-			e.small "(aka all of them, since web programs are the only available program type at the moment)",
+			", the entrypoint for the Coputer network for any programs written to produce web requests.",
 		},
 		e.p {
 			"The gateway, such as the one hosted at ",
@@ -68,7 +67,7 @@ return {
 		},
 	},
 
-	e.h(2, { "Execution system" }, "execution system"),
+	e.h(2, { "Execution system" }, "execution-system"),
 	e.box { padding = { top = 4, bottom = 6 } } {
 		e.p {
 			"The execution system is responsible for storing, executing, and caching responses of Coputer programs. Upon receiving the request to process the program, it checks if the program is stored, returning an error if it isn't. Then it will check if the program output is already cached, returning the cached response if it is.",
