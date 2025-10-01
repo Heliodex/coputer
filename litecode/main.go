@@ -120,7 +120,7 @@ func runWeb(w http.ResponseWriter, r *http.Request, hexhash string, c Compiler /
 }
 
 func main() {
-	c := compile.NewCompiler(1)
+	c := compile.MakeCompiler(1)
 
 	// just 1 error cache, as different inputs may result in errors/not
 	// (we don't want one error to bring down the whole program for every user)

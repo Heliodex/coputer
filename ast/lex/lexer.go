@@ -36,13 +36,12 @@ type AstNameTable struct {
 	data map[string]NameTypePair
 }
 
-func NewAstNameTable() AstNameTable {
+func MakeAstNameTable() AstNameTable {
 	t := AstNameTable{make(map[string]NameTypePair)}
 
 	for i := Reserved_BEGIN; i < Reserved_END; i++ {
 		t.addStatic(kReserved[i-Reserved_BEGIN], LexemeType(i))
 	}
-
 	return t
 }
 

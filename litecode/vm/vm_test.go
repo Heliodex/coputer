@@ -107,7 +107,7 @@ func TestConformance(t *testing.T) {
 
 	// const onlyTest = "doubleloop"
 
-	c0, c1, c2 := compile.NewCompiler(0), compile.NewCompiler(1), compile.NewCompiler(2)
+	c0, c1, c2 := compile.MakeCompiler(0), compile.MakeCompiler(1), compile.MakeCompiler(2)
 
 	for _, f := range files {
 		if f.IsDir() {
@@ -164,7 +164,7 @@ func TestErrors(t *testing.T) {
 		t.Fatal("error reading error tests directory:", err)
 	}
 
-	c1 := compile.NewCompiler(1) // just test O1 for the time being
+	c1 := compile.MakeCompiler(1) // just test O1 for the time being
 
 	// const onlyTest = "rfirst"
 
@@ -221,7 +221,7 @@ func TestBenchmark(t *testing.T) {
 
 	// const onlyBench = "luauception"
 
-	compilers := []Compiler{compile.NewCompiler(0), compile.NewCompiler(1), compile.NewCompiler(2)}
+	compilers := []Compiler{compile.MakeCompiler(0), compile.MakeCompiler(1), compile.MakeCompiler(2)}
 
 	for _, f := range files {
 		name := trimext(f.Name())

@@ -7,7 +7,7 @@ import (
 	. "github.com/Heliodex/coputer/litecode/types"
 )
 
-func createCoroutine(body Function, currentCo *Coroutine) *Coroutine {
+func newCoroutine(body Function, currentCo *Coroutine) *Coroutine {
 	// first time i actually ran into the channel axiom issues
 	return &Coroutine{
 		Function:   body,
@@ -30,7 +30,7 @@ func coroutine_close(args Args) (r []Val, err error) {
 func coroutine_create(args Args) (r []Val, err error) {
 	f := args.GetFunction()
 
-	return []Val{createCoroutine(f, args.Co)}, nil
+	return []Val{newCoroutine(f, args.Co)}, nil
 }
 
 func coroutine_isyieldable(args Args) (r []Val, err error) {
@@ -79,7 +79,7 @@ func coroutine_status(args Args) (r []Val, err error) {
 func coroutine_wrap(args Args) (r []Val, err error) {
 	f := args.GetFunction()
 
-	co := createCoroutine(f, args.Co)
+	co := newCoroutine(f, args.Co)
 
 	return []Val{fn("wrap", func(_ *Coroutine, args ...Val) (r []Val, err error) {
 		if co.Status == internal.CoDead {

@@ -41,7 +41,7 @@ var webTests = [...]ProgramTest[WebArgs, WebRets]{
 			Method: "GET",
 		},
 		WebRets{
-			StatusCode:    200,
+			StatusCode: 200,
 			Headers: map[string]string{
 				"content-type": "text/plain; charset=utf-8",
 			},
@@ -55,7 +55,7 @@ var webTests = [...]ProgramTest[WebArgs, WebRets]{
 			Method: "POST",
 		},
 		WebRets{
-			StatusCode:    200,
+			StatusCode: 200,
 			Headers: map[string]string{
 				"content-type": "text/plain; charset=utf-8",
 			},
@@ -69,7 +69,7 @@ var webTests = [...]ProgramTest[WebArgs, WebRets]{
 			Method: "POST",
 		},
 		WebRets{
-			StatusCode:    405,
+			StatusCode: 405,
 			Headers: map[string]string{
 				"content-type": "text/plain; charset=utf-8",
 			},
@@ -83,7 +83,7 @@ var webTests = [...]ProgramTest[WebArgs, WebRets]{
 			Method: "GET",
 		},
 		WebRets{
-			StatusCode:    200,
+			StatusCode: 200,
 			Headers: map[string]string{
 				"content-type": "text/html; charset=utf-8",
 			},
@@ -97,7 +97,7 @@ var webTests = [...]ProgramTest[WebArgs, WebRets]{
 			Method: "GET",
 		},
 		WebRets{
-			StatusCode:    200,
+			StatusCode: 200,
 			Headers: map[string]string{
 				"content-type": "text/html; charset=utf-8",
 			},
@@ -111,7 +111,7 @@ var webTests = [...]ProgramTest[WebArgs, WebRets]{
 			Method: "GET",
 		},
 		WebRets{
-			StatusCode:    454,
+			StatusCode: 454,
 			Headers: map[string]string{
 				"content-type": "text/plain; charset=utf-8",
 			},
@@ -125,7 +125,7 @@ var webTests = [...]ProgramTest[WebArgs, WebRets]{
 			Method: "GET",
 		},
 		WebRets{
-			StatusCode:    404,
+			StatusCode: 404,
 			Headers: map[string]string{
 				"content-type": "text/plain; charset=utf-8",
 			},
@@ -139,8 +139,8 @@ var webTests = [...]ProgramTest[WebArgs, WebRets]{
 			Method: "GET",
 		},
 		WebRets{
-			StatusCode:    200,
-			Body: []byte(`Raw query: `),
+			StatusCode: 200,
+			Body:       []byte(`Raw query: `),
 		},
 	},
 	{
@@ -150,7 +150,7 @@ var webTests = [...]ProgramTest[WebArgs, WebRets]{
 			Method: "GET",
 		},
 		WebRets{
-			StatusCode:    200,
+			StatusCode: 200,
 			Body: []byte(`a =
 - 
 Raw query: a=`),
@@ -163,7 +163,7 @@ Raw query: a=`),
 			Method: "GET",
 		},
 		WebRets{
-			StatusCode:    200,
+			StatusCode: 200,
 			Body: []byte(`a =
 - b
 c =
@@ -178,7 +178,7 @@ Raw query: a=b&c=b`),
 			Method: "GET",
 		},
 		WebRets{
-			StatusCode:    200,
+			StatusCode: 200,
 			Body: []byte(`a =
 - b
 c =
@@ -193,7 +193,7 @@ Raw query: c=b&a=b`),
 			Method: "GET",
 		},
 		WebRets{
-			StatusCode:    200,
+			StatusCode: 200,
 			Body: []byte(`a =
 - b
 - b
@@ -207,7 +207,7 @@ Raw query: a=b&a=b`),
 			Method: "GET",
 		},
 		WebRets{
-			StatusCode:    200,
+			StatusCode: 200,
 			Body: []byte(`a =
 - c
 - b
@@ -221,7 +221,7 @@ Raw query: a=c&a=b`),
 			Method: "GET",
 		},
 		WebRets{
-			StatusCode:    200,
+			StatusCode: 200,
 			Body: []byte(`a =
 - b
 - c
@@ -235,7 +235,7 @@ Raw query: a=b&a=c`),
 			Method: "GET",
 		},
 		WebRets{
-			StatusCode:    200,
+			StatusCode: 200,
 			Body: []byte(` =
 - b
 a =
@@ -250,7 +250,7 @@ Raw query: =b&a=c`),
 			Method: "GET",
 		},
 		WebRets{
-			StatusCode:    200,
+			StatusCode: 200,
 			Body: []byte(` =
 - b
 - c

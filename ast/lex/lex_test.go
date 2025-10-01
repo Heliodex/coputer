@@ -13,7 +13,7 @@ func CHECK_EQ[T comparable](t *testing.T, a, b T) {
 
 func TestBrokenStringWorks(t *testing.T) {
 	const testinput = "[["
-	table := NewAstNameTable()
+	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 	lexeme := lexer.next0()
 	CHECK_EQ(t, lexeme.Type, BrokenString)
@@ -22,7 +22,7 @@ func TestBrokenStringWorks(t *testing.T) {
 
 func TestBrokenComment(t *testing.T) {
 	const testinput = "--[[  "
-	table := NewAstNameTable()
+	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 	lexeme := lexer.next0()
 	CHECK_EQ(t, lexeme.Type, BrokenComment)
@@ -31,21 +31,21 @@ func TestBrokenComment(t *testing.T) {
 
 func TestBrokenCommentKept(t *testing.T) {
 	const testinput = "--[[  "
-	table := NewAstNameTable()
+	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, skipComments: true, readNames: true}
 	CHECK_EQ(t, lexer.next0().Type, BrokenComment)
 }
 
 func TestCommentSkipped(t *testing.T) {
 	const testinput = "--  "
-	table := NewAstNameTable()
+	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, skipComments: true, readNames: true}
 	CHECK_EQ(t, lexer.next0().Type, Eof)
 }
 
 func TestMultilineCommentWithLexemeInAndAfter(t *testing.T) {
 	const testinput = "--[[ function \n]] end"
-	table := NewAstNameTable()
+	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 	comment := lexer.next0()
 	end := lexer.next0()
@@ -58,7 +58,7 @@ func TestMultilineCommentWithLexemeInAndAfter(t *testing.T) {
 
 func TestBrokenEscapeTolerant(t *testing.T) {
 	const testinput = "'\\3729472897292378'"
-	table := NewAstNameTable()
+	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 	lexeme := lexer.next0()
 
@@ -68,7 +68,7 @@ func TestBrokenEscapeTolerant(t *testing.T) {
 
 func TestBigDelimiters(t *testing.T) {
 	const testinput = "--[===[\n\n\n\n]===]"
-	table := NewAstNameTable()
+	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 	item := lexer.next0()
 
@@ -78,7 +78,7 @@ func TestBigDelimiters(t *testing.T) {
 
 func TestLookahead(t *testing.T) {
 	const testinput = "foo --[[ comment ]] bar : nil end"
-	table := NewAstNameTable()
+	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, skipComments: true, readNames: true}
 	lexer.next0() // must call next() before reading data from lexer at least once
 
@@ -116,7 +116,7 @@ func TestLookahead(t *testing.T) {
 
 func TestStringInterpolationBasic(t *testing.T) {
 	const testinput = "`foo {\"bar\"}`"
-	table := NewAstNameTable()
+	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
 	interpBegin := lexer.next0()
@@ -133,7 +133,7 @@ func TestStringInterpolationBasic(t *testing.T) {
 
 func TestStringInterpolationFull(t *testing.T) {
 	const testinput = "`foo {\"bar\"} {\"baz\"} end`"
-	table := NewAstNameTable()
+	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
 	interpBegin := lexer.next0()
@@ -161,7 +161,7 @@ func TestStringInterpolationFull(t *testing.T) {
 
 func TestStringInterpolationDoubleBrace(t *testing.T) {
 	const testinput = "`foo{{bad}}bar`"
-	table := NewAstNameTable()
+	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
 	brokenInterpBegin := lexer.next0()
@@ -177,7 +177,7 @@ func TestStringInterpolationDoubleBrace(t *testing.T) {
 
 func TestStringInterpolationDoubleButUnmatchedBrace(t *testing.T) {
 	const testinput = "`{{oops}`, 1"
-	table := NewAstNameTable()
+	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
 	CHECK_EQ(t, lexer.next0().Type, BrokenInterpDoubleBrace)
@@ -189,7 +189,7 @@ func TestStringInterpolationDoubleButUnmatchedBrace(t *testing.T) {
 
 func TestStringInterpolationUnmatchedBrace(t *testing.T) {
 	const testinput = "{\n        `hello {\"world\"}\n    } -- this might be incorrectly parsed as a string"
-	table := NewAstNameTable()
+	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
 	CHECK_EQ(t, lexer.next0().Type, '{')
@@ -201,7 +201,7 @@ func TestStringInterpolationUnmatchedBrace(t *testing.T) {
 
 func TestStringInterpolationWithUnicodeEscape(t *testing.T) {
 	const testinput = "`\\u{1F41B}`"
-	table := NewAstNameTable()
+	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
 	CHECK_EQ(t, lexer.next0().Type, InterpStringSimple)
@@ -210,7 +210,7 @@ func TestStringInterpolationWithUnicodeEscape(t *testing.T) {
 
 func TestSingleQuotedString(t *testing.T) {
 	const testinput = "'test'"
-	table := NewAstNameTable()
+	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
 	lexeme := lexer.next0()
@@ -220,7 +220,7 @@ func TestSingleQuotedString(t *testing.T) {
 
 func TestDoubleQuotedString(t *testing.T) {
 	const testinput = `"test"`
-	table := NewAstNameTable()
+	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
 	lexeme := lexer.next0()
@@ -230,7 +230,7 @@ func TestDoubleQuotedString(t *testing.T) {
 
 func TestLexerDeterminesStringBlockDepth0(t *testing.T) {
 	const testinput = "[[ test ]]"
-	table := NewAstNameTable()
+	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
 	lexeme := lexer.next0()
@@ -242,7 +242,7 @@ func TestLexerDeterminesStringBlockDepth0Multiline1(t *testing.T) {
 	const testinput = `[[ test
     ]]`
 
-	table := NewAstNameTable()
+	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
 	lexeme := lexer.next0()
@@ -255,7 +255,7 @@ func TestLexerDeterminesStringBlockDepth0Multiline2(t *testing.T) {
     test
     ]]`
 
-	table := NewAstNameTable()
+	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
 	lexeme := lexer.next0()
@@ -267,7 +267,7 @@ func TestLexerDeterminesStringBlockDepth0Multiline3(t *testing.T) {
 	const testinput = `[[
     test ]]`
 
-	table := NewAstNameTable()
+	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
 	lexeme := lexer.next0()
@@ -277,7 +277,7 @@ func TestLexerDeterminesStringBlockDepth0Multiline3(t *testing.T) {
 
 func TestLexerDeterminesStringBlockDepth1(t *testing.T) {
 	const testinput = "[=[[%s]]=]"
-	table := NewAstNameTable()
+	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
 	lexeme := lexer.next0()
@@ -287,7 +287,7 @@ func TestLexerDeterminesStringBlockDepth1(t *testing.T) {
 
 func TestLexerDeterminesStringBlockDepth2(t *testing.T) {
 	const testinput = "[==[ test ]==]"
-	table := NewAstNameTable()
+	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
 	lexeme := lexer.next0()
@@ -298,7 +298,7 @@ func TestLexerDeterminesStringBlockDepth2(t *testing.T) {
 func TestLexerDeterminesStringBlockDepth2Multiline1(t *testing.T) {
 	const testinput = `[==[ test
     ]==]`
-	table := NewAstNameTable()
+	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
 	lexeme := lexer.next0()
@@ -310,7 +310,7 @@ func TestLexerDeterminesStringBlockDepth2Multiline2(t *testing.T) {
 	const testinput = `[==[
     test
     ]==]`
-	table := NewAstNameTable()
+	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
 	lexeme := lexer.next0()
@@ -322,7 +322,7 @@ func TestLexerDeterminesStringBlockDepth2Multiline3(t *testing.T) {
 	const testinput = `[==[
 
     test ]==]`
-	table := NewAstNameTable()
+	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
 	lexeme := lexer.next0()
@@ -332,7 +332,7 @@ func TestLexerDeterminesStringBlockDepth2Multiline3(t *testing.T) {
 
 func TestLexerDeterminesCommentBlockDepth0(t *testing.T) {
 	const testinput = "--[[ test ]]"
-	table := NewAstNameTable()
+	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
 	lexeme := lexer.next0()
@@ -342,7 +342,7 @@ func TestLexerDeterminesCommentBlockDepth0(t *testing.T) {
 
 func TestLexerDeterminesStringBlockDepth21(t *testing.T) {
 	const testinput = "--[=[ μέλλον ]=]"
-	table := NewAstNameTable()
+	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
 	lexeme := lexer.next0()
@@ -352,7 +352,7 @@ func TestLexerDeterminesStringBlockDepth21(t *testing.T) {
 
 func TestLexerDeterminesStringBlockDepth22(t *testing.T) {
 	const testinput = "--[==[ test ]==]"
-	table := NewAstNameTable()
+	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
 	lexeme := lexer.next0()

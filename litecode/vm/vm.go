@@ -197,7 +197,8 @@ func getImport(A, count uint8, K0, K1, K2 string, towrap toWrap, stack *[]Val) (
 	return
 }
 
-func newClosure(pc *int32, A uint8, towrap toWrap, code []*internal.Inst, stack *[]Val, co *Coroutine, openUpvals *[]*upval, upvals []*upval) {
+// enclose wraps and sets upvalues for a closure, and places it on the stack at A
+func enclose(pc *int32, A uint8, towrap toWrap, code []*internal.Inst, stack *[]Val, co *Coroutine, openUpvals *[]*upval, upvals []*upval) {
 	nups := towrap.proto.Nups
 	towrap.upvals = make([]*upval, nups)
 
@@ -592,7 +593,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			pc++
 		case 19: // NEWCLOSURE
 			towrap.proto = towrap.protoList[protos[i.D]]
-			newClosure(&pc, uint8(i.A), towrap, code, &stack, co, &openUpvals, upvals)
+			enclose(&pc, uint8(i.A), towrap, code, &stack, co, &openUpvals, upvals)
 			pc++
 		case 20: // NAMECALL
 			pc++
@@ -902,7 +903,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 		case 64: // DUPCLOSURE
 			// wrap is reused for closures
 			towrap.proto = towrap.protoList[i.K.(uint32)] // 6 closure
-			newClosure(&pc, uint8(i.A), towrap, code, &stack, co, nil, upvals)
+			enclose(&pc, uint8(i.A), towrap, code, &stack, co, nil, upvals)
 			pc++
 		case 65: // PREPVARARGS
 			// Handled by wrapper

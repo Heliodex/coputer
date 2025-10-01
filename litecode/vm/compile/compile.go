@@ -25,8 +25,8 @@ type Program struct {
 	RequireHistory []string
 }
 
-// NewCompiler creates a new compiler with the given optimisation level.
-func NewCompiler(o uint8) Compiler {
+// MakeCompiler creates a new compiler with the given optimisation level.
+func MakeCompiler(o uint8) Compiler {
 	return Compiler{
 		Cache: make(map[[32]byte]internal.Deserpath),
 		O:     o,
