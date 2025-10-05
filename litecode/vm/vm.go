@@ -313,12 +313,12 @@ func handleRequire(towrap toWrap, p compile.Program, co *Coroutine) (rets []Val,
 	if err != nil {
 		return
 	}
-	if len(reqrets) == 0 { // i have no reqrets
-		return nil, errors.New("module must return a value")
+	if len(reqrets) != 1 { // i have no reqrets
+		return nil, errors.New("module must return a single value")
 	}
 
-	// only the last return value (weird luau behaviour...)
-	ret := reqrets[len(reqrets)-1]
+	// finally, weird reference implementation behaviour fixed
+	ret := reqrets[0]
 	switch ret.(type) {
 	case *Table, Function:
 	default:
