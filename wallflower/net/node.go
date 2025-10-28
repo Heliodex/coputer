@@ -243,7 +243,7 @@ func (n *Node) StoreProgram(pk keys.PK, name string, sig keys.HashSig, b []byte)
 }
 
 // we don't have the program; ask peers for it
-func (n *Node) peerRunName(pk keys.PK, name string, inputhash [32]byte, ptype ProgramType, input ProgramArgs) (res ProgramRets, err error) {
+func (n *Node) peerRunName(pk keys.PK, name string, inputhash [32]byte, ptype ProgramType, input ProgramArgs) (ProgramRets, error) {
 	if len(n.Peers) == 0 {
 		return nil, errors.New("no peers to run program")
 	}
@@ -253,8 +253,8 @@ func (n *Node) peerRunName(pk keys.PK, name string, inputhash [32]byte, ptype Pr
 	n.resultsWaitingName[h] = ch
 
 	for _, peer := range n.Peers {
-		if err = n.send(peer, mRun{ptype, pk, name, input}); err != nil {
-			return
+		if err := n.send(peer, mRun{ptype, pk, name, input}); err != nil {
+			return nil, err
 		}
 	}
 
@@ -263,10 +263,9 @@ func (n *Node) peerRunName(pk keys.PK, name string, inputhash [32]byte, ptype Pr
 		if pres == nil {
 			continue
 		}
-		res = *pres
 		delete(n.resultsWaitingName, h)
 		close(ch)
-		return
+		return *pres, nil
 	}
 
 	return nil, errors.New("no peers have the program")
