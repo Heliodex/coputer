@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	. "github.com/Heliodex/coputer/litecode/types"
@@ -49,12 +50,12 @@ func GetProfile(pk keys.PK) (programs []string, err error) {
 		return nil, fmt.Errorf("failed to read response body while getting programs: %v", err)
 	}
 
-	bprograms := bytes.Split(bytes.TrimSpace(b), []byte{'\n'})
-	programs = make([]string, len(bprograms))
-	for i, v := range bprograms {
-		programs[i] = string(v)
+	// Convert to string once and split, avoiding intermediate byte slice allocations
+	s := string(b)
+	if s == "" || s == "\n" {
+		return []string{}, nil
 	}
-	return
+	return strings.Split(strings.TrimSpace(s), "\n"), nil
 }
 
 func StoreProgram(pk keys.PK, name string, b []byte) (hash [32]byte, err error) {

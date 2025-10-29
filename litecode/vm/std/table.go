@@ -122,6 +122,32 @@ func bumpelements(t *Table, start int) {
 	// fmt.Println(t)
 	// fmt.Println()
 
+	// Fast path: if working entirely within the list part, use slice operations
+	if t.List != nil && start <= len(t.List) {
+		// Find the last non-nil element
+		var keys int
+		for i := start; i <= len(t.List); i++ {
+			if t.GetInt(i) == nil {
+				keys = i - 1
+				break
+			}
+		}
+		
+		if keys == 0 {
+			keys = len(t.List)
+		}
+
+		// If all elements are in the list part, we can optimize
+		if keys <= len(t.List) {
+			// Move elements within the list part using slice operations
+			for k := keys; k >= start; k-- {
+				t.SetInt(k+1, t.List[k-1])
+			}
+			return
+		}
+	}
+
+	// Slow path: elements may be in hash part or complex structure
 	var keys int
 	for i := start; ; i++ {
 		// fmt.Println("starting with", i)
