@@ -79,11 +79,11 @@ func Start(c Compiler, hash string, args ProgramArgs) (output ProgramRets, err e
 	}
 
 	co, cancel := vm.Load(p, nil, args)
+	defer cancel() // Ensure cancel is called even if we return early
 
-	go func() {
-		time.Sleep(5 * time.Second)
-		cancel()
-	}()
+	// Use a timer instead of spawning a goroutine to avoid goroutine leak
+	timer := time.AfterFunc(5*time.Second, cancel)
+	defer timer.Stop() // Stop the timer if we finish before timeout
 
 	r, err := co.Resume()
 	if err != nil {

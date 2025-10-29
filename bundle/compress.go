@@ -18,10 +18,13 @@ type File struct {
 }
 
 func compress(n string, f []byte) (cf File, err error) {
+	// Pre-allocate buffer with estimated size (typically compressed data is ~30-50% of original)
 	var b bytes.Buffer
+	b.Grow(len(f) / 2)
+	
 	w := gzip.NewWriter(&b)
-
 	w.Name = n
+	
 	if _, err = w.Write(f); err != nil {
 		return
 	}
@@ -34,7 +37,10 @@ func compress(n string, f []byte) (cf File, err error) {
 }
 
 func decompress(c []byte) (f File, err error) {
+	// Pre-allocate buffer with estimated decompressed size (typically 2-3x compressed size)
 	var b bytes.Buffer
+	b.Grow(len(c) * 2)
+	
 	r, err := gzip.NewReader(bytes.NewReader(append(gzheader[:], c...))) // add the header
 	if err != nil {
 		return
