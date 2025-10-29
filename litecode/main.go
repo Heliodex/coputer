@@ -15,7 +15,11 @@ import (
 	"github.com/Heliodex/coputer/litecode/vm/compile"
 )
 
-const NamesDir = bundle.DataDir + "/names"
+const (
+	NamesDir = bundle.DataDir + "/names"
+	// Maximum request body size (50MB for bundled programs)
+	maxRequestBodySize = 50 << 20
+)
 
 // ensure hash is valid decodable hex
 func checkHash(w http.ResponseWriter, hash string) (decoded [32]byte, b bool) {
@@ -68,7 +72,8 @@ func runWeb(w http.ResponseWriter, r *http.Request, hexhash string, c Compiler /
 		return
 	}
 
-	input, err := io.ReadAll(r.Body)
+	// Limit request body size to prevent memory exhaustion
+	input, err := io.ReadAll(io.LimitReader(r.Body, maxRequestBodySize))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -135,7 +140,8 @@ func main() {
 			return
 		}
 
-		data, err := io.ReadAll(r.Body)
+		// Limit request body size to prevent memory exhaustion
+		data, err := io.ReadAll(io.LimitReader(r.Body, maxRequestBodySize))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return

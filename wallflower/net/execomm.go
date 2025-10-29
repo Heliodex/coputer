@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 
 	. "github.com/Heliodex/coputer/litecode/types"
 	"github.com/Heliodex/coputer/wallflower/keys"
@@ -17,10 +18,22 @@ import (
 const (
 	addr      = "http://localhost:2505"
 	storeAddr = addr + "/store"
+	// Maximum response body size (10MB)
+	maxResponseSize = 10 << 20
 )
 
+// httpClient is a shared HTTP client with connection pooling and timeouts
+var httpClient = &http.Client{
+	Timeout: 30 * time.Second,
+	Transport: &http.Transport{
+		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: 10,
+		IdleConnTimeout:     90 * time.Second,
+	},
+}
+
 func GetProfile(pk keys.PK) (programs []string, err error) {
-	res, err := http.Get(addr + "/" + pk.EncodeNoPrefix())
+	res, err := httpClient.Get(addr + "/" + pk.EncodeNoPrefix())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get programs: %v", err)
 	}
@@ -30,7 +43,8 @@ func GetProfile(pk keys.PK) (programs []string, err error) {
 		return nil, fmt.Errorf("bad status from execution server while getting programs: %s", res.Status)
 	}
 
-	b, err := io.ReadAll(res.Body)
+	// Limit response size to prevent memory exhaustion
+	b, err := io.ReadAll(io.LimitReader(res.Body, maxResponseSize))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body while getting programs: %v", err)
 	}
@@ -58,17 +72,18 @@ func StoreProgram(pk keys.PK, name string, b []byte) (hash [32]byte, err error) 
 		return
 	}
 
-	res, err := http.DefaultClient.Do(req)
+	res, err := httpClient.Do(req)
 	if err != nil {
 		return
 	}
+	defer res.Body.Close()
 
 	if res.StatusCode == http.StatusOK || res.StatusCode == http.StatusCreated || res.StatusCode == http.StatusConflict {
 		return
 	}
 
-	// read body into byte arr
-	body, err := io.ReadAll(res.Body)
+	// read body into byte arr with size limit
+	body, err := io.ReadAll(io.LimitReader(res.Body, maxResponseSize))
 	if err != nil {
 		return
 	}
@@ -77,13 +92,14 @@ func StoreProgram(pk keys.PK, name string, b []byte) (hash [32]byte, err error) 
 }
 
 func StartWebProgram(pk keys.PK, name string, args WebArgs) (rets WebRets, err error) {
-	res, err := http.Post(addr+"/web/"+pk.EncodeNoPrefix()+"/"+url.PathEscape(name), "", bytes.NewReader(args.Encode()))
+	res, err := httpClient.Post(addr+"/web/"+pk.EncodeNoPrefix()+"/"+url.PathEscape(name), "", bytes.NewReader(args.Encode()))
 	if err != nil {
 		return WebRets{}, fmt.Errorf("failed to start web program: %v", err)
 	}
+	defer res.Body.Close()
 
-	// we need the body either way
-	b, err := io.ReadAll(res.Body)
+	// we need the body either way, but limit size to prevent memory exhaustion
+	b, err := io.ReadAll(io.LimitReader(res.Body, maxResponseSize))
 	if err != nil {
 		return WebRets{}, fmt.Errorf("failed to read response body while starting web program: %v", err)
 	}

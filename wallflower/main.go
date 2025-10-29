@@ -30,6 +30,9 @@ const (
 	PortCommunication
 	PortGateway
 	PortManagement
+	
+	// Maximum request body size (10MB)
+	maxRequestBodySize = 10 << 20
 )
 
 func gatewayServer(n *net.Node) {
@@ -67,7 +70,8 @@ func gatewayServer(n *net.Node) {
 			return
 		}
 
-		bodybytes, err := io.ReadAll(r.Body)
+		// Limit request body size to prevent memory exhaustion
+		bodybytes, err := io.ReadAll(io.LimitReader(r.Body, maxRequestBodySize))
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to read request body: %v", err), http.StatusBadRequest)
 			return

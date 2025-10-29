@@ -16,6 +16,9 @@ const (
 
 	commPort = 2507
 	hostPort = 2517
+	
+	// Maximum request body size (10MB)
+	maxRequestBodySize = 10 << 20
 )
 
 var host = "localhost"
@@ -79,7 +82,8 @@ func serveProfile(w http.ResponseWriter, r *http.Request, pk keys.PK) {
 }
 
 func serveWeb(w http.ResponseWriter, r *http.Request, pk keys.PK, name string) {
-	body, err := io.ReadAll(r.Body)
+	// Limit request body size to prevent memory exhaustion
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxRequestBodySize))
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to read request body: %v", err), http.StatusBadRequest)
 		return
