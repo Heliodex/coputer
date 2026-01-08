@@ -18,7 +18,7 @@ var addr = "http://localhost:" + strconv.Itoa(commPort)
 func GetProfile(pk keys.PK) (programs []string, err error) {
 	res, err := http.Get(addr + "/" + pk.EncodeNoPrefix())
 	if err != nil {
-		return nil, fmt.Errorf("failed to get programs: %v", err)
+		return nil, fmt.Errorf("get programs: %v", err)
 	}
 	defer res.Body.Close()
 
@@ -28,7 +28,7 @@ func GetProfile(pk keys.PK) (programs []string, err error) {
 
 	b, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body while getting programs: %v", err)
+		return nil, fmt.Errorf("read response body while getting programs: %v", err)
 	}
 
 	bprograms := bytes.Split(bytes.TrimSpace(b), []byte{'\n'})
@@ -44,13 +44,13 @@ func GetProfile(pk keys.PK) (programs []string, err error) {
 func StartWebProgram(pk keys.PK, name string, args WebArgs) (rets WebRets, err error) {
 	res, err := http.Post(addr+"/web/"+pk.EncodeNoPrefix()+"/"+url.PathEscape(name), "", bytes.NewReader(args.Encode()))
 	if err != nil {
-		return WebRets{}, fmt.Errorf("failed to start web program: %v", err)
+		return WebRets{}, fmt.Errorf("start web program: %v", err)
 	}
 
 	// we need the body either way
 	b, err := io.ReadAll(res.Body)
 	if err != nil {
-		return WebRets{}, fmt.Errorf("failed to read response body while starting web program: %v", err)
+		return WebRets{}, fmt.Errorf("read response body while starting web program: %v", err)
 	}
 
 	if res.StatusCode != http.StatusOK {
@@ -59,7 +59,7 @@ func StartWebProgram(pk keys.PK, name string, args WebArgs) (rets WebRets, err e
 
 	// deserialise it
 	if rets, err = DecodeRets[WebRets](b); err != nil {
-		return WebRets{}, fmt.Errorf("failed to decode response body while starting web program: %v", err)
+		return WebRets{}, fmt.Errorf("decode response body while starting web program: %v", err)
 	}
 	return
 }

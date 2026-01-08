@@ -57,13 +57,13 @@ func Compile(c Compiler, path string) (p Program, err error) {
 
 	b, err := luauCompile(pathext, c.O)
 	if err != nil {
-		return Program{}, fmt.Errorf("error compiling file: %w", err)
+		return Program{}, fmt.Errorf("compile file: %w", err)
 	}
 
 	// dbgpath has the extension and all
 	d, err := Deserialise(b)
 	if err != nil {
-		return Program{}, fmt.Errorf("error deserialising bytecode: %w", err)
+		return Program{}, fmt.Errorf("deserialise bytecode: %w", err)
 	}
 
 	dp := internal.Deserpath{

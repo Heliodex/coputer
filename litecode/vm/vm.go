@@ -360,11 +360,15 @@ func call(top *int32, A int32, B, C uint8, towrap toWrap, stack *[]Val, co *Coro
 	retCount := int32(len(retList))
 
 	// fmt.Println("COUNT", retCount)
-	if retCount == 1 { // requires should return only 1 value anyway
+	if retCount == 1 { // require() calls should return only 1 value anyway
+		// by which I mean that compile.Program is the value type returned by the require() implementation. The script has been compiled and packaged as this value.
+		// This never goes on the stack; it's intercepted here to run the coroutine of the require()'d script and get its returns.
+		// Internally, require() therefore looks like it returns just one value. The required script itself, when run, could return more than one value, though if this happens it'll get smited in handleRequire().
 		if p, ok := retList[0].(compile.Program); ok {
 			// it's a require
 			// fmt.Println("REQUIRE", lc.filepath)
 
+			// We intercept here, rather than in the require() implementation itself (global_require()), because we have the toWrap value available here which includes the require cache and all that useful jazz
 			if retList, err = handleRequire(towrap, p, co); err != nil {
 				return
 			}
