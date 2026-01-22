@@ -116,12 +116,12 @@ func (n *Node) AddPeer(p *keys.Peer) {
 func (n *Node) send(p *keys.Peer, sm SentMsg) (err error) {
 	s, err := sm.Serialise()
 	if err != nil {
-		return fmt.Errorf("failed to serialise message: %w", err)
+		return fmt.Errorf("serialise message: %w", err)
 	}
 
 	ct, err := n.Encrypt(s, p.Pk)
 	if err != nil {
-		return fmt.Errorf("failed to encrypt message: %w", err)
+		return fmt.Errorf("encrypt message: %w", err)
 	}
 
 	n.SendRaw <- AddressedMsg{

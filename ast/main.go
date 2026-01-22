@@ -14,31 +14,31 @@ const LuauExt = ".luau"
 func processFile(filepath string, stdout bool) error {
 	content, err := os.ReadFile(filepath)
 	if err != nil {
-		return fmt.Errorf("error reading file: %w", err)
+		return fmt.Errorf("read file: %w", err)
 	}
 
 	out, err := LuauAst(filepath)
 	if err != nil {
-		return fmt.Errorf("error converting to Luau AST: %w", err)
+		return fmt.Errorf("convert to Luau AST: %w", err)
 	}
 
 	// write to ast.json
 	// err = os.WriteFile("ast.json", out, 0o644)
 	// if err != nil {
-	// 	return fmt.Errorf("error writing ast.json: %w", err)
+	// 	return fmt.Errorf("write ast.json: %w", err)
 	// }
 
 	// encode as AST
 	ast, err := DecodeAST(out)
 	if err != nil {
-		return fmt.Errorf("error decoding AST: %w", err)
+		return fmt.Errorf("decode AST: %w", err)
 	}
 
 	// fmt.Println(ast)
 
 	newsource, err := ast.Source(string(content))
 	if err != nil {
-		return fmt.Errorf("error encoding AST: %w", err)
+		return fmt.Errorf("encode AST: %w", err)
 	}
 	// fmt.Println(new)
 
@@ -48,7 +48,7 @@ func processFile(filepath string, stdout bool) error {
 	}
 
 	if err = os.WriteFile(filepath, []byte(newsource), 0o644); err != nil {
-		return fmt.Errorf("error writing file: %w", err)
+		return fmt.Errorf("write file: %w", err)
 	}
 	return nil
 }
@@ -57,7 +57,7 @@ func cmdFile(filearg string) error {
 	info, err := os.Stat(filearg)
 	if err != nil {
 		// fmt.Println("Error getting file stat:", err)
-		return fmt.Errorf("error getting file stat: %w", err)
+		return fmt.Errorf("get file stat: %w", err)
 	}
 
 	if info.IsDir() {
@@ -74,7 +74,7 @@ func cmdFile(filearg string) error {
 
 	if err = processFile(filearg, true); err != nil {
 		// fmt.Println("Error processing file:", err)
-		return fmt.Errorf("error processing file: %w", err)
+		return fmt.Errorf("process file: %w", err)
 	}
 	return nil
 }
@@ -83,7 +83,7 @@ func cmdDir(dirarg string) error {
 	info, err := os.Stat(dirarg)
 	if err != nil {
 		// fmt.Println("Error getting file stat:", err)
-		return fmt.Errorf("error getting file stat: %w", err)
+		return fmt.Errorf("get file stat: %w", err)
 	}
 
 	if !info.IsDir() {
@@ -94,7 +94,7 @@ func cmdDir(dirarg string) error {
 	dirEntries, err := os.ReadDir(dirarg)
 	if err != nil {
 		// fmt.Println("Error reading directory:", err)
-		return fmt.Errorf("error reading directory: %w", err)
+		return fmt.Errorf("read directory: %w", err)
 	}
 
 	var files []string
@@ -124,18 +124,18 @@ func cmdDir(dirarg string) error {
 func cmdInput(content []byte) error {
 	out, err := LuauAstInput(content)
 	if err != nil {
-		return fmt.Errorf("error converting to Luau AST: %w", err)
+		return fmt.Errorf("convert to Luau AST: %w", err)
 	}
 
 	// encode as AST
 	ast, err := DecodeAST(out)
 	if err != nil {
-		return fmt.Errorf("error decoding AST: %w", err)
+		return fmt.Errorf("decode AST: %w", err)
 	}
 
 	newsource, err := ast.Source(string(content))
 	if err != nil {
-		return fmt.Errorf("error encoding AST: %w", err)
+		return fmt.Errorf("encode AST: %w", err)
 	}
 
 	fmt.Print(newsource)

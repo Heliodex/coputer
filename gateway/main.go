@@ -43,7 +43,7 @@ func validateSubdomain(hn string) (pk keys.PK, name string, err error) {
 
 	pk, err = keys.DecodePKNoPrefix(pks)
 	if err != nil {
-		return keys.PK{}, "", fmt.Errorf("failed to decode public key: %v", err)
+		return keys.PK{}, "", fmt.Errorf("decode public key: %v", err)
 	}
 	return
 }

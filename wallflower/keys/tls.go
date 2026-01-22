@@ -21,7 +21,7 @@ func (sk SK) TLS() (cert tls.Certificate, err error) {
 
 	esk, err := ecdsa.GenerateKey(elliptic.P384(), skr)
 	if err != nil {
-		return tls.Certificate{}, fmt.Errorf("failed to generate ECDSA key: %v", err)
+		return tls.Certificate{}, fmt.Errorf("generate ECDSA key: %v", err)
 	}
 
 	notBefore := time.Now()
@@ -29,7 +29,7 @@ func (sk SK) TLS() (cert tls.Certificate, err error) {
 
 	serialNumber, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
 	if err != nil {
-		return tls.Certificate{}, fmt.Errorf("failed to generate serial number: %v", err)
+		return tls.Certificate{}, fmt.Errorf("generate serial number: %v", err)
 	}
 
 	template := &x509.Certificate{
@@ -48,19 +48,19 @@ func (sk SK) TLS() (cert tls.Certificate, err error) {
 
 	der, err := x509.CreateCertificate(rand.Reader, template, template, &esk.PublicKey, esk)
 	if err != nil {
-		return tls.Certificate{}, fmt.Errorf("failed to create X509 certificate: %v", err)
+		return tls.Certificate{}, fmt.Errorf("create X.509 certificate: %v", err)
 	}
 
 	certPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
 
 	skBytes, err := x509.MarshalECPrivateKey(esk)
 	if err != nil {
-		return tls.Certificate{}, fmt.Errorf("failed to marshal ECDSA private key: %v", err)
+		return tls.Certificate{}, fmt.Errorf("marshal ECDSA private key: %v", err)
 	}
 	keyPem := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: skBytes})
 
 	if cert, err = tls.X509KeyPair(certPem, keyPem); err != nil {
-		return tls.Certificate{}, fmt.Errorf("failed to create TLS certificate: %v", err)
+		return tls.Certificate{}, fmt.Errorf("create TLS certificate: %v", err)
 	}
 	return
 }

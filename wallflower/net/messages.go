@@ -129,7 +129,7 @@ func unmarshalInput(ptype ProgramType, rest []byte) (ProgramArgs, error) {
 	case WebProgramType:
 		tin, err := DecodeArgs[WebArgs](rest)
 		if err != nil {
-			return nil, fmt.Errorf("failed to decode web args: %w", err)
+			return nil, fmt.Errorf("decode web args: %w", err)
 		}
 		return tin, nil
 	}
@@ -141,7 +141,7 @@ func unmarshalResult(ptype ProgramType, rest []byte) (ProgramRets, error) {
 	case WebProgramType:
 		tres, err := DecodeRets[WebRets](rest)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal web result: %w", err)
+			return nil, fmt.Errorf("unmarshal web result: %w", err)
 		}
 		return tres, nil
 	}
@@ -181,7 +181,7 @@ func (m AnyMsg) Deserialise() (SentMsg, error) {
 
 		in, err := unmarshalInput(ptype, rest)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal program args: %w", err)
+			return nil, fmt.Errorf("unmarshal program args: %w", err)
 		}
 
 		return mRun{ptype, pk, name, in}, nil
@@ -206,7 +206,7 @@ func (m AnyMsg) Deserialise() (SentMsg, error) {
 
 		res, err := unmarshalResult(ptype, rest)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal program result: %w", err)
+			return nil, fmt.Errorf("unmarshal program result: %w", err)
 		}
 
 		return mRunResult{ptype, pk, name, inputhash, &res}, nil

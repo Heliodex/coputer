@@ -102,7 +102,7 @@ const msgChunk = 2 << 19
 func getPublicIPs() (ips []gnet.IP, err error) {
 	addrs, err := gnet.InterfaceAddrs()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get interface addresses: %v", err)
+		return nil, fmt.Errorf("get interface addresses: %v", err)
 	}
 
 	for _, addr := range addrs {

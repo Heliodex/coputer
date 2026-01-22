@@ -39,7 +39,7 @@ func NewQuicNet(tlsConf *tls.Config, quicConf *quic.Config) (n net.Net, err erro
 		Port: PortCommunication,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to start UDP server: %w", err)
+		return nil, fmt.Errorf("start UDP server: %w", err)
 	}
 
 	// set environment variable
@@ -50,7 +50,7 @@ func NewQuicNet(tlsConf *tls.Config, quicConf *quic.Config) (n net.Net, err erro
 	tr := &quic.Transport{Conn: server}
 	ln, err := tr.Listen(tlsConf, quicConf)
 	if err != nil {
-		return nil, fmt.Errorf("failed to start QUIC server: %w", err)
+		return nil, fmt.Errorf("start QUIC server: %w", err)
 	}
 
 	return &QuicNet{
@@ -96,12 +96,12 @@ func (n *QuicNet) dialStream(addr keys.Address) (err error) {
 	fmt.Println("Dialing         ", addrToReadable(addr))
 	qc, err := n.tr.DialEarly(context.TODO(), addrToUdp(addr), n.tlsConf, n.quicConf)
 	if err != nil {
-		return fmt.Errorf("failed to dial QUIC connection: %w", err)
+		return fmt.Errorf("dial QUIC connection: %w", err)
 	}
 
 	stream, err := qc.OpenUniStream()
 	if err != nil {
-		return fmt.Errorf("failed to open QUIC stream: %w", err)
+		return fmt.Errorf("open QUIC stream: %w", err)
 	}
 
 	n.streams[addr] = stream
