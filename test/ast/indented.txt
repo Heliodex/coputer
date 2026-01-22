@@ -1,6 +1,6 @@
 Root:
     Type: AstStatBlock
-    Location: 0,0 - 18,0
+    Location: 0,0 - 17,0
     HasEnd: true
     Body:
         Type: AstStatLocal
@@ -13,51 +13,60 @@ Root:
         Values:
     
         Type: AstStatBlock
-        Location: 1,0 - 17,3
+        Location: 1,0 - 16,3
         HasEnd: true
         Body:
             Type: AstStatBlock
-            Location: 2,1 - 16,4
+            Location: 2,1 - 15,4
             HasEnd: true
             Body:
                 Type: AstStatBlock
-                Location: 3,2 - 15,5
+                Location: 3,2 - 14,5
                 HasEnd: true
                 Body:
                     Type: AstStatBlock
-                    Location: 4,3 - 14,6
+                    Location: 4,3 - 13,6
                     HasEnd: true
                     Body:
                         Type: AstStatBlock
-                        Location: 5,4 - 13,7
+                        Location: 5,4 - 12,7
                         HasEnd: true
                         Body:
                             Type: AstStatBlock
-                            Location: 6,5 - 12,8
+                            Location: 6,5 - 11,8
                             HasEnd: true
                             Body:
                                 Type: AstStatLocal
-                                Location: 7,6 - 7,22
+                                Location: 7,6 - 7,16
+                                Vars:
+                                    LuauType:
+                                    Name: lol1
+                                    Type: AstLocal
+                                    Location: 7,12 - 7,16
+                                Values:
+                            
+                                Type: AstStatLocal
+                                Location: 8,6 - 8,22
                                 Vars:
                                     LuauType:
                                     Name: lol
                                     Type: AstLocal
-                                    Location: 7,12 - 7,15
+                                    Location: 8,12 - 8,15
                                 Values:
                                     Type: AstExprConstantBool
-                                    Location: 7,18 - 7,22
+                                    Location: 8,18 - 8,22
                                     Value: true
                             
                                 Type: AstStatLocalFunction
-                                Location: 8,6 - 10,9
+                                Location: 9,6 - 9,49
                                 Name:
                                     LuauType:
                                     Name: thing
                                     Type: AstLocal
-                                    Location: 8,21 - 8,26
+                                    Location: 9,21 - 9,26
                                 Func:
                                     Type: AstExprFunction
-                                    Location: 8,6 - 10,9
+                                    Location: 9,6 - 9,49
                                     Attributes:
                                     Generics:
                                     GenericPacks:
@@ -67,14 +76,14 @@ Root:
                                     VarargLocation: 0,0 - 0,0
                                     Body:
                                         Type: AstStatBlock
-                                        Location: 8,28 - 10,6
+                                        Location: 9,28 - 9,46
                                         HasEnd: true
                                         Body:
                                             Type: AstStatReturn
-                                            Location: 9,7 - 9,23
+                                            Location: 9,29 - 9,45
                                             List:
                                                 Type: AstExprLocal
-                                                Location: 9,14 - 9,23
+                                                Location: 9,36 - 9,45
                                                 Local:
                                                     LuauType:
                                                     Name: babyShark
@@ -84,28 +93,28 @@ Root:
                                     Debugname: thing
                             
                                 Type: AstStatAssign
-                                Location: 11,6 - 11,19
+                                Location: 10,6 - 10,19
                                 Vars:
                                     Type: AstExprLocal
-                                    Location: 11,6 - 11,9
+                                    Location: 10,6 - 10,9
                                     Local:
                                         LuauType:
                                         Name: lol
                                         Type: AstLocal
-                                        Location: 7,12 - 7,15
+                                        Location: 8,12 - 8,15
                                 Values:
                                     Type: AstExprCall
-                                    Location: 11,12 - 11,19
+                                    Location: 10,12 - 10,19
                                     Func:
                                         Type: AstExprLocal
-                                        Location: 11,12 - 11,17
+                                        Location: 10,12 - 10,17
                                         Local:
                                             LuauType:
                                             Name: thing
                                             Type: AstLocal
-                                            Location: 8,21 - 8,26
+                                            Location: 9,21 - 9,26
                                     Args:
                                     Self: false
-                                    ArgLocation: 11,18 - 11,19
+                                    ArgLocation: 10,18 - 10,19
 
 Comment Locations:
