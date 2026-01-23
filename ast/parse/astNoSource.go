@@ -8,7 +8,6 @@ import (
 	"math"
 	"os"
 	"os/exec"
-	"slices"
 	"strings"
 )
 
@@ -306,43 +305,6 @@ func (ast AST[T]) String() string {
 
 type AddStatBlock func(AstStatBlock[Node], int)
 
-func DecodeAST(data json.RawMessage) (AST[Node], error) {
-	var raw AST[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return AST[Node]{}, fmt.Errorf("unmarshal AST: %w", err)
-	}
-
-	var statBlocks []StatBlockDepth
-	addStatBlock := func(sb AstStatBlock[Node], depth int) {
-		statBlocks = append(statBlocks, StatBlockDepth{AstStatBlock: sb, Depth: depth})
-	}
-
-	rootNode, err := DecodeStatBlockKnown(raw.Root, addStatBlock, 0)
-	if err != nil {
-		return AST[Node]{}, fmt.Errorf("decode root node: %w", err)
-	}
-
-	slices.SortFunc(statBlocks, func(a, b StatBlockDepth) int {
-		return b.Depth - a.Depth
-	})
-
-	// for each comment, add it to the deepest statblock that fully contains it
-	for _, comment := range raw.CommentLocations {
-		for _, sb := range statBlocks {
-			if !sb.Location.Contains(comment.Location) {
-				continue
-			}
-			*sb.CommentsContained = append(*sb.CommentsContained, comment)
-			break
-		}
-	}
-
-	return AST[Node]{
-		Root:             rootNode,
-		CommentLocations: raw.CommentLocations,
-	}, nil
-}
-
 // node types (ok, real ast now)
 
 type AstArgumentName struct {
@@ -369,14 +331,6 @@ func (a AstArgumentName) String() string {
 	return b.String()
 }
 
-func DecodeArgumentName(data json.RawMessage) (Node, error) {
-	var raw AstArgumentName
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-	return raw, nil
-}
-
 type AstAttr struct {
 	NodeLoc
 	Name string `json:"name"`
@@ -394,14 +348,6 @@ func (a AstAttr) String() string {
 	b.WriteString(fmt.Sprintf("Name: %s\n", a.Name))
 
 	return b.String()
-}
-
-func DecodeAttr(data json.RawMessage) (Node, error) {
-	var raw AstAttr
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-	return raw, nil
 }
 
 type AstDeclaredClassProp[T any] struct {
@@ -433,26 +379,6 @@ func (d AstDeclaredClassProp[T]) String() string {
 	return b.String()
 }
 
-func DecodeDeclaredClassProp(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstDeclaredClassProp[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	luauTypeNode, err := decodeNode(raw.LuauType, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode luauType: %w", err)
-	}
-
-	return AstDeclaredClassProp[Node]{
-		Name:         raw.Name,
-		NameLocation: raw.NameLocation,
-		ASTNode:      raw.ASTNode,
-		LuauType:     luauTypeNode,
-		Location:     raw.Location,
-	}, nil
-}
-
 type AstExprBinary[T any] struct {
 	NodeLoc
 	Op    string `json:"op"`
@@ -476,30 +402,6 @@ func (n AstExprBinary[T]) String() string {
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Right), 4))
 
 	return b.String()
-}
-
-func DecodeExprBinary(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstExprBinary[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	left, err := decodeNode(raw.Left, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode left: %w", err)
-	}
-
-	right, err := decodeNode(raw.Right, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode right: %w", err)
-	}
-
-	return AstExprBinary[Node]{
-		NodeLoc: raw.NodeLoc,
-		Op:      raw.Op,
-		Left:    left,
-		Right:   right,
-	}, nil
 }
 
 type AstExprCall[T any] struct {
@@ -534,35 +436,6 @@ func (n AstExprCall[T]) String() string {
 	return b.String()
 }
 
-func DecodeExprCall(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstExprCall[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	funcNode, err := decodeNode(raw.Func, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode func: %w", err)
-	}
-
-	args := make([]Node, len(raw.Args))
-	for i, arg := range raw.Args {
-		n, err := decodeNode(arg, addStatBlock, depth+1)
-		if err != nil {
-			return nil, fmt.Errorf("decode arg node: %w", err)
-		}
-		args[i] = n
-	}
-
-	return AstExprCall[Node]{
-		NodeLoc:     raw.NodeLoc,
-		Func:        funcNode,
-		Args:        args,
-		Self:        raw.Self,
-		ArgLocation: raw.ArgLocation,
-	}, nil
-}
-
 type AstExprConstantBool struct {
 	NodeLoc
 	Value bool `json:"value"`
@@ -582,14 +455,6 @@ func (n AstExprConstantBool) String() string {
 	return b.String()
 }
 
-func DecodeExprConstantBool(data json.RawMessage) (Node, error) {
-	var raw AstExprConstantBool
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-	return raw, nil
-}
-
 type AstExprConstantNil struct {
 	NodeLoc
 }
@@ -605,14 +470,6 @@ func (n AstExprConstantNil) String() string {
 	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
 
 	return b.String()
-}
-
-func DecodeExprConstantNil(data json.RawMessage) (Node, error) {
-	var raw AstExprConstantNil
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-	return raw, nil
 }
 
 type AstExprConstantNumber struct {
@@ -634,14 +491,6 @@ func (n AstExprConstantNumber) String() string {
 	return b.String()
 }
 
-func DecodeExprConstantNumber(data json.RawMessage) (Node, error) {
-	var raw AstExprConstantNumber
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-	return raw, nil
-}
-
 type AstExprConstantString struct {
 	NodeLoc
 	Value String `json:"value"`
@@ -659,14 +508,6 @@ func (n AstExprConstantString) String() string {
 	b.WriteString(fmt.Sprintf("\nValue: %s", n.Value))
 
 	return b.String()
-}
-
-func DecodeExprConstantString(data json.RawMessage) (Node, error) {
-	var raw AstExprConstantString
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-	return raw, nil
 }
 
 type AstExprFunction[T any] struct {
@@ -728,54 +569,6 @@ func (n AstExprFunction[T]) String() string {
 	return b.String()
 }
 
-func DecodeExprFunctionKnown(raw AstExprFunction[json.RawMessage], addStatBlock AddStatBlock, depth int) (AstExprFunction[Node], error) {
-	args := make([]Node, len(raw.Args))
-	for i, arg := range raw.Args {
-		n, err := decodeNode(arg, addStatBlock, depth+1)
-		if err != nil {
-			return AstExprFunction[Node]{}, fmt.Errorf("decode arg node: %w", err)
-		}
-		args[i] = n
-	}
-
-	var returnAnnotationNodeMaybe *AstTypePackExplicit[Node]
-	if raw.ReturnAnnotation != nil {
-		ran, err := DecodeTypePackExplicitKnown(*raw.ReturnAnnotation, addStatBlock, depth+1)
-		if err != nil {
-			return AstExprFunction[Node]{}, fmt.Errorf("decode return annotation node: %w", err)
-		}
-		returnAnnotationNodeMaybe = &ran
-	}
-
-	bodyNode, err := DecodeStatBlockKnown(raw.Body, addStatBlock, depth+1)
-	if err != nil {
-		return AstExprFunction[Node]{}, fmt.Errorf("decode body node: %w", err)
-	}
-
-	return AstExprFunction[Node]{
-		NodeLoc:          raw.NodeLoc,
-		Attributes:       raw.Attributes,
-		Generics:         raw.Generics,
-		GenericPacks:     raw.GenericPacks,
-		Args:             args,
-		ReturnAnnotation: returnAnnotationNodeMaybe,
-		Vararg:           raw.Vararg,
-		VarargLocation:   raw.VarargLocation,
-		Body:             bodyNode,
-		FunctionDepth:    raw.FunctionDepth,
-		Debugname:        raw.Debugname,
-	}, nil
-}
-
-func DecodeExprFunction(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstExprFunction[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	return DecodeExprFunctionKnown(raw, addStatBlock, depth+1)
-}
-
 type AstExprGlobal struct {
 	NodeLoc
 	Global string `json:"global"`
@@ -793,14 +586,6 @@ func (n AstExprGlobal) String() string {
 	b.WriteString(fmt.Sprintf("\nGlobal: %s", n.Global))
 
 	return b.String()
-}
-
-func DecodeExprGlobal(data json.RawMessage) (Node, error) {
-	var raw AstExprGlobal
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-	return raw, nil
 }
 
 type AstExprGroup[T any] struct {
@@ -821,23 +606,6 @@ func (n AstExprGroup[T]) String() string {
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
 
 	return b.String()
-}
-
-func DecodeExprGroup(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstExprGroup[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	exprNode, err := decodeNode(raw.Expr, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode expr: %w", err)
-	}
-
-	return AstExprGroup[Node]{
-		NodeLoc: raw.NodeLoc,
-		Expr:    exprNode,
-	}, nil
 }
 
 type AstExprIfElse[T any] struct {
@@ -870,37 +638,6 @@ func (n AstExprIfElse[T]) String() string {
 	return b.String()
 }
 
-func DecodeExprIfElse(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstExprIfElse[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	conditionNode, err := decodeNode(raw.Condition, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode condition: %w", err)
-	}
-
-	trueExprNode, err := decodeNode(raw.TrueExpr, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode true expression: %w", err)
-	}
-
-	falseExprNode, err := decodeNode(raw.FalseExpr, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode false expression: %w", err)
-	}
-
-	return AstExprIfElse[Node]{
-		NodeLoc:   raw.NodeLoc,
-		Condition: conditionNode,
-		HasThen:   raw.HasThen,
-		TrueExpr:  trueExprNode,
-		HasElse:   raw.HasElse,
-		FalseExpr: falseExprNode,
-	}, nil
-}
-
 type AstExprIndexExpr[T any] struct {
 	NodeLoc
 	Expr  T `json:"expr"`
@@ -922,29 +659,6 @@ func (n AstExprIndexExpr[T]) String() string {
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Index), 4))
 
 	return b.String()
-}
-
-func DecodeExprIndexExpr(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstExprIndexExpr[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	exprNode, err := decodeNode(raw.Expr, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode expr: %w", err)
-	}
-
-	indexNode, err := decodeNode(raw.Index, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode index: %w", err)
-	}
-
-	return AstExprIndexExpr[Node]{
-		NodeLoc: raw.NodeLoc,
-		Expr:    exprNode,
-		Index:   indexNode,
-	}, nil
 }
 
 type AstExprIndexName[T any] struct {
@@ -969,26 +683,6 @@ func (n AstExprIndexName[T]) String() string {
 	b.WriteString(fmt.Sprintf("\nIndex: %s", n.Index))
 
 	return b.String()
-}
-
-func DecodeExprIndexName(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstExprIndexName[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	exprNode, err := decodeNode(raw.Expr, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode expr: %w", err)
-	}
-
-	return AstExprIndexName[Node]{
-		NodeLoc:       raw.NodeLoc,
-		Expr:          exprNode,
-		Index:         raw.Index,
-		IndexLocation: raw.IndexLocation,
-		Op:            raw.Op,
-	}, nil
 }
 
 type AstExprInterpString[T any] struct {
@@ -1020,28 +714,6 @@ func (n AstExprInterpString[T]) String() string {
 	return b.String()
 }
 
-func DecodeExprInterpString(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstExprInterpString[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	expressions := make([]Node, len(raw.Expressions))
-	for i, expr := range raw.Expressions {
-		n, err := decodeNode(expr, addStatBlock, depth+1)
-		if err != nil {
-			return nil, fmt.Errorf("decode expression node: %w", err)
-		}
-		expressions[i] = n
-	}
-
-	return AstExprInterpString[Node]{
-		NodeLoc:     raw.NodeLoc,
-		Strings:     raw.Strings,
-		Expressions: expressions,
-	}, nil
-}
-
 type AstExprLocal[T any] struct {
 	NodeLoc
 	Local T `json:"local"`
@@ -1060,23 +732,6 @@ func (n AstExprLocal[T]) String() string {
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Local), 4))
 
 	return b.String()
-}
-
-func DecodeExprLocal(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstExprLocal[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	localNode, err := decodeNode(raw.Local, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode local: %w", err)
-	}
-
-	return AstExprLocal[Node]{
-		NodeLoc: raw.NodeLoc,
-		Local:   localNode,
-	}, nil
 }
 
 type AstExprTable[T any] struct {
@@ -1101,27 +756,6 @@ func (n AstExprTable[T]) String() string {
 	}
 
 	return b.String()
-}
-
-func DecodeExprTable(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstExprTable[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	items := make([]Node, len(raw.Items))
-	for i, item := range raw.Items {
-		n, err := decodeNode(item, addStatBlock, depth+1)
-		if err != nil {
-			return nil, fmt.Errorf("decode item node: %w", err)
-		}
-		items[i] = n
-	}
-
-	return AstExprTable[Node]{
-		NodeLoc: raw.NodeLoc,
-		Items:   items,
-	}, nil
 }
 
 type AstExprTableItem[T any] struct {
@@ -1155,34 +789,6 @@ func (n AstExprTableItem[T]) String() string {
 	return b.String()
 }
 
-func DecodeExprTableItem(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstExprTableItem[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	var keyNodeMaybe *Node
-	if raw.Key != nil {
-		keyNode, err := decodeNode(*raw.Key, addStatBlock, depth+1)
-		if err != nil {
-			return nil, fmt.Errorf("decode key: %w", err)
-		}
-		keyNodeMaybe = &keyNode
-	}
-
-	valueNode, err := decodeNode(raw.Value, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode value: %w", err)
-	}
-
-	return AstExprTableItem[Node]{
-		ASTNode: raw.ASTNode,
-		Kind:    raw.Kind,
-		Key:     keyNodeMaybe,
-		Value:   valueNode,
-	}, nil
-}
-
 type AstExprTypeAssertion[T any] struct {
 	NodeLoc
 	Expr       T `json:"expr"`
@@ -1206,29 +812,6 @@ func (n AstExprTypeAssertion[T]) String() string {
 	return b.String()
 }
 
-func DecodeExprTypeAssertion(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstExprTypeAssertion[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	exprNode, err := decodeNode(raw.Expr, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode expr: %w", err)
-	}
-
-	annotationNode, err := decodeNode(raw.Annotation, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode annotation: %w", err)
-	}
-
-	return AstExprTypeAssertion[Node]{
-		NodeLoc:    raw.NodeLoc,
-		Expr:       exprNode,
-		Annotation: annotationNode,
-	}, nil
-}
-
 type AstExprVarargs struct {
 	NodeLoc
 }
@@ -1244,14 +827,6 @@ func (n AstExprVarargs) String() string {
 	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
 
 	return b.String()
-}
-
-func DecodeExprVarargs(data json.RawMessage) (Node, error) {
-	var raw AstExprVarargs
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-	return raw, nil
 }
 
 type AstExprUnary[T any] struct {
@@ -1276,24 +851,6 @@ func (n AstExprUnary[T]) String() string {
 	return b.String()
 }
 
-func DecodeExprUnary(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstExprUnary[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	exprNode, err := decodeNode(raw.Expr, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode expr: %w", err)
-	}
-
-	return AstExprUnary[Node]{
-		NodeLoc: raw.NodeLoc,
-		Op:      raw.Op,
-		Expr:    exprNode,
-	}, nil
-}
-
 type GenericType struct {
 	ASTNode
 	Name string `json:"name"`
@@ -1316,14 +873,6 @@ func (g GenericType) String() string {
 	return b.String()
 }
 
-func DecodeGenericType(data json.RawMessage) (Node, error) {
-	var raw GenericType
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-	return raw, nil
-}
-
 type GenericTypePack struct {
 	ASTNode
 	Name string `json:"name"`
@@ -1344,14 +893,6 @@ func (g GenericTypePack) String() string {
 	b.WriteString(fmt.Sprintf("Name: %s", g.Name))
 
 	return b.String()
-}
-
-func DecodeGenericTypePack(data json.RawMessage) (Node, error) {
-	var raw GenericTypePack
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-	return raw, nil
 }
 
 type AstLocal[T any] struct {
@@ -1377,32 +918,6 @@ func (n AstLocal[T]) String() string {
 	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
 
 	return b.String()
-}
-
-func DecodeLocalKnown(raw AstLocal[json.RawMessage], addStatBlock AddStatBlock, depth int) (AstLocal[Node], error) {
-	var luauTypeMaybe *Node
-	if raw.LuauType != nil {
-		luauTypeNode, err := decodeNode(*raw.LuauType, addStatBlock, depth+1)
-		if err != nil {
-			return AstLocal[Node]{}, fmt.Errorf("decode luau type: %w", err)
-		}
-		luauTypeMaybe = &luauTypeNode
-	}
-
-	return AstLocal[Node]{
-		LuauType: luauTypeMaybe,
-		Name:     raw.Name,
-		NodeLoc:  raw.NodeLoc,
-	}, nil
-}
-
-func DecodeLocal(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstLocal[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	return DecodeLocalKnown(raw, addStatBlock, depth+1)
 }
 
 type AstStatAssign[T any] struct {
@@ -1434,37 +949,6 @@ func (n AstStatAssign[T]) String() string {
 	return b.String()
 }
 
-func DecodeStatAssign(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstStatAssign[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	vars := make([]Node, len(raw.Vars))
-	for i, v := range raw.Vars {
-		n, err := decodeNode(v, addStatBlock, depth+1)
-		if err != nil {
-			return nil, fmt.Errorf("decode var node: %w", err)
-		}
-		vars[i] = n
-	}
-
-	values := make([]Node, len(raw.Values))
-	for i, v := range raw.Values {
-		n, err := decodeNode(v, addStatBlock, depth+1)
-		if err != nil {
-			return nil, fmt.Errorf("decode value node: %w", err)
-		}
-		values[i] = n
-	}
-
-	return AstStatAssign[Node]{
-		NodeLoc: raw.NodeLoc,
-		Vars:    vars,
-		Values:  values,
-	}, nil
-}
-
 type AstStatBlock[T any] struct {
 	NodeLoc
 	HasEnd            bool       `json:"hasEnd"`
@@ -1492,36 +976,6 @@ func (n AstStatBlock[T]) String() string {
 	return b.String()
 }
 
-func DecodeStatBlockKnown(raw AstStatBlock[json.RawMessage], addStatBlock AddStatBlock, depth int) (AstStatBlock[Node], error) {
-	body := make([]Node, len(raw.Body))
-	for i, bn := range raw.Body {
-		n, err := decodeNode(bn, addStatBlock, depth+1)
-		if err != nil {
-			return AstStatBlock[Node]{}, fmt.Errorf("decode body node: %w", err)
-		}
-		body[i] = n
-	}
-
-	// hi sb, my good old friend
-	sb := AstStatBlock[Node]{
-		NodeLoc:           raw.NodeLoc,
-		HasEnd:            raw.HasEnd,
-		Body:              body,
-		CommentsContained: &[]Comment{},
-	}
-	addStatBlock(sb, depth)
-	return sb, nil
-}
-
-func DecodeStatBlock(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstStatBlock[json.RawMessage] // rawblocks man
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	return DecodeStatBlockKnown(raw, addStatBlock, depth+1)
-}
-
 type AstStatBreak struct {
 	NodeLoc
 }
@@ -1537,14 +991,6 @@ func (n AstStatBreak) String() string {
 	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
 
 	return b.String()
-}
-
-func DecodeStatBreak(data json.RawMessage) (Node, error) {
-	var raw AstStatBreak
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-	return raw, nil
 }
 
 type AstStatCompoundAssign[T any] struct {
@@ -1572,30 +1018,6 @@ func (n AstStatCompoundAssign[T]) String() string {
 	return b.String()
 }
 
-func DecodeStatCompoundAssign(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstStatCompoundAssign[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	varNode, err := decodeNode(raw.Var, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode var: %w", err)
-	}
-
-	valueNode, err := decodeNode(raw.Value, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode value: %w", err)
-	}
-
-	return AstStatCompoundAssign[Node]{
-		NodeLoc: raw.NodeLoc,
-		Op:      raw.Op,
-		Var:     varNode,
-		Value:   valueNode,
-	}, nil
-}
-
 type AstStatContinue struct {
 	NodeLoc
 }
@@ -1611,14 +1033,6 @@ func (n AstStatContinue) String() string {
 	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
 
 	return b.String()
-}
-
-func DecodeStatContinue(data json.RawMessage) (Node, error) {
-	var raw AstStatContinue
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-	return raw, nil
 }
 
 type AstStatDeclareClass[T any] struct {
@@ -1656,39 +1070,6 @@ func (n AstStatDeclareClass[T]) String() string {
 	return b.String()
 }
 
-func DecodeStatDeclareClass(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstStatDeclareClass[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	props := make([]Node, len(raw.Props))
-	for i, prop := range raw.Props {
-		n, err := decodeNode(prop, addStatBlock, depth+1)
-		if err != nil {
-			return nil, fmt.Errorf("decode prop node: %w", err)
-		}
-		props[i] = n
-	}
-
-	var indexerNodeMaybe *Node
-	if raw.Indexer != nil {
-		indexerNode, err := decodeNode(*raw.Indexer, addStatBlock, depth+1)
-		if err != nil {
-			return nil, fmt.Errorf("decode indexer: %w", err)
-		}
-		indexerNodeMaybe = &indexerNode
-	}
-
-	return AstStatDeclareClass[Node]{
-		NodeLoc:   raw.NodeLoc,
-		Name:      raw.Name,
-		SuperName: raw.SuperName,
-		Props:     props,
-		Indexer:   indexerNodeMaybe,
-	}, nil
-}
-
 type AstStatExpr[T any] struct {
 	NodeLoc
 	Expr T `json:"expr"`
@@ -1708,23 +1089,6 @@ func (n AstStatExpr[T]) String() string {
 	b.WriteByte('\n')
 
 	return b.String()
-}
-
-func DecodeStatExpr(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstStatExpr[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	n, err := decodeNode(raw.Expr, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode expr: %w", err)
-	}
-
-	return AstStatExpr[Node]{
-		NodeLoc: raw.NodeLoc,
-		Expr:    n,
-	}, nil
 }
 
 type AstStatFor[T any] struct {
@@ -1759,52 +1123,6 @@ func (n AstStatFor[T]) String() string {
 	b.WriteString(fmt.Sprintf("\nHasDo: %t\n", n.HasDo))
 
 	return b.String()
-}
-
-func DecodeStatFor(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstStatFor[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	svar, err := decodeNode(raw.Var, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode var: %w", err)
-	}
-
-	sfrom, err := decodeNode(raw.From, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode from: %w", err)
-	}
-
-	sto, err := decodeNode(raw.To, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode to: %w", err)
-	}
-
-	var stepMaybe *Node
-	if raw.Step != nil {
-		stepNode, err := decodeNode(*raw.Step, addStatBlock, depth+1)
-		if err != nil {
-			return nil, fmt.Errorf("decode step: %w", err)
-		}
-		stepMaybe = &stepNode
-	}
-
-	sbody, err := DecodeStatBlockKnown(raw.Body, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode body: %w", err)
-	}
-
-	return AstStatFor[Node]{
-		NodeLoc: raw.NodeLoc,
-		Var:     svar,
-		From:    sfrom,
-		To:      sto,
-		Step:    stepMaybe,
-		Body:    sbody,
-		HasDo:   raw.HasDo,
-	}, nil
 }
 
 type AstStatForIn[T any] struct {
@@ -1843,45 +1161,6 @@ func (n AstStatForIn[T]) String() string {
 	return b.String()
 }
 
-func DecodeStatForIn(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstStatForIn[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	vars := make([]AstLocal[Node], len(raw.Vars))
-	for i, v := range raw.Vars {
-		n, err := DecodeLocalKnown(v, addStatBlock, depth+1)
-		if err != nil {
-			return nil, fmt.Errorf("decode var node: %w", err)
-		}
-		vars[i] = n
-	}
-
-	values := make([]Node, len(raw.Values))
-	for i, v := range raw.Values {
-		n, err := decodeNode(v, addStatBlock, depth+1)
-		if err != nil {
-			return nil, fmt.Errorf("decode value node: %w", err)
-		}
-		values[i] = n
-	}
-
-	bodyNode, err := DecodeStatBlockKnown(raw.Body, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode body: %w", err)
-	}
-
-	return AstStatForIn[Node]{
-		NodeLoc: raw.NodeLoc,
-		Vars:    vars,
-		Values:  values,
-		Body:    bodyNode,
-		HasIn:   raw.HasIn,
-		HasDo:   raw.HasDo,
-	}, nil
-}
-
 type AstStatFunction[T any] struct {
 	NodeLoc
 	Name T                  `json:"name"`
@@ -1903,29 +1182,6 @@ func (n AstStatFunction[T]) String() string {
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Func), 4))
 
 	return b.String()
-}
-
-func DecodeStatFunction(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstStatFunction[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	nameNode, err := decodeNode(raw.Name, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode name: %w", err)
-	}
-
-	funcNode, err := DecodeExprFunctionKnown(raw.Func, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode func: %w", err)
-	}
-
-	return AstStatFunction[Node]{
-		NodeLoc: raw.NodeLoc,
-		Name:    nameNode,
-		Func:    funcNode,
-	}, nil
 }
 
 type AstStatIf[T any] struct {
@@ -1959,40 +1215,6 @@ func (n AstStatIf[T]) String() string {
 	return b.String()
 }
 
-func DecodeStatIf(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstStatIf[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	condition, err := decodeNode(raw.Condition, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode condition: %w", err)
-	}
-
-	thenBody, err := DecodeStatBlockKnown(raw.ThenBody, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode then body: %w", err)
-	}
-
-	var elseBodyMaybe *Node
-	if raw.ElseBody != nil {
-		elseBody, err := decodeNode(*raw.ElseBody, addStatBlock, depth+1)
-		if err != nil {
-			return nil, fmt.Errorf("decode else body: %w", err)
-		}
-		elseBodyMaybe = &elseBody
-	}
-
-	return AstStatIf[Node]{
-		NodeLoc:   raw.NodeLoc,
-		Condition: condition,
-		ThenBody:  thenBody,
-		ElseBody:  elseBodyMaybe,
-		HasThen:   raw.HasThen,
-	}, nil
-}
-
 type AstStatLocal[T any] struct {
 	NodeLoc
 	Vars   []AstLocal[T] `json:"vars"`
@@ -2022,37 +1244,6 @@ func (n AstStatLocal[T]) String() string {
 	return b.String()
 }
 
-func DecodeStatLocal(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstStatLocal[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	vars := make([]AstLocal[Node], len(raw.Vars))
-	for i, v := range raw.Vars {
-		n, err := DecodeLocalKnown(v, addStatBlock, depth+1)
-		if err != nil {
-			return nil, fmt.Errorf("decode var node: %w", err)
-		}
-		vars[i] = n
-	}
-
-	values := make([]Node, len(raw.Values))
-	for i, v := range raw.Values {
-		n, err := decodeNode(v, addStatBlock, depth+1)
-		if err != nil {
-			return nil, fmt.Errorf("decode value node: %w", err)
-		}
-		values[i] = n
-	}
-
-	return AstStatLocal[Node]{
-		NodeLoc: raw.NodeLoc,
-		Vars:    vars,
-		Values:  values,
-	}, nil
-}
-
 type AstStatLocalFunction[T any] struct {
 	NodeLoc
 	Name AstLocal[T]        `json:"name"`
@@ -2074,29 +1265,6 @@ func (n AstStatLocalFunction[T]) String() string {
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Func), 4))
 
 	return b.String()
-}
-
-func DecodeStatLocalFunction(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstStatLocalFunction[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	nameNode, err := DecodeLocalKnown(raw.Name, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode name: %w", err)
-	}
-
-	funcNode, err := DecodeExprFunctionKnown(raw.Func, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode func: %w", err)
-	}
-
-	return AstStatLocalFunction[Node]{
-		NodeLoc: raw.NodeLoc,
-		Name:    nameNode,
-		Func:    funcNode,
-	}, nil
 }
 
 type AstStatRepeat[T any] struct {
@@ -2122,29 +1290,6 @@ func (n AstStatRepeat[T]) String() string {
 	return b.String()
 }
 
-func DecodeStatRepeat(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstStatRepeat[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	condition, err := decodeNode(raw.Condition, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode condition: %w", err)
-	}
-
-	body, err := DecodeStatBlockKnown(raw.Body, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode body: %w", err)
-	}
-
-	return AstStatRepeat[Node]{
-		NodeLoc:   raw.NodeLoc,
-		Condition: condition,
-		Body:      body,
-	}, nil
-}
-
 type AstStatReturn[T any] struct {
 	NodeLoc
 	List []T `json:"list"`
@@ -2167,27 +1312,6 @@ func (n AstStatReturn[T]) String() string {
 	}
 
 	return b.String()
-}
-
-func DecodeStatReturn(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstStatReturn[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	list := make([]Node, len(raw.List))
-	for i, item := range raw.List {
-		n, err := decodeNode(item, addStatBlock, depth+1)
-		if err != nil {
-			return nil, fmt.Errorf("decode list item: %w", err)
-		}
-		list[i] = n
-	}
-
-	return AstStatReturn[Node]{
-		NodeLoc: raw.NodeLoc,
-		List:    list,
-	}, nil
 }
 
 type AstStatTypeAlias[T any] struct {
@@ -2226,27 +1350,6 @@ func (n AstStatTypeAlias[T]) String() string {
 	return b.String()
 }
 
-func DecodeStatTypeAlias(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstStatTypeAlias[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	valueNode, err := decodeNode(raw.Value, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode value: %w", err)
-	}
-
-	return AstStatTypeAlias[Node]{
-		NodeLoc:      raw.NodeLoc,
-		Name:         raw.Name,
-		Generics:     raw.Generics,
-		GenericPacks: raw.GenericPacks,
-		Value:        valueNode,
-		Exported:     raw.Exported,
-	}, nil
-}
-
 type AstStatWhile[T any] struct {
 	NodeLoc
 	Condition T               `json:"condition"`
@@ -2272,30 +1375,6 @@ func (n AstStatWhile[T]) String() string {
 	return b.String()
 }
 
-func DecodeStatWhile(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstStatWhile[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	condition, err := decodeNode(raw.Condition, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode condition: %w", err)
-	}
-
-	body, err := DecodeStatBlockKnown(raw.Body, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode body: %w", err)
-	}
-
-	return AstStatWhile[Node]{
-		NodeLoc:   raw.NodeLoc,
-		Condition: condition,
-		Body:      body,
-		HasDo:     raw.HasDo,
-	}, nil
-}
-
 type AstTableProp[T any] struct {
 	Name string `json:"name"`
 	NodeLoc
@@ -2316,24 +1395,6 @@ func (n AstTableProp[T]) String() string {
 	b.WriteString(indentStart(StringMaybeEvaluated(n.PropType), 4))
 
 	return b.String()
-}
-
-func DecodeTableProp(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstTableProp[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	propTypeNode, err := decodeNode(raw.PropType, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode prop type: %w", err)
-	}
-
-	return AstTableProp[Node]{
-		NodeLoc:  raw.NodeLoc,
-		Name:     raw.Name,
-		PropType: propTypeNode,
-	}, nil
 }
 
 type AstTypeFunction[T any] struct {
@@ -2387,33 +1448,6 @@ func (n AstTypeFunction[T]) String() string {
 	return b.String()
 }
 
-func DecodeTypeFunction(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstTypeFunction[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	argTypesNode, err := DecodeTypeListKnown(raw.ArgTypes, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode arg types: %w", err)
-	}
-
-	returnTypesNode, err := DecodeTypePackExplicitKnown(raw.ReturnTypes, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode return types: %w", err)
-	}
-
-	return AstTypeFunction[Node]{
-		NodeLoc:      raw.NodeLoc,
-		Attributes:   raw.Attributes,
-		Generics:     raw.Generics,
-		GenericPacks: raw.GenericPacks,
-		ArgTypes:     argTypesNode,
-		ArgNames:     raw.ArgNames,
-		ReturnTypes:  returnTypesNode,
-	}, nil
-}
-
 type AstTypeGroup[T any] struct {
 	NodeLoc
 	Inner T `json:"inner"`
@@ -2432,23 +1466,6 @@ func (n AstTypeGroup[T]) String() string {
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Inner), 4))
 
 	return b.String()
-}
-
-func DecodeTypeGroup(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstTypeGroup[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	innerNode, err := decodeNode(raw.Inner, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode inner node: %w", err)
-	}
-
-	return AstTypeGroup[Node]{
-		NodeLoc: raw.NodeLoc,
-		Inner:   innerNode,
-	}, nil
 }
 
 type AstTypeList[T any] struct {
@@ -2485,41 +1502,6 @@ func (n AstTypeList[T]) String() string {
 	return b.String()
 }
 
-func DecodeTypeListKnown(raw AstTypeList[json.RawMessage], addStatBlock AddStatBlock, depth int) (AstTypeList[Node], error) {
-	types := make([]Node, len(raw.Types))
-	for i, typ := range raw.Types {
-		n, err := decodeNode(typ, addStatBlock, depth+1)
-		if err != nil {
-			return AstTypeList[Node]{}, fmt.Errorf("decode type node: %w", err)
-		}
-		types[i] = n
-	}
-
-	var tailType *Node
-	if raw.TailType != nil {
-		n, err := decodeNode(*raw.TailType, addStatBlock, depth+1)
-		if err != nil {
-			return AstTypeList[Node]{}, fmt.Errorf("decode tail type node: %w", err)
-		}
-		tailType = &n
-	}
-
-	return AstTypeList[Node]{
-		ASTNode:  raw.ASTNode,
-		Types:    types,
-		TailType: tailType,
-	}, nil
-}
-
-func DecodeTypeList(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstTypeList[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	return DecodeTypeListKnown(raw, addStatBlock, depth+1)
-}
-
 type AstTypeOptional struct {
 	NodeLoc
 }
@@ -2535,17 +1517,6 @@ func (n AstTypeOptional) String() string {
 	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
 
 	return b.String()
-}
-
-func DecodeTypeOptional(data json.RawMessage) (Node, error) {
-	var raw AstTypeOptional
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	return AstTypeOptional{
-		NodeLoc: raw.NodeLoc,
-	}, nil
 }
 
 type AstTypePackExplicit[T any] struct {
@@ -2568,27 +1539,6 @@ func (n AstTypePackExplicit[T]) String() string {
 	return b.String()
 }
 
-func DecodeTypePackExplicitKnown(raw AstTypePackExplicit[json.RawMessage], addStatBlock AddStatBlock, depth int) (AstTypePackExplicit[Node], error) {
-	typeListNode, err := DecodeTypeListKnown(raw.TypeList, addStatBlock, depth+1)
-	if err != nil {
-		return AstTypePackExplicit[Node]{}, fmt.Errorf("decode type list: %w", err)
-	}
-
-	return AstTypePackExplicit[Node]{
-		NodeLoc:  raw.NodeLoc,
-		TypeList: typeListNode,
-	}, nil
-}
-
-func DecodeTypePackExplicit(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstTypePackExplicit[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	return DecodeTypePackExplicitKnown(raw, addStatBlock, depth+1)
-}
-
 type AstTypePackGeneric struct {
 	NodeLoc
 	GenericName string `json:"genericName"`
@@ -2608,14 +1558,6 @@ func (n AstTypePackGeneric) String() string {
 	return b.String()
 }
 
-func DecodeTypePackGeneric(data json.RawMessage) (Node, error) {
-	var raw AstTypePackGeneric
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-	return raw, nil
-}
-
 type AstTypePackVariadic[T any] struct {
 	NodeLoc
 	VariadicType T `json:"variadicType"`
@@ -2633,23 +1575,6 @@ func (n AstTypePackVariadic[T]) String() string {
 	b.WriteString(fmt.Sprintf("\nVariadicType: %s", StringMaybeEvaluated(n.VariadicType)))
 
 	return b.String()
-}
-
-func DecodeTypePackVariadic(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstTypePackVariadic[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	variadicType, err := decodeNode(raw.VariadicType, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode VariadicType: %w", err)
-	}
-
-	return AstTypePackVariadic[Node]{
-		NodeLoc:      raw.NodeLoc,
-		VariadicType: variadicType,
-	}, nil
 }
 
 type AstTypeReference[T any] struct {
@@ -2680,29 +1605,6 @@ func (n AstTypeReference[T]) String() string {
 	return b.String()
 }
 
-func DecodeTypeReference(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstTypeReference[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	parameters := make([]Node, len(raw.Parameters))
-	for i, param := range raw.Parameters {
-		n, err := decodeNode(param, addStatBlock, depth+1)
-		if err != nil {
-			return nil, fmt.Errorf("decode parameter node: %w", err)
-		}
-		parameters[i] = n
-	}
-
-	return AstTypeReference[Node]{
-		NodeLoc:      raw.NodeLoc,
-		Name:         raw.Name,
-		NameLocation: raw.NameLocation,
-		Parameters:   parameters,
-	}, nil
-}
-
 type AstTypeSingletonBool struct {
 	NodeLoc
 	Value bool `json:"value"`
@@ -2722,18 +1624,6 @@ func (n AstTypeSingletonBool) String() string {
 	return b.String()
 }
 
-func DecodeTypeSingletonBool(data json.RawMessage) (Node, error) {
-	var raw AstTypeSingletonBool
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	return AstTypeSingletonBool{
-		NodeLoc: raw.NodeLoc,
-		Value:   raw.Value,
-	}, nil
-}
-
 type AstTypeSingletonString struct {
 	NodeLoc
 	Value string `json:"value"`
@@ -2751,18 +1641,6 @@ func (n AstTypeSingletonString) String() string {
 	b.WriteString(fmt.Sprintf("\nValue: %s", n.Value))
 
 	return b.String()
-}
-
-func DecodeTypeSingletonString(data json.RawMessage) (Node, error) {
-	var raw AstTypeSingletonString
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	return AstTypeSingletonString{
-		NodeLoc: raw.NodeLoc,
-		Value:   raw.Value,
-	}, nil
 }
 
 type AstTableIndexer[T any] struct {
@@ -2814,45 +1692,6 @@ func (n AstTypeTable[T]) String() string {
 	return b.String()
 }
 
-func DecodeTypeTable(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstTypeTable[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	props := make([]Node, len(raw.Props))
-	for i, prop := range raw.Props {
-		n, err := decodeNode(prop, addStatBlock, depth+1)
-		if err != nil {
-			return nil, fmt.Errorf("decode prop node: %w", err)
-		}
-		props[i] = n
-	}
-
-	var indexerMaybe *AstTableIndexer[Node]
-	if raw.Indexer != nil {
-		indexerNode, err := decodeNode(raw.Indexer.IndexType, addStatBlock, depth+1)
-		if err != nil {
-			return nil, fmt.Errorf("decode indexer index type: %w", err)
-		}
-		resultNode, err := decodeNode(raw.Indexer.ResultType, addStatBlock, depth+1)
-		if err != nil {
-			return nil, fmt.Errorf("decode indexer result type: %w", err)
-		}
-		indexerMaybe = &AstTableIndexer[Node]{
-			Location:   raw.Indexer.Location,
-			IndexType:  indexerNode,
-			ResultType: resultNode,
-		}
-	}
-
-	return AstTypeTable[Node]{
-		NodeLoc: raw.NodeLoc,
-		Props:   props,
-		Indexer: indexerMaybe,
-	}, nil
-}
-
 // lol
 type AstTypeTypeof[T any] struct {
 	NodeLoc
@@ -2872,23 +1711,6 @@ func (n AstTypeTypeof[T]) String() string {
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
 
 	return b.String()
-}
-
-func DecodeTypeTypeof(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstTypeTypeof[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	exprNode, err := decodeNode(raw.Expr, addStatBlock, depth+1)
-	if err != nil {
-		return nil, fmt.Errorf("decode expr: %w", err)
-	}
-
-	return AstTypeTypeof[Node]{
-		NodeLoc: raw.NodeLoc,
-		Expr:    exprNode,
-	}, nil
 }
 
 type AstTypeUnion[T any] struct {
@@ -2913,158 +1735,4 @@ func (n AstTypeUnion[T]) String() string {
 	}
 
 	return b.String()
-}
-
-func DecodeTypeUnion(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw AstTypeUnion[json.RawMessage]
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-
-	types := make([]Node, len(raw.Types))
-	for i, typ := range raw.Types {
-		n, err := decodeNode(typ, addStatBlock, depth+1)
-		if err != nil {
-			return nil, fmt.Errorf("decode type node: %w", err)
-		}
-		types[i] = n
-	}
-
-	return AstTypeUnion[Node]{
-		NodeLoc: raw.NodeLoc,
-		Types:   types,
-	}, nil
-}
-
-// decoding
-
-func decodeNode(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var node ASTNode
-	if err := json.Unmarshal(data, &node); err != nil {
-		return nil, fmt.Errorf("decode node: %w", err)
-	}
-
-	// helper for now
-	ret := func(n Node, err error) (Node, error) {
-		if err != nil {
-			return nil, fmt.Errorf("\n%-22s %v", node.Type, err)
-		}
-		return n, nil
-	}
-
-	switch t := node.Type; t {
-	case "AstArgumentName":
-		return ret(DecodeArgumentName(data))
-	case "AstAttr":
-		return ret(DecodeAttr(data))
-	case "AstDeclaredClassProp":
-		return ret(DecodeDeclaredClassProp(data, addStatBlock, depth))
-	case "AstExprBinary":
-		return ret(DecodeExprBinary(data, addStatBlock, depth))
-	case "AstExprCall":
-		return ret(DecodeExprCall(data, addStatBlock, depth))
-	case "AstExprConstantBool":
-		return ret(DecodeExprConstantBool(data))
-	case "AstExprConstantNil":
-		return ret(DecodeExprConstantNil(data))
-	case "AstExprConstantNumber":
-		return ret(DecodeExprConstantNumber(data))
-	case "AstExprConstantString":
-		return ret(DecodeExprConstantString(data))
-	case "AstExprFunction":
-		return ret(DecodeExprFunction(data, addStatBlock, depth))
-	case "AstExprGlobal":
-		return ret(DecodeExprGlobal(data))
-	case "AstExprGroup":
-		return ret(DecodeExprGroup(data, addStatBlock, depth))
-	case "AstExprIfElse":
-		return ret(DecodeExprIfElse(data, addStatBlock, depth))
-	case "AstExprIndexExpr":
-		return ret(DecodeExprIndexExpr(data, addStatBlock, depth))
-	case "AstExprIndexName":
-		return ret(DecodeExprIndexName(data, addStatBlock, depth))
-	case "AstExprInterpString":
-		return ret(DecodeExprInterpString(data, addStatBlock, depth))
-	case "AstExprLocal":
-		return ret(DecodeExprLocal(data, addStatBlock, depth))
-	case "AstExprTable":
-		return ret(DecodeExprTable(data, addStatBlock, depth))
-	case "AstExprTableItem":
-		return ret(DecodeExprTableItem(data, addStatBlock, depth))
-	case "AstExprTypeAssertion":
-		return ret(DecodeExprTypeAssertion(data, addStatBlock, depth))
-	case "AstExprVarargs":
-		return ret(DecodeExprVarargs(data))
-	case "AstExprUnary":
-		return ret(DecodeExprUnary(data, addStatBlock, depth))
-	case "AstGenericType":
-		return ret(DecodeGenericType(data))
-	case "AstGenericTypePack":
-		return ret(DecodeGenericTypePack(data))
-	case "AstLocal":
-		return ret(DecodeLocal(data, addStatBlock, depth))
-	case "AstStatAssign":
-		return ret(DecodeStatAssign(data, addStatBlock, depth))
-	case "AstStatBlock":
-		return ret(DecodeStatBlock(data, addStatBlock, depth))
-	case "AstStatBreak":
-		return ret(DecodeStatBreak(data))
-	case "AstStatCompoundAssign":
-		return ret(DecodeStatCompoundAssign(data, addStatBlock, depth))
-	case "AstStatContinue":
-		return ret(DecodeStatContinue(data))
-	case "AstStatDeclareClass":
-		return ret(DecodeStatDeclareClass(data, addStatBlock, depth))
-	case "AstStatExpr":
-		return ret(DecodeStatExpr(data, addStatBlock, depth))
-	case "AstStatFor":
-		return ret(DecodeStatFor(data, addStatBlock, depth))
-	case "AstStatForIn":
-		return ret(DecodeStatForIn(data, addStatBlock, depth))
-	case "AstStatFunction":
-		return ret(DecodeStatFunction(data, addStatBlock, depth))
-	case "AstStatIf":
-		return ret(DecodeStatIf(data, addStatBlock, depth))
-	case "AstStatLocal":
-		return ret(DecodeStatLocal(data, addStatBlock, depth))
-	case "AstStatLocalFunction":
-		return ret(DecodeStatLocalFunction(data, addStatBlock, depth))
-	case "AstStatRepeat":
-		return ret(DecodeStatRepeat(data, addStatBlock, depth))
-	case "AstStatReturn":
-		return ret(DecodeStatReturn(data, addStatBlock, depth))
-	case "AstStatTypeAlias":
-		return ret(DecodeStatTypeAlias(data, addStatBlock, depth))
-	case "AstStatWhile":
-		return ret(DecodeStatWhile(data, addStatBlock, depth))
-	case "AstTableProp":
-		return ret(DecodeTableProp(data, addStatBlock, depth))
-	case "AstTypeFunction":
-		return ret(DecodeTypeFunction(data, addStatBlock, depth))
-	case "AstTypeGroup":
-		return ret(DecodeTypeGroup(data, addStatBlock, depth))
-	case "AstTypeList":
-		return ret(DecodeTypeList(data, addStatBlock, depth))
-	case "AstTypeOptional":
-		return ret(DecodeTypeOptional(data))
-	case "AstTypePackExplicit":
-		return ret(DecodeTypePackExplicit(data, addStatBlock, depth))
-	case "AstTypePackGeneric":
-		return ret(DecodeTypePackGeneric(data))
-	case "AstTypePackVariadic":
-		return ret(DecodeTypePackVariadic(data, addStatBlock, depth))
-	case "AstTypeReference":
-		return ret(DecodeTypeReference(data, addStatBlock, depth))
-	case "AstTypeSingletonBool":
-		return ret(DecodeTypeSingletonBool(data))
-	case "AstTypeSingletonString":
-		return ret(DecodeTypeSingletonString(data))
-	case "AstTypeTable":
-		return ret(DecodeTypeTable(data, addStatBlock, depth))
-	case "AstTypeTypeof":
-		return ret(DecodeTypeTypeof(data, addStatBlock, depth))
-	case "AstTypeUnion":
-		return ret(DecodeTypeUnion(data, addStatBlock, depth))
-	}
-	return ret(nil, errors.New("unknown node type"))
 }
