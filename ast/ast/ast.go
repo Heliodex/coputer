@@ -795,16 +795,16 @@ func DecodeExprConstantString(data json.RawMessage) (Node, error) {
 
 type AstExprFunction[T any] struct {
 	NodeLoc
-	Attributes       []AstAttr            `json:"attributes"`
-	Generics         []GenericType        `json:"generics"`
-	GenericPacks     []GenericTypePack    `json:"genericPacks"`
-	Args             []T                  `json:"args"`
-	ReturnAnnotation *TypePackExplicit[T] `json:"returnAnnotation"`
-	Vararg           bool                 `json:"vararg"`
-	VarargLocation   Location             `json:"varargLocation"`
-	Body             AstStatBlock[T]      `json:"body"`
-	FunctionDepth    int                  `json:"functionDepth"`
-	Debugname        string               `json:"debugname"`
+	Attributes       []AstAttr               `json:"attributes"`
+	Generics         []GenericType           `json:"generics"`
+	GenericPacks     []GenericTypePack       `json:"genericPacks"`
+	Args             []T                     `json:"args"`
+	ReturnAnnotation *AstTypePackExplicit[T] `json:"returnAnnotation"`
+	Vararg           bool                    `json:"vararg"`
+	VarargLocation   Location                `json:"varargLocation"`
+	Body             AstStatBlock[T]         `json:"body"`
+	FunctionDepth    int                     `json:"functionDepth"`
+	Debugname        string                  `json:"debugname"`
 }
 
 func (n AstExprFunction[T]) Type() string {
@@ -866,7 +866,7 @@ func (n AstExprFunction[T]) SourceMain(og string, indent int, isExpr bool) (stri
 
 	argStrings := make([]string, l)
 	for i, arg := range in.Args {
-		iarg, ok := arg.(Local[Node])
+		iarg, ok := arg.(AstLocal[Node])
 		if !ok {
 			return "", fmt.Errorf("expected Local, got %T", arg)
 		}
@@ -956,7 +956,7 @@ func DecodeExprFunctionKnown(raw AstExprFunction[json.RawMessage], addStatBlock 
 		args[i] = n
 	}
 
-	var returnAnnotationNodeMaybe *TypePackExplicit[Node]
+	var returnAnnotationNodeMaybe *AstTypePackExplicit[Node]
 	if raw.ReturnAnnotation != nil {
 		ran, err := DecodeTypePackExplicitKnown(*raw.ReturnAnnotation, addStatBlock, depth+1)
 		if err != nil {
@@ -1395,7 +1395,7 @@ func (n AstExprLocal[T]) String() string {
 }
 
 func (n AstExprLocal[T]) Source(og string, indent int) (string, error) {
-	ilocal, ok := any(n.Local).(Local[Node])
+	ilocal, ok := any(n.Local).(AstLocal[Node])
 	if !ok {
 		return "", fmt.Errorf("expected Local to be Local[INode], got %T", n.Local)
 	}
@@ -1807,17 +1807,17 @@ func (g GenericTypePack) Source(string, int) (string, error) {
 	return "", errors.New("generic type pack has no location")
 }
 
-type Local[T any] struct {
+type AstLocal[T any] struct {
 	LuauType *T     `json:"luauType"` // for now it's probably nil?
 	Name     string `json:"name"`
 	NodeLoc
 }
 
-func (n Local[T]) Type() string {
+func (n AstLocal[T]) Type() string {
 	return "AstLocal"
 }
 
-func (n Local[T]) String() string {
+func (n AstLocal[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString("LuauType:")
@@ -1832,9 +1832,9 @@ func (n Local[T]) String() string {
 	return b.String()
 }
 
-func (n Local[T]) Source(og string, indent int) (string, error) {
+func (n AstLocal[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
-	in, ok := any(n).(Local[Node])
+	in, ok := any(n).(AstLocal[Node])
 	if !ok {
 		return "", fmt.Errorf("expected Local[INode], got %T", n)
 	}
@@ -1851,17 +1851,17 @@ func (n Local[T]) Source(og string, indent int) (string, error) {
 	// return fmt.Sprintf("%s: %s", in.Name, lts), nil
 }
 
-func DecodeLocalKnown(raw Local[json.RawMessage], addStatBlock AddStatBlock, depth int) (Local[Node], error) {
+func DecodeLocalKnown(raw AstLocal[json.RawMessage], addStatBlock AddStatBlock, depth int) (AstLocal[Node], error) {
 	var luauTypeMaybe *Node
 	if raw.LuauType != nil {
 		luauTypeNode, err := decodeNode(*raw.LuauType, addStatBlock, depth+1)
 		if err != nil {
-			return Local[Node]{}, fmt.Errorf("decode luau type: %w", err)
+			return AstLocal[Node]{}, fmt.Errorf("decode luau type: %w", err)
 		}
 		luauTypeMaybe = &luauTypeNode
 	}
 
-	return Local[Node]{
+	return AstLocal[Node]{
 		LuauType: luauTypeMaybe,
 		Name:     raw.Name,
 		NodeLoc:  raw.NodeLoc,
@@ -1869,7 +1869,7 @@ func DecodeLocalKnown(raw Local[json.RawMessage], addStatBlock AddStatBlock, dep
 }
 
 func DecodeLocal(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw Local[json.RawMessage]
+	var raw AstLocal[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("unmarshal: %w", err)
 	}
@@ -2489,7 +2489,7 @@ func DecodeStatFor(data json.RawMessage, addStatBlock AddStatBlock, depth int) (
 
 type AstStatForIn[T any] struct {
 	NodeLoc
-	Vars   []Local[T]      `json:"vars"`
+	Vars   []AstLocal[T]   `json:"vars"`
 	Values []T             `json:"values"`
 	Body   AstStatBlock[T] `json:"body"`
 	HasIn  bool            `json:"hasIn"`
@@ -2565,7 +2565,7 @@ func DecodeStatForIn(data json.RawMessage, addStatBlock AddStatBlock, depth int)
 		return nil, fmt.Errorf("unmarshal: %w", err)
 	}
 
-	vars := make([]Local[Node], len(raw.Vars))
+	vars := make([]AstLocal[Node], len(raw.Vars))
 	for i, v := range raw.Vars {
 		n, err := DecodeLocalKnown(v, addStatBlock, depth+1)
 		if err != nil {
@@ -2802,8 +2802,8 @@ func DecodeStatIf(data json.RawMessage, addStatBlock AddStatBlock, depth int) (N
 
 type AstStatLocal[T any] struct {
 	NodeLoc
-	Vars   []Local[T] `json:"vars"`
-	Values []T        `json:"values"`
+	Vars   []AstLocal[T] `json:"vars"`
+	Values []T           `json:"values"`
 }
 
 func (n AstStatLocal[T]) Type() string {
@@ -2869,7 +2869,7 @@ func DecodeStatLocal(data json.RawMessage, addStatBlock AddStatBlock, depth int)
 		return nil, fmt.Errorf("unmarshal: %w", err)
 	}
 
-	vars := make([]Local[Node], len(raw.Vars))
+	vars := make([]AstLocal[Node], len(raw.Vars))
 	for i, v := range raw.Vars {
 		n, err := DecodeLocalKnown(v, addStatBlock, depth+1)
 		if err != nil {
@@ -2896,7 +2896,7 @@ func DecodeStatLocal(data json.RawMessage, addStatBlock AddStatBlock, depth int)
 
 type AstStatLocalFunction[T any] struct {
 	NodeLoc
-	Name Local[T]           `json:"name"`
+	Name AstLocal[T]        `json:"name"`
 	Func AstExprFunction[T] `json:"func"`
 }
 
@@ -3273,17 +3273,17 @@ func DecodeStatWhile(data json.RawMessage, addStatBlock AddStatBlock, depth int)
 	}, nil
 }
 
-type TableProp[T any] struct {
+type AstTableProp[T any] struct {
 	Name string `json:"name"`
 	NodeLoc
 	PropType T `json:"propType"`
 }
 
-func (n TableProp[T]) Type() string {
+func (n AstTableProp[T]) Type() string {
 	return "AstTableProp"
 }
 
-func (n TableProp[T]) String() string {
+func (n AstTableProp[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.ASTNode.String())
@@ -3295,9 +3295,9 @@ func (n TableProp[T]) String() string {
 	return b.String()
 }
 
-func (n TableProp[T]) Source(og string, indent int) (string, error) {
+func (n AstTableProp[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
-	in, ok := any(n).(TableProp[Node])
+	in, ok := any(n).(AstTableProp[Node])
 	if !ok {
 		return "", fmt.Errorf("expected TableProp[INode], got %T", n)
 	}
@@ -3311,7 +3311,7 @@ func (n TableProp[T]) Source(og string, indent int) (string, error) {
 }
 
 func DecodeTableProp(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw TableProp[json.RawMessage]
+	var raw AstTableProp[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("unmarshal: %w", err)
 	}
@@ -3321,28 +3321,28 @@ func DecodeTableProp(data json.RawMessage, addStatBlock AddStatBlock, depth int)
 		return nil, fmt.Errorf("decode prop type: %w", err)
 	}
 
-	return TableProp[Node]{
+	return AstTableProp[Node]{
 		NodeLoc:  raw.NodeLoc,
 		Name:     raw.Name,
 		PropType: propTypeNode,
 	}, nil
 }
 
-type TypeFunction[T any] struct {
+type AstTypeFunction[T any] struct {
 	NodeLoc
-	Attributes   []AstAttr           `json:"attributes"`
-	Generics     []GenericType       `json:"generics"`
-	GenericPacks []GenericTypePack   `json:"genericPacks"`
-	ArgTypes     TypeList[T]         `json:"argTypes"`
-	ArgNames     []*AstArgumentName  `json:"argNames"`
-	ReturnTypes  TypePackExplicit[T] `json:"returnTypes"`
+	Attributes   []AstAttr              `json:"attributes"`
+	Generics     []GenericType          `json:"generics"`
+	GenericPacks []GenericTypePack      `json:"genericPacks"`
+	ArgTypes     AstTypeList[T]         `json:"argTypes"`
+	ArgNames     []*AstArgumentName     `json:"argNames"`
+	ReturnTypes  AstTypePackExplicit[T] `json:"returnTypes"`
 }
 
-func (n TypeFunction[T]) Type() string {
+func (n AstTypeFunction[T]) Type() string {
 	return "AstTypeFunction"
 }
 
-func (n TypeFunction[T]) String() string {
+func (n AstTypeFunction[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.ASTNode.String())
@@ -3379,9 +3379,9 @@ func (n TypeFunction[T]) String() string {
 	return b.String()
 }
 
-func (n TypeFunction[T]) Source(og string, indent int) (string, error) {
+func (n AstTypeFunction[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
-	in, ok := any(n).(TypeFunction[Node])
+	in, ok := any(n).(AstTypeFunction[Node])
 	if !ok {
 		return "", fmt.Errorf("expected TypeFunction[INode], got %T", n)
 	}
@@ -3434,7 +3434,7 @@ func (n TypeFunction[T]) Source(og string, indent int) (string, error) {
 }
 
 func DecodeTypeFunction(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw TypeFunction[json.RawMessage]
+	var raw AstTypeFunction[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("unmarshal: %w", err)
 	}
@@ -3449,7 +3449,7 @@ func DecodeTypeFunction(data json.RawMessage, addStatBlock AddStatBlock, depth i
 		return nil, fmt.Errorf("decode return types: %w", err)
 	}
 
-	return TypeFunction[Node]{
+	return AstTypeFunction[Node]{
 		NodeLoc:      raw.NodeLoc,
 		Attributes:   raw.Attributes,
 		Generics:     raw.Generics,
@@ -3460,16 +3460,16 @@ func DecodeTypeFunction(data json.RawMessage, addStatBlock AddStatBlock, depth i
 	}, nil
 }
 
-type TypeGroup[T any] struct {
+type AstTypeGroup[T any] struct {
 	NodeLoc
 	Inner T `json:"inner"`
 }
 
-func (n TypeGroup[T]) Type() string {
+func (n AstTypeGroup[T]) Type() string {
 	return "AstTypeGroup"
 }
 
-func (n TypeGroup[T]) String() string {
+func (n AstTypeGroup[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.ASTNode.String())
@@ -3480,7 +3480,7 @@ func (n TypeGroup[T]) String() string {
 	return b.String()
 }
 
-func (n TypeGroup[T]) Source(og string, indent int) (string, error) {
+func (n AstTypeGroup[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	iinner, ok := any(n.Inner).(Node)
 	if !ok {
@@ -3497,7 +3497,7 @@ func (n TypeGroup[T]) Source(og string, indent int) (string, error) {
 }
 
 func DecodeTypeGroup(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw TypeGroup[json.RawMessage]
+	var raw AstTypeGroup[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("unmarshal: %w", err)
 	}
@@ -3507,27 +3507,27 @@ func DecodeTypeGroup(data json.RawMessage, addStatBlock AddStatBlock, depth int)
 		return nil, fmt.Errorf("decode inner node: %w", err)
 	}
 
-	return TypeGroup[Node]{
+	return AstTypeGroup[Node]{
 		NodeLoc: raw.NodeLoc,
 		Inner:   innerNode,
 	}, nil
 }
 
-type TypeList[T any] struct {
+type AstTypeList[T any] struct {
 	ASTNode
 	Types    []T `json:"types"`
 	TailType *T  `json:"tailType"`
 }
 
-func (n TypeList[T]) GetLocation() Location {
+func (n AstTypeList[T]) GetLocation() Location {
 	return Location{}
 }
 
-func (n TypeList[T]) Type() string {
+func (n AstTypeList[T]) Type() string {
 	return "AstTypeList"
 }
 
-func (n TypeList[T]) String() string {
+func (n AstTypeList[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.ASTNode.String())
@@ -3547,10 +3547,10 @@ func (n TypeList[T]) String() string {
 	return b.String()
 }
 
-func (n TypeList[T]) Source(og string, indent int) (string, error) {
+func (n AstTypeList[T]) Source(og string, indent int) (string, error) {
 	// TypeList doesn't seem to have a Location field
 	// return "", errors.New("type list has no location")
-	in, ok := any(n).(TypeList[Node])
+	in, ok := any(n).(AstTypeList[Node])
 	if !ok {
 		return "", fmt.Errorf("expected Types to be []INode, got %T", n.Types)
 	}
@@ -3575,12 +3575,12 @@ func (n TypeList[T]) Source(og string, indent int) (string, error) {
 	return strings.Join(typeStrings, ", "), nil
 }
 
-func DecodeTypeListKnown(raw TypeList[json.RawMessage], addStatBlock AddStatBlock, depth int) (TypeList[Node], error) {
+func DecodeTypeListKnown(raw AstTypeList[json.RawMessage], addStatBlock AddStatBlock, depth int) (AstTypeList[Node], error) {
 	types := make([]Node, len(raw.Types))
 	for i, typ := range raw.Types {
 		n, err := decodeNode(typ, addStatBlock, depth+1)
 		if err != nil {
-			return TypeList[Node]{}, fmt.Errorf("decode type node: %w", err)
+			return AstTypeList[Node]{}, fmt.Errorf("decode type node: %w", err)
 		}
 		types[i] = n
 	}
@@ -3589,12 +3589,12 @@ func DecodeTypeListKnown(raw TypeList[json.RawMessage], addStatBlock AddStatBloc
 	if raw.TailType != nil {
 		n, err := decodeNode(*raw.TailType, addStatBlock, depth+1)
 		if err != nil {
-			return TypeList[Node]{}, fmt.Errorf("decode tail type node: %w", err)
+			return AstTypeList[Node]{}, fmt.Errorf("decode tail type node: %w", err)
 		}
 		tailType = &n
 	}
 
-	return TypeList[Node]{
+	return AstTypeList[Node]{
 		ASTNode:  raw.ASTNode,
 		Types:    types,
 		TailType: tailType,
@@ -3602,7 +3602,7 @@ func DecodeTypeListKnown(raw TypeList[json.RawMessage], addStatBlock AddStatBloc
 }
 
 func DecodeTypeList(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw TypeList[json.RawMessage]
+	var raw AstTypeList[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("unmarshal: %w", err)
 	}
@@ -3610,20 +3610,20 @@ func DecodeTypeList(data json.RawMessage, addStatBlock AddStatBlock, depth int) 
 	return DecodeTypeListKnown(raw, addStatBlock, depth+1)
 }
 
-type TypeOptional struct {
+type AstTypeOptional struct {
 	NodeLoc
 }
 
-func (TypeOptional) Type() string {
+func (AstTypeOptional) Type() string {
 	return "AstTypeOptional"
 }
 
-func (n TypeOptional) Source(string, int) (string, error) {
+func (n AstTypeOptional) Source(string, int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	return "?", nil
 }
 
-func (n TypeOptional) String() string {
+func (n AstTypeOptional) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.ASTNode.String())
@@ -3633,26 +3633,26 @@ func (n TypeOptional) String() string {
 }
 
 func DecodeTypeOptional(data json.RawMessage) (Node, error) {
-	var raw TypeOptional
+	var raw AstTypeOptional
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("unmarshal: %w", err)
 	}
 
-	return TypeOptional{
+	return AstTypeOptional{
 		NodeLoc: raw.NodeLoc,
 	}, nil
 }
 
-type TypePackExplicit[T any] struct {
+type AstTypePackExplicit[T any] struct {
 	NodeLoc
-	TypeList TypeList[T] `json:"typeList"`
+	TypeList AstTypeList[T] `json:"typeList"`
 }
 
-func (n TypePackExplicit[T]) Type() string {
+func (n AstTypePackExplicit[T]) Type() string {
 	return "AstTypePackExplicit"
 }
 
-func (n TypePackExplicit[T]) String() string {
+func (n AstTypePackExplicit[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.ASTNode.String())
@@ -3663,8 +3663,8 @@ func (n TypePackExplicit[T]) String() string {
 	return b.String()
 }
 
-func (n TypePackExplicit[T]) Source(og string, indent int) (string, error) {
-	itypelist, ok := any(n.TypeList).(TypeList[Node])
+func (n AstTypePackExplicit[T]) Source(og string, indent int) (string, error) {
+	itypelist, ok := any(n.TypeList).(AstTypeList[Node])
 	if !ok {
 		return "", fmt.Errorf("expected TypeList[INode], got %T", n.TypeList)
 	}
@@ -3681,20 +3681,20 @@ func (n TypePackExplicit[T]) Source(og string, indent int) (string, error) {
 	return fmt.Sprintf("(%s)", stypelist), nil
 }
 
-func DecodeTypePackExplicitKnown(raw TypePackExplicit[json.RawMessage], addStatBlock AddStatBlock, depth int) (TypePackExplicit[Node], error) {
+func DecodeTypePackExplicitKnown(raw AstTypePackExplicit[json.RawMessage], addStatBlock AddStatBlock, depth int) (AstTypePackExplicit[Node], error) {
 	typeListNode, err := DecodeTypeListKnown(raw.TypeList, addStatBlock, depth+1)
 	if err != nil {
-		return TypePackExplicit[Node]{}, fmt.Errorf("decode type list: %w", err)
+		return AstTypePackExplicit[Node]{}, fmt.Errorf("decode type list: %w", err)
 	}
 
-	return TypePackExplicit[Node]{
+	return AstTypePackExplicit[Node]{
 		NodeLoc:  raw.NodeLoc,
 		TypeList: typeListNode,
 	}, nil
 }
 
 func DecodeTypePackExplicit(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw TypePackExplicit[json.RawMessage]
+	var raw AstTypePackExplicit[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("unmarshal: %w", err)
 	}
@@ -3702,16 +3702,16 @@ func DecodeTypePackExplicit(data json.RawMessage, addStatBlock AddStatBlock, dep
 	return DecodeTypePackExplicitKnown(raw, addStatBlock, depth+1)
 }
 
-type TypePackGeneric struct {
+type AstTypePackGeneric struct {
 	NodeLoc
 	GenericName string `json:"genericName"`
 }
 
-func (n TypePackGeneric) Type() string {
+func (n AstTypePackGeneric) Type() string {
 	return "AstTypePackGeneric"
 }
 
-func (n TypePackGeneric) String() string {
+func (n AstTypePackGeneric) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.ASTNode.String())
@@ -3721,29 +3721,29 @@ func (n TypePackGeneric) String() string {
 	return b.String()
 }
 
-func (n TypePackGeneric) Source(string, int) (string, error) {
+func (n AstTypePackGeneric) Source(string, int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	return n.GenericName + "...", nil
 }
 
 func DecodeTypePackGeneric(data json.RawMessage) (Node, error) {
-	var raw TypePackGeneric
+	var raw AstTypePackGeneric
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("unmarshal: %w", err)
 	}
 	return raw, nil
 }
 
-type TypePackVariadic[T any] struct {
+type AstTypePackVariadic[T any] struct {
 	NodeLoc
 	VariadicType T `json:"variadicType"`
 }
 
-func (n TypePackVariadic[T]) Type() string {
+func (n AstTypePackVariadic[T]) Type() string {
 	return "AstTypePackVariadic"
 }
 
-func (n TypePackVariadic[T]) String() string {
+func (n AstTypePackVariadic[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.ASTNode.String())
@@ -3753,7 +3753,7 @@ func (n TypePackVariadic[T]) String() string {
 	return b.String()
 }
 
-func (n TypePackVariadic[T]) Source(og string, indent int) (string, error) {
+func (n AstTypePackVariadic[T]) Source(og string, indent int) (string, error) {
 	ivt, ok := any(n.VariadicType).(Node)
 	if !ok {
 		return "", fmt.Errorf("expected VariadicType to be INode, got %T", n.VariadicType)
@@ -3768,7 +3768,7 @@ func (n TypePackVariadic[T]) Source(og string, indent int) (string, error) {
 }
 
 func DecodeTypePackVariadic(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw TypePackVariadic[json.RawMessage]
+	var raw AstTypePackVariadic[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("unmarshal: %w", err)
 	}
@@ -3778,24 +3778,24 @@ func DecodeTypePackVariadic(data json.RawMessage, addStatBlock AddStatBlock, dep
 		return nil, fmt.Errorf("decode VariadicType: %w", err)
 	}
 
-	return TypePackVariadic[Node]{
+	return AstTypePackVariadic[Node]{
 		NodeLoc:      raw.NodeLoc,
 		VariadicType: variadicType,
 	}, nil
 }
 
-type TypeReference[T any] struct {
+type AstTypeReference[T any] struct {
 	NodeLoc
 	Name         string   `json:"name"`
 	NameLocation Location `json:"nameLocation"`
 	Parameters   []T      `json:"parameters"`
 }
 
-func (n TypeReference[T]) Type() string {
+func (n AstTypeReference[T]) Type() string {
 	return "AstTypeReference"
 }
 
-func (n TypeReference[T]) String() string {
+func (n AstTypeReference[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.ASTNode.String())
@@ -3812,9 +3812,9 @@ func (n TypeReference[T]) String() string {
 	return b.String()
 }
 
-func (n TypeReference[T]) Source(og string, indent int) (string, error) {
+func (n AstTypeReference[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
-	in, ok := any(n).(TypeReference[Node])
+	in, ok := any(n).(AstTypeReference[Node])
 	if !ok {
 		return "", fmt.Errorf("expected TypeReference[INode], got %T", n)
 	}
@@ -3838,7 +3838,7 @@ func (n TypeReference[T]) Source(og string, indent int) (string, error) {
 }
 
 func DecodeTypeReference(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw TypeReference[json.RawMessage]
+	var raw AstTypeReference[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("unmarshal: %w", err)
 	}
@@ -3852,7 +3852,7 @@ func DecodeTypeReference(data json.RawMessage, addStatBlock AddStatBlock, depth 
 		parameters[i] = n
 	}
 
-	return TypeReference[Node]{
+	return AstTypeReference[Node]{
 		NodeLoc:      raw.NodeLoc,
 		Name:         raw.Name,
 		NameLocation: raw.NameLocation,
@@ -3860,16 +3860,16 @@ func DecodeTypeReference(data json.RawMessage, addStatBlock AddStatBlock, depth 
 	}, nil
 }
 
-type TypeSingletonBool struct {
+type AstTypeSingletonBool struct {
 	NodeLoc
 	Value bool `json:"value"`
 }
 
-func (n TypeSingletonBool) Type() string {
+func (n AstTypeSingletonBool) Type() string {
 	return "AstTypeSingletonBool"
 }
 
-func (n TypeSingletonBool) String() string {
+func (n AstTypeSingletonBool) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.ASTNode.String())
@@ -3879,7 +3879,7 @@ func (n TypeSingletonBool) String() string {
 	return b.String()
 }
 
-func (n TypeSingletonBool) Source(string, int) (string, error) {
+func (n AstTypeSingletonBool) Source(string, int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	if n.Value {
 		return "true", nil
@@ -3888,27 +3888,27 @@ func (n TypeSingletonBool) Source(string, int) (string, error) {
 }
 
 func DecodeTypeSingletonBool(data json.RawMessage) (Node, error) {
-	var raw TypeSingletonBool
+	var raw AstTypeSingletonBool
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("unmarshal: %w", err)
 	}
 
-	return TypeSingletonBool{
+	return AstTypeSingletonBool{
 		NodeLoc: raw.NodeLoc,
 		Value:   raw.Value,
 	}, nil
 }
 
-type TypeSingletonString struct {
+type AstTypeSingletonString struct {
 	NodeLoc
 	Value string `json:"value"`
 }
 
-func (n TypeSingletonString) Type() string {
+func (n AstTypeSingletonString) Type() string {
 	return "AstTypeSingletonString"
 }
 
-func (n TypeSingletonString) String() string {
+func (n AstTypeSingletonString) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.ASTNode.String())
@@ -3918,29 +3918,29 @@ func (n TypeSingletonString) String() string {
 	return b.String()
 }
 
-func (n TypeSingletonString) Source(og string, _ int) (string, error) {
+func (n AstTypeSingletonString) Source(og string, _ int) (string, error) {
 	return StringToSource(n.Value), nil
 }
 
 func DecodeTypeSingletonString(data json.RawMessage) (Node, error) {
-	var raw TypeSingletonString
+	var raw AstTypeSingletonString
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("unmarshal: %w", err)
 	}
 
-	return TypeSingletonString{
+	return AstTypeSingletonString{
 		NodeLoc: raw.NodeLoc,
 		Value:   raw.Value,
 	}, nil
 }
 
-type Indexer[T any] struct {
+type AstTableIndexer[T any] struct {
 	Location   Location `json:"location"`
 	IndexType  T        `json:"indexType"`
 	ResultType T        `json:"resultType"`
 }
 
-func (n Indexer[T]) String() string {
+func (n AstTableIndexer[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
@@ -3952,9 +3952,9 @@ func (n Indexer[T]) String() string {
 	return b.String()
 }
 
-func (n Indexer[T]) Source(og string, indent int) (string, error) {
+func (n AstTableIndexer[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
-	in, ok := any(n).(Indexer[Node])
+	in, ok := any(n).(AstTableIndexer[Node])
 	if !ok {
 		return "", fmt.Errorf("expected Indexer[INode], got %T", n)
 	}
@@ -3972,17 +3972,17 @@ func (n Indexer[T]) Source(og string, indent int) (string, error) {
 	return fmt.Sprintf("[%s]: %s", sindexType, sresultType), nil
 }
 
-type TypeTable[T any] struct {
+type AstTypeTable[T any] struct {
 	NodeLoc
-	Props   []T         `json:"props"`
-	Indexer *Indexer[T] `json:"indexer"`
+	Props   []T                 `json:"props"`
+	Indexer *AstTableIndexer[T] `json:"indexer"`
 }
 
-func (n TypeTable[T]) Type() string {
+func (n AstTypeTable[T]) Type() string {
 	return "AstTypeTable"
 }
 
-func (n TypeTable[T]) String() string {
+func (n AstTypeTable[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.ASTNode.String())
@@ -4003,9 +4003,9 @@ func (n TypeTable[T]) String() string {
 	return b.String()
 }
 
-func (n TypeTable[T]) Source(og string, indent int) (string, error) {
+func (n AstTypeTable[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
-	in, ok := any(n).(TypeTable[Node])
+	in, ok := any(n).(AstTypeTable[Node])
 	if !ok {
 		return "", fmt.Errorf("expected TypeTable[INode], got %T", n)
 	}
@@ -4018,7 +4018,7 @@ func (n TypeTable[T]) Source(og string, indent int) (string, error) {
 		// { number } etc, these don't work with additional object/hash fields or whatever
 		ixr := *in.Indexer
 
-		ixrr, ok := any(ixr.IndexType).(TypeReference[Node])
+		ixrr, ok := any(ixr.IndexType).(AstTypeReference[Node])
 		if ok && ixrr.Name == "number" { // it doesn't matter if the type is *actually* number. Fun experiment: do `type number = string` in your Luau script and see how much you can upset the typechecker!
 			rt, err := ixr.ResultType.Source(og, indent)
 			if err != nil {
@@ -4055,7 +4055,7 @@ func (n TypeTable[T]) Source(og string, indent int) (string, error) {
 }
 
 func DecodeTypeTable(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw TypeTable[json.RawMessage]
+	var raw AstTypeTable[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("unmarshal: %w", err)
 	}
@@ -4069,7 +4069,7 @@ func DecodeTypeTable(data json.RawMessage, addStatBlock AddStatBlock, depth int)
 		props[i] = n
 	}
 
-	var indexerMaybe *Indexer[Node]
+	var indexerMaybe *AstTableIndexer[Node]
 	if raw.Indexer != nil {
 		indexerNode, err := decodeNode(raw.Indexer.IndexType, addStatBlock, depth+1)
 		if err != nil {
@@ -4079,14 +4079,14 @@ func DecodeTypeTable(data json.RawMessage, addStatBlock AddStatBlock, depth int)
 		if err != nil {
 			return nil, fmt.Errorf("decode indexer result type: %w", err)
 		}
-		indexerMaybe = &Indexer[Node]{
+		indexerMaybe = &AstTableIndexer[Node]{
 			Location:   raw.Indexer.Location,
 			IndexType:  indexerNode,
 			ResultType: resultNode,
 		}
 	}
 
-	return TypeTable[Node]{
+	return AstTypeTable[Node]{
 		NodeLoc: raw.NodeLoc,
 		Props:   props,
 		Indexer: indexerMaybe,
@@ -4094,16 +4094,16 @@ func DecodeTypeTable(data json.RawMessage, addStatBlock AddStatBlock, depth int)
 }
 
 // lol
-type TypeTypeof[T any] struct {
+type AstTypeTypeof[T any] struct {
 	NodeLoc
 	Expr T `json:"expr"`
 }
 
-func (n TypeTypeof[T]) Type() string {
+func (n AstTypeTypeof[T]) Type() string {
 	return "AstTypeTypeof"
 }
 
-func (n TypeTypeof[T]) String() string {
+func (n AstTypeTypeof[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.ASTNode.String())
@@ -4114,7 +4114,7 @@ func (n TypeTypeof[T]) String() string {
 	return b.String()
 }
 
-func (n TypeTypeof[T]) Source(og string, indent int) (string, error) {
+func (n AstTypeTypeof[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
 	iexpr, ok := any(n.Expr).(Node)
 	if !ok {
@@ -4130,7 +4130,7 @@ func (n TypeTypeof[T]) Source(og string, indent int) (string, error) {
 }
 
 func DecodeTypeTypeof(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw TypeTypeof[json.RawMessage]
+	var raw AstTypeTypeof[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("unmarshal: %w", err)
 	}
@@ -4140,22 +4140,22 @@ func DecodeTypeTypeof(data json.RawMessage, addStatBlock AddStatBlock, depth int
 		return nil, fmt.Errorf("decode expr: %w", err)
 	}
 
-	return TypeTypeof[Node]{
+	return AstTypeTypeof[Node]{
 		NodeLoc: raw.NodeLoc,
 		Expr:    exprNode,
 	}, nil
 }
 
-type TypeUnion[T any] struct {
+type AstTypeUnion[T any] struct {
 	NodeLoc
 	Types []T `json:"types"`
 }
 
-func (n TypeUnion[T]) Type() string {
+func (n AstTypeUnion[T]) Type() string {
 	return "AstTypeUnion"
 }
 
-func (n TypeUnion[T]) String() string {
+func (n AstTypeUnion[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.ASTNode.String())
@@ -4170,9 +4170,9 @@ func (n TypeUnion[T]) String() string {
 	return b.String()
 }
 
-func (n TypeUnion[T]) Source(og string, indent int) (string, error) {
+func (n AstTypeUnion[T]) Source(og string, indent int) (string, error) {
 	// return n.Location.GetFromSource(og)
-	in, err := any(n).(TypeUnion[Node])
+	in, err := any(n).(AstTypeUnion[Node])
 	if !err {
 		return "", fmt.Errorf("expected TypeUnion[INode], got %T", n)
 	}
@@ -4217,7 +4217,7 @@ func (n TypeUnion[T]) Source(og string, indent int) (string, error) {
 }
 
 func DecodeTypeUnion(data json.RawMessage, addStatBlock AddStatBlock, depth int) (Node, error) {
-	var raw TypeUnion[json.RawMessage]
+	var raw AstTypeUnion[json.RawMessage]
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("unmarshal: %w", err)
 	}
@@ -4231,7 +4231,7 @@ func DecodeTypeUnion(data json.RawMessage, addStatBlock AddStatBlock, depth int)
 		types[i] = n
 	}
 
-	return TypeUnion[Node]{
+	return AstTypeUnion[Node]{
 		NodeLoc: raw.NodeLoc,
 		Types:   types,
 	}, nil

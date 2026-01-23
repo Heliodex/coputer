@@ -20,7 +20,7 @@ type AstType AstNode
 type AstExpr AstNode
 
 type Local struct {
-	local  *ast.Local[ast.ASTNode]
+	local  *ast.AstLocal[ast.ASTNode]
 	offset uint32
 }
 
