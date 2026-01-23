@@ -37,11 +37,6 @@ type HotComment struct {
 	content  string
 }
 
-type Comment struct {
-	Type     lex.LexemeType
-	location lex.Location
-}
-
 type ParseResult struct {
 	root  ast.AstStatBlock[ast.ASTNode]
 	lines uint
