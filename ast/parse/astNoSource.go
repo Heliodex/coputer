@@ -1,13 +1,9 @@
 package main
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
-	"os"
-	"os/exec"
 	"strings"
 )
 
@@ -18,138 +14,12 @@ const (
 	ConformanceDir = "../test/conformance"
 )
 
-func transformAst(in []byte) []byte {
-	strin := string(in)
-	out := strings.ReplaceAll(strin, `"value":Infinity`, `"value":"Infinity"`)
-	return []byte(out)
-}
-
-func LuauAst(path string) (out []byte, err error) {
-	cmd := exec.Command("luau-ast", path)
-	out, err = cmd.Output()
-	if err != nil {
-		return
-	}
-	return transformAst(out), nil
-}
-
-func LuauAstInput(source []byte) (out []byte, err error) {
-	tempfile, err := os.CreateTemp("", "luau-ast-*.luau")
-	if err != nil {
-		return nil, fmt.Errorf("create temp file: %w", err)
-	}
-	defer os.Remove(tempfile.Name())
-
-	if _, err = tempfile.Write(source); err != nil {
-		return nil, fmt.Errorf("write to temp file: %w", err)
-	}
-	if err = tempfile.Close(); err != nil {
-		return nil, fmt.Errorf("close temp file: %w", err)
-	}
-	return LuauAst(tempfile.Name())
-}
-
 func indentStart(s string, n int) string {
 	lines := strings.Split(strings.TrimSpace(s), "\n")
 	for i, line := range lines {
 		lines[i] = strings.Repeat(" ", n) + line
 	}
 	return strings.Join(lines, "\n")
-}
-
-type Number float64
-
-func (n Number) MarshalJSON() ([]byte, error) {
-	if float64(n) == math.Inf(1) {
-		return json.Marshal("Infinity")
-	}
-	return json.Marshal(float64(n))
-}
-
-func (n *Number) UnmarshalJSON(data []byte) (err error) {
-	// check if it's "Infinity"
-	if string(data) == `"Infinity"` {
-		*n = Number(math.Inf(1))
-		return
-	}
-
-	var f float64
-	if err = json.Unmarshal(data, &f); err != nil {
-		return
-	}
-	*n = Number(f)
-	return
-}
-
-type String string
-
-func (s String) MarshalJSON() ([]byte, error) {
-	return json.Marshal(string(s))
-}
-
-// oh god
-// trying to get the JSON strings from luau-ast's insane format
-func (s *String) UnmarshalJSON(data []byte) (err error) {
-	// dataNoQuotes := strings.Trim(string(data), `"`)
-	dataNoQuotes := string(data[1 : len(data)-1])
-
-	var data2 []byte
-	lnq := len(dataNoQuotes)
-	for i := 0; i < lnq; i++ {
-		lenLeft := lnq - i
-
-		next10 := dataNoQuotes[i:][:min(10, lenLeft)]
-		if lenLeft < 10 || next10[:8] != `\uffffff` { // fix luau-ast invalid unicode escapes
-			data2 = append(data2, dataNoQuotes[i])
-			continue
-		}
-
-		char := next10[8:]
-		decoded, err := hex.DecodeString(char)
-		if err != nil {
-			return err
-		}
-
-		data2 = append(data2, decoded[0])
-		i += 9
-	}
-
-	// fmt.Println("UnmarshalJSON", string(data2))
-
-	// another pass to check and replace \u escapes
-	d2s := string(data2)
-	d2s = strings.ReplaceAll(d2s, `\"`, `"`)
-	d2s = strings.ReplaceAll(d2s, `\\`, `\`)
-
-	var data3 []byte
-	ld2 := len(d2s)
-	for i := 0; i < ld2; i++ {
-		lenLeft := ld2 - i
-
-		next6 := d2s[i:][:min(6, lenLeft)]
-		if lenLeft < 6 || next6[:2] != `\u` {
-			data3 = append(data3, d2s[i])
-			continue
-		}
-
-		char := next6[2:]
-		decoded, err := hex.DecodeString(char)
-		if err != nil {
-			return err
-		}
-
-		if decoded[0] == 0 {
-			decoded = decoded[1:]
-		}
-
-		// fmt.Println("decoded", decoded)
-		data3 = append(data3, decoded...)
-		i += 5
-	}
-
-	*s = String(string(data3))
-
-	return
 }
 
 type Node interface {
@@ -236,10 +106,6 @@ type ASTNode struct {
 	Type string `json:"type"`
 }
 
-func (n ASTNode) String() string {
-	return fmt.Sprintf("Type: %s\n", n.Type)
-}
-
 type NodeLoc struct {
 	ASTNode
 	Location Location `json:"location"`
@@ -249,61 +115,26 @@ func (nl NodeLoc) GetLocation() Location {
 	return nl.Location
 }
 
-func StringMaybeEvaluated(val any) string {
-	if v, ok := val.(json.RawMessage); ok {
-		var node ASTNode
-		if err := json.Unmarshal(v, &node); err != nil {
-			return fmt.Sprintf("decode Node: %v", err)
-		}
-		return node.String()
-	}
-	return fmt.Sprintf("%v", val)
-}
-
 // ast
 
 type Comment struct {
 	NodeLoc
 }
 
-func (c Comment) String() string {
-	var b strings.Builder
-
-	b.WriteString(c.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s\n", c.Location))
-
-	return b.String()
-}
-
 // statblocks are the most important node for comments
 type StatBlockDepth struct {
-	AstStatBlock[Node]
+	AstStatBlock
 	Depth int
 }
 
-type AST[T any] struct {
-	Root             AstStatBlock[T] `json:"root"`
-	CommentLocations []Comment       `json:"commentLocations"`
+type AST struct {
+	Root             AstStatBlock `json:"root"`
+	CommentLocations []Comment    `json:"commentLocations"`
 }
 
-func (ast AST[T]) String() string {
-	var b strings.Builder
+type AddStatBlock func(AstStatBlock, int)
 
-	b.WriteString("Root:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(ast.Root), 4))
-	b.WriteString("\n\n")
-
-	b.WriteString("Comment Locations:")
-	for _, c := range ast.CommentLocations {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(c.String(), 4))
-	}
-	b.WriteByte('\n')
-
-	return b.String()
-}
-
-type AddStatBlock func(AstStatBlock[Node], int)
+// node type groops
 
 // node types (ok, real ast now)
 
@@ -321,16 +152,6 @@ func (a AstArgumentName) Type() string {
 	return "AstArgumentName"
 }
 
-func (a AstArgumentName) String() string {
-	var b strings.Builder
-
-	b.WriteString(a.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Name: %s\n", a.Name))
-	b.WriteString(fmt.Sprintf("Location: %s\n", a.Location))
-
-	return b.String()
-}
-
 type AstAttr struct {
 	NodeLoc
 	Name string `json:"name"`
@@ -340,17 +161,7 @@ func (a AstAttr) Type() string {
 	return "AstAttr"
 }
 
-func (a AstAttr) String() string {
-	var b strings.Builder
-
-	b.WriteString(a.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s\n", a.Location))
-	b.WriteString(fmt.Sprintf("Name: %s\n", a.Name))
-
-	return b.String()
-}
-
-type AstDeclaredClassProp[T any] struct {
+type AstDeclaredClassProp struct {
 	Name         string   `json:"name"`
 	NameLocation Location `json:"nameLocation"`
 	ASTNode
@@ -358,82 +169,36 @@ type AstDeclaredClassProp[T any] struct {
 	Location Location `json:"location"`
 }
 
-func (d AstDeclaredClassProp[T]) GetLocation() Location {
+func (d AstDeclaredClassProp) GetLocation() Location {
 	return d.Location
 }
 
-func (d AstDeclaredClassProp[T]) Type() string {
+func (d AstDeclaredClassProp) Type() string {
 	return "AstDeclaredClassProp"
 }
 
-func (d AstDeclaredClassProp[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(d.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Name: %s", d.Name))
-	b.WriteString(fmt.Sprintf("\nNameLocation: %s", d.NameLocation))
-	b.WriteString(fmt.Sprintf("\nLocation: %s", d.Location))
-	b.WriteString("\nLuauType:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(d.LuauType), 4))
-
-	return b.String()
-}
-
-type AstExprBinary[T any] struct {
+type AstExprBinary struct {
 	NodeLoc
-	Op    string `json:"op"`
-	Left  T      `json:"left"`
-	Right T      `json:"right"`
+	Op    string  `json:"op"`
+	Left  AstExpr `json:"left"`
+	Right AstExpr `json:"right"`
 }
 
-func (n AstExprBinary[T]) Type() string {
+func (n AstExprBinary) Type() string {
 	return "AstExprBinary"
 }
 
-func (n AstExprBinary[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString(fmt.Sprintf("\nOp: %s", n.Op))
-	b.WriteString("\nLeft:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Left), 4))
-	b.WriteString("\nRight:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Right), 4))
-
-	return b.String()
-}
-
-type AstExprCall[T any] struct {
+type AstExprCall struct {
 	NodeLoc
-	Func        T        `json:"func"`
-	Args        []T      `json:"args"`
-	Self        bool     `json:"self"`
-	ArgLocation Location `json:"argLocation"`
+	Func          AstExpr          `json:"func"`
+	Args          []AstExpr        `json:"args"`
+	Self          bool             `json:"self"`
+	ArgLocation   Location         `json:"argLocation"`
+	TypeArguments *[]AstTypeOrPack `json:"typeArguments"`
 }
 
-func (n AstExprCall[T]) Type() string {
+func (n AstExprCall) Type() string {
 	return "AstExprCall"
-}
-
-func (n AstExprCall[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nFunc:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Func), 4))
-	b.WriteString("\nArgs:")
-
-	for _, arg := range n.Args {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(arg), 4))
-	}
-
-	b.WriteString(fmt.Sprintf("\nSelf: %t", n.Self))
-	b.WriteString(fmt.Sprintf("\nArgLocation: %s", n.ArgLocation))
-
-	return b.String()
 }
 
 type AstExprConstantBool struct {
@@ -445,16 +210,6 @@ func (n AstExprConstantBool) Type() string {
 	return "AstExprConstantBool"
 }
 
-func (n AstExprConstantBool) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString(fmt.Sprintf("\nValue: %t", n.Value))
-
-	return b.String()
-}
-
 type AstExprConstantNil struct {
 	NodeLoc
 }
@@ -463,110 +218,40 @@ func (n AstExprConstantNil) Type() string {
 	return "AstExprConstantNil"
 }
 
-func (n AstExprConstantNil) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-
-	return b.String()
-}
-
 type AstExprConstantNumber struct {
 	NodeLoc
-	Value Number `json:"value"`
+	Value float64 `json:"value"`
 }
 
 func (n AstExprConstantNumber) Type() string {
 	return "AstExprConstantNumber"
 }
 
-func (n AstExprConstantNumber) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString(fmt.Sprintf("\nValue: %f", n.Value))
-
-	return b.String()
-}
-
 type AstExprConstantString struct {
 	NodeLoc
-	Value String `json:"value"`
+	Value string `json:"value"`
 }
 
 func (n AstExprConstantString) Type() string {
 	return "AstExprConstantString"
 }
 
-func (n AstExprConstantString) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString(fmt.Sprintf("\nValue: %s", n.Value))
-
-	return b.String()
-}
-
-type AstExprFunction[T any] struct {
+type AstExprFunction struct {
 	NodeLoc
-	Attributes       []AstAttr               `json:"attributes"`
-	Generics         []GenericType           `json:"generics"`
-	GenericPacks     []GenericTypePack       `json:"genericPacks"`
-	Args             []T                     `json:"args"`
-	ReturnAnnotation *AstTypePackExplicit[T] `json:"returnAnnotation"`
-	Vararg           bool                    `json:"vararg"`
-	VarargLocation   Location                `json:"varargLocation"`
-	Body             AstStatBlock[T]         `json:"body"`
-	FunctionDepth    int                     `json:"functionDepth"`
-	Debugname        string                  `json:"debugname"`
+	Attributes       []AstAttr            `json:"attributes"`
+	Generics         []AstGenericType     `json:"generics"`
+	GenericPacks     []AstGenericTypePack `json:"genericPacks"`
+	Args             []T                  `json:"args"`
+	ReturnAnnotation *AstTypePackExplicit `json:"returnAnnotation"`
+	Vararg           bool                 `json:"vararg"`
+	VarargLocation   Location             `json:"varargLocation"`
+	Body             AstStatBlock         `json:"body"`
+	FunctionDepth    int                  `json:"functionDepth"`
+	Debugname        string               `json:"debugname"`
 }
 
-func (n AstExprFunction[T]) Type() string {
+func (n AstExprFunction) Type() string {
 	return "AstExprFunction"
-}
-
-func (n AstExprFunction[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nAttributes:")
-	for _, attr := range n.Attributes {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(attr), 4))
-	}
-	b.WriteString("\nGenerics:")
-	for _, gen := range n.Generics {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(gen), 4))
-	}
-	b.WriteString("\nGenericPacks:")
-	for _, pack := range n.GenericPacks {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(pack), 4))
-	}
-	b.WriteString("\nArgs:")
-	for _, arg := range n.Args {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(arg), 4))
-	}
-	b.WriteString("\nReturnAnnotation:")
-	if n.ReturnAnnotation != nil {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(*n.ReturnAnnotation), 4))
-	}
-
-	b.WriteString(fmt.Sprintf("\nVararg: %t", n.Vararg))
-	b.WriteString(fmt.Sprintf("\nVarargLocation: %s", n.VarargLocation))
-	b.WriteString("\nBody:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Body), 4))
-	b.WriteString(fmt.Sprintf("\nFunctionDepth: %d", n.FunctionDepth))
-	b.WriteString(fmt.Sprintf("\nDebugname: %s", n.Debugname))
-
-	return b.String()
 }
 
 type AstExprGlobal struct {
@@ -578,90 +263,39 @@ func (n AstExprGlobal) Type() string {
 	return "AstExprGlobal"
 }
 
-func (n AstExprGlobal) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString(fmt.Sprintf("\nGlobal: %s", n.Global))
-
-	return b.String()
-}
-
-type AstExprGroup[T any] struct {
+type AstExprGroup struct {
 	NodeLoc
 	Expr T `json:"expr"` // only contains one expression right? strange when you first think about it
 }
 
-func (n AstExprGroup[T]) Type() string {
+func (n AstExprGroup) Type() string {
 	return "AstExprGroup"
 }
 
-func (n AstExprGroup[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nExpr:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
-
-	return b.String()
-}
-
-type AstExprIfElse[T any] struct {
+type AstExprIfElse struct {
 	NodeLoc
-	Condition T    `json:"condition"`
-	HasThen   bool `json:"hasThen"`
-	TrueExpr  T    `json:"trueExpr"`
-	HasElse   bool `json:"hasElse"`
-	FalseExpr T    `json:"falseExpr"`
+	Condition AstExpr `json:"condition"`
+	HasThen   bool    `json:"hasThen"`
+	TrueExpr  AstExpr `json:"trueExpr"`
+	HasElse   bool    `json:"hasElse"`
+	FalseExpr AstExpr `json:"falseExpr"`
 }
 
-func (n AstExprIfElse[T]) Type() string {
+func (n AstExprIfElse) Type() string {
 	return "AstExprIfElse"
 }
 
-func (n AstExprIfElse[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nCondition:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Condition), 4))
-	b.WriteString(fmt.Sprintf("\nHasThen: %t", n.HasThen))
-	b.WriteString("\nTrueExpr:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.TrueExpr), 4))
-	b.WriteString(fmt.Sprintf("\nHasElse: %t", n.HasElse))
-	b.WriteString("\nFalseExpr:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.FalseExpr), 4))
-
-	return b.String()
-}
-
-type AstExprIndexExpr[T any] struct {
+type AstExprIndexExpr struct {
 	NodeLoc
-	Expr  T `json:"expr"`
-	Index T `json:"index"`
+	Expr  AstExpr `json:"expr"`
+	Index AstExpr `json:"index"`
 }
 
-func (n AstExprIndexExpr[T]) Type() string {
+func (n AstExprIndexExpr) Type() string {
 	return "AstExprIndexExpr"
 }
 
-func (n AstExprIndexExpr[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nExpr:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
-	b.WriteString("\nIndex:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Index), 4))
-
-	return b.String()
-}
-
-type AstExprIndexName[T any] struct {
+type AstExprIndexName struct {
 	NodeLoc
 	Expr          T        `json:"expr"`
 	Index         string   `json:"index"`
@@ -669,147 +303,61 @@ type AstExprIndexName[T any] struct {
 	Op            string   `json:"op"`
 }
 
-func (n AstExprIndexName[T]) Type() string {
+func (n AstExprIndexName) Type() string {
 	return "AstExprIndexName"
 }
 
-func (n AstExprIndexName[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nExpr:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
-	b.WriteString(fmt.Sprintf("\nIndex: %s", n.Index))
-
-	return b.String()
-}
-
-type AstExprInterpString[T any] struct {
+type AstExprInterpString struct {
 	NodeLoc
 	Strings     []string `json:"strings"`
 	Expressions []T      `json:"expressions"`
 }
 
-func (n AstExprInterpString[T]) Type() string {
+func (n AstExprInterpString) Type() string {
 	return "AstExprInterpString"
 }
 
-func (n AstExprInterpString[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nStrings:")
-	for _, str := range n.Strings {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(str, 4))
-	}
-	b.WriteString("\nExpressions:")
-	for _, expr := range n.Expressions {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(expr), 4))
-	}
-
-	return b.String()
-}
-
-type AstExprLocal[T any] struct {
+type AstExprLocal struct {
 	NodeLoc
 	Local T `json:"local"`
 }
 
-func (n AstExprLocal[T]) Type() string {
+func (n AstExprLocal) Type() string {
 	return "AstExprLocal"
 }
 
-func (n AstExprLocal[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nLocal:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Local), 4))
-
-	return b.String()
-}
-
-type AstExprTable[T any] struct {
+type AstExprTable struct {
 	NodeLoc
 	Items []T `json:"items"`
 }
 
-func (n AstExprTable[T]) Type() string {
+func (n AstExprTable) Type() string {
 	return "AstExprTable"
 }
 
-func (n AstExprTable[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nItems:")
-
-	for _, item := range n.Items {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(item), 4))
-	}
-
-	return b.String()
-}
-
-type AstExprTableItem[T any] struct {
+type AstExprTableItem struct {
 	ASTNode
 	Kind  string `json:"kind"`
 	Key   *T     `json:"key"`
 	Value T      `json:"value"`
 }
 
-func (n AstExprTableItem[T]) GetLocation() Location {
+func (n AstExprTableItem) GetLocation() Location {
 	return Location{}
 }
 
-func (n AstExprTableItem[T]) Type() string {
+func (n AstExprTableItem) Type() string {
 	return "AstExprTableItem"
 }
 
-func (n AstExprTableItem[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Kind: %s", n.Kind))
-	b.WriteString("\nKey:")
-	if n.Key != nil {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(*n.Key), 4))
-	}
-	b.WriteString("\nValue:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Value), 4))
-
-	return b.String()
-}
-
-type AstExprTypeAssertion[T any] struct {
+type AstExprTypeAssertion struct {
 	NodeLoc
 	Expr       T `json:"expr"`
 	Annotation T `json:"annotation"`
 }
 
-func (n AstExprTypeAssertion[T]) Type() string {
+func (n AstExprTypeAssertion) Type() string {
 	return "AstExprTypeAssertion"
-}
-
-func (n AstExprTypeAssertion[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nExpr:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
-	b.WriteString("\nAnnotation:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Annotation), 4))
-
-	return b.String()
 }
 
 type AstExprVarargs struct {
@@ -820,160 +368,71 @@ func (n AstExprVarargs) Type() string {
 	return "AstExprVarargs"
 }
 
-func (n AstExprVarargs) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-
-	return b.String()
-}
-
-type AstExprUnary[T any] struct {
+type AstExprUnary struct {
 	NodeLoc
 	Op   string `json:"op"`
 	Expr T      `json:"expr"`
 }
 
-func (n AstExprUnary[T]) Type() string {
+func (n AstExprUnary) Type() string {
 	return "AstExprUnary"
 }
 
-func (n AstExprUnary[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString(fmt.Sprintf("\nOp: %s", n.Op))
-	b.WriteString("\nExpr:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
-
-	return b.String()
-}
-
-type GenericType struct {
+type AstGenericType struct {
 	ASTNode
 	Name string `json:"name"`
 }
 
-func (g GenericType) GetLocation() Location {
+func (g AstGenericType) GetLocation() Location {
 	return Location{}
 }
 
-func (g GenericType) Type() string {
+func (g AstGenericType) Type() string {
 	return "AstGenericType"
 }
 
-func (g GenericType) String() string {
-	var b strings.Builder
-
-	b.WriteString(g.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Name: %s", g.Name))
-
-	return b.String()
-}
-
-type GenericTypePack struct {
+type AstGenericTypePack struct {
 	ASTNode
 	Name string `json:"name"`
 }
 
-func (g GenericTypePack) GetLocation() Location {
+func (g AstGenericTypePack) GetLocation() Location {
 	return Location{}
 }
 
-func (g GenericTypePack) Type() string {
+func (g AstGenericTypePack) Type() string {
 	return "AstGenericTypePack"
 }
 
-func (g GenericTypePack) String() string {
-	var b strings.Builder
-
-	b.WriteString(g.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Name: %s", g.Name))
-
-	return b.String()
-}
-
-type AstLocal[T any] struct {
+type AstLocal struct {
 	LuauType *T     `json:"luauType"` // for now it's probably nil?
 	Name     string `json:"name"`
 	NodeLoc
 }
 
-func (n AstLocal[T]) Type() string {
+func (n AstLocal) Type() string {
 	return "AstLocal"
 }
 
-func (n AstLocal[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString("LuauType:")
-	if n.LuauType != nil {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(*n.LuauType), 4))
-	}
-	b.WriteString(fmt.Sprintf("\nName: %s\n", n.Name))
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-
-	return b.String()
-}
-
-type AstStatAssign[T any] struct {
+type AstStatAssign struct {
 	NodeLoc
 	Vars   []T `json:"vars"`
 	Values []T `json:"values"`
 }
 
-func (n AstStatAssign[T]) Type() string {
+func (n AstStatAssign) Type() string {
 	return "AstStatAssign"
 }
 
-func (n AstStatAssign[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nVars:")
-	for _, v := range n.Vars {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(v), 4))
-	}
-	b.WriteString("\nValues:")
-	for _, v := range n.Values {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(v), 4))
-	}
-
-	return b.String()
-}
-
-type AstStatBlock[T any] struct {
+type AstStatBlock struct {
 	NodeLoc
 	HasEnd            bool       `json:"hasEnd"`
 	Body              []T        `json:"body"`
 	CommentsContained *[]Comment // not in json
 }
 
-func (n AstStatBlock[T]) Type() string {
+func (n AstStatBlock) Type() string {
 	return "AstStatBlock"
-}
-
-func (n AstStatBlock[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString(fmt.Sprintf("\nHasEnd: %t", n.HasEnd))
-	b.WriteString("\nBody:\n")
-
-	for _, node := range n.Body {
-		b.WriteString(indentStart(StringMaybeEvaluated(node), 4))
-		b.WriteString("\n\n")
-	}
-
-	return b.String()
 }
 
 type AstStatBreak struct {
@@ -984,38 +443,15 @@ func (n AstStatBreak) Type() string {
 	return "AstStatBreak"
 }
 
-func (n AstStatBreak) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-
-	return b.String()
-}
-
-type AstStatCompoundAssign[T any] struct {
+type AstStatCompoundAssign struct {
 	NodeLoc
 	Op    string `json:"op"`
 	Var   T      `json:"var"`
 	Value T      `json:"value"`
 }
 
-func (n AstStatCompoundAssign[T]) Type() string {
+func (n AstStatCompoundAssign) Type() string {
 	return "AstStatCompoundAssign"
-}
-
-func (n AstStatCompoundAssign[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString(fmt.Sprintf("\nOp: %s", n.Op))
-	b.WriteString("\nVar:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Var), 4))
-	b.WriteString("\nValue:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Value), 4))
-
-	return b.String()
 }
 
 type AstStatContinue struct {
@@ -1026,16 +462,7 @@ func (n AstStatContinue) Type() string {
 	return "AstStatContinue"
 }
 
-func (n AstStatContinue) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-
-	return b.String()
-}
-
-type AstStatDeclareClass[T any] struct {
+type AstStatDeclareClass struct {
 	NodeLoc
 	Name      string  `json:"name"`
 	SuperName *string `json:"superName"`
@@ -1043,463 +470,182 @@ type AstStatDeclareClass[T any] struct {
 	Indexer   *T      `json:"indexer"`
 }
 
-func (n AstStatDeclareClass[T]) Type() string {
+func (n AstStatDeclareClass) Type() string {
 	return "AstStatDeclareClass"
 }
 
-func (n AstStatDeclareClass[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString(fmt.Sprintf("\nName: %s", n.Name))
-	if n.SuperName != nil {
-		b.WriteString(fmt.Sprintf("\nSuperName: %s", *n.SuperName))
-	}
-	b.WriteString("\nProps:")
-	for _, prop := range n.Props {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(prop), 4))
-	}
-	b.WriteString("\nIndexer:")
-	if n.Indexer != nil {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(*n.Indexer), 4))
-	}
-
-	return b.String()
-}
-
-type AstStatExpr[T any] struct {
+type AstStatExpr struct {
 	NodeLoc
 	Expr T `json:"expr"`
 }
 
-func (n AstStatExpr[T]) Type() string {
+func (n AstStatExpr) Type() string {
 	return "AstStatExpr"
 }
 
-func (n AstStatExpr[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nExpr:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
-	b.WriteByte('\n')
-
-	return b.String()
-}
-
-type AstStatFor[T any] struct {
+type AstStatFor struct {
 	NodeLoc
-	Var   T               `json:"var"`
-	From  T               `json:"from"`
-	To    T               `json:"to"`
-	Step  *T              `json:"step"`
-	Body  AstStatBlock[T] `json:"body"`
-	HasDo bool            `json:"hasDo"`
+	Var   T            `json:"var"`
+	From  T            `json:"from"`
+	To    T            `json:"to"`
+	Step  *T           `json:"step"`
+	Body  AstStatBlock `json:"body"`
+	HasDo bool         `json:"hasDo"`
 }
 
-func (n AstStatFor[T]) Type() string {
+func (n AstStatFor) Type() string {
 	return "AstStatFor"
 }
 
-func (n AstStatFor[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nVar:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Var), 4))
-	b.WriteString("\nFrom:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.From), 4))
-	b.WriteString("\nTo:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.To), 4))
-	b.WriteString("\nStep:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Step), 4))
-	b.WriteString("\nBody:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Body), 4))
-	b.WriteString(fmt.Sprintf("\nHasDo: %t\n", n.HasDo))
-
-	return b.String()
-}
-
-type AstStatForIn[T any] struct {
+type AstStatForIn struct {
 	NodeLoc
-	Vars   []AstLocal[T]   `json:"vars"`
-	Values []T             `json:"values"`
-	Body   AstStatBlock[T] `json:"body"`
-	HasIn  bool            `json:"hasIn"`
-	HasDo  bool            `json:"hasDo"`
+	Vars   []AstLocal   `json:"vars"`
+	Values []T          `json:"values"`
+	Body   AstStatBlock `json:"body"`
+	HasIn  bool         `json:"hasIn"`
+	HasDo  bool         `json:"hasDo"`
 }
 
-func (n AstStatForIn[T]) Type() string {
+func (n AstStatForIn) Type() string {
 	return "AstStatForIn"
 }
 
-func (n AstStatForIn[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nVars:")
-	for _, v := range n.Vars {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(v), 4))
-	}
-	b.WriteString("\nValues:")
-	for _, v := range n.Values {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(v), 4))
-	}
-	b.WriteString("\nBody:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Body), 4))
-	b.WriteString(fmt.Sprintf("\nHasIn: %t\n", n.HasIn))
-	b.WriteString(fmt.Sprintf("HasDo: %t\n", n.HasDo))
-
-	return b.String()
-}
-
-type AstStatFunction[T any] struct {
+type AstStatFunction struct {
 	NodeLoc
-	Name T                  `json:"name"`
-	Func AstExprFunction[T] `json:"func"`
+	Name         AstExpr         `json:"name"`
+	Func         AstExprFunction `json:"func"`
+	HasSemicolon *bool           `json:"hasSemicolon"`
 }
 
-func (n AstStatFunction[T]) Type() string {
+func (n AstStatFunction) Type() string {
 	return "AstStatFunction"
 }
 
-func (n AstStatFunction[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nName:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Name), 4))
-	b.WriteString("\nFunc:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Func), 4))
-
-	return b.String()
-}
-
-type AstStatIf[T any] struct {
+type AstStatIf struct {
 	NodeLoc
-	Condition T               `json:"condition"`
-	ThenBody  AstStatBlock[T] `json:"thenbody"`
-	ElseBody  *T              `json:"elsebody"` // StatBlock[T] | StatIf[T]
-	HasThen   bool            `json:"hasThen"`
+	Condition    AstExpr      `json:"condition"`
+	ThenBody     AstStatBlock `json:"thenbody"`
+	ElseBody     *AstStat     `json:"elsebody"` // StatBlock | StatIf
+	ThenLocation *Location    `json:"thenLocation"`
+	ElseLocation *Location    `json:"elseLocation"`
+	HasSemicolon *bool        `json:"hasSemicolon"`
 }
 
-func (n AstStatIf[T]) Type() string {
+func (n AstStatIf) Type() string {
 	return "AstStatIf"
 }
 
-func (n AstStatIf[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nCondition:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Condition), 4))
-	b.WriteString("\nThenBody:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.ThenBody), 4))
-	b.WriteString("\nElseBody:\n")
-	if n.ElseBody != nil {
-		b.WriteString(indentStart(StringMaybeEvaluated(*n.ElseBody), 4))
-		b.WriteByte('\n')
-	}
-	b.WriteString(fmt.Sprintf("HasThen: %t\n", n.HasThen))
-
-	return b.String()
-}
-
-type AstStatLocal[T any] struct {
+type AstStatLocal struct {
 	NodeLoc
-	Vars   []AstLocal[T] `json:"vars"`
-	Values []T           `json:"values"`
+	Vars   []AstLocal `json:"vars"`
+	Values []AstExpr        `json:"values"`
+	EqualsSignLocation *Location `json:"equalsSignLocation"`
+	HasSemicolon *bool      `json:"hasSemicolon"`
 }
 
-func (n AstStatLocal[T]) Type() string {
+func (n AstStatLocal) Type() string {
 	return "AstStatLocal"
 }
 
-func (n AstStatLocal[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nVars:")
-	for _, v := range n.Vars {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(v), 4))
-	}
-	b.WriteString("\nValues:")
-	for _, v := range n.Values {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(v), 4))
-	}
-
-	return b.String()
-}
-
-type AstStatLocalFunction[T any] struct {
+type AstStatLocalFunction struct {
 	NodeLoc
-	Name AstLocal[T]        `json:"name"`
-	Func AstExprFunction[T] `json:"func"`
+	Name         AstLocal        `json:"name"`
+	Func         AstExprFunction `json:"func"`
+	HasSemicolon *bool           `json:"hasSemicolon"`
 }
 
-func (n AstStatLocalFunction[T]) Type() string {
+func (n AstStatLocalFunction) Type() string {
 	return "AstStatLocalFunction"
 }
 
-func (n AstStatLocalFunction[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nName:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Name), 4))
-	b.WriteString("\nFunc:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Func), 4))
-
-	return b.String()
-}
-
-type AstStatRepeat[T any] struct {
+type AstStatRepeat struct {
 	NodeLoc
-	Condition T               `json:"condition"`
-	Body      AstStatBlock[T] `json:"body"`
+	Condition T            `json:"condition"`
+	Body      AstStatBlock `json:"body"`
 }
 
-func (n AstStatRepeat[T]) Type() string {
+func (n AstStatRepeat) Type() string {
 	return "AstStatRepeat"
 }
 
-func (n AstStatRepeat[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nCondition:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Condition), 4))
-	b.WriteString("\nBody:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Body), 4))
-
-	return b.String()
-}
-
-type AstStatReturn[T any] struct {
+type AstStatReturn struct {
 	NodeLoc
 	List []T `json:"list"`
 }
 
-func (n AstStatReturn[T]) Type() string {
+func (n AstStatReturn) Type() string {
 	return "AstStatReturn"
 }
 
-func (n AstStatReturn[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nList:")
-
-	for _, item := range n.List {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(item), 4))
-	}
-
-	return b.String()
-}
-
-type AstStatTypeAlias[T any] struct {
+type AstStatTypeAlias struct {
 	NodeLoc
-	Name         string            `json:"name"`
-	Generics     []GenericType     `json:"generics"`
-	GenericPacks []GenericTypePack `json:"genericPacks"` // genericPacks always come after the generics
-	Value        T                 `json:"value"`
-	Exported     bool              `json:"exported"`
+	Name         string               `json:"name"`
+	Generics     []AstGenericType     `json:"generics"`
+	GenericPacks []AstGenericTypePack `json:"genericPacks"` // genericPacks always come after the generics
+	Value        T                    `json:"value"`
+	Exported     bool                 `json:"exported"`
 }
 
-func (n AstStatTypeAlias[T]) Type() string {
+func (n AstStatTypeAlias) Type() string {
 	return "AstStatTypeAlias"
 }
 
-func (n AstStatTypeAlias[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString(fmt.Sprintf("\nName: %s", n.Name))
-	b.WriteString("\nGenerics:")
-	for _, g := range n.Generics {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(g), 4))
-	}
-	b.WriteString("\nGenericPacks:")
-	for _, gp := range n.GenericPacks {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(gp), 4))
-	}
-	b.WriteString("\nValue:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Value), 4))
-	b.WriteString(fmt.Sprintf("\nExported: %t\n", n.Exported))
-
-	return b.String()
-}
-
-type AstStatWhile[T any] struct {
+type AstStatWhile struct {
 	NodeLoc
-	Condition T               `json:"condition"`
-	Body      AstStatBlock[T] `json:"body"`
-	HasDo     bool            `json:"hasDo"`
+	Condition T            `json:"condition"`
+	Body      AstStatBlock `json:"body"`
+	HasDo     bool         `json:"hasDo"`
 }
 
-func (n AstStatWhile[T]) Type() string {
+func (n AstStatWhile) Type() string {
 	return "AstStatWhile"
 }
 
-func (n AstStatWhile[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nCondition:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Condition), 4))
-	b.WriteString("\nBody:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Body), 4))
-	b.WriteString(fmt.Sprintf("\nHasDo: %t\n", n.HasDo))
-
-	return b.String()
-}
-
-type AstTableProp[T any] struct {
+type AstTableProp struct {
 	Name string `json:"name"`
 	NodeLoc
 	PropType T `json:"propType"`
 }
 
-func (n AstTableProp[T]) Type() string {
+func (n AstTableProp) Type() string {
 	return "AstTableProp"
 }
 
-func (n AstTableProp[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString(fmt.Sprintf("\nName: %s", n.Name))
-	b.WriteString("\nPropType:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.PropType), 4))
-
-	return b.String()
-}
-
-type AstTypeFunction[T any] struct {
+type AstTypeFunction struct {
 	NodeLoc
-	Attributes   []AstAttr              `json:"attributes"`
-	Generics     []GenericType          `json:"generics"`
-	GenericPacks []GenericTypePack      `json:"genericPacks"`
-	ArgTypes     AstTypeList[T]         `json:"argTypes"`
-	ArgNames     []*AstArgumentName     `json:"argNames"`
-	ReturnTypes  AstTypePackExplicit[T] `json:"returnTypes"`
+	Attributes   []AstAttr            `json:"attributes"`
+	Generics     []AstGenericType     `json:"generics"`
+	GenericPacks []AstGenericTypePack `json:"genericPacks"`
+	ArgTypes     AstTypeList          `json:"argTypes"`
+	ArgNames     []*AstArgumentName   `json:"argNames"`
+	ReturnTypes  AstTypePackExplicit  `json:"returnTypes"`
 }
 
-func (n AstTypeFunction[T]) Type() string {
+func (n AstTypeFunction) Type() string {
 	return "AstTypeFunction"
 }
 
-func (n AstTypeFunction[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nAttributes:")
-	for _, attr := range n.Attributes {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(attr), 4))
-	}
-	b.WriteString("\nGenerics:")
-	for _, gen := range n.Generics {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(gen), 4))
-	}
-	b.WriteString("\nGenericPacks:")
-	for _, pack := range n.GenericPacks {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(pack), 4))
-	}
-	b.WriteString("\nArgTypes:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.ArgTypes), 4))
-	b.WriteString("\nArgNames:")
-	for _, name := range n.ArgNames {
-		b.WriteByte('\n')
-		if name == nil {
-			b.WriteString(indentStart("<nil>", 4))
-			continue
-		}
-		b.WriteString(indentStart(StringMaybeEvaluated(*name), 4))
-	}
-	b.WriteString("\nReturnTypes:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.ReturnTypes), 4))
-
-	return b.String()
-}
-
-type AstTypeGroup[T any] struct {
+type AstTypeGroup struct {
 	NodeLoc
 	Inner T `json:"inner"`
 }
 
-func (n AstTypeGroup[T]) Type() string {
+func (n AstTypeGroup) Type() string {
 	return "AstTypeGroup"
 }
 
-func (n AstTypeGroup[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nInner:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Inner), 4))
-
-	return b.String()
-}
-
-type AstTypeList[T any] struct {
+type AstTypeList struct {
 	ASTNode
 	Types    []T `json:"types"`
 	TailType *T  `json:"tailType"`
 }
 
-func (n AstTypeList[T]) GetLocation() Location {
+func (n AstTypeList) GetLocation() Location {
 	return Location{}
 }
 
-func (n AstTypeList[T]) Type() string {
+func (n AstTypeList) Type() string {
 	return "AstTypeList"
-}
-
-func (n AstTypeList[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString("Types:")
-
-	for _, typ := range n.Types {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(typ), 4))
-	}
-
-	b.WriteString("\nTailType:")
-	if n.TailType != nil {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(*n.TailType), 4))
-	}
-
-	return b.String()
 }
 
 type AstTypeOptional struct {
@@ -1510,33 +656,13 @@ func (AstTypeOptional) Type() string {
 	return "AstTypeOptional"
 }
 
-func (n AstTypeOptional) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-
-	return b.String()
-}
-
-type AstTypePackExplicit[T any] struct {
+type AstTypePackExplicit struct {
 	NodeLoc
-	TypeList AstTypeList[T] `json:"typeList"`
+	TypeList AstTypeList `json:"typeList"`
 }
 
-func (n AstTypePackExplicit[T]) Type() string {
+func (n AstTypePackExplicit) Type() string {
 	return "AstTypePackExplicit"
-}
-
-func (n AstTypePackExplicit[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nTypeList:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.TypeList), 4))
-
-	return b.String()
 }
 
 type AstTypePackGeneric struct {
@@ -1548,61 +674,27 @@ func (n AstTypePackGeneric) Type() string {
 	return "AstTypePackGeneric"
 }
 
-func (n AstTypePackGeneric) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString(fmt.Sprintf("\nGenericName: %s", n.GenericName))
-
-	return b.String()
-}
-
-type AstTypePackVariadic[T any] struct {
+type AstTypePackVariadic struct {
 	NodeLoc
-	VariadicType T `json:"variadicType"`
+	VariadicType AstType `json:"variadicType"`
 }
 
-func (n AstTypePackVariadic[T]) Type() string {
+func (n AstTypePackVariadic) Type() string {
 	return "AstTypePackVariadic"
 }
 
-func (n AstTypePackVariadic[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString(fmt.Sprintf("\nVariadicType: %s", StringMaybeEvaluated(n.VariadicType)))
-
-	return b.String()
-}
-
-type AstTypeReference[T any] struct {
+type AstTypeReference struct {
 	NodeLoc
-	Name         string   `json:"name"`
-	NameLocation Location `json:"nameLocation"`
-	Parameters   []T      `json:"parameters"`
+	HasParameterList bool            `json:"hasParameterList"`
+	Prefix           *string         `json:"prefix"`
+	PrefixLocation   *Location       `json:"prefixLocation"`
+	Name             string          `json:"name"`
+	NameLocation     Location        `json:"nameLocation"`
+	Parameters       []AstTypeOrPack `json:"parameters"`
 }
 
-func (n AstTypeReference[T]) Type() string {
+func (n AstTypeReference) Type() string {
 	return "AstTypeReference"
-}
-
-func (n AstTypeReference[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString(fmt.Sprintf("\nName: %s", n.Name))
-	b.WriteString(fmt.Sprintf("\nNameLocation: %s", n.NameLocation))
-	b.WriteString("\nParameters:")
-
-	for _, param := range n.Parameters {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(param), 4))
-	}
-
-	return b.String()
 }
 
 type AstTypeSingletonBool struct {
@@ -1614,16 +706,6 @@ func (n AstTypeSingletonBool) Type() string {
 	return "AstTypeSingletonBool"
 }
 
-func (n AstTypeSingletonBool) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString(fmt.Sprintf("\nValue: %t", n.Value))
-
-	return b.String()
-}
-
 type AstTypeSingletonString struct {
 	NodeLoc
 	Value string `json:"value"`
@@ -1633,106 +715,39 @@ func (n AstTypeSingletonString) Type() string {
 	return "AstTypeSingletonString"
 }
 
-func (n AstTypeSingletonString) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString(fmt.Sprintf("\nValue: %s", n.Value))
-
-	return b.String()
+type AstTableIndexer struct {
+	Location       Location  `json:"location"`
+	IndexType      AstType   `json:"indexType"`
+	ResultType     AstType   `json:"resultType"`
+	Access         string    `json:"access"`
+	AccessLocation *Location `json:"accessLocation"`
 }
 
-type AstTableIndexer[T any] struct {
-	Location   Location `json:"location"`
-	IndexType  T        `json:"indexType"`
-	ResultType T        `json:"resultType"`
-}
-
-func (n AstTableIndexer[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nIndexType:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.IndexType), 4))
-	b.WriteString("\nResultType:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.ResultType), 4))
-
-	return b.String()
-}
-
-type AstTypeTable[T any] struct {
+type AstTypeTable struct {
 	NodeLoc
-	Props   []T                 `json:"props"`
-	Indexer *AstTableIndexer[T] `json:"indexer"`
+	Props   []AstTableProp   `json:"props"`
+	Indexer *AstTableIndexer `json:"indexer"`
 }
 
-func (n AstTypeTable[T]) Type() string {
+func (n AstTypeTable) Type() string {
 	return "AstTypeTable"
 }
 
-func (n AstTypeTable[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nProps:")
-
-	for _, prop := range n.Props {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(prop), 4))
-	}
-
-	b.WriteString("\nIndexer:")
-	if n.Indexer != nil {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(n.Indexer.String(), 4))
-	}
-
-	return b.String()
-}
-
 // lol
-type AstTypeTypeof[T any] struct {
+type AstTypeTypeof struct {
 	NodeLoc
-	Expr T `json:"expr"`
+	Expr AstExpr `json:"expr"`
 }
 
-func (n AstTypeTypeof[T]) Type() string {
+func (n AstTypeTypeof) Type() string {
 	return "AstTypeTypeof"
 }
 
-func (n AstTypeTypeof[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nExpr:\n")
-	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
-
-	return b.String()
-}
-
-type AstTypeUnion[T any] struct {
+type AstTypeUnion struct {
 	NodeLoc
-	Types []T `json:"types"`
+	Types []AstType `json:"types"`
 }
 
-func (n AstTypeUnion[T]) Type() string {
+func (n AstTypeUnion) Type() string {
 	return "AstTypeUnion"
-}
-
-func (n AstTypeUnion[T]) String() string {
-	var b strings.Builder
-
-	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString("\nTypes:")
-
-	for _, typ := range n.Types {
-		b.WriteByte('\n')
-		b.WriteString(indentStart(StringMaybeEvaluated(typ), 4))
-	}
-
-	return b.String()
 }

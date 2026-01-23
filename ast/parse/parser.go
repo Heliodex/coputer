@@ -15,10 +15,6 @@ type AstNode struct {
 	location   lex.Location
 }
 
-type AstType AstNode
-
-type AstExpr AstNode
-
 type Local struct {
 	local  *ast.AstLocal[ast.ASTNode]
 	offset uint32
