@@ -10,16 +10,6 @@ type Function struct {
 	loopDepth uint32
 }
 
-type AstNode struct {
-	classIndex int
-	location   lex.Location
-}
-
-type Local struct {
-	local  *ast.AstLocal[ast.ASTNode]
-	offset uint32
-}
-
 type Name struct {
 	name     lex.AstName
 	location lex.Location
