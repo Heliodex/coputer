@@ -256,8 +256,8 @@ type AstExprBinary struct {
 	Right AstExpr `json:"right"`
 }
 
-func (n AstExprBinary) isAstNode() {}
-func (n AstExprBinary) isAstExpr() {}
+func (AstExprBinary) isAstNode() {}
+func (AstExprBinary) isAstExpr() {}
 
 type AstExprCall struct {
 	NodeLoc
@@ -268,39 +268,39 @@ type AstExprCall struct {
 	TypeArguments *[]AstTypeOrPack `json:"typeArguments"`
 }
 
-func (n AstExprCall) isAstNode() {}
-func (n AstExprCall) isAstExpr() {}
+func (AstExprCall) isAstNode() {}
+func (AstExprCall) isAstExpr() {}
 
 type AstExprConstantBool struct {
 	NodeLoc
 	Value bool `json:"value"`
 }
 
-func (n AstExprConstantBool) isAstNode() {}
-func (n AstExprConstantBool) isAstExpr() {}
+func (AstExprConstantBool) isAstNode() {}
+func (AstExprConstantBool) isAstExpr() {}
 
 type AstExprConstantNil struct {
 	NodeLoc
 }
 
-func (n AstExprConstantNil) isAstNode() {}
-func (n AstExprConstantNil) isAstExpr() {}
+func (AstExprConstantNil) isAstNode() {}
+func (AstExprConstantNil) isAstExpr() {}
 
 type AstExprConstantNumber struct {
 	NodeLoc
 	Value float64 `json:"value"`
 }
 
-func (n AstExprConstantNumber) isAstNode() {}
-func (n AstExprConstantNumber) isAstExpr() {}
+func (AstExprConstantNumber) isAstNode() {}
+func (AstExprConstantNumber) isAstExpr() {}
 
 type AstExprConstantString struct {
 	NodeLoc
 	Value string `json:"value"`
 }
 
-func (n AstExprConstantString) isAstNode() {}
-func (n AstExprConstantString) isAstExpr() {}
+func (AstExprConstantString) isAstNode() {}
+func (AstExprConstantString) isAstExpr() {}
 
 type AstExprError struct {
 	NodeLoc
@@ -308,8 +308,8 @@ type AstExprError struct {
 	MessageIndex int       `json:"messageIndex"`
 }
 
-func (n AstExprError) isAstNode() {}
-func (n AstExprError) isAstExpr() {}
+func (AstExprError) isAstNode() {}
+func (AstExprError) isAstExpr() {}
 
 type AstExprFunction struct {
 	NodeLoc
@@ -328,24 +328,24 @@ type AstExprFunction struct {
 	ArgLocation      *Location            `json:"argLocation"`
 }
 
-func (n AstExprFunction) isAstNode() {}
-func (n AstExprFunction) isAstExpr() {}
+func (AstExprFunction) isAstNode() {}
+func (AstExprFunction) isAstExpr() {}
 
 type AstExprGlobal struct {
 	NodeLoc
 	Global string `json:"global"`
 }
 
-func (n AstExprGlobal) isAstNode() {}
-func (n AstExprGlobal) isAstExpr() {}
+func (AstExprGlobal) isAstNode() {}
+func (AstExprGlobal) isAstExpr() {}
 
 type AstExprGroup struct {
 	NodeLoc
 	Expr AstExpr `json:"expr"` // only contains one expression right? strange when you first think about it
 }
 
-func (n AstExprGroup) isAstNode() {}
-func (n AstExprGroup) isAstExpr() {}
+func (AstExprGroup) isAstNode() {}
+func (AstExprGroup) isAstExpr() {}
 
 type AstExprIfElse struct {
 	NodeLoc
@@ -356,8 +356,8 @@ type AstExprIfElse struct {
 	FalseExpr AstExpr `json:"falseExpr"`
 }
 
-func (n AstExprIfElse) isAstNode() {}
-func (n AstExprIfElse) isAstExpr() {}
+func (AstExprIfElse) isAstNode() {}
+func (AstExprIfElse) isAstExpr() {}
 
 type AstExprIndexExpr struct {
 	NodeLoc
@@ -365,8 +365,8 @@ type AstExprIndexExpr struct {
 	Index AstExpr `json:"index"`
 }
 
-func (n AstExprIndexExpr) isAstNode() {}
-func (n AstExprIndexExpr) isAstExpr() {}
+func (AstExprIndexExpr) isAstNode() {}
+func (AstExprIndexExpr) isAstExpr() {}
 
 type AstExprIndexName struct {
 	NodeLoc
@@ -377,8 +377,8 @@ type AstExprIndexName struct {
 	Op            rune     `json:"op"`
 }
 
-func (n AstExprIndexName) isAstNode() {}
-func (n AstExprIndexName) isAstExpr() {}
+func (AstExprIndexName) isAstNode() {}
+func (AstExprIndexName) isAstExpr() {}
 
 type AstExprInterpString struct {
 	NodeLoc
@@ -386,8 +386,8 @@ type AstExprInterpString struct {
 	Expressions []AstExpr `json:"expressions"`
 }
 
-func (n AstExprInterpString) isAstNode() {}
-func (n AstExprInterpString) isAstExpr() {}
+func (AstExprInterpString) isAstNode() {}
+func (AstExprInterpString) isAstExpr() {}
 
 type AstExprInstantiate struct {
 	NodeLoc
@@ -395,8 +395,8 @@ type AstExprInstantiate struct {
 	TypeArguments []AstTypeOrPack `json:"typeArguments"`
 }
 
-func (n AstExprInstantiate) isAstNode() {}
-func (n AstExprInstantiate) isAstExpr() {}
+func (AstExprInstantiate) isAstNode() {}
+func (AstExprInstantiate) isAstExpr() {}
 
 type AstExprLocal struct {
 	NodeLoc
@@ -404,16 +404,16 @@ type AstExprLocal struct {
 	Upvalue bool     `json:"upvalue"`
 }
 
-func (n AstExprLocal) isAstNode() {}
-func (n AstExprLocal) isAstExpr() {}
+func (AstExprLocal) isAstNode() {}
+func (AstExprLocal) isAstExpr() {}
 
 type AstExprTable struct {
 	NodeLoc
 	Items []AstExprTableItem `json:"items"`
 }
 
-func (n AstExprTable) isAstNode() {}
-func (n AstExprTable) isAstExpr() {}
+func (AstExprTable) isAstNode() {}
+func (AstExprTable) isAstExpr() {}
 
 type AstExprTableItem struct {
 	NodeLoc
@@ -428,15 +428,15 @@ type AstExprTypeAssertion struct {
 	Annotation AstType `json:"annotation"`
 }
 
-func (n AstExprTypeAssertion) isAstNode() {}
-func (n AstExprTypeAssertion) isAstExpr() {}
+func (AstExprTypeAssertion) isAstNode() {}
+func (AstExprTypeAssertion) isAstExpr() {}
 
 type AstExprVarargs struct {
 	NodeLoc
 }
 
-func (n AstExprVarargs) isAstNode() {}
-func (n AstExprVarargs) isAstExpr() {}
+func (AstExprVarargs) isAstNode() {}
+func (AstExprVarargs) isAstExpr() {}
 
 type AstExprUnary struct {
 	NodeLoc
@@ -444,8 +444,8 @@ type AstExprUnary struct {
 	Expr AstExpr `json:"expr"`
 }
 
-func (n AstExprUnary) isAstNode() {}
-func (n AstExprUnary) isAstExpr() {}
+func (AstExprUnary) isAstNode() {}
+func (AstExprUnary) isAstExpr() {}
 
 type AstGenericType struct {
 	NodeLoc
@@ -475,8 +475,8 @@ type AstStatAssign struct {
 	HasSemicolon *bool     `json:"hasSemicolon"`
 }
 
-func (n AstStatAssign) isAstNode() {}
-func (n AstStatAssign) isAstStat() {}
+func (AstStatAssign) isAstNode() {}
+func (AstStatAssign) isAstStat() {}
 
 type AstStatBlock struct {
 	NodeLoc
@@ -485,15 +485,15 @@ type AstStatBlock struct {
 	CommentsContained *[]Comment // not in json
 }
 
-func (n AstStatBlock) isAstNode() {}
-func (n AstStatBlock) isAstStat() {}
+func (AstStatBlock) isAstNode() {}
+func (AstStatBlock) isAstStat() {}
 
 type AstStatBreak struct {
 	NodeLoc
 }
 
-func (n AstStatBreak) isAstNode() {}
-func (n AstStatBreak) isAstStat() {}
+func (AstStatBreak) isAstNode() {}
+func (AstStatBreak) isAstStat() {}
 
 type AstStatCompoundAssign struct {
 	NodeLoc
@@ -503,15 +503,15 @@ type AstStatCompoundAssign struct {
 	HasSemicolon *bool   `json:"hasSemicolon"`
 }
 
-func (n AstStatCompoundAssign) isAstNode() {}
-func (n AstStatCompoundAssign) isAstStat() {}
+func (AstStatCompoundAssign) isAstNode() {}
+func (AstStatCompoundAssign) isAstStat() {}
 
 type AstStatContinue struct {
 	NodeLoc
 }
 
-func (n AstStatContinue) isAstNode() {}
-func (n AstStatContinue) isAstStat() {}
+func (AstStatContinue) isAstNode() {}
+func (AstStatContinue) isAstStat() {}
 
 type AstStatDeclareFunction struct {
 	NodeLoc
@@ -528,8 +528,8 @@ type AstStatDeclareFunction struct {
 	HasSemicolon   *bool                `json:"hasSemicolon"`
 }
 
-func (n AstStatDeclareFunction) isAstNode() {}
-func (n AstStatDeclareFunction) isAstStat() {}
+func (AstStatDeclareFunction) isAstNode() {}
+func (AstStatDeclareFunction) isAstStat() {}
 
 type AstStatDeclareGlobal struct {
 	NodeLoc
@@ -539,8 +539,8 @@ type AstStatDeclareGlobal struct {
 	HasSemicolon *bool    `json:"hasSemicolon"`
 }
 
-func (n AstStatDeclareGlobal) isAstNode() {}
-func (n AstStatDeclareGlobal) isAstStat() {}
+func (AstStatDeclareGlobal) isAstNode() {}
+func (AstStatDeclareGlobal) isAstStat() {}
 
 type AstStatDeclareExternType struct {
 	NodeLoc
@@ -551,8 +551,8 @@ type AstStatDeclareExternType struct {
 	HasSemicolon *bool                           `json:"hasSemicolon"`
 }
 
-func (n AstStatDeclareExternType) isAstNode() {}
-func (n AstStatDeclareExternType) isAstStat() {}
+func (AstStatDeclareExternType) isAstNode() {}
+func (AstStatDeclareExternType) isAstStat() {}
 
 type AstDeclaredExternTypeProperty struct {
 	Location     Location `json:"location"`
@@ -571,16 +571,16 @@ type AstStatError struct {
 	HasSemicolon *bool     `json:"hasSemicolon"`
 }
 
-func (n AstStatError) isAstNode() {}
-func (n AstStatError) isAstStat() {}
+func (AstStatError) isAstNode() {}
+func (AstStatError) isAstStat() {}
 
 type AstStatExpr struct {
 	NodeLoc
 	Expr AstExpr `json:"expr"`
 }
 
-func (n AstStatExpr) isAstNode() {}
-func (n AstStatExpr) isAstStat() {}
+func (AstStatExpr) isAstNode() {}
+func (AstStatExpr) isAstStat() {}
 
 type AstStatFor struct {
 	NodeLoc
@@ -594,8 +594,8 @@ type AstStatFor struct {
 	HasSemicolon *bool        `json:"hasSemicolon"`
 }
 
-func (n AstStatFor) isAstNode() {}
-func (n AstStatFor) isAstStat() {}
+func (AstStatFor) isAstNode() {}
+func (AstStatFor) isAstStat() {}
 
 type AstStatForIn struct {
 	NodeLoc
@@ -609,8 +609,8 @@ type AstStatForIn struct {
 	HasSemicolon *bool        `json:"hasSemicolon"`
 }
 
-func (n AstStatForIn) isAstNode() {}
-func (n AstStatForIn) isAstStat() {}
+func (AstStatForIn) isAstNode() {}
+func (AstStatForIn) isAstStat() {}
 
 type AstStatFunction struct {
 	NodeLoc
@@ -619,8 +619,8 @@ type AstStatFunction struct {
 	HasSemicolon *bool           `json:"hasSemicolon"`
 }
 
-func (n AstStatFunction) isAstNode() {}
-func (n AstStatFunction) isAstStat() {}
+func (AstStatFunction) isAstNode() {}
+func (AstStatFunction) isAstStat() {}
 
 type AstStatIf struct {
 	NodeLoc
@@ -632,8 +632,8 @@ type AstStatIf struct {
 	HasSemicolon *bool        `json:"hasSemicolon"`
 }
 
-func (n AstStatIf) isAstNode() {}
-func (n AstStatIf) isAstStat() {}
+func (AstStatIf) isAstNode() {}
+func (AstStatIf) isAstStat() {}
 
 type AstStatLocal struct {
 	NodeLoc
@@ -643,8 +643,8 @@ type AstStatLocal struct {
 	HasSemicolon       *bool      `json:"hasSemicolon"`
 }
 
-func (n AstStatLocal) isAstNode() {}
-func (n AstStatLocal) isAstStat() {}
+func (AstStatLocal) isAstNode() {}
+func (AstStatLocal) isAstStat() {}
 
 type AstStatLocalFunction struct {
 	NodeLoc
@@ -653,8 +653,8 @@ type AstStatLocalFunction struct {
 	HasSemicolon *bool           `json:"hasSemicolon"`
 }
 
-func (n AstStatLocalFunction) isAstNode() {}
-func (n AstStatLocalFunction) isAstStat() {}
+func (AstStatLocalFunction) isAstNode() {}
+func (AstStatLocalFunction) isAstStat() {}
 
 type AstStatRepeat struct {
 	NodeLoc
@@ -664,8 +664,8 @@ type AstStatRepeat struct {
 	HasSemicolon *bool        `json:"hasSemicolon"`
 }
 
-func (n AstStatRepeat) isAstNode() {}
-func (n AstStatRepeat) isAstStat() {}
+func (AstStatRepeat) isAstNode() {}
+func (AstStatRepeat) isAstStat() {}
 
 type AstStatReturn struct {
 	NodeLoc
@@ -673,8 +673,8 @@ type AstStatReturn struct {
 	HasSemicolon *bool     `json:"hasSemicolon"`
 }
 
-func (n AstStatReturn) isAstNode() {}
-func (n AstStatReturn) isAstStat() {}
+func (AstStatReturn) isAstNode() {}
+func (AstStatReturn) isAstStat() {}
 
 type AstStatTypeAlias struct {
 	NodeLoc
@@ -687,8 +687,8 @@ type AstStatTypeAlias struct {
 	HasSemicolon *bool                `json:"hasSemicolon"`
 }
 
-func (n AstStatTypeAlias) isAstNode() {}
-func (n AstStatTypeAlias) isAstStat() {}
+func (AstStatTypeAlias) isAstNode() {}
+func (AstStatTypeAlias) isAstStat() {}
 
 type AstStatTypeFunction struct {
 	NodeLoc
@@ -700,8 +700,8 @@ type AstStatTypeFunction struct {
 	HasSemicolon *bool           `json:"hasSemicolon"`
 }
 
-func (n AstStatTypeFunction) isAstNode() {}
-func (n AstStatTypeFunction) isAstStat() {}
+func (AstStatTypeFunction) isAstNode() {}
+func (AstStatTypeFunction) isAstStat() {}
 
 type AstStatWhile struct {
 	NodeLoc
@@ -712,8 +712,8 @@ type AstStatWhile struct {
 	HasSemicolon *bool        `json:"hasSemicolon"`
 }
 
-func (n AstStatWhile) isAstNode() {}
-func (n AstStatWhile) isAstStat() {}
+func (AstStatWhile) isAstNode() {}
+func (AstStatWhile) isAstStat() {}
 
 type AstTableIndexer struct {
 	Location       Location  `json:"location"`
@@ -738,8 +738,8 @@ type AstTypeError struct {
 	MessageIndex int       `json:"messageIndex"`
 }
 
-func (n AstTypeError) isAstNode() {}
-func (n AstTypeError) isAstType() {}
+func (AstTypeError) isAstNode() {}
+func (AstTypeError) isAstType() {}
 
 type AstTypeFunction struct {
 	NodeLoc
@@ -751,39 +751,39 @@ type AstTypeFunction struct {
 	ReturnTypes  AstTypePackExplicit  `json:"returnTypes"`
 }
 
-func (n AstTypeFunction) isAstNode() {}
-func (n AstTypeFunction) isAstType() {}
+func (AstTypeFunction) isAstNode() {}
+func (AstTypeFunction) isAstType() {}
 
 type AstTypeGroup struct {
 	NodeLoc
 	Type AstType `json:"type"`
 }
 
-func (n AstTypeGroup) isAstNode() {}
-func (n AstTypeGroup) isAstType() {}
+func (AstTypeGroup) isAstNode() {}
+func (AstTypeGroup) isAstType() {}
 
 type AstTypeIntersection struct {
 	NodeLoc
 	Types []AstType `json:"types"`
 }
 
-func (n AstTypeIntersection) isAstNode() {}
-func (n AstTypeIntersection) isAstType() {}
+func (AstTypeIntersection) isAstNode() {}
+func (AstTypeIntersection) isAstType() {}
 
 type AstTypeList struct {
 	Types    []AstType    `json:"types"`
 	TailType *AstTypePack `json:"tailType"`
 }
 
-func (n AstTypeList) isAstNode() {}
-func (n AstTypeList) isAstType() {}
+func (AstTypeList) isAstNode() {}
+func (AstTypeList) isAstType() {}
 
 type AstTypeOptional struct {
 	NodeLoc
 }
 
-func (n AstTypeOptional) isAstNode() {}
-func (n AstTypeOptional) isAstType() {}
+func (AstTypeOptional) isAstNode() {}
+func (AstTypeOptional) isAstType() {}
 
 type AstTypeOrPack struct {
 	Type *AstType     `json:"type"`
@@ -796,24 +796,24 @@ type AstTypePackExplicit struct {
 	TailType *AstTypePack `json:"tailType"`
 }
 
-func (n AstTypePackExplicit) isAstNode()     {}
-func (n AstTypePackExplicit) isAstTypePack() {}
+func (AstTypePackExplicit) isAstNode()     {}
+func (AstTypePackExplicit) isAstTypePack() {}
 
 type AstTypePackGeneric struct {
 	NodeLoc
 	GenericName string `json:"genericName"`
 }
 
-func (n AstTypePackGeneric) isAstNode()     {}
-func (n AstTypePackGeneric) isAstTypePack() {}
+func (AstTypePackGeneric) isAstNode()     {}
+func (AstTypePackGeneric) isAstTypePack() {}
 
 type AstTypePackVariadic struct {
 	NodeLoc
 	VariadicType AstType `json:"variadicType"`
 }
 
-func (n AstTypePackVariadic) isAstNode()     {}
-func (n AstTypePackVariadic) isAstTypePack() {}
+func (AstTypePackVariadic) isAstNode()     {}
+func (AstTypePackVariadic) isAstTypePack() {}
 
 type AstTypeReference struct {
 	NodeLoc
@@ -825,24 +825,24 @@ type AstTypeReference struct {
 	Parameters       []AstTypeOrPack `json:"parameters"`
 }
 
-func (n AstTypeReference) isAstNode() {}
-func (n AstTypeReference) isAstType() {}
+func (AstTypeReference) isAstNode() {}
+func (AstTypeReference) isAstType() {}
 
 type AstTypeSingletonBool struct {
 	NodeLoc
 	Value bool `json:"value"`
 }
 
-func (n AstTypeSingletonBool) isAstNode() {}
-func (n AstTypeSingletonBool) isAstType() {}
+func (AstTypeSingletonBool) isAstNode() {}
+func (AstTypeSingletonBool) isAstType() {}
 
 type AstTypeSingletonString struct {
 	NodeLoc
 	Value string `json:"value"`
 }
 
-func (n AstTypeSingletonString) isAstNode() {}
-func (n AstTypeSingletonString) isAstType() {}
+func (AstTypeSingletonString) isAstNode() {}
+func (AstTypeSingletonString) isAstType() {}
 
 type AstTypeTable struct {
 	NodeLoc
@@ -850,8 +850,8 @@ type AstTypeTable struct {
 	Indexer *AstTableIndexer `json:"indexer"`
 }
 
-func (n AstTypeTable) isAstNode() {}
-func (n AstTypeTable) isAstType() {}
+func (AstTypeTable) isAstNode() {}
+func (AstTypeTable) isAstType() {}
 
 // lol
 type AstTypeTypeof struct {
@@ -859,13 +859,13 @@ type AstTypeTypeof struct {
 	Expr AstExpr `json:"expr"`
 }
 
-func (n AstTypeTypeof) isAstNode() {}
-func (n AstTypeTypeof) isAstType() {}
+func (AstTypeTypeof) isAstNode() {}
+func (AstTypeTypeof) isAstType() {}
 
 type AstTypeUnion struct {
 	NodeLoc
 	Types []AstType `json:"types"`
 }
 
-func (n AstTypeUnion) isAstNode() {}
-func (n AstTypeUnion) isAstType() {}
+func (AstTypeUnion) isAstNode() {}
+func (AstTypeUnion) isAstType() {}
