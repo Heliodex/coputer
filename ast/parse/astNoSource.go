@@ -157,7 +157,6 @@ var (
 // --- Statements are constructs that perform actions but don't produce values.
 type AstStat interface {
 	AstNode
-	isAstNode()
 	isAstStat()
 }
 
@@ -194,7 +193,6 @@ var (
 
 type AstTypePack interface {
 	AstNode
-	isAstNodePack()
 	isAstTypePack()
 }
 
@@ -213,8 +211,8 @@ var (
 
 type AstType interface {
 	AstNode
-	isAstNode()
 	isAstType()
+	// isAstNodePack() 😭
 }
 
 var (
@@ -239,15 +237,16 @@ type Comment struct {
 }
 
 // node types (ok, real ast now)
+type AstAttr struct {
+	NodeLoc
+	Type string    `json:"Type"`
+	Args []AstExpr `json:"args"`
+	Name *string   `json:"name"`
+}
 
 type AstArgumentName struct {
 	Name     string   `json:"name"`
 	Location Location `json:"location"`
-}
-
-type AstAttr struct {
-	NodeLoc
-	Name string `json:"name"`
 }
 
 type AstExprBinary struct {
@@ -456,7 +455,8 @@ type AstGenericType struct {
 
 type AstGenericTypePack struct {
 	NodeLoc
-	Name string `json:"name"`
+	Name         string       `json:"name"`
+	DefaultValue *AstTypePack `json:"defaultValue"`
 }
 
 type AstLocal struct {
@@ -797,7 +797,6 @@ type AstTypePackExplicit struct {
 }
 
 func (n AstTypePackExplicit) isAstNode()     {}
-func (n AstTypePackExplicit) isAstNodePack() {}
 func (n AstTypePackExplicit) isAstTypePack() {}
 
 type AstTypePackGeneric struct {
@@ -806,7 +805,6 @@ type AstTypePackGeneric struct {
 }
 
 func (n AstTypePackGeneric) isAstNode()     {}
-func (n AstTypePackGeneric) isAstNodePack() {}
 func (n AstTypePackGeneric) isAstTypePack() {}
 
 type AstTypePackVariadic struct {
@@ -815,7 +813,6 @@ type AstTypePackVariadic struct {
 }
 
 func (n AstTypePackVariadic) isAstNode()     {}
-func (n AstTypePackVariadic) isAstNodePack() {}
 func (n AstTypePackVariadic) isAstTypePack() {}
 
 type AstTypeReference struct {
