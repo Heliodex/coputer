@@ -26,11 +26,6 @@ type ParseOptions struct {
 	noErrorLimit           bool
 }
 
-type ParseError struct {
-	Location lex.Location
-	Message  string
-}
-
 type HotComment struct {
 	header   bool
 	location lex.Location
