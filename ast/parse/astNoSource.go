@@ -14,22 +14,6 @@ const (
 	ConformanceDir = "../test/conformance"
 )
 
-func indentStart(s string, n int) string {
-	lines := strings.Split(strings.TrimSpace(s), "\n")
-	for i, line := range lines {
-		lines[i] = strings.Repeat(" ", n) + line
-	}
-	return strings.Join(lines, "\n")
-}
-
-type Node interface {
-	String() string
-}
-
-func IndentSize(indent int) string {
-	return strings.Repeat("\t", indent)
-}
-
 type Position struct {
 	Line   int `json:"line"`
 	Column int `json:"column"`
@@ -111,6 +95,13 @@ type NodeLoc struct {
 
 // ast groops
 
+// --------------------------------------------------------------------------------
+// -- AST NODE UNION TYPE
+// --------------------------------------------------------------------------------
+
+// Union type representing all possible AST nodes that can be stored in the CST map.
+// This includes statements, expressions, types, locals, and various helper nodes.
+
 type AstNode interface {
 	isAstNode()
 }
@@ -119,8 +110,8 @@ type AstNode interface {
 // -- EXPRESSION UNION TYPES
 // --------------------------------------------------------------------------------
 
-// --- Union type representing all possible expression nodes in the AST.
-// --- Expressions are constructs that evaluate to a value.
+// Union type representing all possible expression nodes in the AST.
+// Expressions are constructs that evaluate to a value.
 type AstExpr interface {
 	AstNode
 	isAstExpr()
@@ -153,8 +144,8 @@ var (
 // -- STATEMENT UNION TYPES
 // --------------------------------------------------------------------------------
 
-// --- Union type representing all possible statement nodes in the AST.
-// --- Statements are constructs that perform actions but don't produce values.
+// Union type representing all possible statement nodes in the AST.
+// Statements are constructs that perform actions but don't produce values.
 type AstStat interface {
 	AstNode
 	isAstStat()
@@ -188,8 +179,8 @@ var (
 // -- TYPE PACK UNION TYPES
 // --------------------------------------------------------------------------------
 
-// --- Union type representing all possible type pack nodes.
-// --- Type packs represent multiple types, used for function return types and variadic arguments.
+// Union type representing all possible type pack nodes.
+// Type packs represent multiple types, used for function return types and variadic arguments.
 
 type AstTypePack interface {
 	AstNode
@@ -206,8 +197,8 @@ var (
 // -- TYPE ANNOTATION UNION TYPES
 // --------------------------------------------------------------------------------
 
-// --- Union type representing all possible type annotation nodes.
-// --- Type annotations specify the expected types of values in Luau's type system.
+// Union type representing all possible type annotation nodes.
+// Type annotations specify the expected types of values in Luau's type system.
 
 type AstType interface {
 	AstNode

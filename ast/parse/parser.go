@@ -15,12 +15,6 @@ type Name struct {
 	location lex.Location
 }
 
-type Binding struct {
-	name          Name
-	annotation    *AstType
-	colonPosition lex.Position
-}
-
 type Parser struct {
 	lexer lex.Lexer
 }
