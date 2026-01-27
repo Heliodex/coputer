@@ -1,12 +1,5 @@
 package main
 
-import (
-	"encoding/json"
-	"errors"
-	"fmt"
-	"strings"
-)
-
 const (
 	Ext            = ".luau"
 	AstDir         = "../test/ast"
@@ -15,82 +8,24 @@ const (
 )
 
 type Position struct {
-	Line   int `json:"line"`
-	Column int `json:"column"`
-}
-
-func (p Position) After(op Position) bool {
-	return p.Line > op.Line || (p.Line == op.Line && p.Column > op.Column)
-}
-
-func (p Position) String() string {
-	return fmt.Sprintf("%d,%d", p.Line, p.Column)
+	Line   int
+	Column int
 }
 
 // Location represents a source location range
 type Location struct {
-	Begin Position `json:"start"`
-	End   Position `json:"end"`
-}
-
-func (l Location) Contains(ol Location) bool {
-	return ol.Begin.After(l.Begin) && l.End.After(ol.End)
+	Begin Position
+	End   Position
 }
 
 type AstName struct {
-	Value string `json:"value"`
-}
-
-// infinite gfs (or, well, 9223372036854775807)
-// var gfsCount int
-
-// we've pretty much eliminated calls to this function lel, it'll always be needed for comments though
-func (l Location) GetFromSource(source string) (string, error) {
-	lines := strings.Split(source, "\n")
-	if l.Begin.Line < 0 || l.End.Line >= len(lines) {
-		return "", errors.New("location out of bounds")
-	}
-
-	var b strings.Builder
-	for i := l.Begin.Line; i <= l.End.Line; i++ {
-		line := lines[i]
-		if i == l.Begin.Line && i == l.End.Line {
-			line = line[l.Begin.Column:l.End.Column]
-		} else if i == l.Begin.Line {
-			line = line[l.Begin.Column:]
-		} else if i == l.End.Line {
-			line = line[:min(l.End.Column, len(line))]
-		}
-		b.WriteString(line)
-		if i < l.End.Line {
-			b.WriteString("\n")
-		}
-	}
-
-	// gfsCount++
-	// fmt.Println("gotFromSource", gfsCount)
-	return b.String(), nil
-}
-
-func (l Location) String() string {
-	return fmt.Sprintf("%s - %s", l.Begin, l.End)
-}
-
-// UnmarshalJSON custom unmarshaler for location strings like "0,0 - 2,0"
-func (l *Location) UnmarshalJSON(data []byte) error {
-	var s string
-	if err := json.Unmarshal(data, &s); err != nil {
-		return err
-	}
-
-	_, err := fmt.Sscanf(s, "%d,%d - %d,%d", &l.Begin.Line, &l.Begin.Column, &l.End.Line, &l.End.Column)
-	return err
+	Value string
 }
 
 // base for every node
 
 type NodeLoc struct {
-	Location Location `json:"location"`
+	Location Location
 }
 
 // ast groops
@@ -223,28 +158,28 @@ var (
 // ast
 
 type Comment struct {
-	Type int `json:"type"`
+	Type int
 	NodeLoc
 }
 
 // node types (ok, real ast now)
 type AstAttr struct {
 	NodeLoc
-	Type string    `json:"Type"`
-	Args []AstExpr `json:"args"`
-	Name *string   `json:"name"`
+	Type string
+	Args []AstExpr
+	Name *string
 }
 
 type AstArgumentName struct {
-	Name     string   `json:"name"`
-	Location Location `json:"location"`
+	Name     string
+	Location Location
 }
 
 type AstExprBinary struct {
 	NodeLoc
-	Op    int     `json:"op"`
-	Left  AstExpr `json:"left"`
-	Right AstExpr `json:"right"`
+	Op    int
+	Left  AstExpr
+	Right AstExpr
 }
 
 func (AstExprBinary) isAstNode() {}
@@ -252,11 +187,11 @@ func (AstExprBinary) isAstExpr() {}
 
 type AstExprCall struct {
 	NodeLoc
-	Func          AstExpr          `json:"func"`
-	Args          []AstExpr        `json:"args"`
-	Self          bool             `json:"self"`
-	ArgLocation   Location         `json:"argLocation"`
-	TypeArguments *[]AstTypeOrPack `json:"typeArguments"`
+	Func          AstExpr
+	Args          []AstExpr
+	Self          bool
+	ArgLocation   Location
+	TypeArguments *[]AstTypeOrPack
 }
 
 func (AstExprCall) isAstNode() {}
@@ -264,7 +199,7 @@ func (AstExprCall) isAstExpr() {}
 
 type AstExprConstantBool struct {
 	NodeLoc
-	Value bool `json:"value"`
+	Value bool
 }
 
 func (AstExprConstantBool) isAstNode() {}
@@ -279,7 +214,7 @@ func (AstExprConstantNil) isAstExpr() {}
 
 type AstExprConstantNumber struct {
 	NodeLoc
-	Value float64 `json:"value"`
+	Value float64
 }
 
 func (AstExprConstantNumber) isAstNode() {}
@@ -287,7 +222,7 @@ func (AstExprConstantNumber) isAstExpr() {}
 
 type AstExprConstantString struct {
 	NodeLoc
-	Value string `json:"value"`
+	Value string
 }
 
 func (AstExprConstantString) isAstNode() {}
@@ -295,8 +230,8 @@ func (AstExprConstantString) isAstExpr() {}
 
 type AstExprError struct {
 	NodeLoc
-	Expressions  []AstExpr `json:"expressions"`
-	MessageIndex int       `json:"messageIndex"`
+	Expressions  []AstExpr
+	MessageIndex int
 }
 
 func (AstExprError) isAstNode() {}
@@ -304,19 +239,19 @@ func (AstExprError) isAstExpr() {}
 
 type AstExprFunction struct {
 	NodeLoc
-	Attributes       []AstAttr            `json:"attributes"`
-	Generics         []AstGenericType     `json:"generics"`
-	GenericPacks     []AstGenericTypePack `json:"genericPacks"`
-	Self             *AstLocal            `json:"self"`
-	Args             []AstLocal           `json:"args"`
-	ReturnAnnotation *AstTypePack         `json:"returnAnnotation"`
-	Vararg           bool                 `json:"vararg"`
-	VarargLocation   Location             `json:"varargLocation"`
-	VarargAnnotation *AstTypePack         `json:"varargAnnotation"`
-	Body             AstStatBlock         `json:"body"`
-	FunctionDepth    int                  `json:"functionDepth"`
-	Debugname        string               `json:"debugname"`
-	ArgLocation      *Location            `json:"argLocation"`
+	Attributes       []AstAttr
+	Generics         []AstGenericType
+	GenericPacks     []AstGenericTypePack
+	Self             *AstLocal
+	Args             []AstLocal
+	ReturnAnnotation *AstTypePack
+	Vararg           bool
+	VarargLocation   Location
+	VarargAnnotation *AstTypePack
+	Body             AstStatBlock
+	FunctionDepth    int
+	Debugname        string
+	ArgLocation      *Location
 }
 
 func (AstExprFunction) isAstNode() {}
@@ -324,7 +259,7 @@ func (AstExprFunction) isAstExpr() {}
 
 type AstExprGlobal struct {
 	NodeLoc
-	Global string `json:"global"`
+	Global string
 }
 
 func (AstExprGlobal) isAstNode() {}
@@ -332,7 +267,7 @@ func (AstExprGlobal) isAstExpr() {}
 
 type AstExprGroup struct {
 	NodeLoc
-	Expr AstExpr `json:"expr"` // only contains one expression right? strange when you first think about it
+	Expr AstExpr
 }
 
 func (AstExprGroup) isAstNode() {}
@@ -340,11 +275,11 @@ func (AstExprGroup) isAstExpr() {}
 
 type AstExprIfElse struct {
 	NodeLoc
-	Condition AstExpr `json:"condition"`
-	HasThen   bool    `json:"hasThen"`
-	TrueExpr  AstExpr `json:"trueExpr"`
-	HasElse   bool    `json:"hasElse"`
-	FalseExpr AstExpr `json:"falseExpr"`
+	Condition AstExpr
+	HasThen   bool
+	TrueExpr  AstExpr
+	HasElse   bool
+	FalseExpr AstExpr
 }
 
 func (AstExprIfElse) isAstNode() {}
@@ -352,8 +287,8 @@ func (AstExprIfElse) isAstExpr() {}
 
 type AstExprIndexExpr struct {
 	NodeLoc
-	Expr  AstExpr `json:"expr"`
-	Index AstExpr `json:"index"`
+	Expr  AstExpr
+	Index AstExpr
 }
 
 func (AstExprIndexExpr) isAstNode() {}
@@ -361,11 +296,11 @@ func (AstExprIndexExpr) isAstExpr() {}
 
 type AstExprIndexName struct {
 	NodeLoc
-	Expr          AstExpr  `json:"expr"`
-	Index         string   `json:"index"`
-	IndexLocation Location `json:"indexLocation"`
-	OpPosition    Position `json:"opPosition"`
-	Op            rune     `json:"op"`
+	Expr          AstExpr
+	Index         string
+	IndexLocation Location
+	OpPosition    Position
+	Op            rune
 }
 
 func (AstExprIndexName) isAstNode() {}
@@ -373,8 +308,8 @@ func (AstExprIndexName) isAstExpr() {}
 
 type AstExprInterpString struct {
 	NodeLoc
-	Strings     []string  `json:"strings"`
-	Expressions []AstExpr `json:"expressions"`
+	Strings     []string
+	Expressions []AstExpr
 }
 
 func (AstExprInterpString) isAstNode() {}
@@ -382,8 +317,8 @@ func (AstExprInterpString) isAstExpr() {}
 
 type AstExprInstantiate struct {
 	NodeLoc
-	Expr          AstExpr         `json:"expr"`
-	TypeArguments []AstTypeOrPack `json:"typeArguments"`
+	Expr          AstExpr
+	TypeArguments []AstTypeOrPack
 }
 
 func (AstExprInstantiate) isAstNode() {}
@@ -391,8 +326,8 @@ func (AstExprInstantiate) isAstExpr() {}
 
 type AstExprLocal struct {
 	NodeLoc
-	Local   AstLocal `json:"local"`
-	Upvalue bool     `json:"upvalue"`
+	Local   AstLocal
+	Upvalue bool
 }
 
 func (AstExprLocal) isAstNode() {}
@@ -400,7 +335,7 @@ func (AstExprLocal) isAstExpr() {}
 
 type AstExprTable struct {
 	NodeLoc
-	Items []AstExprTableItem `json:"items"`
+	Items []AstExprTableItem
 }
 
 func (AstExprTable) isAstNode() {}
@@ -408,15 +343,15 @@ func (AstExprTable) isAstExpr() {}
 
 type AstExprTableItem struct {
 	NodeLoc
-	Kind  string   `json:"kind"` // "List" | "Record" | "General"
-	Key   *AstExpr `json:"key"`
-	Value AstExpr  `json:"value"`
+	Kind  string
+	Key   *AstExpr
+	Value AstExpr
 }
 
 type AstExprTypeAssertion struct {
 	NodeLoc
-	Expr       AstExpr `json:"expr"`
-	Annotation AstType `json:"annotation"`
+	Expr       AstExpr
+	Annotation AstType
 }
 
 func (AstExprTypeAssertion) isAstNode() {}
@@ -431,8 +366,8 @@ func (AstExprVarargs) isAstExpr() {}
 
 type AstExprUnary struct {
 	NodeLoc
-	Op   string  `json:"op"`
-	Expr AstExpr `json:"expr"`
+	Op   string
+	Expr AstExpr
 }
 
 func (AstExprUnary) isAstNode() {}
@@ -440,30 +375,30 @@ func (AstExprUnary) isAstExpr() {}
 
 type AstGenericType struct {
 	NodeLoc
-	Name         string   `json:"name"`
-	DefaultValue *AstType `json:"defaultValue"`
+	Name         string
+	DefaultValue *AstType
 }
 
 type AstGenericTypePack struct {
 	NodeLoc
-	Name         string       `json:"name"`
-	DefaultValue *AstTypePack `json:"defaultValue"`
+	Name         string
+	DefaultValue *AstTypePack
 }
 
 type AstLocal struct {
 	NodeLoc
-	Name          string    `json:"name"`
-	Shadow        *AstLocal `json:"shadow"`
-	FunctionDepth int       `json:"functionDepth"`
-	LoopDepth     int       `json:"loopDepth"`
-	Annotation    *AstType  `json:"annotation"`
+	Name          string
+	Shadow        *AstLocal
+	FunctionDepth int
+	LoopDepth     int
+	Annotation    *AstType
 }
 
 type AstStatAssign struct {
 	NodeLoc
-	Vars         []AstExpr `json:"vars"`
-	Values       []AstExpr `json:"values"`
-	HasSemicolon *bool     `json:"hasSemicolon"`
+	Vars         []AstExpr
+	Values       []AstExpr
+	HasSemicolon *bool
 }
 
 func (AstStatAssign) isAstNode() {}
@@ -471,8 +406,8 @@ func (AstStatAssign) isAstStat() {}
 
 type AstStatBlock struct {
 	NodeLoc
-	HasEnd            bool       `json:"hasEnd"`
-	Body              []AstStat  `json:"body"`
+	HasEnd            bool
+	Body              []AstStat
 	CommentsContained *[]Comment // not in json
 }
 
@@ -488,10 +423,10 @@ func (AstStatBreak) isAstStat() {}
 
 type AstStatCompoundAssign struct {
 	NodeLoc
-	Op           int     `json:"op"`
-	Var          AstExpr `json:"var"`
-	Value        AstExpr `json:"value"`
-	HasSemicolon *bool   `json:"hasSemicolon"`
+	Op           int
+	Var          AstExpr
+	Value        AstExpr
+	HasSemicolon *bool
 }
 
 func (AstStatCompoundAssign) isAstNode() {}
@@ -506,17 +441,17 @@ func (AstStatContinue) isAstStat() {}
 
 type AstStatDeclareFunction struct {
 	NodeLoc
-	Attributes     []AstAttr            `json:"attributes"`
-	Name           string               `json:"name"`
-	NameLocation   Location             `json:"nameLocation"`
-	Generics       []AstGenericType     `json:"generics"`
-	GenericPacks   []AstGenericTypePack `json:"genericPacks"`
-	Params         AstTypeList          `json:"params"`
-	ParamNames     []AstArgumentName    `json:"paramNames"`
-	Vararg         bool                 `json:"vararg"`
-	VarargLocation Location             `json:"varargLocation"`
-	RetTypes       AstTypePack          `json:"retTypes"`
-	HasSemicolon   *bool                `json:"hasSemicolon"`
+	Attributes     []AstAttr
+	Name           string
+	NameLocation   Location
+	Generics       []AstGenericType
+	GenericPacks   []AstGenericTypePack
+	Params         AstTypeList
+	ParamNames     []AstArgumentName
+	Vararg         bool
+	VarargLocation Location
+	RetTypes       AstTypePack
+	HasSemicolon   *bool
 }
 
 func (AstStatDeclareFunction) isAstNode() {}
@@ -524,10 +459,10 @@ func (AstStatDeclareFunction) isAstStat() {}
 
 type AstStatDeclareGlobal struct {
 	NodeLoc
-	Name         string   `json:"name"`
-	NameLocation Location `json:"nameLocation"`
-	Type         AstType  `json:"type"`
-	HasSemicolon *bool    `json:"hasSemicolon"`
+	Name         string
+	NameLocation Location
+	Type         AstType
+	HasSemicolon *bool
 }
 
 func (AstStatDeclareGlobal) isAstNode() {}
@@ -535,31 +470,31 @@ func (AstStatDeclareGlobal) isAstStat() {}
 
 type AstStatDeclareExternType struct {
 	NodeLoc
-	Name         string                          `json:"name"`
-	SuperName    *string                         `json:"superName"`
-	Props        []AstDeclaredExternTypeProperty `json:"props"`
-	Indexer      *AstTableIndexer                `json:"indexer"`
-	HasSemicolon *bool                           `json:"hasSemicolon"`
+	Name         string
+	SuperName    *string
+	Props        []AstDeclaredExternTypeProperty
+	Indexer      *AstTableIndexer
+	HasSemicolon *bool
 }
 
 func (AstStatDeclareExternType) isAstNode() {}
 func (AstStatDeclareExternType) isAstStat() {}
 
 type AstDeclaredExternTypeProperty struct {
-	Location     Location `json:"location"`
-	Name         AstName  `json:"name"`
-	NameLocation Location `json:"nameLocation"`
-	Ty           AstType  `json:"type"`
-	IsMethod     bool     `json:"isMethod"`
+	Location     Location
+	Name         AstName
+	NameLocation Location
+	Ty           AstType
+	IsMethod     bool
 }
 
 type AstStatError struct {
 	NodeLoc
-	Messages     []string  `json:"messages"`
-	Expressions  []AstExpr `json:"expressions"`
-	Statements   []AstStat `json:"statements"`
-	MessageIndex int       `json:"messageIndex"`
-	HasSemicolon *bool     `json:"hasSemicolon"`
+	Messages     []string
+	Expressions  []AstExpr
+	Statements   []AstStat
+	MessageIndex int
+	HasSemicolon *bool
 }
 
 func (AstStatError) isAstNode() {}
@@ -567,7 +502,7 @@ func (AstStatError) isAstStat() {}
 
 type AstStatExpr struct {
 	NodeLoc
-	Expr AstExpr `json:"expr"`
+	Expr AstExpr
 }
 
 func (AstStatExpr) isAstNode() {}
@@ -575,14 +510,14 @@ func (AstStatExpr) isAstStat() {}
 
 type AstStatFor struct {
 	NodeLoc
-	Var          AstLocal     `json:"var"`
-	From         AstExpr      `json:"from"`
-	To           AstExpr      `json:"to"`
-	Step         *AstExpr     `json:"step"`
-	Body         AstStatBlock `json:"body"`
-	HasDo        bool         `json:"hasDo"`
-	DoLocation   Location     `json:"doLocation"`
-	HasSemicolon *bool        `json:"hasSemicolon"`
+	Var          AstLocal
+	From         AstExpr
+	To           AstExpr
+	Step         *AstExpr
+	Body         AstStatBlock
+	HasDo        bool
+	DoLocation   Location
+	HasSemicolon *bool
 }
 
 func (AstStatFor) isAstNode() {}
@@ -590,14 +525,14 @@ func (AstStatFor) isAstStat() {}
 
 type AstStatForIn struct {
 	NodeLoc
-	Vars         []AstLocal   `json:"vars"`
-	Values       []AstExpr    `json:"values"`
-	Body         AstStatBlock `json:"body"`
-	HasIn        bool         `json:"hasIn"`
-	InLocation   Location     `json:"inLocation"`
-	HasDo        bool         `json:"hasDo"`
-	DoLocation   Location     `json:"doLocation"`
-	HasSemicolon *bool        `json:"hasSemicolon"`
+	Vars         []AstLocal
+	Values       []AstExpr
+	Body         AstStatBlock
+	HasIn        bool
+	InLocation   Location
+	HasDo        bool
+	DoLocation   Location
+	HasSemicolon *bool
 }
 
 func (AstStatForIn) isAstNode() {}
@@ -605,9 +540,9 @@ func (AstStatForIn) isAstStat() {}
 
 type AstStatFunction struct {
 	NodeLoc
-	Name         AstExpr         `json:"name"`
-	Func         AstExprFunction `json:"func"`
-	HasSemicolon *bool           `json:"hasSemicolon"`
+	Name         AstExpr
+	Func         AstExprFunction
+	HasSemicolon *bool
 }
 
 func (AstStatFunction) isAstNode() {}
@@ -615,12 +550,12 @@ func (AstStatFunction) isAstStat() {}
 
 type AstStatIf struct {
 	NodeLoc
-	Condition    AstExpr      `json:"condition"`
-	ThenBody     AstStatBlock `json:"thenbody"`
-	ElseBody     *AstStat     `json:"elsebody"` // StatBlock | StatIf
-	ThenLocation *Location    `json:"thenLocation"`
-	ElseLocation *Location    `json:"elseLocation"`
-	HasSemicolon *bool        `json:"hasSemicolon"`
+	Condition    AstExpr
+	ThenBody     AstStatBlock
+	ElseBody     *AstStat
+	ThenLocation *Location
+	ElseLocation *Location
+	HasSemicolon *bool
 }
 
 func (AstStatIf) isAstNode() {}
@@ -628,10 +563,10 @@ func (AstStatIf) isAstStat() {}
 
 type AstStatLocal struct {
 	NodeLoc
-	Vars               []AstLocal `json:"vars"`
-	Values             []AstExpr  `json:"values"`
-	EqualsSignLocation *Location  `json:"equalsSignLocation"`
-	HasSemicolon       *bool      `json:"hasSemicolon"`
+	Vars               []AstLocal
+	Values             []AstExpr
+	EqualsSignLocation *Location
+	HasSemicolon       *bool
 }
 
 func (AstStatLocal) isAstNode() {}
@@ -639,9 +574,9 @@ func (AstStatLocal) isAstStat() {}
 
 type AstStatLocalFunction struct {
 	NodeLoc
-	Name         AstLocal        `json:"name"`
-	Func         AstExprFunction `json:"func"`
-	HasSemicolon *bool           `json:"hasSemicolon"`
+	Name         AstLocal
+	Func         AstExprFunction
+	HasSemicolon *bool
 }
 
 func (AstStatLocalFunction) isAstNode() {}
@@ -649,10 +584,10 @@ func (AstStatLocalFunction) isAstStat() {}
 
 type AstStatRepeat struct {
 	NodeLoc
-	Condition    AstExpr      `json:"condition"`
-	Body         AstStatBlock `json:"body"`
-	HasUntil     bool         `json:"hasUntil"`
-	HasSemicolon *bool        `json:"hasSemicolon"`
+	Condition    AstExpr
+	Body         AstStatBlock
+	HasUntil     bool
+	HasSemicolon *bool
 }
 
 func (AstStatRepeat) isAstNode() {}
@@ -660,8 +595,8 @@ func (AstStatRepeat) isAstStat() {}
 
 type AstStatReturn struct {
 	NodeLoc
-	List         []AstExpr `json:"list"`
-	HasSemicolon *bool     `json:"hasSemicolon"`
+	List         []AstExpr
+	HasSemicolon *bool
 }
 
 func (AstStatReturn) isAstNode() {}
@@ -669,13 +604,13 @@ func (AstStatReturn) isAstStat() {}
 
 type AstStatTypeAlias struct {
 	NodeLoc
-	Name         string               `json:"name"`
-	NameLocation Location             `json:"nameLocation"`
-	Generics     []AstGenericType     `json:"generics"`
-	GenericPacks []AstGenericTypePack `json:"genericPacks"` // genericPacks always come after the generics
-	Type         AstType              `json:"type"`
-	Exported     bool                 `json:"exported"`
-	HasSemicolon *bool                `json:"hasSemicolon"`
+	Name         string
+	NameLocation Location
+	Generics     []AstGenericType
+	GenericPacks []AstGenericTypePack
+	Type         AstType
+	Exported     bool
+	HasSemicolon *bool
 }
 
 func (AstStatTypeAlias) isAstNode() {}
@@ -683,12 +618,12 @@ func (AstStatTypeAlias) isAstStat() {}
 
 type AstStatTypeFunction struct {
 	NodeLoc
-	Name         string          `json:"name"`
-	NameLocation Location        `json:"nameLocation"`
-	Body         AstExprFunction `json:"body"`
-	Exported     bool            `json:"exported"`
-	HasErrors    bool            `json:"hasErrors"`
-	HasSemicolon *bool           `json:"hasSemicolon"`
+	Name         string
+	NameLocation Location
+	Body         AstExprFunction
+	Exported     bool
+	HasErrors    bool
+	HasSemicolon *bool
 }
 
 func (AstStatTypeFunction) isAstNode() {}
@@ -696,37 +631,37 @@ func (AstStatTypeFunction) isAstStat() {}
 
 type AstStatWhile struct {
 	NodeLoc
-	Condition    AstExpr      `json:"condition"`
-	Body         AstStatBlock `json:"body"`
-	HasDo        bool         `json:"hasDo"`
-	DoLocation   Location     `json:"doLocation"`
-	HasSemicolon *bool        `json:"hasSemicolon"`
+	Condition    AstExpr
+	Body         AstStatBlock
+	HasDo        bool
+	DoLocation   Location
+	HasSemicolon *bool
 }
 
 func (AstStatWhile) isAstNode() {}
 func (AstStatWhile) isAstStat() {}
 
 type AstTableIndexer struct {
-	Location       Location  `json:"location"`
-	IndexType      AstType   `json:"indexType"`
-	ResultType     AstType   `json:"resultType"`
-	Access         string    `json:"access"`
-	AccessLocation *Location `json:"accessLocation"`
+	Location       Location
+	IndexType      AstType
+	ResultType     AstType
+	Access         string
+	AccessLocation *Location
 }
 
 type AstTableProp struct {
-	Name AstName `json:"name"`
+	Name AstName
 	NodeLoc
-	Type           AstType   `json:"type"`
-	Access         string    `json:"access"`
-	AccessLocation *Location `json:"accessLocation"`
+	Type           AstType
+	Access         string
+	AccessLocation *Location
 }
 
 type AstTypeError struct {
 	NodeLoc
-	Types        []AstType `json:"types"`
-	IsMissing    bool      `json:"isMissing"`
-	MessageIndex int       `json:"messageIndex"`
+	Types        []AstType
+	IsMissing    bool
+	MessageIndex int
 }
 
 func (AstTypeError) isAstNode() {}
@@ -734,12 +669,12 @@ func (AstTypeError) isAstType() {}
 
 type AstTypeFunction struct {
 	NodeLoc
-	Attributes   []AstAttr            `json:"attributes"`
-	Generics     []AstGenericType     `json:"generics"`
-	GenericPacks []AstGenericTypePack `json:"genericPacks"`
-	ArgTypes     AstTypeList          `json:"argTypes"`
-	ArgNames     []*AstArgumentName   `json:"argNames"`
-	ReturnTypes  AstTypePackExplicit  `json:"returnTypes"`
+	Attributes   []AstAttr
+	Generics     []AstGenericType
+	GenericPacks []AstGenericTypePack
+	ArgTypes     AstTypeList
+	ArgNames     []*AstArgumentName
+	ReturnTypes  AstTypePackExplicit
 }
 
 func (AstTypeFunction) isAstNode() {}
@@ -747,7 +682,7 @@ func (AstTypeFunction) isAstType() {}
 
 type AstTypeGroup struct {
 	NodeLoc
-	Type AstType `json:"type"`
+	Type AstType
 }
 
 func (AstTypeGroup) isAstNode() {}
@@ -755,15 +690,15 @@ func (AstTypeGroup) isAstType() {}
 
 type AstTypeIntersection struct {
 	NodeLoc
-	Types []AstType `json:"types"`
+	Types []AstType
 }
 
 func (AstTypeIntersection) isAstNode() {}
 func (AstTypeIntersection) isAstType() {}
 
 type AstTypeList struct {
-	Types    []AstType    `json:"types"`
-	TailType *AstTypePack `json:"tailType"`
+	Types    []AstType
+	TailType *AstTypePack
 }
 
 func (AstTypeList) isAstNode() {}
@@ -777,14 +712,14 @@ func (AstTypeOptional) isAstNode() {}
 func (AstTypeOptional) isAstType() {}
 
 type AstTypeOrPack struct {
-	Type *AstType     `json:"type"`
-	Pack *AstTypePack `json:"pack"`
+	Type *AstType
+	Pack *AstTypePack
 }
 
 type AstTypePackExplicit struct {
 	NodeLoc
-	Types    AstTypeList  `json:"types"`
-	TailType *AstTypePack `json:"tailType"`
+	Types    AstTypeList
+	TailType *AstTypePack
 }
 
 func (AstTypePackExplicit) isAstNode()     {}
@@ -792,7 +727,7 @@ func (AstTypePackExplicit) isAstTypePack() {}
 
 type AstTypePackGeneric struct {
 	NodeLoc
-	GenericName string `json:"genericName"`
+	GenericName string
 }
 
 func (AstTypePackGeneric) isAstNode()     {}
@@ -800,7 +735,7 @@ func (AstTypePackGeneric) isAstTypePack() {}
 
 type AstTypePackVariadic struct {
 	NodeLoc
-	VariadicType AstType `json:"variadicType"`
+	VariadicType AstType
 }
 
 func (AstTypePackVariadic) isAstNode()     {}
@@ -808,12 +743,12 @@ func (AstTypePackVariadic) isAstTypePack() {}
 
 type AstTypeReference struct {
 	NodeLoc
-	HasParameterList bool            `json:"hasParameterList"`
-	Prefix           *string         `json:"prefix"`
-	PrefixLocation   *Location       `json:"prefixLocation"`
-	Name             string          `json:"name"`
-	NameLocation     Location        `json:"nameLocation"`
-	Parameters       []AstTypeOrPack `json:"parameters"`
+	HasParameterList bool
+	Prefix           *string
+	PrefixLocation   *Location
+	Name             string
+	NameLocation     Location
+	Parameters       []AstTypeOrPack
 }
 
 func (AstTypeReference) isAstNode() {}
@@ -821,7 +756,7 @@ func (AstTypeReference) isAstType() {}
 
 type AstTypeSingletonBool struct {
 	NodeLoc
-	Value bool `json:"value"`
+	Value bool
 }
 
 func (AstTypeSingletonBool) isAstNode() {}
@@ -829,7 +764,7 @@ func (AstTypeSingletonBool) isAstType() {}
 
 type AstTypeSingletonString struct {
 	NodeLoc
-	Value string `json:"value"`
+	Value string
 }
 
 func (AstTypeSingletonString) isAstNode() {}
@@ -837,8 +772,8 @@ func (AstTypeSingletonString) isAstType() {}
 
 type AstTypeTable struct {
 	NodeLoc
-	Props   []AstTableProp   `json:"props"`
-	Indexer *AstTableIndexer `json:"indexer"`
+	Props   []AstTableProp
+	Indexer *AstTableIndexer
 }
 
 func (AstTypeTable) isAstNode() {}
@@ -847,7 +782,7 @@ func (AstTypeTable) isAstType() {}
 // lol
 type AstTypeTypeof struct {
 	NodeLoc
-	Expr AstExpr `json:"expr"`
+	Expr AstExpr
 }
 
 func (AstTypeTypeof) isAstNode() {}
@@ -855,7 +790,7 @@ func (AstTypeTypeof) isAstType() {}
 
 type AstTypeUnion struct {
 	NodeLoc
-	Types []AstType `json:"types"`
+	Types []AstType
 }
 
 func (AstTypeUnion) isAstNode() {}
