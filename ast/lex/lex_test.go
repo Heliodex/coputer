@@ -128,7 +128,7 @@ func TestStringInterpolationBasic(t *testing.T) {
 	interpEnd := lexer.next0()
 	CHECK_EQ(t, interpEnd.Type, InterpStringEnd)
 	// The InterpStringEnd should start with }, not `.
-	CHECK_EQ(t, interpEnd.Location.Start.Column, 11)
+	CHECK_EQ(t, interpEnd.Location.Begin.Column, 11)
 }
 
 func TestStringInterpolationFull(t *testing.T) {
@@ -147,7 +147,7 @@ func TestStringInterpolationFull(t *testing.T) {
 	interpMid := lexer.next0()
 	CHECK_EQ(t, interpMid.Type, InterpStringMid)
 	CHECK_EQ(t, interpMid.String(), "} {")
-	CHECK_EQ(t, interpMid.Location.Start.Column, 11)
+	CHECK_EQ(t, interpMid.Location.Begin.Column, 11)
 
 	quote2 := lexer.next0()
 	CHECK_EQ(t, quote2.Type, QuotedString)
@@ -156,7 +156,7 @@ func TestStringInterpolationFull(t *testing.T) {
 	interpEnd := lexer.next0()
 	CHECK_EQ(t, interpEnd.Type, InterpStringEnd)
 	CHECK_EQ(t, interpEnd.String(), "} end`")
-	CHECK_EQ(t, interpEnd.Location.Start.Column, 19)
+	CHECK_EQ(t, interpEnd.Location.Begin.Column, 19)
 }
 
 func TestStringInterpolationDoubleBrace(t *testing.T) {

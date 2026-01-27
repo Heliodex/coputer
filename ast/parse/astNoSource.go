@@ -1,5 +1,7 @@
 package main
 
+import "github.com/Heliodex/coputer/ast/lex"
+
 const (
 	Ext            = ".luau"
 	AstDir         = "../test/ast"
@@ -7,25 +9,10 @@ const (
 	ConformanceDir = "../test/conformance"
 )
 
-type Position struct {
-	Line   int
-	Column int
-}
-
-// Location represents a source location range
-type Location struct {
-	Begin Position
-	End   Position
-}
-
-type AstName struct {
-	Value string
-}
-
 // base for every node
 
 type NodeLoc struct {
-	Location Location
+	Location lex.Location
 }
 
 // ast groops
@@ -172,7 +159,7 @@ type AstAttr struct {
 
 type AstArgumentName struct {
 	Name     string
-	Location Location
+	Location lex.Location
 }
 
 type AstExprBinary struct {
@@ -190,7 +177,7 @@ type AstExprCall struct {
 	Func          AstExpr
 	Args          []AstExpr
 	Self          bool
-	ArgLocation   Location
+	ArgLocation lex.Location
 	TypeArguments *[]AstTypeOrPack
 }
 
@@ -246,12 +233,12 @@ type AstExprFunction struct {
 	Args             []AstLocal
 	ReturnAnnotation *AstTypePack
 	Vararg           bool
-	VarargLocation   Location
+	VarargLocation lex.Location
 	VarargAnnotation *AstTypePack
 	Body             AstStatBlock
 	FunctionDepth    int
 	Debugname        string
-	ArgLocation      *Location
+	ArgLocation      *lex.Location
 }
 
 func (AstExprFunction) isAstNode() {}
@@ -298,8 +285,8 @@ type AstExprIndexName struct {
 	NodeLoc
 	Expr          AstExpr
 	Index         string
-	IndexLocation Location
-	OpPosition    Position
+	IndexLocation lex.Location
+	OpPosition    lex.Position
 	Op            rune
 }
 
@@ -443,13 +430,13 @@ type AstStatDeclareFunction struct {
 	NodeLoc
 	Attributes     []AstAttr
 	Name           string
-	NameLocation   Location
+	NameLocation lex.Location
 	Generics       []AstGenericType
 	GenericPacks   []AstGenericTypePack
 	Params         AstTypeList
 	ParamNames     []AstArgumentName
 	Vararg         bool
-	VarargLocation Location
+	VarargLocation lex.Location
 	RetTypes       AstTypePack
 	HasSemicolon   *bool
 }
@@ -460,7 +447,7 @@ func (AstStatDeclareFunction) isAstStat() {}
 type AstStatDeclareGlobal struct {
 	NodeLoc
 	Name         string
-	NameLocation Location
+	NameLocation lex.Location
 	Type         AstType
 	HasSemicolon *bool
 }
@@ -481,9 +468,9 @@ func (AstStatDeclareExternType) isAstNode() {}
 func (AstStatDeclareExternType) isAstStat() {}
 
 type AstDeclaredExternTypeProperty struct {
-	Location     Location
-	Name         AstName
-	NameLocation Location
+	Location lex.Location
+	Name         lex.AstName
+	NameLocation lex.Location
 	Ty           AstType
 	IsMethod     bool
 }
@@ -516,7 +503,7 @@ type AstStatFor struct {
 	Step         *AstExpr
 	Body         AstStatBlock
 	HasDo        bool
-	DoLocation   Location
+	DoLocation lex.Location
 	HasSemicolon *bool
 }
 
@@ -529,9 +516,9 @@ type AstStatForIn struct {
 	Values       []AstExpr
 	Body         AstStatBlock
 	HasIn        bool
-	InLocation   Location
+	InLocation lex.Location
 	HasDo        bool
-	DoLocation   Location
+	DoLocation lex.Location
 	HasSemicolon *bool
 }
 
@@ -553,8 +540,8 @@ type AstStatIf struct {
 	Condition    AstExpr
 	ThenBody     AstStatBlock
 	ElseBody     *AstStat
-	ThenLocation *Location
-	ElseLocation *Location
+	ThenLocation *lex.Location
+	ElseLocation *lex.Location
 	HasSemicolon *bool
 }
 
@@ -565,7 +552,7 @@ type AstStatLocal struct {
 	NodeLoc
 	Vars               []AstLocal
 	Values             []AstExpr
-	EqualsSignLocation *Location
+	EqualsSignLocation *lex.Location
 	HasSemicolon       *bool
 }
 
@@ -605,7 +592,7 @@ func (AstStatReturn) isAstStat() {}
 type AstStatTypeAlias struct {
 	NodeLoc
 	Name         string
-	NameLocation Location
+	NameLocation lex.Location
 	Generics     []AstGenericType
 	GenericPacks []AstGenericTypePack
 	Type         AstType
@@ -619,7 +606,7 @@ func (AstStatTypeAlias) isAstStat() {}
 type AstStatTypeFunction struct {
 	NodeLoc
 	Name         string
-	NameLocation Location
+	NameLocation lex.Location
 	Body         AstExprFunction
 	Exported     bool
 	HasErrors    bool
@@ -634,7 +621,7 @@ type AstStatWhile struct {
 	Condition    AstExpr
 	Body         AstStatBlock
 	HasDo        bool
-	DoLocation   Location
+	DoLocation lex.Location
 	HasSemicolon *bool
 }
 
@@ -642,19 +629,19 @@ func (AstStatWhile) isAstNode() {}
 func (AstStatWhile) isAstStat() {}
 
 type AstTableIndexer struct {
-	Location       Location
+	Location lex.Location
 	IndexType      AstType
 	ResultType     AstType
 	Access         string
-	AccessLocation *Location
+	AccessLocation *lex.Location
 }
 
 type AstTableProp struct {
-	Name AstName
+	Name lex.AstName
 	NodeLoc
 	Type           AstType
 	Access         string
-	AccessLocation *Location
+	AccessLocation *lex.Location
 }
 
 type AstTypeError struct {
@@ -745,9 +732,9 @@ type AstTypeReference struct {
 	NodeLoc
 	HasParameterList bool
 	Prefix           *string
-	PrefixLocation   *Location
+	PrefixLocation   *lex.Location
 	Name             string
-	NameLocation     Location
+	NameLocation lex.Location
 	Parameters       []AstTypeOrPack
 }
 

@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/Heliodex/coputer/ast/ast"
-	"github.com/Heliodex/coputer/ast/lex"
 )
 
 type Mode uint8
@@ -24,12 +23,6 @@ type ParseOptions struct {
 	parseFragment          *FragmentParseResumeSettings
 	storeCstData           bool
 	noErrorLimit           bool
-}
-
-type HotComment struct {
-	header   bool
-	location lex.Location
-	content  string
 }
 
 type ParseResult struct {

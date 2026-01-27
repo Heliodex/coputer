@@ -10,7 +10,9 @@ func LUAU_ASSERT(condition bool) {
 	}
 }
 
-type AstName *string
+type AstName struct {
+	value string
+}
 
 type NameTypePair struct {
 	Name AstName
@@ -22,12 +24,12 @@ type Position struct {
 }
 
 type Location struct {
-	Start, End Position
+	Begin, End Position
 }
 
 func LocationLen(start Position, l uint32) Location {
 	return Location{
-		Start: start,
+		Begin: start,
 		End:   Position{Line: start.Line, Column: start.Column + l},
 	}
 }
@@ -47,7 +49,7 @@ func MakeAstNameTable() AstNameTable {
 
 func (t *AstNameTable) addStatic(name string, lt LexemeType) AstName {
 	entry := NameTypePair{
-		Name: AstName(&name),
+		Name: AstName{value: name},
 		Type: lt,
 	}
 
@@ -72,7 +74,7 @@ func (t *AstNameTable) getOrAddWithType(name []byte) (r NameTypePair) {
 	}
 
 	r = NameTypePair{
-		Name: AstName(&sn),
+		Name: AstName{value: sn},
 		Type: lt,
 	}
 	t.data[sn] = r
@@ -84,7 +86,7 @@ func (t *AstNameTable) getWithType(name []byte) NameTypePair {
 	if entry, ok := t.data[string(name)]; ok {
 		return entry
 	}
-	return NameTypePair{nil, Name}
+	return NameTypePair{AstName{}, Name}
 }
 
 type Lexer struct {
@@ -800,7 +802,7 @@ func (l *Lexer) readNext() Lexeme {
 		return Lexeme{
 			Location: Location{start, l.position()},
 			Type:     Attribute,
-			name:     (*string)(attribute.Name),
+			name:     &attribute.Name.value,
 		}
 
 	default:
@@ -812,7 +814,7 @@ func (l *Lexer) readNext() Lexeme {
 			return Lexeme{
 				Location: Location{start, l.position()},
 				Type:     name.Type,
-				name:     name.Name,
+				name:     &name.Name.value,
 			}
 		} else if (l.peekch0() & 0x80) != 0 {
 			return l.readUtf8Error()

@@ -1,12 +1,14 @@
 package main
 
+import "github.com/Heliodex/coputer/ast/lex"
+
 // bindings
 
 type Binding struct {
 	NodeLoc
-	Name          AstName
+	Name          lex.AstName
 	Annotation    *AstType
-	ColonPosition *Position
+	ColonPosition *lex.Position
 }
 
 type BindingList []Binding
@@ -16,11 +18,32 @@ type BindingList []Binding
 // --------------------------------------------------------------------------------
 
 type ParseError struct {
-	Location Location
+	Location lex.Location
 	Message  string
 }
 
 type Options struct {
 	CaptureComments bool
 	StoreCstData    bool
+}
+
+type Attrs []AstAttr
+
+type HotComment struct {
+	Header   bool
+	Content  string
+	Location lex.Location
+}
+
+type FunctionState struct {
+	Vararg    bool
+	LoopDepth int
+}
+
+type Result struct {
+	Root             AstStatBlock
+	CommentLocations []Comment
+	HotComments      []HotComment
+	CstNodeMap       map[AstNode]CstNode
+	Errors           []ParseError
 }

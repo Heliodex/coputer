@@ -1,5 +1,7 @@
 package main
 
+import "github.com/Heliodex/coputer/ast/lex"
+
 // --------------------------------------------------------------------------------
 // -- CST NODE UNION TYPES
 // --------------------------------------------------------------------------------
@@ -51,107 +53,107 @@ var (
 )
 
 type CstStatBlock struct {
-	BodyCommaPositions []Position
+	BodyCommaPositions []lex.Position
 }
 
 func (CstStatBlock) isCstNode() {}
 
 type CstStatRepeat struct {
-	UntilPosition Position
+	UntilPosition lex.Position
 }
 
 func (CstStatRepeat) isCstNode() {}
 
 type CstStatDo struct {
-	EndPosition Position
+	EndPosition lex.Position
 }
 
 func (CstStatDo) isCstNode() {}
 
 type CstStatFor struct {
-	AnnotationColonPosition *Position
-	EqualsPosition          Position
-	EndCommaPosition        Position
-	StepCommaPosition       *Position
+	AnnotationColonPosition *lex.Position
+	EqualsPosition          lex.Position
+	EndCommaPosition        lex.Position
+	StepCommaPosition       *lex.Position
 }
 
 func (CstStatFor) isCstNode() {}
 
 type CstStatForIn struct {
-	VarsAnnotationColonPositions []*Position
-	VarsCommaPositions           []Position
-	ValuesCommaPositions         []Position
+	VarsAnnotationColonPositions []*lex.Position
+	VarsCommaPositions           []lex.Position
+	ValuesCommaPositions         []lex.Position
 }
 
 func (CstStatForIn) isCstNode() {}
 
 type CstStatFunction struct {
-	FunctionKeywordPosition Position
+	FunctionKeywordPosition lex.Position
 }
 
 func (CstStatFunction) isCstNode() {}
 
 type CstStatLocalFunction struct {
-	LocalKeywordPosition    Position
-	FunctionKeywordPosition Position
+	LocalKeywordPosition    lex.Position
+	FunctionKeywordPosition lex.Position
 }
 
 func (CstStatLocalFunction) isCstNode() {}
 
 type CstStatLocal struct {
-	VarsAnnotationColonPositions []*Position
-	VarsCommaPositions           []Position
-	ValuesCommaPositions         []Position
+	VarsAnnotationColonPositions []*lex.Position
+	VarsCommaPositions           []lex.Position
+	ValuesCommaPositions         []lex.Position
 }
 
 func (CstStatLocal) isCstNode() {}
 
 type CstStatAssign struct {
-	VarsCommaPositions   []Position
-	EqualsPosition       Position
-	ValuesCommaPositions []Position
+	VarsCommaPositions   []lex.Position
+	EqualsPosition       lex.Position
+	ValuesCommaPositions []lex.Position
 }
 
 func (CstStatAssign) isCstNode() {}
 
 type CstStatCompoundAssign struct {
-	OpPosition Position
+	OpPosition lex.Position
 }
 
 func (CstStatCompoundAssign) isCstNode() {}
 
 type CstStatReturn struct {
-	CommaPositions []Position
+	CommaPositions []lex.Position
 }
 
 func (CstStatReturn) isCstNode() {}
 
 type CstStatTypeAlias struct {
-	TypeKeywordPosition    Position
-	GenericsOpenPosition   *Position
-	GenericsCommaPositions []Position
-	GenericsClosePosition  *Position
-	EqualsPosition         Position
+	TypeKeywordPosition    lex.Position
+	GenericsOpenPosition   *lex.Position
+	GenericsCommaPositions []lex.Position
+	GenericsClosePosition  *lex.Position
+	EqualsPosition         lex.Position
 }
 
 func (CstStatTypeAlias) isCstNode() {}
 
 type CstStatTypeFunction struct {
-	TypeKeywordPosition     Position
-	FunctionKeywordPosition Position
+	TypeKeywordPosition     lex.Position
+	FunctionKeywordPosition lex.Position
 }
 
 func (CstStatTypeFunction) isCstNode() {}
 
 type CstExprFunction struct {
-	FunctionKeywordPosition       Position
-	OpenGenericsPosition          *Position
-	GenericsCommaPositions        []Position
-	CloseGenericsPosition         *Position
-	ArgsAnnotationColonPositions  []*Position
-	ArgsCommaPositions            []Position
-	VarargAnnotationColonPosition *Position
-	ReturnSpecifierPosition       *Position
+	FunctionKeywordPosition       lex.Position
+	OpenGenericsPosition          *lex.Position
+	GenericsCommaPositions        []lex.Position
+	CloseGenericsPosition         *lex.Position
+	ArgsAnnotationColonPositions  []*lex.Position
+	ArgsCommaPositions            []lex.Position
+	VarargAnnotationColonPosition *lex.Position
+	ReturnSpecifierPosition       *lex.Position
 }
 
 func (CstExprFunction) isCstNode() {}
@@ -164,18 +166,18 @@ func (CstExprTable) isCstNode() {}
 
 type CstExprTableItem struct {
 	Kind                 string
-	EqualsPosition       *Position
+	EqualsPosition       *lex.Position
 	Separator            rune
-	SeparatorPosition    Position
-	IndexerOpenPosition  *Position
-	IndexerClosePosition *Position
+	SeparatorPosition    lex.Position
+	IndexerOpenPosition  *lex.Position
+	IndexerClosePosition *lex.Position
 }
 
 func (CstExprTableItem) isCstNode() {}
 
 type CstExprIfElse struct {
-	ThenPosition Position
-	ElsePosition Position
+	ThenPosition lex.Position
+	ElsePosition lex.Position
 	IsElseIf     bool
 }
 
@@ -183,7 +185,7 @@ func (CstExprIfElse) isCstNode() {}
 
 type CstExprInterpString struct {
 	SourceStrings   []string
-	StringPositions []Position
+	StringPositions []lex.Position
 }
 
 func (CstExprInterpString) isCstNode() {}
@@ -197,34 +199,34 @@ type CstExprConstantString struct {
 func (CstExprConstantString) isCstNode() {}
 
 type CstTypeInstantiation struct {
-	LeftArrow1Position Position
-	LeftArrow2Position Position
+	LeftArrow1Position lex.Position
+	LeftArrow2Position lex.Position
 
-	RightArrow1Position Position
-	RightArrow2Position Position
-	CommaPositions      []Position
+	RightArrow1Position lex.Position
+	RightArrow2Position lex.Position
+	CommaPositions      []lex.Position
 }
 
 func (CstTypeInstantiation) isCstNode() {}
 
 type CstExprCall struct {
-	OpenParens     *Position
-	CloseParens    *Position
-	CommaPositions []Position
+	OpenParens     *lex.Position
+	CloseParens    *lex.Position
+	CommaPositions []lex.Position
 	ExplicitTypes  *CstTypeInstantiation
 }
 
 func (CstExprCall) isCstNode() {}
 
 type CstExprIndexExpr struct {
-	OpenBracketPosition  Position
-	CloseBracketPosition Position
+	OpenBracketPosition  lex.Position
+	CloseBracketPosition lex.Position
 }
 
 func (CstExprIndexExpr) isCstNode() {}
 
 type CstExprTypeAssertion struct {
-	OpPosition Position
+	OpPosition lex.Position
 }
 
 func (CstExprTypeAssertion) isCstNode() {}
@@ -242,64 +244,64 @@ type CstExprConstantNumber struct {
 func (CstExprConstantNumber) isCstNode() {}
 
 type CstExprOp struct {
-	OpPosition Position
+	OpPosition lex.Position
 }
 
 func (CstExprOp) isCstNode() {}
 
 type CstTypeTypeof struct {
-	OpenPosition  Position
-	ClosePosition Position
+	OpenPosition  lex.Position
+	ClosePosition lex.Position
 }
 
 func (CstTypeTypeof) isCstNode() {}
 
 type CstTypeReference struct {
-	PrefixPointPosition      *Position
-	OpenParametersPosition   *Position
-	ParametersCommaPositions []Position
-	CloseParametersPosition  *Position
+	PrefixPointPosition      *lex.Position
+	OpenParametersPosition   *lex.Position
+	ParametersCommaPositions []lex.Position
+	CloseParametersPosition  *lex.Position
 }
 
 func (CstTypeReference) isCstNode() {}
 
 type CstTypePackGeneric struct {
-	EllipsisPosition Position
+	EllipsisPosition lex.Position
 }
 
 func (CstTypePackGeneric) isCstNode() {}
 
 type CstTypePackExplicit struct {
-	OpenParenthesesPosition  *Position
-	CloseParenthesesPosition *Position
-	CommaPositions           *[]Position
+	OpenParenthesesPosition  *lex.Position
+	CloseParenthesesPosition *lex.Position
+	CommaPositions           *[]lex.Position
 }
 
 func (CstTypePackExplicit) isCstNode() {}
 
 type CstTypeFunction struct {
-	OpenGenericsPosition       *Position
-	GenericsCommaPositions     []Position
-	CloseGenericsPosition      *Position
-	OpenArgsPosition           Position
-	ArgumentNameColonPositions []*Position
-	ArgumentsCommaPositions    []Position
-	CloseArgsPosition          Position
-	ReturnArrowPosition        Position
+	OpenGenericsPosition       *lex.Position
+	GenericsCommaPositions     []lex.Position
+	CloseGenericsPosition      *lex.Position
+	OpenArgsPosition           lex.Position
+	ArgumentNameColonPositions []*lex.Position
+	ArgumentsCommaPositions    []lex.Position
+	CloseArgsPosition          lex.Position
+	ReturnArrowPosition        lex.Position
 }
 
 func (CstTypeFunction) isCstNode() {}
 
 type CstTypeUnion struct {
-	LeadingPosition    *Position
-	SeparatorPositions []Position
+	LeadingPosition    *lex.Position
+	SeparatorPositions []lex.Position
 }
 
 func (CstTypeUnion) isCstNode() {}
 
 type CstTypeIntersection struct {
-	LeadingPosition    *Position
-	SeparatorPositions []Position
+	LeadingPosition    *lex.Position
+	SeparatorPositions []lex.Position
 }
 
 func (CstTypeIntersection) isCstNode() {}
@@ -313,27 +315,27 @@ func (CstTypeTable) isCstNode() {}
 
 type CstTypeTableItem struct {
 	Kind                 string
-	ColonPosition        *Position
+	ColonPosition        *lex.Position
 	Separator            rune
-	SeparatorPosition    *Position
-	IndexerOpenPosition  *Position
-	IndexerClosePosition *Position
+	SeparatorPosition    *lex.Position
+	IndexerOpenPosition  *lex.Position
+	IndexerClosePosition *lex.Position
 	StringInfo           *CstExprConstantString
-	StringPosition       *Location
-	EqualsPosition       *Position
+	StringPosition       *lex.Location
+	EqualsPosition       *lex.Position
 }
 
 func (CstTypeTableItem) isCstNode() {}
 
 type CstGenericType struct {
-	DefaultEqualsPosition *Position
+	DefaultEqualsPosition *lex.Position
 }
 
 func (CstGenericType) isCstNode() {}
 
 type CstGenericTypePack struct {
-	EllipsisPosition      Position
-	DefaultEqualsPosition *Position
+	EllipsisPosition      lex.Position
+	DefaultEqualsPosition *lex.Position
 }
 
 func (CstGenericTypePack) isCstNode() {}
