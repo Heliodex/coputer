@@ -178,3 +178,57 @@ type CstExprIfElse struct {
 }
 
 func (CstExprIfElse) isCstNode() {}
+
+type CstExprInterpString struct {
+	SourceStrings   []string
+	StringPositions []Position
+}
+
+func (CstExprInterpString) isCstNode() {}
+
+type CstExprConstantString struct {
+	SourceString *string
+	QuoteStyle   int
+	BlockDepth   int
+}
+
+func (CstExprConstantString) isCstNode() {}
+
+type CstTypeInstantiation struct {
+	LeftArrow1Position Position
+	LeftArrow2Position Position
+
+	RightArrow1Position Position
+	RightArrow2Position Position
+	CommaPositions      []Position
+}
+
+func (CstTypeInstantiation) isCstNode() {}
+
+type CstExprCall struct {
+	OpenParens     *Position
+	CloseParens    *Position
+	CommaPositions []Position
+	ExplicitTypes  *CstTypeInstantiation
+}
+
+func (CstExprCall) isCstNode() {}
+
+type CstExprIndexExpr struct {
+	OpenBracketPosition  Position
+	CloseBracketPosition Position
+}
+
+func (CstExprIndexExpr) isCstNode() {}
+
+type CstExprTypeAssertion struct {
+	OpPosition Position
+}
+
+func (CstExprTypeAssertion) isCstNode() {}
+
+type CstExprExplicitTypeInstantiation struct {
+	Instantiation CstTypeInstantiation
+}
+
+func (CstExprExplicitTypeInstantiation) isCstNode() {}
