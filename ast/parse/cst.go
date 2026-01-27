@@ -46,7 +46,7 @@ var (
 	_ CstNode = CstExprCall{}
 	_ CstNode = CstExprIndexExpr{}
 	_ CstNode = CstExprTypeAssertion{}
-	_ CstNode = CstExprExplicitTypeIns{}
+	_ CstNode = CstExprExplicitTypeInstantiation{}
 	_ CstNode = CstTypeSingletonString{}
 )
 
@@ -154,6 +154,8 @@ type CstExprFunction struct {
 	ReturnSpecifierPosition       *Position
 }
 
+func (CstExprFunction) isCstNode() {}
+
 type CstExprTable struct {
 	Items []CstExprTableItem
 }
@@ -232,3 +234,114 @@ type CstExprExplicitTypeInstantiation struct {
 }
 
 func (CstExprExplicitTypeInstantiation) isCstNode() {}
+
+type CstExprConstantNumber struct {
+	Value string
+}
+
+func (CstExprConstantNumber) isCstNode() {}
+
+type CstExprOp struct {
+	OpPosition Position
+}
+
+func (CstExprOp) isCstNode() {}
+
+type CstTypeTypeof struct {
+	OpenPosition  Position
+	ClosePosition Position
+}
+
+func (CstTypeTypeof) isCstNode() {}
+
+type CstTypeReference struct {
+	PrefixPointPosition      *Position
+	OpenParametersPosition   *Position
+	ParametersCommaPositions []Position
+	CloseParametersPosition  *Position
+}
+
+func (CstTypeReference) isCstNode() {}
+
+type CstTypePackGeneric struct {
+	EllipsisPosition Position
+}
+
+func (CstTypePackGeneric) isCstNode() {}
+
+type CstTypePackExplicit struct {
+	OpenParenthesesPosition  *Position
+	CloseParenthesesPosition *Position
+	CommaPositions           *[]Position
+}
+
+func (CstTypePackExplicit) isCstNode() {}
+
+type CstTypeFunction struct {
+	OpenGenericsPosition       *Position
+	GenericsCommaPositions     []Position
+	CloseGenericsPosition      *Position
+	OpenArgsPosition           Position
+	ArgumentNameColonPositions []*Position
+	ArgumentsCommaPositions    []Position
+	CloseArgsPosition          Position
+	ReturnArrowPosition        Position
+}
+
+func (CstTypeFunction) isCstNode() {}
+
+type CstTypeUnion struct {
+	LeadingPosition    *Position
+	SeparatorPositions []Position
+}
+
+func (CstTypeUnion) isCstNode() {}
+
+type CstTypeIntersection struct {
+	LeadingPosition    *Position
+	SeparatorPositions []Position
+}
+
+func (CstTypeIntersection) isCstNode() {}
+
+type CstTypeTable struct {
+	Items   []CstTypeTableItem
+	IsArray bool
+}
+
+func (CstTypeTable) isCstNode() {}
+
+type CstTypeTableItem struct {
+	Kind                 string
+	ColonPosition        *Position
+	Separator            rune
+	SeparatorPosition    *Position
+	IndexerOpenPosition  *Position
+	IndexerClosePosition *Position
+	StringInfo           *CstExprConstantString
+	StringPosition       *Location
+	EqualsPosition       *Position
+}
+
+func (CstTypeTableItem) isCstNode() {}
+
+type CstGenericType struct {
+	DefaultEqualsPosition *Position
+}
+
+func (CstGenericType) isCstNode() {}
+
+type CstGenericTypePack struct {
+	EllipsisPosition      Position
+	DefaultEqualsPosition *Position
+}
+
+func (CstGenericTypePack) isCstNode() {}
+
+type CstTypeSingletonString struct {
+	SourceString []string
+	QuoteStyle   int
+	BlockDepth   int
+}
+
+func (CstTypeSingletonString) isCstNode() {}
