@@ -441,3 +441,18 @@ var (
 	localStack = []*AstLocal{}
 	localMap   = map[string]*AstLocal{}
 )
+
+// Lexer
+
+// Uh...
+// That's in the other package
+
+var lexer lex.Lexer
+
+// Parser Interface
+
+func fillNext() {
+	for {
+		lexer.Lookahead()
+	}
+}
