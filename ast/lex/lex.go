@@ -6,16 +6,16 @@ type LexemeType uint16
 
 const (
 	Eof      LexemeType = 0
-	Char_END LexemeType = 256
-)
+	Char_END LexemeType = iota + 255
+	Equal
 
-const (
-	Equal = iota + Char_END
 	LessEqual
 	GreaterEqual
 	NotEqual
+
 	Dot2
 	Dot3
+
 	SkinnyArrow
 	DoubleColon
 	FloorDiv
@@ -44,6 +44,7 @@ const (
 	BlockComment
 
 	Attribute
+	AttributeOpen
 
 	BrokenString
 	BrokenComment
@@ -196,6 +197,9 @@ func (l Lexeme) String() string {
 		}
 		return "attribute"
 
+	case AttributeOpen:
+		return "'@["
+
 	case BrokenString:
 		return "malformed string"
 
@@ -212,18 +216,17 @@ func (l Lexeme) String() string {
 				return fmt.Sprintf("Unicode character U+%x (did you mean '%s'?)", *l.codepoint, *confusable)
 			}
 			return fmt.Sprintf("Unicode character U+%x", *l.codepoint)
-		} else {
-			return "invalid UTF-8 sequence"
 		}
+		return "invalid UTF-8 sequence"
 	}
 
 	if l.Type < Char_END {
 		return fmt.Sprintf("'%c'", l.Type)
-	} else if l.Type >= Reserved_BEGIN && l.Type < Reserved_END {
-		return fmt.Sprintf("'%s'", kReserved[l.Type-Reserved_BEGIN])
-	} else {
-		return "<unknown>"
 	}
+	if l.Type >= Reserved_BEGIN && l.Type < Reserved_END {
+		return fmt.Sprintf("'%s'", kReserved[l.Type-Reserved_BEGIN])
+	}
+	return "<unknown>"
 }
 
 type QuoteStyle uint8
@@ -263,9 +266,10 @@ func (l Lexeme) getQuoteStyle() QuoteStyle {
 	LUAU_ASSERT(len(l.data) > 0)
 
 	quote := l.rest[0]
-	if quote == '\'' {
+	switch quote {
+	case '\'':
 		return Single
-	} else if quote == '"' {
+	case '"':
 		return Double
 	}
 
