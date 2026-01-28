@@ -1,6 +1,12 @@
 package main
 
-import "github.com/Heliodex/coputer/ast/lex"
+import (
+	"fmt"
+
+	"github.com/Heliodex/coputer/ast/lex"
+)
+
+// These globals aren't that great to have around for now, though they'll stick here until compliance with the reference implementation is ensured.
 
 // Parser Settings
 
@@ -247,3 +253,191 @@ func isLiteralTable(aexpr AstExpr) bool {
 
 	return true
 }
+
+// Attributes
+
+func deprecatedArgsValidator(attrLoc lex.Location, args []AstExpr) (errors []ParseError) {
+	if len(args) == 0 {
+		return errors
+	}
+	if len(args) > 1 {
+		errors = append(errors, ParseError{
+			Location: attrLoc,
+			Message:  "@deprecated can be parametrized only by 1 argument",
+		})
+		return errors
+	}
+
+	aarg := args[0]
+	arg, ok := aarg.(AstExprTable)
+	if !ok {
+		errors = append(errors, ParseError{
+			Location: attrLoc,
+			Message:  "Unknown argument type for @deprecated",
+		})
+		return errors
+	}
+
+	for _, item := range arg.Items {
+		if item.Key != nil && item.Kind == "Record" {
+			if itemKey, ok := (*item.Key).(AstExprConstantString); ok {
+				keyString := itemKey.Value
+				if _, ok := item.Value.(AstExprConstantString); ok {
+					if keyString != "use" && keyString != "reason" {
+						errors = append(errors,
+							ParseError{
+								Location: item.Value.GetLocation(),
+								Message:  fmt.Sprintf("Unknown key '%s' for @deprecated. Only string constants for 'use' and 'reason' are allowed", keyString),
+							},
+						)
+					}
+				} else {
+					errors = append(errors,
+						ParseError{
+							Location: item.Value.GetLocation(),
+							Message:  fmt.Sprintf("Only constant string allowed as value for '%s'", keyString),
+						},
+					)
+				}
+				continue
+			}
+		}
+		errors = append(errors,
+			ParseError{
+				Location: item.Value.GetLocation(),
+				Message:  "Only constants keys 'use' and 'reason' are allowed for @deprecated attribute",
+			},
+		)
+	}
+	return
+}
+
+type AttributeEntry struct {
+	Type          string
+	ArgsValidator func(lex.Location, []AstExpr) []ParseError
+}
+
+var kAttributeEntries = map[string]AttributeEntry{
+	"checked": {
+		Type: "Checked",
+	},
+	"native": {
+		Type: "Native",
+	},
+	"deprecated": {
+		Type:          "Deprecated",
+		ArgsValidator: deprecatedArgsValidator,
+	},
+}
+
+// Main
+
+var (
+	options Options
+	source  string
+)
+
+// Settings init
+
+var (
+	captureComments = options.CaptureComments
+	storeCstData    = options.StoreCstData
+)
+
+// Lexer State & Buffer
+
+// var (
+// 	buff = []byte(source)
+// 	size = len(buff)
+// )
+
+// Current State
+
+// var (
+// 	offset = 0
+// 	line = 0
+// 	lineOffset = 0
+// )
+
+// Current Token State
+
+var token_type = lex.Eof
+
+// Locations
+var (
+	token_start_line = 0
+	token_start_col  = 0
+	token_end_line   = 0
+	token_end_col    = 0
+)
+
+// Previous Token Location (for errors/end mismatch)
+var (
+	prev_start_line = 0
+	prev_start_col  = 0
+	prev_end_line   = 0
+	prev_end_col    = 0
+)
+
+// Payload
+var (
+	token_string    *string = nil
+	token_aux       *int    = nil
+	token_codepoint *int    = nil
+)
+
+// Parser init
+
+var recursionCounter = 0
+
+var (
+	comments    = []Comment{}
+	hotcomments = []HotComment{}
+	parseErrors = []ParseError{}
+	cstNodes    = map[AstNode]CstNode{} // todo: change to pointer if needed
+)
+
+// All unlocalized Parser functions
+
+// there would be 52 declarations here if Go supported forward declarations
+// honestly they're still better than function hoisting
+
+// Suspect State
+
+var (
+	next_type       = lex.Eof
+	next_start_line = 0
+	next_end_line   = 0
+)
+
+var (
+	next_start_col = 0
+	next_end_col   = 0
+)
+
+var (
+	next_codepoint *int    = nil
+	next_string    *string = nil
+	next_aux       *int    = nil
+)
+
+var suspect_type = lex.Eof
+
+var suspect_line = 0
+
+var matchRecovery = [lex.Reserved_END]int{}
+
+func init() {
+	matchRecovery[lex.Eof] = 1
+}
+
+// Stacks
+
+var functionStack = []FunctionState{
+	{Vararg: true, LoopDepth: 0},
+}
+
+var (
+	localStack = []*AstLocal{}
+	localMap   = map[string]*AstLocal{}
+)
