@@ -102,6 +102,48 @@ var (
 	_ AstStat = AstStatError{}
 )
 
+// extra bonus
+
+type AstStatForOrForIn interface {
+	AstStat
+	isAstStatForOrForIn()
+}
+
+var (
+	_ AstStatForOrForIn = AstStatFor{}
+	_ AstStatForOrForIn = AstStatForIn{}
+)
+
+type AstStatBreakOrError interface {
+	AstStat
+	isAstStatBreakOrError()
+}
+
+var (
+	_ AstStatBreakOrError = AstStatBreak{}
+	_ AstStatBreakOrError = AstStatError{}
+)
+
+type AstStatContinueOrError interface {
+	AstStat
+	isAstStatContinueOrError()
+}
+
+var (
+	_ AstStatContinueOrError = AstStatContinue{}
+	_ AstStatContinueOrError = AstStatError{}
+)
+
+type AstStatTypeAliasOrTypeFunction interface {
+	AstStat
+	isAstStatTypeAliasOrTypeFunction()
+}
+
+var (
+	_ AstStatTypeAliasOrTypeFunction = AstStatTypeAlias{}
+	_ AstStatTypeAliasOrTypeFunction = AstStatTypeFunction{}
+)
+
 // --------------------------------------------------------------------------------
 // -- TYPE PACK UNION TYPES
 // --------------------------------------------------------------------------------
@@ -118,6 +160,18 @@ var (
 	_ AstTypePack = AstTypePackExplicit{}
 	_ AstTypePack = AstTypePackGeneric{}
 	_ AstTypePack = AstTypePackVariadic{}
+)
+
+// bonus round
+
+type AstTypePackVariadicOrGeneric interface {
+	AstTypePack
+	isAstTypePackVariadicOrGeneric()
+}
+
+var (
+	_ AstTypePackVariadicOrGeneric = AstTypePackGeneric{}
+	_ AstTypePackVariadicOrGeneric = AstTypePackVariadic{}
 )
 
 // --------------------------------------------------------------------------------
@@ -383,7 +437,7 @@ type AstLocal struct {
 	Shadow        *AstLocal
 	FunctionDepth int
 	LoopDepth     int
-	Annotation    *AstType
+	Annotation    AstType
 }
 
 type AstStatAssign struct {
@@ -410,8 +464,9 @@ type AstStatBreak struct {
 	NodeLoc
 }
 
-func (AstStatBreak) isAstNode() {}
-func (AstStatBreak) isAstStat() {}
+func (AstStatBreak) isAstNode()             {}
+func (AstStatBreak) isAstStat()             {}
+func (AstStatBreak) isAstStatBreakOrError() {}
 
 type AstStatCompoundAssign struct {
 	NodeLoc
@@ -428,8 +483,9 @@ type AstStatContinue struct {
 	NodeLoc
 }
 
-func (AstStatContinue) isAstNode() {}
-func (AstStatContinue) isAstStat() {}
+func (AstStatContinue) isAstNode()                {}
+func (AstStatContinue) isAstStat()                {}
+func (AstStatContinue) isAstStatContinueOrError() {}
 
 type AstStatDeclareFunction struct {
 	NodeLoc
@@ -488,8 +544,10 @@ type AstStatError struct {
 	HasSemicolon *bool
 }
 
-func (AstStatError) isAstNode() {}
-func (AstStatError) isAstStat() {}
+func (AstStatError) isAstNode()                {}
+func (AstStatError) isAstStat()                {}
+func (AstStatError) isAstStatBreakOrError()    {}
+func (AstStatError) isAstStatContinueOrError() {}
 
 type AstStatExpr struct {
 	NodeLoc
@@ -511,8 +569,9 @@ type AstStatFor struct {
 	HasSemicolon *bool
 }
 
-func (AstStatFor) isAstNode() {}
-func (AstStatFor) isAstStat() {}
+func (AstStatFor) isAstNode()           {}
+func (AstStatFor) isAstStat()           {}
+func (AstStatFor) isAstStatForOrForIn() {}
 
 type AstStatForIn struct {
 	NodeLoc
@@ -526,8 +585,9 @@ type AstStatForIn struct {
 	HasSemicolon *bool
 }
 
-func (AstStatForIn) isAstNode() {}
-func (AstStatForIn) isAstStat() {}
+func (AstStatForIn) isAstNode()           {}
+func (AstStatForIn) isAstStat()           {}
+func (AstStatForIn) isAstStatForOrForIn() {}
 
 type AstStatFunction struct {
 	NodeLoc
@@ -604,8 +664,9 @@ type AstStatTypeAlias struct {
 	HasSemicolon *bool
 }
 
-func (AstStatTypeAlias) isAstNode() {}
-func (AstStatTypeAlias) isAstStat() {}
+func (AstStatTypeAlias) isAstNode()                        {}
+func (AstStatTypeAlias) isAstStat()                        {}
+func (AstStatTypeAlias) isAstStatTypeAliasOrTypeFunction() {}
 
 type AstStatTypeFunction struct {
 	NodeLoc
@@ -617,8 +678,9 @@ type AstStatTypeFunction struct {
 	HasSemicolon *bool
 }
 
-func (AstStatTypeFunction) isAstNode() {}
-func (AstStatTypeFunction) isAstStat() {}
+func (AstStatTypeFunction) isAstNode()                        {}
+func (AstStatTypeFunction) isAstStat()                        {}
+func (AstStatTypeFunction) isAstStatTypeAliasOrTypeFunction() {}
 
 type AstStatWhile struct {
 	NodeLoc
@@ -721,16 +783,18 @@ type AstTypePackGeneric struct {
 	GenericName string
 }
 
-func (AstTypePackGeneric) isAstNode()     {}
-func (AstTypePackGeneric) isAstTypePack() {}
+func (AstTypePackGeneric) isAstNode()                      {}
+func (AstTypePackGeneric) isAstTypePack()                  {}
+func (AstTypePackGeneric) isAstTypePackVariadicOrGeneric() {}
 
 type AstTypePackVariadic struct {
 	NodeLoc
 	VariadicType AstType
 }
 
-func (AstTypePackVariadic) isAstNode()     {}
-func (AstTypePackVariadic) isAstTypePack() {}
+func (AstTypePackVariadic) isAstNode()                      {}
+func (AstTypePackVariadic) isAstTypePack()                  {}
+func (AstTypePackVariadic) isAstTypePackVariadicOrGeneric() {}
 
 type AstTypeReference struct {
 	NodeLoc

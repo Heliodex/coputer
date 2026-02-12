@@ -744,5 +744,175 @@ func incrementRecursionCounter(context string) {
 func parseBinding() Binding {
 	nameOpt := parseNameOpt("variable name")
 
-	bindingName
+	var bindingName Binding
+	if nameOpt != nil {
+		bindingName = *nameOpt
+	} else {
+		bindingName = Binding{
+			Name:    lex.AstName{Value: nameError},
+			NodeLoc: NodeLoc{snapshot()},
+		}
+	}
+
+	colonPos := token_location.Begin
+	annotation := parseOptionalType()
+
+	return Binding{
+		Name:          bindingName.Name,
+		NodeLoc:       bindingName.NodeLoc,
+		Annotation:    annotation,
+		ColonPosition: &colonPos,
+	}
 }
+
+// bindinglist ::= (binding | `...') [`,' bindinglist]
+func parseBindingList(result *[]Binding, allowDot3 bool, commaPositions *[]lex.Position, initialComma *lex.Position, varargAnnotColonPos *[]*lex.Position) (bool, *lex.Location, AstTypePack) {
+	localCommaPositions := []lex.Position{}
+
+	if commaPositions != nil && initialComma != nil {
+		localCommaPositions = append(localCommaPositions, *initialComma)
+	}
+
+	for {
+		if token_type == lex.Dot3 && allowDot3 {
+			varargLocation := snapshot()
+			nextLexeme()
+
+			var tailAnnotation AstTypePack
+
+			if token_type == ':' {
+				if varargAnnotColonPos != nil {
+					(*varargAnnotColonPos)[0] = &token_location.Begin
+				}
+
+				nextLexeme()
+				tailAnnotation = parseVariadicArgumentTypePack()
+			}
+
+			if commaPositions != nil {
+				for _, v := range localCommaPositions {
+					*commaPositions = append(*commaPositions, v)
+				}
+			}
+
+			return true, &varargLocation, tailAnnotation
+		}
+
+		*result = append(*result, parseBinding())
+
+		if token_type != ',' {
+			break
+		}
+
+		if commaPositions != nil {
+			localCommaPositions = append(localCommaPositions, token_location.Begin)
+		}
+
+		nextLexeme()
+	}
+
+	if commaPositions != nil {
+		for _, v := range localCommaPositions {
+			*commaPositions = append(*commaPositions, v)
+		}
+	}
+
+	return false, nil, nil
+}
+
+// stat ::=
+// varlist `=' explist |
+// functioncall |
+// do block end |
+// while exp do block end |
+// repeat block until exp |
+// if exp then block {elseif exp then block} [else block] end |
+// for binding `=' exp `,' exp [`,' exp] do block end |
+// for namelist in explist do block end |
+// function funcname funcbody |
+// attributes function funcname funcbody |
+// local function Name funcbody |
+// local attributes function Name funcbody |
+// local namelist [`=' explist]
+// laststat ::= return [explist] | break
+func parseStat() AstStat {
+	type_ := token_type
+
+	switch type_ {
+	case lex.ReservedIf:
+		return parseIf()
+	case lex.ReservedWhile:
+		return parseWhile()
+	case lex.ReservedDo:
+		return parseDo()
+	case lex.ReservedFor:
+		return parseFor()
+	case lex.ReservedRepeat:
+		return parseRepeat()
+	case lex.ReservedFunction:
+		return parseFunctionStat(nil)
+	case lex.ReservedLocal:
+		return parseLocal(nil)
+	case lex.ReservedReturn:
+		return parseReturn()
+	case lex.ReservedBreak:
+		return parseBreak()
+	case lex.Attribute, lex.AttributeOpen:
+		return parseAttributeStat()
+	}
+}
+
+func parseBlock() AstStatBlock
+func parseIf() AstStatIf
+func parseWhile() AstStatWhile
+func parseRepeat() AstStatRepeat
+func parseDo() AstStatBlock
+func parseBreak() AstStatBreakOrError
+func parseContinue() AstStatContinueOrError
+func parseFor() AstStatForOrForIn
+func parseFunctionStat(attributes Attrs) AstStatFunction
+func parseAttribute(attributes Attrs)
+func parseAttributeStat() AstStat
+func parseLocal(attributes Attrs) AstStatLocal
+func parseReturn() AstStatReturn
+func parseTypeAlias(start lex.Location, exported bool, typeKeywordPosition lex.Position) AstStatTypeAliasOrTypeFunction
+
+var typeFunctionDepth = 0
+
+func parseTypeFunction(start lex.Location, exported bool, typeKeywordPosition lex.Position) AstStatTypeFunction
+func parseNameOpt(context *string) *Binding
+func parseName(context *string) Binding
+func tableSeparator() *int
+func parseListExpr(result []AstExpr, commaPositions *[]lex.Position)
+
+// varlist `=' explist
+func parseAssignment(initial AstExpr) AstStatAssign
+
+// var [`+=' | `-=' | `*=' | `/=' | `%=' | `^=' | `..='] exp
+func parseCompoundAssignment(initial AstExpr, op int) AstStatCompoundAssign
+func prepareFunctionArguments(start lex.Location, hasself bool, args []Binding)
+
+func shouldParseTypePack() bool {
+	t := token_type
+
+	if t == lex.Dot3 {
+		return true
+	}
+
+	if t == lex.Name && next_type == lex.Dot3 {
+		return true
+	}
+
+	return false
+}
+
+// funcbody ::= `(' [parlist] `)' [`:' ReturnType] block end
+// parlist ::= bindinglist [`,' `...'] | `...'
+func parseFunctionBody(hasself bool, matchFunction lex.Lexeme, debugname, localName *string, attributes Attrs) (AstExprFunction, *AstLocal)
+func parseGenericTypeList(withDefaultValues bool, openPosRef, commaPosRef, closePosRef *[]lex.Position) ([]AstGenericType, []AstGenericTypePack)
+func parseOptionalType() AstType
+
+// TypeList ::= Type [`,' TypeList] | ...Type
+func parseTypeList(result []AstType, resultNames []*AstArgumentName, commaPositions *[]lex.Position, nameColonPositions *[]*lex.Position) AstTypePack
+
+func parseVariadicArgumentTypePack() AstTypePackVariadicOrGeneric
