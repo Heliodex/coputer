@@ -740,3 +740,9 @@ func incrementRecursionCounter(context string) {
 }
 
 // The core of the code
+
+func parseBinding() Binding {
+	nameOpt := parseNameOpt("variable name")
+
+	bindingName
+}
