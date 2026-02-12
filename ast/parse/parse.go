@@ -365,18 +365,20 @@ var token_type = lex.Eof
 
 // Locations
 var (
-	token_start_line = 0
-	token_start_col  = 0
-	token_end_line   = 0
-	token_end_col    = 0
+	// token_start_line = 0
+	// token_start_col  = 0
+	// token_end_line   = 0
+	// token_end_col    = 0
+	token_location lex.Location
 )
 
 // Previous Token Location (for errors/end mismatch)
 var (
-	prev_start_line = 0
-	prev_start_col  = 0
-	prev_end_line   = 0
-	prev_end_col    = 0
+	// prev_start_line = 0
+	// prev_start_col  = 0
+	// prev_end_line   = 0
+	// prev_end_col    = 0
+	prev_location lex.Location
 )
 
 // Payload
@@ -391,10 +393,10 @@ var (
 var recursionCounter = 0
 
 var (
-	comments    = []Comment{}
-	hotcomments = []HotComment{}
-	parseErrors = []ParseError{}
-	cstNodes    = map[AstNode]CstNode{} // todo: change to pointer if needed
+	commentLocations = []Comment{}
+	hotcomments      = []HotComment{}
+	parseErrors      = []ParseError{}
+	cstNodes         = map[AstNode]CstNode{} // todo: change to pointer if needed
 )
 
 // All unlocalized Parser functions
@@ -404,16 +406,14 @@ var (
 
 // Suspect State
 
-var (
-	next_type       = lex.Eof
-	next_start_line = 0
-	next_end_line   = 0
-)
+var next_type = lex.Eof
 
-var (
-	next_start_col = 0
-	next_end_col   = 0
-)
+// next_start_line = 0
+// next_end_line   = 0
+
+// next_start_col = 0
+// next_end_col   = 0
+var next_location lex.Location
 
 var (
 	next_codepoint *int    = nil
@@ -453,6 +453,81 @@ var lexer lex.Lexer
 
 func fillNext() {
 	for {
-		lexer.Lookahead()
+		next := lexer.Lookahead()
+
+		if next.Type == lex.Comment || next.Type == lex.BlockComment || next.Type == lex.BrokenComment {
+			if captureComments {
+				commentLocations = append(commentLocations, Comment{
+					Type:    next.Type,
+					NodeLoc: NodeLoc{next.Location},
+				})
+			}
+
+			if next.Type == lex.Comment && next_string != nil && (*next_string)[0] == '!' {
+				hotcomments = append(hotcomments, HotComment{
+					Header:   hotcommentHeader,
+					Location: next.Location,
+					Content:  *next_string,
+				})
+			}
+
+			if next.Type == lex.BrokenComment {
+				return
+			}
+
+			continue
+		}
+
+		break
+	}
+}
+
+func nextLexeme() {
+	// Save previous current to prev
+	prev_location = token_location
+
+	// Move NEXT to CURRENT
+	token_type = next_type
+	token_location = next_location
+	token_string = next_string
+	token_aux = next_aux
+	token_codepoint = next_codepoint
+
+	// Refill NEXT
+	fillNext()
+}
+
+// Parser Commons
+
+func snapshot() lex.Location {
+	return token_location
+}
+
+func get_lexeme() lex.Lexeme {
+	return lex.Lexeme{
+		Type:     token_type,
+		Location: token_location,
+	}
+}
+
+func getprev() lex.Location {
+	return prev_location
+}
+
+// Error reports
+
+func report(loc lex.Location, msg string) {
+	if len(parseErrors) > 0 && parseErrors[len(parseErrors)-1].Location == loc {
+		return
+	}
+
+	parseErrors = append(parseErrors, ParseError{Location: loc, Message: msg})
+
+	if ErrorLimit == 1 {
+		panic(msg)
+	}
+
+	if len(parseErrors) >= ErrorLimit {
+		panic(fmt.Sprintf("Reached error limit (%d)", ErrorLimit))
 	}
 }

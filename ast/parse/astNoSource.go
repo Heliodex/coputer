@@ -12,7 +12,7 @@ const (
 // base for every node
 
 type NodeLoc struct {
-	Location lex.Location
+	lex.Location
 }
 
 func (l NodeLoc) GetLocation() lex.Location {
@@ -150,7 +150,7 @@ var (
 // ast
 
 type Comment struct {
-	Type int
+	Type lex.LexemeType
 	NodeLoc
 }
 
@@ -398,9 +398,9 @@ func (AstStatAssign) isAstStat() {}
 
 type AstStatBlock struct {
 	NodeLoc
-	HasEnd            bool
-	Body              []AstStat
-	CommentsContained *[]Comment // not in json
+	Body         []AstStat
+	HasEnd       bool
+	HasSemicolon *bool
 }
 
 func (AstStatBlock) isAstNode() {}

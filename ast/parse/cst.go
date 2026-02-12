@@ -65,10 +65,17 @@ type CstStatRepeat struct {
 func (CstStatRepeat) isCstNode() {}
 
 type CstStatDo struct {
+	StatsStart  lex.Position
 	EndPosition lex.Position
 }
 
 func (CstStatDo) isCstNode() {}
+
+// type CstStatDo_DEPRECATED struct {
+// 	EndPosition lex.Position
+// }
+
+// func (CstStatDo_DEPRECATED) isCstNode() {}
 
 type CstStatFor struct {
 	AnnotationColonPosition *lex.Position
@@ -314,7 +321,7 @@ type CstTypeTable struct {
 func (CstTypeTable) isCstNode() {}
 
 type CstTypeTableItem struct {
-	Kind                 string
+	Kind                 string // "Property" | "StringProperty" | "Indexer"
 	ColonPosition        *lex.Position
 	Separator            rune
 	SeparatorPosition    *lex.Position
