@@ -84,9 +84,9 @@ type Lexeme struct {
 	Type     LexemeType
 	Location Location
 
-	data, rest []byte
+	Data, rest []byte
 	name       *string
-	codepoint  *uint32
+	Codepoint  *uint32
 }
 
 func (l Lexeme) String() string {
@@ -147,38 +147,38 @@ func (l Lexeme) String() string {
 
 	case RawString:
 	case QuotedString:
-		if l.data != nil {
-			return fmt.Sprintf("\"%s\"", string(l.data))
+		if l.Data != nil {
+			return fmt.Sprintf("\"%s\"", string(l.Data))
 		}
 		return "string"
 
 	case InterpStringBegin:
-		if l.data != nil {
-			return fmt.Sprintf("`%s{", string(l.data))
+		if l.Data != nil {
+			return fmt.Sprintf("`%s{", string(l.Data))
 		}
 		return "the beginning of an interpolated string"
 
 	case InterpStringMid:
-		if l.data != nil {
-			return fmt.Sprintf("}%s{", string(l.data))
+		if l.Data != nil {
+			return fmt.Sprintf("}%s{", string(l.Data))
 		}
 		return "the middle of an interpolated string"
 
 	case InterpStringEnd:
-		if l.data != nil {
-			return fmt.Sprintf("}%s`", string(l.data))
+		if l.Data != nil {
+			return fmt.Sprintf("}%s`", string(l.Data))
 		}
 		return "the end of an interpolated string"
 
 	case InterpStringSimple:
-		if l.data != nil {
-			return fmt.Sprintf("`%s`", string(l.data))
+		if l.Data != nil {
+			return fmt.Sprintf("`%s`", string(l.Data))
 		}
 		return "interpolated string"
 
 	case Number:
-		if l.data != nil {
-			return fmt.Sprintf("'%s'", string(l.data))
+		if l.Data != nil {
+			return fmt.Sprintf("'%s'", string(l.Data))
 		}
 		return "number"
 
@@ -210,12 +210,12 @@ func (l Lexeme) String() string {
 		return "'{{', which is invalid (did you mean '\\{'?)"
 
 	case BrokenUnicode:
-		if l.codepoint != nil {
-			confusable := findConfusable(*l.codepoint)
+		if l.Codepoint != nil {
+			confusable := findConfusable(*l.Codepoint)
 			if confusable != nil {
-				return fmt.Sprintf("Unicode character U+%x (did you mean '%s'?)", *l.codepoint, *confusable)
+				return fmt.Sprintf("Unicode character U+%x (did you mean '%s'?)", *l.Codepoint, *confusable)
 			}
-			return fmt.Sprintf("Unicode character U+%x", *l.codepoint)
+			return fmt.Sprintf("Unicode character U+%x", *l.Codepoint)
 		}
 		return "invalid UTF-8 sequence"
 	}
@@ -263,7 +263,7 @@ func (l Lexeme) getQuoteStyle() QuoteStyle {
 	LUAU_ASSERT(l.Type == QuotedString)
 
 	// If we have a well-formed string, we are guaranteed to see a closing delimiter after the string
-	LUAU_ASSERT(len(l.data) > 0)
+	LUAU_ASSERT(len(l.Data) > 0)
 
 	quote := l.rest[0]
 	switch quote {

@@ -385,7 +385,7 @@ var (
 var (
 	token_string    *string = nil
 	token_aux       *int    = nil
-	token_codepoint *int    = nil
+	token_codepoint *uint32 = nil
 )
 
 // Parser init
@@ -416,14 +416,14 @@ var next_type = lex.Eof
 var next_location lex.Location
 
 var (
-	next_codepoint *int    = nil
+	next_codepoint *uint32 = nil
 	next_string    *string = nil
 	next_aux       *int    = nil
 )
 
 var suspect_type = lex.Eof
 
-var suspect_line = 0
+var suspect_line uint32
 
 var matchRecovery = [lex.Reserved_END]int{}
 
@@ -531,3 +531,212 @@ func report(loc lex.Location, msg string) {
 		panic(fmt.Sprintf("Reached error limit (%d)", ErrorLimit))
 	}
 }
+
+func expectAndConsumeFail(type_ lex.LexemeType, context *string) {
+	typeString := lex.Lexeme{Type: type_}.String()
+
+	lexLex := lex.Lexeme{Codepoint: token_codepoint}
+	if token_string != nil {
+		lexLex.Data = []byte(*token_string)
+	}
+	lexString := lexLex.String()
+
+	if context != nil {
+		report(snapshot(), fmt.Sprintf("Expected %s when parsing %s, got %s", typeString, *context, lexString))
+	} else {
+		report(snapshot(), fmt.Sprintf("Expected %s, got %s", typeString, lexString))
+	}
+}
+
+func expectMatchAndConsumeFail(type_, begin_type lex.LexemeType, position lex.Position, extra ...string) {
+	typeString := lex.Lexeme{Type: type_}.String()
+	matchString := lex.Lexeme{Type: begin_type}.String()
+	currLex := lex.Lexeme{Type: token_type, Codepoint: token_codepoint}
+	if token_string != nil {
+		currLex.Data = []byte(*token_string)
+	}
+	currString := currLex.String()
+
+	var xtra string
+	if len(extra) > 0 {
+		xtra = extra[0]
+	}
+
+	if token_location.Begin.Line == position.Line {
+		report(snapshot(), fmt.Sprintf("Expected %s (to close %s at column) %d, got %s%s", typeString, matchString, position.Column+1, currString, xtra))
+	} else {
+		report(snapshot(), fmt.Sprintf("Expected %s (to close %s at line) %d, got %s%s", typeString, matchString, position.Line, currString, xtra))
+	}
+}
+
+func expectAndConsume(type_ lex.LexemeType, context *string) bool {
+	if token_type != type_ {
+		expectAndConsumeFail(type_, context)
+
+		if next_type == type_ {
+			nextLexeme()
+			nextLexeme()
+		}
+
+		return false
+	}
+
+	nextLexeme()
+	return true
+}
+
+func expectMatchAndConsume(value, begin_type lex.LexemeType, position lex.Position, seachForMissing *bool) bool {
+	if token_type != value {
+		expectMatchAndConsumeFail(value, begin_type, position)
+
+		if seachForMissing != nil && (*seachForMissing) {
+			currentLine := prev_location.End.Line
+			type_ := token_type
+
+			for currentLine == token_location.Begin.Line && type_ != value && matchRecovery[type_] == 0 {
+				nextLexeme()
+				type_ = token_type
+			}
+
+			if type_ == value {
+				nextLexeme()
+				return true
+			}
+		} else {
+			if next_type == value {
+				nextLexeme()
+				nextLexeme()
+				return true
+			}
+		}
+
+		return false
+	}
+
+	nextLexeme()
+	return true
+}
+
+func expectMatchEndAndConsume(type_, begin_type lex.LexemeType, position lex.Position) bool {
+	if token_type != type_ {
+		if suspect_type != lex.Eof && suspect_line > position.Line {
+			suggestionLex := lex.Lexeme{Type: suspect_type, Codepoint: next_codepoint}
+			if token_string != nil {
+				suggestionLex.Data = []byte(*token_string)
+			}
+			suggestionString := suggestionLex.String()
+
+			suggestion := fmt.Sprintf("; did you forget to close %s at line %d?", suggestionString, position.Line+1)
+
+			expectMatchAndConsumeFail(type_, begin_type, position, suggestion)
+		} else {
+			expectMatchAndConsumeFail(type_, begin_type, position)
+		}
+
+		if next_type == type_ {
+			nextLexeme()
+			nextLexeme()
+			return true
+		}
+
+		return false
+	}
+
+	if token_location.Begin.Line != position.Line && token_location.Begin.Column != position.Column && suspect_line < position.Line {
+		suspect_line = position.Line
+		suspect_type = begin_type
+	}
+
+	nextLexeme()
+	return true
+}
+
+// Ast reports
+
+func reportStatError(location lex.Location, exprs []AstExpr, stats []AstStat, msg string) AstStatError {
+	report(location, msg)
+
+	return AstStatError{
+		NodeLoc:      NodeLoc{location},
+		Expressions:  exprs,
+		Statements:   stats,
+		MessageIndex: len(parseErrors) - 1,
+	}
+}
+
+func reportExprError(location lex.Location, exprs []AstExpr, msg string) AstExprError {
+	report(location, msg)
+
+	return AstExprError{
+		NodeLoc:      NodeLoc{location},
+		Expressions:  exprs,
+		MessageIndex: len(parseErrors) - 1,
+	}
+}
+
+func reportTypeError(location lex.Location, types []AstType, msg string) AstTypeError {
+	report(location, msg)
+
+	return AstTypeError{
+		NodeLoc:      NodeLoc{location},
+		Types:        types,
+		MessageIndex: len(parseErrors) - 1,
+	}
+}
+
+func reportNameError(context *string) {
+	currLex := lex.Lexeme{Type: token_type, Codepoint: token_codepoint}
+	if token_string != nil {
+		currLex.Data = []byte(*token_string)
+	}
+	currString := currLex.String()
+
+	if context != nil {
+		report(snapshot(), fmt.Sprintf("Expected identifier when parsing %s, got %s", *context, currString))
+	} else {
+		report(snapshot(), fmt.Sprintf("Expected identifier, got %s", currString))
+	}
+}
+
+// Locals helpers
+
+func restoreLocals(offset int) {
+	for i := len(localStack) - 1; i >= offset; i-- {
+		l := localStack[i]
+		// l better not be nil bruh
+		localMap[l.Name] = l.Shadow
+	}
+
+	localStack = localStack[:offset]
+}
+
+func pushLocal(binding Binding) *AstLocal {
+	name := binding.Name.Value
+	shadow := localMap[name]
+
+	local := &AstLocal{
+		Name:          name,
+		NodeLoc:       binding.NodeLoc,
+		Shadow:        shadow,
+		FunctionDepth: len(functionStack) - 1,
+		LoopDepth:     functionStack[len(functionStack)-1].LoopDepth,
+		Annotation:    binding.Annotation,
+	}
+
+	localMap[name] = local
+	localStack = append(localStack, local)
+
+	return local
+}
+
+func incrementRecursionCounter(context string) {
+	recursionCounter++
+
+	if recursionCounter > RecursionLimit {
+		msg := fmt.Sprintf("Exceeded allowed recursion depth; simplify your %s to make the code compile", context)
+		report(snapshot(), msg) // lol y
+		panic(msg)
+	}
+}
+
+// The core of the code

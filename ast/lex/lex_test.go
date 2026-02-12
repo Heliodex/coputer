@@ -166,13 +166,13 @@ func TestStringInterpolationDoubleBrace(t *testing.T) {
 
 	brokenInterpBegin := lexer.next0()
 	CHECK_EQ(t, brokenInterpBegin.Type, BrokenInterpDoubleBrace)
-	CHECK_EQ(t, string(brokenInterpBegin.data), string("foo"))
+	CHECK_EQ(t, string(brokenInterpBegin.Data), string("foo"))
 
 	CHECK_EQ(t, lexer.next0().Type, Name)
 
 	interpEnd := lexer.next0()
 	CHECK_EQ(t, interpEnd.Type, InterpStringEnd)
-	CHECK_EQ(t, string(interpEnd.data), string("}bar"))
+	CHECK_EQ(t, string(interpEnd.Data), string("}bar"))
 }
 
 func TestStringInterpolationDoubleButUnmatchedBrace(t *testing.T) {

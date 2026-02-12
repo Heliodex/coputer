@@ -482,7 +482,6 @@ type AstDeclaredExternTypeProperty struct {
 
 type AstStatError struct {
 	NodeLoc
-	Messages     []string
 	Expressions  []AstExpr
 	Statements   []AstStat
 	MessageIndex int

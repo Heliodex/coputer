@@ -11,7 +11,7 @@ func LUAU_ASSERT(condition bool) {
 }
 
 type AstName struct {
-	value string
+	Value string
 }
 
 type NameTypePair struct {
@@ -49,7 +49,7 @@ func MakeAstNameTable() AstNameTable {
 
 func (t *AstNameTable) addStatic(name string, lt LexemeType) AstName {
 	entry := NameTypePair{
-		Name: AstName{value: name},
+		Name: AstName{Value: name},
 		Type: lt,
 	}
 
@@ -74,7 +74,7 @@ func (t *AstNameTable) getOrAddWithType(name []byte) (r NameTypePair) {
 	}
 
 	r = NameTypePair{
-		Name: AstName{value: sn},
+		Name: AstName{Value: sn},
 		Type: lt,
 	}
 	t.data[sn] = r
@@ -242,7 +242,7 @@ func (l *Lexer) readCommentBody() Lexeme {
 	return Lexeme{
 		Location: Location{start, l.position()},
 		Type:     Comment,
-		data:     l.buffer[startOffset:l.offset],
+		Data:     l.buffer[startOffset:l.offset],
 		rest:     l.buffer[l.offset:],
 	}
 }
@@ -290,7 +290,7 @@ func (l *Lexer) readLongString(start Position, sep int, ok, broken LexemeType) L
 				return Lexeme{
 					Location: Location{start, l.position()},
 					Type:     ok,
-					data:     l.buffer[startOffset:endOffset],
+					Data:     l.buffer[startOffset:endOffset],
 					rest:     l.buffer[endOffset:],
 				}
 			}
@@ -358,7 +358,7 @@ func (l *Lexer) readQuotedString() Lexeme {
 	return Lexeme{
 		Location: Location{start, l.position()},
 		Type:     QuotedString,
-		data:     l.buffer[startOffset : l.offset-1],
+		Data:     l.buffer[startOffset : l.offset-1],
 		rest:     l.buffer[l.offset-1:],
 	}
 }
@@ -401,7 +401,7 @@ func (l *Lexer) readInterpolatedStringSection(start Position, formatType, endTyp
 				brokenDoubleBrace := Lexeme{
 					Location: Location{start, l.position()},
 					Type:     BrokenInterpDoubleBrace,
-					data:     l.buffer[startOffset:l.offset],
+					Data:     l.buffer[startOffset:l.offset],
 					rest:     l.buffer[l.offset:],
 				}
 				l.consume()
@@ -413,7 +413,7 @@ func (l *Lexer) readInterpolatedStringSection(start Position, formatType, endTyp
 			return Lexeme{
 				Location: Location{start, l.position()},
 				Type:     formatType,
-				data:     l.buffer[startOffset : l.offset-1],
+				Data:     l.buffer[startOffset : l.offset-1],
 				rest:     l.buffer[l.offset-1:],
 			}
 
@@ -427,7 +427,7 @@ func (l *Lexer) readInterpolatedStringSection(start Position, formatType, endTyp
 	return Lexeme{
 		Location: Location{start, l.position()},
 		Type:     endType,
-		data:     l.buffer[startOffset : l.offset-1],
+		Data:     l.buffer[startOffset : l.offset-1],
 		rest:     l.buffer[l.offset-1:],
 	}
 }
@@ -460,7 +460,7 @@ func (l *Lexer) readNumber(start Position, startOffset uint32) Lexeme {
 	return Lexeme{
 		Location: Location{start, l.position()},
 		Type:     Number,
-		data:     l.buffer[startOffset:l.offset],
+		Data:     l.buffer[startOffset:l.offset],
 		rest:     l.buffer[l.offset:],
 	}
 }
@@ -802,7 +802,7 @@ func (l *Lexer) readNext() Lexeme {
 		return Lexeme{
 			Location: Location{start, l.position()},
 			Type:     Attribute,
-			name:     &attribute.Name.value,
+			name:     &attribute.Name.Value,
 		}
 
 	default:
@@ -814,7 +814,7 @@ func (l *Lexer) readNext() Lexeme {
 			return Lexeme{
 				Location: Location{start, l.position()},
 				Type:     name.Type,
-				name:     &name.Name.value,
+				name:     &name.Name.Value,
 			}
 		} else if (l.peekch0() & 0x80) != 0 {
 			return l.readUtf8Error()
@@ -874,7 +874,7 @@ func (l *Lexer) readUtf8Error() Lexeme {
 	return Lexeme{
 		Location:  Location{start, l.position()},
 		Type:      BrokenUnicode,
-		codepoint: &codepoint,
+		Codepoint: &codepoint,
 	}
 }
 
