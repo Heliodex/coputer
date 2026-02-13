@@ -653,10 +653,10 @@ func expectMatchEndAndConsume(type_, begin_type lex.LexemeType, position lex.Pos
 
 // Ast reports
 
-func reportStatError(location lex.Location, exprs []AstExpr, stats []AstStat, msg string) AstStatError {
+func reportStatError(location lex.Location, exprs []AstExpr, stats []AstStat, msg string) *AstStatError {
 	report(location, msg)
 
-	return AstStatError{
+	return &AstStatError{
 		NodeLoc:      NodeLoc{location},
 		Expressions:  exprs,
 		Statements:   stats,
@@ -664,20 +664,20 @@ func reportStatError(location lex.Location, exprs []AstExpr, stats []AstStat, ms
 	}
 }
 
-func reportExprError(location lex.Location, exprs []AstExpr, msg string) AstExprError {
+func reportExprError(location lex.Location, exprs []AstExpr, msg string) *AstExprError {
 	report(location, msg)
 
-	return AstExprError{
+	return &AstExprError{
 		NodeLoc:      NodeLoc{location},
 		Expressions:  exprs,
 		MessageIndex: len(parseErrors) - 1,
 	}
 }
 
-func reportTypeError(location lex.Location, types []AstType, msg string) AstTypeError {
+func reportTypeError(location lex.Location, types []AstType, msg string) *AstTypeError {
 	report(location, msg)
 
-	return AstTypeError{
+	return &AstTypeError{
 		NodeLoc:      NodeLoc{location},
 		Types:        types,
 		MessageIndex: len(parseErrors) - 1,
@@ -742,7 +742,8 @@ func incrementRecursionCounter(context string) {
 // The core of the code
 
 func parseBinding() Binding {
-	nameOpt := parseNameOpt("variable name")
+	context := "variable name"
+	nameOpt := parseNameOpt(&context)
 
 	var bindingName Binding
 	if nameOpt != nil {
@@ -860,31 +861,95 @@ func parseStat() AstStat {
 	case lex.Attribute, lex.AttributeOpen:
 		return parseAttributeStat()
 	}
+
+	start_line := token_location.Begin.Line
+	start_column := token_location.Begin.Column
+	expr := parsePrimaryExpr(true)
+
+	if e, ok := expr.(AstExprCall); ok {
+		return &AstStatExpr{
+			NodeLoc: e.NodeLoc,
+			Expr:    e,
+		}
+	}
+
+	if token_type == ',' || token_type == '=' {
+		return parseAssignment(expr)
+	}
+
+	operator, ok := CompoundLookup[token_type]
+	if ok {
+		return parseCompoundAssignment(expr, operator)
+	}
+
+	var ident *string
+	if e, ok := expr.(AstExprGlobal); ok {
+		ident = &e.Name
+	} else if e, ok := expr.(AstExprLocal); ok {
+		ident = &e.Local.Name
+	}
+
+	if ident != nil && *ident == "type" {
+		loc := expr.GetLocation()
+		return parseTypeAlias(loc, false, loc.Begin)
+	}
+
+	if ident != nil && *ident == "export" && token_type == lex.Name && token_string != nil && *token_string == "type" {
+		typeKeywordPos := token_location.Begin
+		nextLexeme()
+		return parseTypeAlias(expr.GetLocation(), true, typeKeywordPos)
+	}
+
+	if ident != nil && *ident == "continue" {
+		return parseContinue(expr.GetLocation())
+	}
+
+	if start_line == token_location.Begin.Line && start_column == token_location.Begin.Column {
+		nextLexeme()
+	}
+
+	return reportStatError(expr.GetLocation(), []AstExpr{expr}, nil, "Incomplete statement: expected assignment or a function call")
 }
 
-func parseBlockNoScope() AstStatBlock
+func parseBlockNoScope() AstStatBlock {
+	prevPos := prev_location.End
+
+	for !BlockFollow[token_type] {
+		oldRecursion := recursionCounter
+		recursionCounter++
+
+		stat := parseStat()
+
+		recursionCounter = oldRecursion
+
+		if tokenType == ';' {
+			nextLexeme()
+			stat.SetHasSemicolon()
+		}
+	}
+}
 
 // chunk ::= {stat [`;']} [laststat [`;']]
 // block ::= chunk
-func parseBlock() AstStatBlock
+func parseBlock() *AstStatBlock
 
 // if exp then block {elseif exp then block} [else block] end
-func parseIf() AstStatIf
+func parseIf() *AstStatIf
 
 // while exp do block end
-func parseWhile() AstStatWhile
+func parseWhile() *AstStatWhile
 
 // repeat block until exp
-func parseRepeat() AstStatRepeat
+func parseRepeat() *AstStatRepeat
 
 // do block end
-func parseDo() AstStatBlock
+func parseDo() *AstStatBlock
 
 // break
 func parseBreak() AstStatBreakOrError
 
 // continue
-func parseContinue() AstStatContinueOrError
+func parseContinue(start lex.Location) AstStatContinueOrError
 func extractAnnotationColonPositions(bindings []Binding) []*lex.Position
 
 // for binding `=' exp `,' exp [`,' exp] do block end |
@@ -895,7 +960,7 @@ func parseFor() AstStatForOrForIn
 func parseFunctionName(hasRef []bool, debugNameRef []*string) AstExprIndexName
 
 // function funcname funcbody
-func parseFunctionStat(attributes Attrs) AstStatFunction
+func parseFunctionStat(attributes Attrs) *AstStatFunction
 func validateAttribute(loc lex.Location, attributeName string, attributes Attrs, args []AstExpr)
 
 // attribute ::= '@' NAME
@@ -921,10 +986,10 @@ func parseAttributeStat() AstStat
 
 // local function Name funcbody |
 // local bindinglist [`=' explist]
-func parseLocal(attributes Attrs) AstStatLocal
+func parseLocal(attributes Attrs) *AstStatLocal
 
 // return [explist]
-func parseReturn() AstStatReturn
+func parseReturn() *AstStatReturn
 
 // type Name [`<' varlist `>'] `=' Type
 func parseTypeAlias(start lex.Location, exported bool, typeKeywordPosition lex.Position) AstStatTypeAliasOrTypeFunction
@@ -955,10 +1020,10 @@ func tableSeparator() *int {
 func parseExprList(result []AstExpr, commaPositions *[]lex.Position)
 
 // varlist `=' explist
-func parseAssignment(initial AstExpr) AstStatAssign
+func parseAssignment(initial AstExpr) *AstStatAssign
 
 // var [`+=' | `-=' | `*=' | `/=' | `%=' | `^=' | `..='] exp
-func parseCompoundAssignment(initial AstExpr, op int) AstStatCompoundAssign
+func parseCompoundAssignment(initial AstExpr, op BinaryOp) *AstStatCompoundAssign
 func prepareFunctionArguments(start lex.Location, hasself bool, args []Binding)
 
 func shouldParseTypePack() bool {

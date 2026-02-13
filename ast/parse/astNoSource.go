@@ -76,30 +76,33 @@ var (
 type AstStat interface {
 	AstNode
 	isAstStat()
+	SetHasSemicolon()
 }
 
+var tru = true
+
 var (
-	_ AstStat = AstStatBlock{}
-	_ AstStat = AstStatIf{}
-	_ AstStat = AstStatWhile{}
-	_ AstStat = AstStatRepeat{}
-	_ AstStat = AstStatBreak{}
-	_ AstStat = AstStatContinue{}
-	_ AstStat = AstStatReturn{}
-	_ AstStat = AstStatExpr{}
-	_ AstStat = AstStatLocal{}
-	_ AstStat = AstStatFor{}
-	_ AstStat = AstStatForIn{}
-	_ AstStat = AstStatAssign{}
-	_ AstStat = AstStatCompoundAssign{}
-	_ AstStat = AstStatFunction{}
-	_ AstStat = AstStatLocalFunction{}
-	_ AstStat = AstStatTypeAlias{}
-	_ AstStat = AstStatTypeFunction{}
-	_ AstStat = AstStatDeclareGlobal{}
-	_ AstStat = AstStatDeclareFunction{}
-	_ AstStat = AstStatDeclareExternType{}
-	_ AstStat = AstStatError{}
+	_ AstStat = &AstStatBlock{}
+	_ AstStat = &AstStatIf{}
+	_ AstStat = &AstStatWhile{}
+	_ AstStat = &AstStatRepeat{}
+	_ AstStat = &AstStatBreak{}
+	_ AstStat = &AstStatContinue{}
+	_ AstStat = &AstStatReturn{}
+	_ AstStat = &AstStatExpr{}
+	_ AstStat = &AstStatLocal{}
+	_ AstStat = &AstStatFor{}
+	_ AstStat = &AstStatForIn{}
+	_ AstStat = &AstStatAssign{}
+	_ AstStat = &AstStatCompoundAssign{}
+	_ AstStat = &AstStatFunction{}
+	_ AstStat = &AstStatLocalFunction{}
+	_ AstStat = &AstStatTypeAlias{}
+	_ AstStat = &AstStatTypeFunction{}
+	_ AstStat = &AstStatDeclareGlobal{}
+	_ AstStat = &AstStatDeclareFunction{}
+	_ AstStat = &AstStatDeclareExternType{}
+	_ AstStat = &AstStatError{}
 )
 
 // extra bonus
@@ -110,8 +113,8 @@ type AstStatForOrForIn interface {
 }
 
 var (
-	_ AstStatForOrForIn = AstStatFor{}
-	_ AstStatForOrForIn = AstStatForIn{}
+	_ AstStatForOrForIn = &AstStatFor{}
+	_ AstStatForOrForIn = &AstStatForIn{}
 )
 
 type AstStatBreakOrError interface {
@@ -120,8 +123,8 @@ type AstStatBreakOrError interface {
 }
 
 var (
-	_ AstStatBreakOrError = AstStatBreak{}
-	_ AstStatBreakOrError = AstStatError{}
+	_ AstStatBreakOrError = &AstStatBreak{}
+	_ AstStatBreakOrError = &AstStatError{}
 )
 
 type AstStatContinueOrError interface {
@@ -130,8 +133,8 @@ type AstStatContinueOrError interface {
 }
 
 var (
-	_ AstStatContinueOrError = AstStatContinue{}
-	_ AstStatContinueOrError = AstStatError{}
+	_ AstStatContinueOrError = &AstStatContinue{}
+	_ AstStatContinueOrError = &AstStatError{}
 )
 
 type AstStatTypeAliasOrTypeFunction interface {
@@ -140,8 +143,8 @@ type AstStatTypeAliasOrTypeFunction interface {
 }
 
 var (
-	_ AstStatTypeAliasOrTypeFunction = AstStatTypeAlias{}
-	_ AstStatTypeAliasOrTypeFunction = AstStatTypeFunction{}
+	_ AstStatTypeAliasOrTypeFunction = &AstStatTypeAlias{}
+	_ AstStatTypeAliasOrTypeFunction = &AstStatTypeFunction{}
 )
 
 type AstExprLocalOrGlobalOrError interface {
@@ -352,7 +355,7 @@ func (AstExprFunction) isAstExpr() {}
 
 type AstExprGlobal struct {
 	NodeLoc
-	Global string
+	Name string
 }
 
 func (AstExprGlobal) isAstNode()                     {}
@@ -499,6 +502,9 @@ type AstStatAssign struct {
 
 func (AstStatAssign) isAstNode() {}
 func (AstStatAssign) isAstStat() {}
+func (n *AstStatAssign) SetHasSemicolon() {
+	n.HasSemicolon = &tru
+}
 
 type AstStatBlock struct {
 	NodeLoc
@@ -509,14 +515,21 @@ type AstStatBlock struct {
 
 func (AstStatBlock) isAstNode() {}
 func (AstStatBlock) isAstStat() {}
+func (n *AstStatBlock) SetHasSemicolon() {
+	n.HasSemicolon = &tru
+}
 
 type AstStatBreak struct {
 	NodeLoc
+	HasSemicolon *bool
 }
 
 func (AstStatBreak) isAstNode()             {}
 func (AstStatBreak) isAstStat()             {}
 func (AstStatBreak) isAstStatBreakOrError() {}
+func (n *AstStatBreak) SetHasSemicolon() {
+	n.HasSemicolon = &tru
+}
 
 type AstStatCompoundAssign struct {
 	NodeLoc
@@ -528,14 +541,21 @@ type AstStatCompoundAssign struct {
 
 func (AstStatCompoundAssign) isAstNode() {}
 func (AstStatCompoundAssign) isAstStat() {}
+func (n *AstStatCompoundAssign) SetHasSemicolon() {
+	n.HasSemicolon = &tru
+}
 
 type AstStatContinue struct {
 	NodeLoc
+	HasSemicolon *bool
 }
 
 func (AstStatContinue) isAstNode()                {}
 func (AstStatContinue) isAstStat()                {}
 func (AstStatContinue) isAstStatContinueOrError() {}
+func (n *AstStatContinue) SetHasSemicolon() {
+	n.HasSemicolon = &tru
+}
 
 type AstStatDeclareFunction struct {
 	NodeLoc
@@ -554,6 +574,9 @@ type AstStatDeclareFunction struct {
 
 func (AstStatDeclareFunction) isAstNode() {}
 func (AstStatDeclareFunction) isAstStat() {}
+func (n *AstStatDeclareFunction) SetHasSemicolon() {
+	n.HasSemicolon = &tru
+}
 
 type AstStatDeclareGlobal struct {
 	NodeLoc
@@ -565,6 +588,9 @@ type AstStatDeclareGlobal struct {
 
 func (AstStatDeclareGlobal) isAstNode() {}
 func (AstStatDeclareGlobal) isAstStat() {}
+func (n *AstStatDeclareGlobal) SetHasSemicolon() {
+	n.HasSemicolon = &tru
+}
 
 type AstStatDeclareExternType struct {
 	NodeLoc
@@ -577,6 +603,9 @@ type AstStatDeclareExternType struct {
 
 func (AstStatDeclareExternType) isAstNode() {}
 func (AstStatDeclareExternType) isAstStat() {}
+func (n *AstStatDeclareExternType) SetHasSemicolon() {
+	n.HasSemicolon = &tru
+}
 
 type AstDeclaredExternTypeProperty struct {
 	Location     lex.Location
@@ -598,14 +627,21 @@ func (AstStatError) isAstNode()                {}
 func (AstStatError) isAstStat()                {}
 func (AstStatError) isAstStatBreakOrError()    {}
 func (AstStatError) isAstStatContinueOrError() {}
+func (n *AstStatError) SetHasSemicolon() {
+	n.HasSemicolon = &tru
+}
 
 type AstStatExpr struct {
 	NodeLoc
-	Expr AstExpr
+	Expr         AstExpr
+	HasSemicolon *bool
 }
 
 func (AstStatExpr) isAstNode() {}
 func (AstStatExpr) isAstStat() {}
+func (n *AstStatExpr) SetHasSemicolon() {
+	n.HasSemicolon = &tru
+}
 
 type AstStatFor struct {
 	NodeLoc
@@ -622,6 +658,9 @@ type AstStatFor struct {
 func (AstStatFor) isAstNode()           {}
 func (AstStatFor) isAstStat()           {}
 func (AstStatFor) isAstStatForOrForIn() {}
+func (n *AstStatFor) SetHasSemicolon() {
+	n.HasSemicolon = &tru
+}
 
 type AstStatForIn struct {
 	NodeLoc
@@ -638,6 +677,9 @@ type AstStatForIn struct {
 func (AstStatForIn) isAstNode()           {}
 func (AstStatForIn) isAstStat()           {}
 func (AstStatForIn) isAstStatForOrForIn() {}
+func (n *AstStatForIn) SetHasSemicolon() {
+	n.HasSemicolon = &tru
+}
 
 type AstStatFunction struct {
 	NodeLoc
@@ -648,6 +690,9 @@ type AstStatFunction struct {
 
 func (AstStatFunction) isAstNode() {}
 func (AstStatFunction) isAstStat() {}
+func (n *AstStatFunction) SetHasSemicolon() {
+	n.HasSemicolon = &tru
+}
 
 type AstStatIf struct {
 	NodeLoc
@@ -661,6 +706,9 @@ type AstStatIf struct {
 
 func (AstStatIf) isAstNode() {}
 func (AstStatIf) isAstStat() {}
+func (n *AstStatIf) SetHasSemicolon() {
+	n.HasSemicolon = &tru
+}
 
 type AstStatLocal struct {
 	NodeLoc
@@ -672,6 +720,9 @@ type AstStatLocal struct {
 
 func (AstStatLocal) isAstNode() {}
 func (AstStatLocal) isAstStat() {}
+func (n *AstStatLocal) SetHasSemicolon() {
+	n.HasSemicolon = &tru
+}
 
 type AstStatLocalFunction struct {
 	NodeLoc
@@ -682,6 +733,10 @@ type AstStatLocalFunction struct {
 
 func (AstStatLocalFunction) isAstNode() {}
 func (AstStatLocalFunction) isAstStat() {}
+func (n *AstStatLocalFunction) SetHasSemicolon() {
+	n.HasSemicolon = &tru
+}
+
 
 type AstStatRepeat struct {
 	NodeLoc
@@ -693,6 +748,9 @@ type AstStatRepeat struct {
 
 func (AstStatRepeat) isAstNode() {}
 func (AstStatRepeat) isAstStat() {}
+func (n *AstStatRepeat) SetHasSemicolon() {
+	n.HasSemicolon = &tru
+}
 
 type AstStatReturn struct {
 	NodeLoc
@@ -702,6 +760,9 @@ type AstStatReturn struct {
 
 func (AstStatReturn) isAstNode() {}
 func (AstStatReturn) isAstStat() {}
+func (n *AstStatReturn) SetHasSemicolon() {
+	n.HasSemicolon = &tru
+}
 
 type AstStatTypeAlias struct {
 	NodeLoc
@@ -717,6 +778,9 @@ type AstStatTypeAlias struct {
 func (AstStatTypeAlias) isAstNode()                        {}
 func (AstStatTypeAlias) isAstStat()                        {}
 func (AstStatTypeAlias) isAstStatTypeAliasOrTypeFunction() {}
+func (n *AstStatTypeAlias) SetHasSemicolon() {
+	n.HasSemicolon = &tru
+}
 
 type AstStatTypeFunction struct {
 	NodeLoc
@@ -731,6 +795,9 @@ type AstStatTypeFunction struct {
 func (AstStatTypeFunction) isAstNode()                        {}
 func (AstStatTypeFunction) isAstStat()                        {}
 func (AstStatTypeFunction) isAstStatTypeAliasOrTypeFunction() {}
+func (n *AstStatTypeFunction) SetHasSemicolon() {
+	n.HasSemicolon = &tru
+}
 
 type AstStatWhile struct {
 	NodeLoc
@@ -743,6 +810,9 @@ type AstStatWhile struct {
 
 func (AstStatWhile) isAstNode() {}
 func (AstStatWhile) isAstStat() {}
+func (n *AstStatWhile) SetHasSemicolon() {
+	n.HasSemicolon = &tru
+}
 
 type AstTableIndexer struct {
 	Location       lex.Location
