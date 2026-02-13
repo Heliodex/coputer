@@ -862,28 +862,97 @@ func parseStat() AstStat {
 	}
 }
 
+func parseBlockNoScope() AstStatBlock
+
+// chunk ::= {stat [`;']} [laststat [`;']]
+// block ::= chunk
 func parseBlock() AstStatBlock
+
+// if exp then block {elseif exp then block} [else block] end
 func parseIf() AstStatIf
+
+// while exp do block end
 func parseWhile() AstStatWhile
+
+// repeat block until exp
 func parseRepeat() AstStatRepeat
+
+// do block end
 func parseDo() AstStatBlock
+
+// break
 func parseBreak() AstStatBreakOrError
+
+// continue
 func parseContinue() AstStatContinueOrError
+func extractAnnotationColonPositions(bindings []Binding) []*lex.Position
+
+// for binding `=' exp `,' exp [`,' exp] do block end |
+// for bindinglist in explist do block end |
 func parseFor() AstStatForOrForIn
+
+// funcname ::= Name {`.' Name} [`:' Name]
+func parseFunctionName(hasRef []bool, debugNameRef []*string) AstExprIndexName
+
+// function funcname funcbody
 func parseFunctionStat(attributes Attrs) AstStatFunction
-func parseAttribute(attributes Attrs)
+func validateAttribute(loc lex.Location, attributeName string, attributes Attrs, args []AstExpr)
+
+// attribute ::= '@' NAME
+func parseAttribute(attributes *Attrs)
+
+// attributes ::= {attribute}
+
+func parseAttributes() Attrs {
+	var attributes Attrs
+
+	for token_type == lex.Attribute || token_type == lex.AttributeOpen {
+		parseAttribute(&attributes)
+	}
+
+	return attributes
+}
+
+// attributes local function Name funcbody
+// attributes function funcname funcbody
+// attributes `declare function' Name`(' [parlist] `)' [`:` Type]
+// declare Name '{' Name ':' attributes `(' [parlist] `)' [`:` Type] '}'
 func parseAttributeStat() AstStat
+
+// local function Name funcbody |
+// local bindinglist [`=' explist]
 func parseLocal(attributes Attrs) AstStatLocal
+
+// return [explist]
 func parseReturn() AstStatReturn
+
+// type Name [`<' varlist `>'] `=' Type
 func parseTypeAlias(start lex.Location, exported bool, typeKeywordPosition lex.Position) AstStatTypeAliasOrTypeFunction
 
 var typeFunctionDepth = 0
 
+// type function Name `(' arglist `)' `=' funcbody `end'
 func parseTypeFunction(start lex.Location, exported bool, typeKeywordPosition lex.Position) AstStatTypeFunction
 func parseNameOpt(context *string) *Binding
 func parseName(context *string) Binding
-func tableSeparator() *int
-func parseListExpr(result []AstExpr, commaPositions *[]lex.Position)
+
+var (
+	pzero int
+	pone  = 1
+)
+
+func tableSeparator() *int {
+	if token_type == ',' {
+		return &pzero
+	} else if token_type == ';' {
+		return &pone
+	} else {
+		return nil
+	}
+}
+
+// explist ::= {exp `,'} exp
+func parseExprList(result []AstExpr, commaPositions *[]lex.Position)
 
 // varlist `=' explist
 func parseAssignment(initial AstExpr) AstStatAssign
@@ -914,5 +983,126 @@ func parseOptionalType() AstType
 
 // TypeList ::= Type [`,' TypeList] | ...Type
 func parseTypeList(result []AstType, resultNames []*AstArgumentName, commaPositions *[]lex.Position, nameColonPositions *[]*lex.Position) AstTypePack
+func parseOptionalReturnType(returnSpecifierPosRef *[]lex.Position) AstTypePack
 
+// ReturnType ::= Type | `(' TypeList `)'
+func parseReturnType() AstTypePack
+
+func extractStringDetails() (style CstQuotes, depth int) {
+	if token_type == lex.QuotedString {
+		if token_aux != nil && *token_aux == 1 {
+			style = CstQuotes_Single
+		} else {
+			style = CstQuotes_Double
+		}
+	} else if token_type == lex.InterpStringSimple {
+		style = CstQuotes_Interp
+	} else if token_type == lex.RawString {
+		style = CstQuotes_Raw
+		if token_aux != nil {
+			depth = *token_aux
+		}
+	}
+
+	return
+}
+
+type parseTableIndexerResult struct {
+	node                                                     AstTableIndexer
+	indexerOpenPosition, indexerClosePosition, colonPosition lex.Position
+}
+
+// TableIndexer ::= `[' Type `]' `:' Type
+func parseTableIndexer(access string, accessLoc *lex.Location, begin lex.Lexeme) parseTableIndexerResult
+
+// TableProp ::= Name `:' Type
+// TablePropOrIndexer ::= TableProp | TableIndexer
+// PropList ::= TablePropOrIndexer {fieldsep TablePropOrIndexer} [fieldsep]
+// TableType ::= `{' PropList `}'
+func parseTableType(inDeclarationContext bool) AstTypeTable
+
+// ReturnType ::= Type | `(' TypeList `)'
+// FunctionType ::= [`<' varlist `>'] `(' [TypeList] `)' `->` ReturnType
+func parseFunctionType(allowPack bool, attributes Attrs) (*AstType, *AstTypePack)
+func parseFunctionTypeTail(begin lex.Lexeme, attributes Attrs, generics []AstGenericType, genericPacks []AstGenericTypePack, params []AstType, paramNames []*AstArgumentName, varargAnnotation *AstTypePack) AstType
+
+// Type ::=
+//
+//	nil |
+//	Name[`.' Name] [`<' namelist `>'] |
+//	`{' [PropList] `}' |
+//	`(' [TypeList] `)' `->` ReturnType
+//	`typeof` Type
+func parseTypeSuffix(type_ *AstType, begin lex.Location) AstType
+func parseSimpleTypeOrPack() (*AstType, *AstTypePack)
+func parseType(inDeclarationContext bool) AstType
+
+// Type ::= nil | Name[`.' Name] [ `<' Type [`,' ...] `>' ] | `typeof' `(' expr `)' | `{' [PropList] `}'
+//
+//	| [`<' varlist `>'] `(' [TypeList] `)' `->` ReturnType
+func parseSimpleType(allowPack bool, inDeclarationContext bool) (*AstType, *AstTypePack)
 func parseVariadicArgumentTypePack() AstTypePackVariadicOrGeneric
+func parseTypePack() AstTypePackVariadicOrGeneric
+func parseTypeParams(openingPosRef, commaPosRef, closingPosRef *[]lex.Position) []AstTypeOrPack
+
+var unaryOpNot = UnaryOp_Not
+
+func checkUnaryConfusables() *UnaryOp {
+	// early-out: need to check if this is a possible confusable quickly
+	if token_type != '!' {
+		return nil
+	}
+
+	report(snapshot(), "Unexpected '!'; did you mean 'not'?")
+
+	return &unaryOpNot
+}
+
+func checkBinaryConfusables(limit int) *BinaryOp
+
+// subexpr -> (asexp | unop subexpr) { binop subexpr }
+// where `binop' is any binary operator with a priority higher than `limit'
+func parseExpr(limit_val *int) AstExpr
+
+// NAME
+func parseNameExpr(context string) AstExprLocalOrGlobalOrError
+
+// prefixexp -> NAME | '(' expr ')'
+func parsePrefixExpr() AstExpr
+
+// Explicit Type Instantiation
+
+func parseTypeInstantiationExpr() ([]AstTypeOrPack, CstTypeInstantiation)
+func parseExplicitTypeInstantiationExpr(start lex.Position, basedOnExpr AstExpr) AstExprInstantiate
+
+func reportAmbiguousCallError() {
+	report(snapshot(), "Ambiguous syntax: this looks like an argument list for a function call, but could also be a start of new statement; use ';' to separate statements")
+}
+
+// primaryexp -> prefixexp { `.' NAME | `[' exp `]' | `:' NAME funcargs | funcargs }
+func parsePrimaryExpr(asStatement bool) AstExpr
+
+// asexp -> simpleexp [`::' Type]
+func parseAssertionExpr() AstExpr
+
+// simpleexp -> NUMBER | STRING | NIL | true | false | ... | constructor | [attributes] FUNCTION body | primaryexp
+func parseSimpleExpr() AstExpr
+
+// args ::=  `(' [explist] `)' | tableconstructor | String
+func parseFunctionArgs(function AstExpr, selfCall bool) AstExpr
+func reportFunctionArgsError(function AstExpr, selfCall bool) AstExpr
+func parseIndexName(context *string, prev lex.Position) Binding
+func parseCallList(commaPositions *[]lex.Position) ([]AstExpr, lex.Location, lex.Location)
+
+// tableconstructor ::= `{' [fieldlist] `}'
+// fieldlist ::= field {fieldsep field} [fieldsep]
+// field ::= `[' exp `]' `=' exp | Name `=' exp | exp
+// fieldsep ::= `,' | `;'
+func parseTableConstructor() AstExprTable
+func parseIfElseExpr() AstExprIfElse
+func parseInterpString() AstExprInterpStringOrError
+func parseCharArray() *string
+func parseString() AstExprConstantStringOrError
+func parseNumber() AstExprConstantNumberOrError
+
+func parse(source string, options Options) AstStatBlock

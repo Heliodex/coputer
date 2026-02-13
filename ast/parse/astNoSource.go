@@ -144,6 +144,47 @@ var (
 	_ AstStatTypeAliasOrTypeFunction = AstStatTypeFunction{}
 )
 
+type AstExprLocalOrGlobalOrError interface {
+	AstNode
+	isAstExprLocalOrGlobalOrError()
+}
+
+var (
+	_ AstExprLocalOrGlobalOrError = AstExprLocal{}
+	_ AstExprLocalOrGlobalOrError = AstExprGlobal{}
+	_ AstExprLocalOrGlobalOrError = AstExprError{}
+)
+
+type AstExprInterpStringOrError interface {
+	AstNode
+	isAstExprInterpStringOrError()
+}
+
+var (
+	_ AstExprInterpStringOrError = AstExprInterpString{}
+	_ AstExprInterpStringOrError = AstExprError{}
+)
+
+type AstExprConstantStringOrError interface {
+	AstNode
+	isAstExprConstantStringOrError()
+}
+
+var (
+	_ AstExprConstantStringOrError = AstExprConstantString{}
+	_ AstExprConstantStringOrError = AstExprError{}
+)
+
+type AstExprConstantNumberOrError interface {
+	AstNode
+	isAstExprConstantNumberOrError()
+}
+
+var (
+	_ AstExprConstantNumberOrError = AstExprConstantNumber{}
+	_ AstExprConstantNumberOrError = AstExprError{}
+)
+
 // --------------------------------------------------------------------------------
 // -- TYPE PACK UNION TYPES
 // --------------------------------------------------------------------------------
@@ -263,16 +304,18 @@ type AstExprConstantNumber struct {
 	Value float64
 }
 
-func (AstExprConstantNumber) isAstNode() {}
-func (AstExprConstantNumber) isAstExpr() {}
+func (AstExprConstantNumber) isAstNode()                      {}
+func (AstExprConstantNumber) isAstExpr()                      {}
+func (AstExprConstantNumber) isAstExprConstantNumberOrError() {}
 
 type AstExprConstantString struct {
 	NodeLoc
 	Value string
 }
 
-func (AstExprConstantString) isAstNode() {}
-func (AstExprConstantString) isAstExpr() {}
+func (AstExprConstantString) isAstNode()                      {}
+func (AstExprConstantString) isAstExpr()                      {}
+func (AstExprConstantString) isAstExprConstantStringOrError() {}
 
 type AstExprError struct {
 	NodeLoc
@@ -280,8 +323,12 @@ type AstExprError struct {
 	MessageIndex int
 }
 
-func (AstExprError) isAstNode() {}
-func (AstExprError) isAstExpr() {}
+func (AstExprError) isAstNode()                      {}
+func (AstExprError) isAstExpr()                      {}
+func (AstExprError) isAstExprLocalOrGlobalOrError()  {}
+func (AstExprError) isAstExprInterpStringOrError()   {}
+func (AstExprError) isAstExprConstantStringOrError() {}
+func (AstExprError) isAstExprConstantNumberOrError() {}
 
 type AstExprFunction struct {
 	NodeLoc
@@ -308,8 +355,9 @@ type AstExprGlobal struct {
 	Global string
 }
 
-func (AstExprGlobal) isAstNode() {}
-func (AstExprGlobal) isAstExpr() {}
+func (AstExprGlobal) isAstNode()                     {}
+func (AstExprGlobal) isAstExpr()                     {}
+func (AstExprGlobal) isAstExprLocalOrGlobalOrError() {}
 
 type AstExprGroup struct {
 	NodeLoc
@@ -358,8 +406,9 @@ type AstExprInterpString struct {
 	Expressions []AstExpr
 }
 
-func (AstExprInterpString) isAstNode() {}
-func (AstExprInterpString) isAstExpr() {}
+func (AstExprInterpString) isAstNode()                    {}
+func (AstExprInterpString) isAstExpr()                    {}
+func (AstExprInterpString) isAstExprInterpStringOrError() {}
 
 type AstExprInstantiate struct {
 	NodeLoc
@@ -376,8 +425,9 @@ type AstExprLocal struct {
 	Upvalue bool
 }
 
-func (AstExprLocal) isAstNode() {}
-func (AstExprLocal) isAstExpr() {}
+func (AstExprLocal) isAstNode()                     {}
+func (AstExprLocal) isAstExpr()                     {}
+func (AstExprLocal) isAstExprLocalOrGlobalOrError() {}
 
 type AstExprTable struct {
 	NodeLoc
