@@ -10,7 +10,11 @@ import (
 
 // Parser Settings
 
-var LuauExplicitTypeInstantiationSyntax = false
+const (
+	LuauExplicitTypeInstantiationSyntax = false
+	DesugaredArrayTypeReferenceIsEmpty  = false
+	// LuauCstStatDoWithStatsStart         = true
+)
 
 var (
 	TypeLengthLimit = 1000
@@ -1058,26 +1062,283 @@ func parseIf() *AstStatIf {
 // while exp do block end
 func parseWhile() *AstStatWhile {
 	start := snapshot()
+	nextLexeme()
 
-	
+	cond := parseExpr(nil)
+
+	Do_type := token_type
+	Do_begin := token_location.Begin
+	Do_end := token_location.End
+
+	context := "while loop"
+	hasDo := expectAndConsume(lex.ReservedDo, &context)
+
+	functionStack[len(functionStack)-1].LoopDepth++
+	body := parseBlock()
+	functionStack[len(functionStack)-1].LoopDepth--
+
+	end := snapshot()
+	hasEnd := expectMatchEndAndConsume(lex.ReservedEnd, Do_type, Do_begin)
+
+	body.HasEnd = hasEnd
+
+	return &AstStatWhile{
+		NodeLoc:   &NodeLoc{lex.Location{Begin: start.Begin, End: end.End}},
+		Condition: cond,
+		Body:      body,
+		HasDo:     hasDo,
+		DoLocation: lex.Location{
+			Begin: Do_begin,
+			End:   Do_end,
+		},
+	}
 }
 
 // repeat block until exp
-func parseRepeat() *AstStatRepeat
+func parseRepeat() *AstStatRepeat {
+	start := snapshot()
+
+	Repeat_type := token_type
+	Repeat_begin := token_location.Begin
+
+	nextLexeme() // repeat
+
+	localsBegin := len(localStack)
+
+	functionStack[len(functionStack)-1].LoopDepth++
+	body := parseBlock()
+	functionStack[len(functionStack)-1].LoopDepth--
+
+	untilPosition := token_location.Begin
+	hasUntil := expectMatchAndConsume(lex.ReservedUntil, Repeat_type, Repeat_begin, nil)
+
+	cond := parseExpr(nil)
+
+	restoreLocals(localsBegin)
+
+	node := &AstStatRepeat{
+		NodeLoc:   &NodeLoc{lex.Location{Begin: start.Begin, End: cond.GetLocation().End}},
+		Condition: cond,
+		Body:      body,
+		HasUntil:  hasUntil,
+	}
+
+	if storeCstData {
+		cstNodes[node] = CstStatRepeat{
+			UntilPosition: untilPosition,
+		}
+	}
+
+	return node
+}
 
 // do block end
-func parseDo() *AstStatBlock
+func parseDo() *AstStatBlock {
+	start := snapshot()
+
+	Do_type := token_type
+	Do_begin := token_location.Begin
+
+	nextLexeme() // do
+
+	body := parseBlock()
+	body.Location.Begin = start.Begin
+
+	endLocation := snapshot()
+	body.HasEnd = expectMatchEndAndConsume(lex.ReservedEnd, Do_type, Do_begin)
+
+	if body.HasEnd {
+		body.Location.End = endLocation.End
+	}
+
+	if storeCstData {
+		cstNodes[body] = CstStatDo{
+			EndPosition: endLocation.Begin,
+		}
+	}
+
+	return body
+}
 
 // break
-func parseBreak() AstStatBreakOrError
+func parseBreak() AstStatBreakOrError {
+	start := snapshot()
+	nextLexeme()
+
+	if functionStack[len(functionStack)-1].LoopDepth == 0 {
+		return reportStatError(start, nil, []AstStat{
+			&AstStatContinue{NodeLoc: &NodeLoc{start}},
+		}, "break statement must be inside a loop")
+	}
+
+	return &AstStatBreak{NodeLoc: &NodeLoc{start}}
+}
 
 // continue
-func parseContinue(start lex.Location) AstStatContinueOrError
-func extractAnnotationColonPositions(bindings []Binding) []*lex.Position
+func parseContinue(start lex.Location) AstStatContinueOrError {
+	if functionStack[len(functionStack)-1].LoopDepth == 0 {
+		return reportStatError(start, nil, []AstStat{
+			&AstStatBreak{NodeLoc: &NodeLoc{start}},
+		}, "continue statement must be inside a loop")
+	}
+
+	// note: the token is already parsed for us!
+
+	return &AstStatContinue{NodeLoc: &NodeLoc{start}}
+}
+
+func extractAnnotationColonPositions(bindings []Binding) []*lex.Position {
+	positions := make([]*lex.Position, len(bindings))
+	for i, binding := range bindings {
+		positions[i] = binding.ColonPosition
+	}
+	return positions
+}
 
 // for binding `=' exp `,' exp [`,' exp] do block end |
 // for bindinglist in explist do block end |
-func parseFor() AstStatForOrForIn
+func parseFor() AstStatForOrForIn {
+	start := snapshot()
+	nextLexeme() // for
+
+	varname := parseBinding()
+
+	if token_type == '=' { // === lel
+		equalsPosition := token_location.Begin
+		nextLexeme()
+
+		from := parseExpr(nil)
+
+		endCommaPosition := token_location.Begin
+		context := "index range"
+		expectAndConsume(',', &context)
+
+		to := parseExpr(nil)
+
+		var stepCommaPosition *lex.Position
+		var step AstExpr
+
+		if token_type == ',' {
+			stepCommaPosition = &token_location.Begin
+			nextLexeme()
+			step = parseExpr(nil)
+		}
+
+		Do_type := token_type
+		Do_begin := token_location.Begin
+		Do_end := token_location.End
+
+		context2 := "for loop"
+		hasDo := expectAndConsume(lex.ReservedDo, &context2)
+
+		localsBegin := len(localStack)
+		functionStack[len(functionStack)-1].LoopDepth++
+
+		var_ := pushLocal(varname) // and here I was laughing at the fact I could call variables 'end'...
+		body := parseBlock()
+
+		functionStack[len(functionStack)-1].LoopDepth--
+		restoreLocals(localsBegin)
+
+		end := token_location.End
+		hasEnd := expectMatchEndAndConsume(lex.ReservedEnd, Do_type, Do_begin)
+		body.HasEnd = hasEnd
+
+		node := &AstStatFor{
+			NodeLoc: &NodeLoc{lex.Location{Begin: start.Begin, End: end}},
+			Var:     var_,
+			From:    from,
+			To:      to,
+			Step:    step,
+			Body:    body,
+			HasDo:   hasDo,
+			DoLocation: lex.Location{
+				Begin: Do_begin,
+				End:   Do_end,
+			},
+		}
+
+		if storeCstData {
+			cstNodes[node] = CstStatFor{
+				AnnotationColonPosition: varname.ColonPosition,
+				EqualsPosition:          equalsPosition,
+				EndCommaPosition:        endCommaPosition,
+				StepCommaPosition:       stepCommaPosition,
+			}
+		}
+
+		return node
+	} else {
+		names := &[]Binding{varname}
+		varsCommaPosition := &[]lex.Position{}
+
+		if token_type == ',' {
+			initialCommaPos := &token_location.Begin
+			nextLexeme()
+			parseBindingList(names, false, varsCommaPosition, initialCommaPos, nil)
+		}
+
+		inLocation := snapshot()
+		context := "for loop"
+		hasIn := expectAndConsume(lex.ReservedIn, &context)
+
+		values := []AstExpr{}
+
+		valuesCommaPositions := []lex.Position{}
+		if storeCstData {
+			parseExprList(values, &valuesCommaPositions)
+		} else {
+			parseExprList(values, nil)
+		}
+
+		Do_type := token_type
+		Do_begin := token_location.Begin
+		Do_end := token_location.End
+
+		hasDo := expectAndConsume(lex.ReservedDo, &context)
+
+		localsBegin := len(localStack)
+		functionStack[len(functionStack)-1].LoopDepth++
+
+		var vars []*AstLocal
+		for _, binding := range *names {
+			vars = append(vars, pushLocal(binding))
+		}
+
+		body := parseBlock()
+
+		functionStack[len(functionStack)-1].LoopDepth--
+		restoreLocals(localsBegin)
+
+		end := token_location.End
+		hasEnd := expectMatchEndAndConsume(lex.ReservedEnd, Do_type, Do_begin)
+		body.HasEnd = hasEnd
+
+		node := &AstStatForIn{
+			NodeLoc:    &NodeLoc{lex.Location{Begin: start.Begin, End: end}},
+			Vars:       vars,
+			Values:     values,
+			Body:       body,
+			HasIn:      hasIn,
+			InLocation: inLocation,
+			HasDo:      hasDo,
+			DoLocation: lex.Location{
+				Begin: Do_begin,
+				End:   Do_end,
+			},
+		}
+
+		if storeCstData {
+			cstNodes[node] = CstStatForIn{
+				VarsAnnotationColonPositions: extractAnnotationColonPositions(*names),
+				VarsCommaPositions:           *varsCommaPosition,
+				ValuesCommaPositions:         *varsCommaPosition, // TODO: check lel
+			}
+		}
+
+		return node
+	}
+}
 
 // funcname ::= Name {`.' Name} [`:' Name]
 func parseFunctionName(hasRef []bool, debugNameRef []*string) AstExprIndexName

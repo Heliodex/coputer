@@ -651,11 +651,11 @@ func (n *AstStatExpr) SetHasSemicolon() {
 
 type AstStatFor struct {
 	*NodeLoc
-	Var          AstLocal
+	Var          *AstLocal
 	From         AstExpr
 	To           AstExpr
-	Step         *AstExpr
-	Body         AstStatBlock
+	Step         AstExpr
+	Body         *AstStatBlock
 	HasDo        bool
 	DoLocation   lex.Location
 	HasSemicolon *bool
@@ -670,9 +670,9 @@ func (n *AstStatFor) SetHasSemicolon() {
 
 type AstStatForIn struct {
 	*NodeLoc
-	Vars         []AstLocal
+	Vars         []*AstLocal
 	Values       []AstExpr
-	Body         AstStatBlock
+	Body         *AstStatBlock
 	HasIn        bool
 	InLocation   lex.Location
 	HasDo        bool
@@ -746,7 +746,7 @@ func (n *AstStatLocalFunction) SetHasSemicolon() {
 type AstStatRepeat struct {
 	*NodeLoc
 	Condition    AstExpr
-	Body         AstStatBlock
+	Body         *AstStatBlock
 	HasUntil     bool
 	HasSemicolon *bool
 }
@@ -807,7 +807,7 @@ func (n *AstStatTypeFunction) SetHasSemicolon() {
 type AstStatWhile struct {
 	*NodeLoc
 	Condition    AstExpr
-	Body         AstStatBlock
+	Body         *AstStatBlock
 	HasDo        bool
 	DoLocation   lex.Location
 	HasSemicolon *bool
