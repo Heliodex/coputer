@@ -154,7 +154,7 @@ var (
 )
 
 type AstExprLocalOrGlobalOrError interface {
-	AstNode
+	AstExpr
 	isAstExprLocalOrGlobalOrError()
 }
 
@@ -165,7 +165,7 @@ var (
 )
 
 type AstExprInterpStringOrError interface {
-	AstNode
+	AstExpr
 	isAstExprInterpStringOrError()
 }
 
@@ -175,7 +175,7 @@ var (
 )
 
 type AstExprConstantStringOrError interface {
-	AstNode
+	AstExpr
 	isAstExprConstantStringOrError()
 }
 
@@ -185,7 +185,7 @@ var (
 )
 
 type AstExprConstantNumberOrError interface {
-	AstNode
+	AstExpr
 	isAstExprConstantNumberOrError()
 }
 

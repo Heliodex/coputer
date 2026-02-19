@@ -316,9 +316,11 @@ func deprecatedArgsValidator(attrLoc lex.Location, args []AstExpr) (errors []Par
 	return
 }
 
+type ArgsValidator func(lex.Location, []AstExpr) []ParseError
+
 type AttributeEntry struct {
 	Type          string
-	ArgsValidator func(lex.Location, []AstExpr) []ParseError
+	ArgsValidator ArgsValidator
 }
 
 var kAttributeEntries = map[string]AttributeEntry{
@@ -1341,14 +1343,143 @@ func parseFor() AstStatForOrForIn {
 }
 
 // funcname ::= Name {`.' Name} [`:' Name]
-func parseFunctionName(hasRef []bool, debugNameRef []*string) AstExprIndexName
+func parseFunctionName(hasRef []bool, debugNameRef *[]*string) *AstExprIndexName {
+	if token_type == lex.Name {
+		(*debugNameRef)[0] = token_string // TODO: slice bounds
+	}
+
+	// parse funcname into a chain of indexing operators
+	expr := AstExpr(parseNameExpr("function name"))
+	var newExpr *AstExprIndexName // split it into this for better types
+
+	oldRecursionCount := recursionCounter
+
+	for token_type == '.' {
+		opPosition := token_location.Begin
+		nextLexeme()
+
+		context := "field name"
+		name := parseName(&context)
+
+		// while we could concatenate the name chain, for now let's just write the short name
+		(*debugNameRef)[0] = &name.Name.Value
+
+		newExpr = &AstExprIndexName{
+			NodeLoc:       &NodeLoc{lex.Location{Begin: expr.GetLocation().Begin, End: name.Location.End}},
+			Expr:          expr,
+			Index:         name.Name.Value,
+			IndexLocation: name.Location,
+			OpPosition:    opPosition,
+			Op:            ',',
+		}
+
+		// note: while the parser isn't recursive here, we're generating recursive structures of unbounded depth
+		incrementRecursionCounter("function name")
+	}
+
+	recursionCounter = oldRecursionCount
+
+	// finish with :
+	if token_type == ':' {
+		opPosition := token_location.Begin
+		nextLexeme()
+
+		context := "method name"
+		name := parseName(&context)
+
+		// while we could concatenate the name chain, for now let's just write the short name
+		(*debugNameRef)[0] = &name.Name.Value
+
+		newExpr = &AstExprIndexName{
+			NodeLoc:       &NodeLoc{lex.Location{Begin: expr.GetLocation().Begin, End: name.Location.End}},
+			Expr:          expr,
+			Index:         name.Name.Value,
+			IndexLocation: name.Location,
+			OpPosition:    opPosition,
+			Op:            ':',
+		}
+
+		hasRef[0] = true // again, todo bounds check
+	}
+
+	return newExpr
+}
 
 // function funcname funcbody
-func parseFunctionStat(attributes Attrs) *AstStatFunction
-func validateAttribute(loc lex.Location, attributeName string, attributes Attrs, args []AstExpr)
+func parseFunctionStat(attributes Attrs) *AstStatFunction {
+	start := snapshot()
+	if len(attributes) > 0 {
+		start = attributes[0].Location
+	}
+
+	matchFunction := get_lexeme()
+	nextLexeme()
+
+	hasRef := []bool{false}
+	debugnameRef := []*string{nil} // todo length check bruh
+	expr := parseFunctionName(hasRef, &debugnameRef)
+
+	matchRecovery[lex.ReservedEnd]++
+
+	body, _ := parseFunctionBody(hasRef[0], matchFunction, debugnameRef[0], nil, attributes)
+
+	matchRecovery[lex.ReservedEnd]--
+
+	node := &AstStatFunction{
+		NodeLoc: &NodeLoc{lex.Location{Begin: start.Begin, End: body.GetLocation().End}},
+		Name:    expr,
+		Func:    body,
+	}
+
+	if storeCstData {
+		cstNodes[node] = CstStatFunction{
+			FunctionKeywordPosition: matchFunction.Location.Begin,
+		}
+	}
+
+	return node
+}
+
+func validateAttribute(loc lex.Location, attributeName string, attributes Attrs, args []AstExpr) *string {
+	// checks if the attribute name is valid
+	entry, ok := kAttributeEntries[attributeName]
+	var type_ *string
+	var argsValidator ArgsValidator
+
+	if ok {
+		type_ = &entry.Type
+		argsValidator = entry.ArgsValidator
+	} else {
+		if len(attributeName) == 0 {
+			report(loc, "Attribute name is missing")
+		} else {
+			report(loc, fmt.Sprintf("Invalid attribute '@%s'", attributeName))
+		}
+	}
+
+	if type_ != nil {
+		// check that attribute is not duplicated
+		for _, attr := range attributes {
+			if attr.Type == *type_ {
+				report(loc, fmt.Sprintf("Duplicate attribute '@%s'", attributeName))
+			}
+		}
+
+		if argsValidator != nil {
+			errors := argsValidator(loc, args)
+			for _, err := range errors {
+				report(err.Location, err.Message) // dk about the formatting, guess i'll add a TODO
+			}
+		}
+	}
+
+	return type_
+}
 
 // attribute ::= '@' NAME
-func parseAttribute(attributes *Attrs)
+func parseAttribute(attributes *Attrs) {
+	
+}
 
 // attributes ::= {attribute}
 
