@@ -459,7 +459,7 @@ func fillNext() {
 			if captureComments {
 				commentLocations = append(commentLocations, Comment{
 					Type:    next.Type,
-					NodeLoc: NodeLoc{next.Location},
+					NodeLoc: &NodeLoc{next.Location},
 				})
 			}
 
@@ -657,7 +657,7 @@ func reportStatError(location lex.Location, exprs []AstExpr, stats []AstStat, ms
 	report(location, msg)
 
 	return &AstStatError{
-		NodeLoc:      NodeLoc{location},
+		NodeLoc:      &NodeLoc{location},
 		Expressions:  exprs,
 		Statements:   stats,
 		MessageIndex: len(parseErrors) - 1,
@@ -668,7 +668,7 @@ func reportExprError(location lex.Location, exprs []AstExpr, msg string) *AstExp
 	report(location, msg)
 
 	return &AstExprError{
-		NodeLoc:      NodeLoc{location},
+		NodeLoc:      &NodeLoc{location},
 		Expressions:  exprs,
 		MessageIndex: len(parseErrors) - 1,
 	}
@@ -678,7 +678,7 @@ func reportTypeError(location lex.Location, types []AstType, msg string) *AstTyp
 	report(location, msg)
 
 	return &AstTypeError{
-		NodeLoc:      NodeLoc{location},
+		NodeLoc:      &NodeLoc{location},
 		Types:        types,
 		MessageIndex: len(parseErrors) - 1,
 	}
@@ -707,6 +707,7 @@ func restoreLocals(offset int) {
 		localMap[l.Name] = l.Shadow
 	}
 
+	// setting to nil wouldn't change the array length, which I assume we're relying on somewhere...
 	localStack = localStack[:offset]
 }
 
@@ -751,7 +752,7 @@ func parseBinding() Binding {
 	} else {
 		bindingName = Binding{
 			Name:    lex.AstName{Value: nameError},
-			NodeLoc: NodeLoc{snapshot()},
+			NodeLoc: &NodeLoc{snapshot()},
 		}
 	}
 
@@ -911,7 +912,9 @@ func parseStat() AstStat {
 	return reportStatError(expr.GetLocation(), []AstExpr{expr}, nil, "Incomplete statement: expected assignment or a function call")
 }
 
-func parseBlockNoScope() AstStatBlock {
+func parseBlockNoScope() *AstStatBlock {
+	var body []AstStat
+
 	prevPos := prev_location.End
 
 	for !BlockFollow[token_type] {
@@ -922,22 +925,142 @@ func parseBlockNoScope() AstStatBlock {
 
 		recursionCounter = oldRecursion
 
-		if tokenType == ';' {
+		if token_type == ';' {
 			nextLexeme()
 			stat.SetHasSemicolon()
+
+			loc := stat.GetLocation()
+			// the fact that a table assignment isn't used here in the Luau implementation makes me suspicious that it's intended to be modified later on after returning
+			stat.SetLocation(lex.Location{
+				Begin: loc.Begin,
+				End:   prevPos,
+			})
 		}
+
+		body = append(body, stat)
+
+		switch stat.(type) {
+		case *AstStatBreak, *AstStatContinue, *AstStatReturn:
+		default:
+			continue
+		}
+
+		break // cuz I don't wanna label the loop
+	}
+
+	return &AstStatBlock{
+		NodeLoc: &NodeLoc{
+			lex.Location{
+				Begin: prevPos,
+				End:   token_location.Begin,
+			},
+		},
+		Body:   body,
+		HasEnd: false,
 	}
 }
 
 // chunk ::= {stat [`;']} [laststat [`;']]
 // block ::= chunk
-func parseBlock() *AstStatBlock
+func parseBlock() *AstStatBlock {
+	localsBegin := len(localStack)
+	result := parseBlockNoScope()
+	restoreLocals(localsBegin)
+	return result
+}
 
 // if exp then block {elseif exp then block} [else block] end
-func parseIf() *AstStatIf
+func parseIf() *AstStatIf {
+	start := snapshot()
+
+	nextLexeme()
+
+	cond := parseExpr(nil)
+
+	// Then_location := token_location
+
+	// okay what the package main import ( "fmt" "net/http" "time" ) func greet(w http.ResponseWriter, r *http.Request) { fmt.Fprintf(w, "Hello World! %s", time.Now()) } func main() { http.HandleFunc("/", greet) http.ListenAndServe(":8080", nil) }
+	Then_begin := token_location.Begin
+	Then_end := token_location.End
+
+	var thenLocation *lex.Location
+	if expectAndConsume(lex.ReservedThen, nil) {
+		// do we intend to copy it here or smth or what??
+		thenLocation = &lex.Location{
+			Begin: Then_begin,
+			End:   Then_end,
+		}
+	}
+
+	thenBody := parseBlock()
+
+	var elsebody AstStat
+	end := start
+	var elseLocation *lex.Location
+
+	if token_type == lex.ReservedElseif {
+		thenBody.HasEnd = true
+		oldRecursionCount := recursionCounter
+		recursionCounter++
+
+		el := snapshot()
+		elseLocation = &el
+		elsebody = parseIf()
+		end = elsebody.GetLocation()
+
+		recursionCounter = oldRecursionCount
+	} else {
+		ThenElse_type := token_type
+
+		ThenElse_begin := token_location.Begin
+		ThenElse_end := token_location.End
+
+		if token_type == lex.ReservedElse {
+			thenBody.HasEnd = true
+			el := snapshot()
+			elseLocation = &el
+
+			ThenElse_type = token_type
+
+			ThenElse_begin = token_location.Begin
+			ThenElse_end = token_location.End
+
+			nextLexeme()
+
+			body := parseBlock()
+			body.Location.Begin = ThenElse_end
+			elsebody = body
+		}
+
+		end = snapshot()
+
+		hasEnd := expectMatchEndAndConsume(lex.ReservedEnd, ThenElse_type, ThenElse_begin)
+
+		if elsebody != nil {
+			if eb, ok := elsebody.(*AstStatBlock); ok {
+				eb.HasEnd = hasEnd
+			}
+		} else {
+			thenBody.HasEnd = hasEnd
+		}
+	}
+
+	return &AstStatIf{
+		NodeLoc:      &NodeLoc{lex.Location{Begin: start.Begin, End: end.End}},
+		Condition:    cond, // sorry, it's my cawndishawn
+		ThenBody:     *thenBody,
+		ElseBody:     elsebody,
+		ThenLocation: thenLocation,
+		ElseLocation: elseLocation,
+	}
+}
 
 // while exp do block end
-func parseWhile() *AstStatWhile
+func parseWhile() *AstStatWhile {
+	start := snapshot()
+
+	
+}
 
 // repeat block until exp
 func parseRepeat() *AstStatRepeat

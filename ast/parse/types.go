@@ -5,7 +5,7 @@ import "github.com/Heliodex/coputer/ast/lex"
 // bindings
 
 type Binding struct {
-	NodeLoc
+	*NodeLoc
 	Name          lex.AstName
 	Annotation    AstType
 	ColonPosition *lex.Position

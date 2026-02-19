@@ -19,6 +19,10 @@ func (l NodeLoc) GetLocation() lex.Location {
 	return l.Location
 }
 
+func (l *NodeLoc) SetLocation(loc lex.Location) {
+	l.Location = loc
+}
+
 // ast groops
 
 // --------------------------------------------------------------------------------
@@ -40,8 +44,8 @@ type AstNode interface {
 // Expressions are constructs that evaluate to a value.
 type AstExpr interface {
 	AstNode
-	GetLocation() lex.Location
 	isAstExpr()
+	GetLocation() lex.Location
 }
 
 var (
@@ -76,6 +80,8 @@ var (
 type AstStat interface {
 	AstNode
 	isAstStat()
+	GetLocation() lex.Location
+	SetLocation(loc lex.Location)
 	SetHasSemicolon()
 }
 
@@ -249,12 +255,12 @@ var (
 
 type Comment struct {
 	Type lex.LexemeType
-	NodeLoc
+	*NodeLoc
 }
 
 // node types (ok, real ast now)
 type AstAttr struct {
-	NodeLoc
+	*NodeLoc
 	Type string
 	Args []AstExpr
 	Name *string
@@ -266,7 +272,7 @@ type AstArgumentName struct {
 }
 
 type AstExprBinary struct {
-	NodeLoc
+	*NodeLoc
 	Op    int
 	Left  AstExpr
 	Right AstExpr
@@ -276,7 +282,7 @@ func (AstExprBinary) isAstNode() {}
 func (AstExprBinary) isAstExpr() {}
 
 type AstExprCall struct {
-	NodeLoc
+	*NodeLoc
 	Func          AstExpr
 	Args          []AstExpr
 	Self          bool
@@ -288,7 +294,7 @@ func (AstExprCall) isAstNode() {}
 func (AstExprCall) isAstExpr() {}
 
 type AstExprConstantBool struct {
-	NodeLoc
+	*NodeLoc
 	Value bool
 }
 
@@ -296,14 +302,14 @@ func (AstExprConstantBool) isAstNode() {}
 func (AstExprConstantBool) isAstExpr() {}
 
 type AstExprConstantNil struct {
-	NodeLoc
+	*NodeLoc
 }
 
 func (AstExprConstantNil) isAstNode() {}
 func (AstExprConstantNil) isAstExpr() {}
 
 type AstExprConstantNumber struct {
-	NodeLoc
+	*NodeLoc
 	Value float64
 }
 
@@ -312,7 +318,7 @@ func (AstExprConstantNumber) isAstExpr()                      {}
 func (AstExprConstantNumber) isAstExprConstantNumberOrError() {}
 
 type AstExprConstantString struct {
-	NodeLoc
+	*NodeLoc
 	Value string
 }
 
@@ -321,7 +327,7 @@ func (AstExprConstantString) isAstExpr()                      {}
 func (AstExprConstantString) isAstExprConstantStringOrError() {}
 
 type AstExprError struct {
-	NodeLoc
+	*NodeLoc
 	Expressions  []AstExpr
 	MessageIndex int
 }
@@ -334,7 +340,7 @@ func (AstExprError) isAstExprConstantStringOrError() {}
 func (AstExprError) isAstExprConstantNumberOrError() {}
 
 type AstExprFunction struct {
-	NodeLoc
+	*NodeLoc
 	Attributes       []AstAttr
 	Generics         []AstGenericType
 	GenericPacks     []AstGenericTypePack
@@ -354,7 +360,7 @@ func (AstExprFunction) isAstNode() {}
 func (AstExprFunction) isAstExpr() {}
 
 type AstExprGlobal struct {
-	NodeLoc
+	*NodeLoc
 	Name string
 }
 
@@ -363,7 +369,7 @@ func (AstExprGlobal) isAstExpr()                     {}
 func (AstExprGlobal) isAstExprLocalOrGlobalOrError() {}
 
 type AstExprGroup struct {
-	NodeLoc
+	*NodeLoc
 	Expr AstExpr
 }
 
@@ -371,7 +377,7 @@ func (AstExprGroup) isAstNode() {}
 func (AstExprGroup) isAstExpr() {}
 
 type AstExprIfElse struct {
-	NodeLoc
+	*NodeLoc
 	Condition AstExpr
 	HasThen   bool
 	TrueExpr  AstExpr
@@ -383,7 +389,7 @@ func (AstExprIfElse) isAstNode() {}
 func (AstExprIfElse) isAstExpr() {}
 
 type AstExprIndexExpr struct {
-	NodeLoc
+	*NodeLoc
 	Expr  AstExpr
 	Index AstExpr
 }
@@ -392,7 +398,7 @@ func (AstExprIndexExpr) isAstNode() {}
 func (AstExprIndexExpr) isAstExpr() {}
 
 type AstExprIndexName struct {
-	NodeLoc
+	*NodeLoc
 	Expr          AstExpr
 	Index         string
 	IndexLocation lex.Location
@@ -404,7 +410,7 @@ func (AstExprIndexName) isAstNode() {}
 func (AstExprIndexName) isAstExpr() {}
 
 type AstExprInterpString struct {
-	NodeLoc
+	*NodeLoc
 	Strings     []string
 	Expressions []AstExpr
 }
@@ -414,7 +420,7 @@ func (AstExprInterpString) isAstExpr()                    {}
 func (AstExprInterpString) isAstExprInterpStringOrError() {}
 
 type AstExprInstantiate struct {
-	NodeLoc
+	*NodeLoc
 	Expr          AstExpr
 	TypeArguments []AstTypeOrPack
 }
@@ -423,7 +429,7 @@ func (AstExprInstantiate) isAstNode() {}
 func (AstExprInstantiate) isAstExpr() {}
 
 type AstExprLocal struct {
-	NodeLoc
+	*NodeLoc
 	Local   AstLocal
 	Upvalue bool
 }
@@ -433,7 +439,7 @@ func (AstExprLocal) isAstExpr()                     {}
 func (AstExprLocal) isAstExprLocalOrGlobalOrError() {}
 
 type AstExprTable struct {
-	NodeLoc
+	*NodeLoc
 	Items []AstExprTableItem
 }
 
@@ -441,14 +447,14 @@ func (AstExprTable) isAstNode() {}
 func (AstExprTable) isAstExpr() {}
 
 type AstExprTableItem struct {
-	NodeLoc
+	*NodeLoc
 	Kind  string
 	Key   *AstExpr
 	Value AstExpr
 }
 
 type AstExprTypeAssertion struct {
-	NodeLoc
+	*NodeLoc
 	Expr       AstExpr
 	Annotation AstType
 }
@@ -457,14 +463,14 @@ func (AstExprTypeAssertion) isAstNode() {}
 func (AstExprTypeAssertion) isAstExpr() {}
 
 type AstExprVarargs struct {
-	NodeLoc
+	*NodeLoc
 }
 
 func (AstExprVarargs) isAstNode() {}
 func (AstExprVarargs) isAstExpr() {}
 
 type AstExprUnary struct {
-	NodeLoc
+	*NodeLoc
 	Op   string
 	Expr AstExpr
 }
@@ -473,19 +479,19 @@ func (AstExprUnary) isAstNode() {}
 func (AstExprUnary) isAstExpr() {}
 
 type AstGenericType struct {
-	NodeLoc
+	*NodeLoc
 	Name         string
 	DefaultValue *AstType
 }
 
 type AstGenericTypePack struct {
-	NodeLoc
+	*NodeLoc
 	Name         string
 	DefaultValue *AstTypePack
 }
 
 type AstLocal struct {
-	NodeLoc
+	*NodeLoc
 	Name          string
 	Shadow        *AstLocal
 	FunctionDepth int
@@ -494,7 +500,7 @@ type AstLocal struct {
 }
 
 type AstStatAssign struct {
-	NodeLoc
+	*NodeLoc
 	Vars         []AstExpr
 	Values       []AstExpr
 	HasSemicolon *bool
@@ -507,7 +513,7 @@ func (n *AstStatAssign) SetHasSemicolon() {
 }
 
 type AstStatBlock struct {
-	NodeLoc
+	*NodeLoc
 	Body         []AstStat
 	HasEnd       bool
 	HasSemicolon *bool
@@ -520,7 +526,7 @@ func (n *AstStatBlock) SetHasSemicolon() {
 }
 
 type AstStatBreak struct {
-	NodeLoc
+	*NodeLoc
 	HasSemicolon *bool
 }
 
@@ -532,7 +538,7 @@ func (n *AstStatBreak) SetHasSemicolon() {
 }
 
 type AstStatCompoundAssign struct {
-	NodeLoc
+	*NodeLoc
 	Op           int
 	Var          AstExpr
 	Value        AstExpr
@@ -546,7 +552,7 @@ func (n *AstStatCompoundAssign) SetHasSemicolon() {
 }
 
 type AstStatContinue struct {
-	NodeLoc
+	*NodeLoc
 	HasSemicolon *bool
 }
 
@@ -558,7 +564,7 @@ func (n *AstStatContinue) SetHasSemicolon() {
 }
 
 type AstStatDeclareFunction struct {
-	NodeLoc
+	*NodeLoc
 	Attributes     []AstAttr
 	Name           string
 	NameLocation   lex.Location
@@ -579,7 +585,7 @@ func (n *AstStatDeclareFunction) SetHasSemicolon() {
 }
 
 type AstStatDeclareGlobal struct {
-	NodeLoc
+	*NodeLoc
 	Name         string
 	NameLocation lex.Location
 	Type         AstType
@@ -593,7 +599,7 @@ func (n *AstStatDeclareGlobal) SetHasSemicolon() {
 }
 
 type AstStatDeclareExternType struct {
-	NodeLoc
+	*NodeLoc
 	Name         string
 	SuperName    *string
 	Props        []AstDeclaredExternTypeProperty
@@ -616,7 +622,7 @@ type AstDeclaredExternTypeProperty struct {
 }
 
 type AstStatError struct {
-	NodeLoc
+	*NodeLoc
 	Expressions  []AstExpr
 	Statements   []AstStat
 	MessageIndex int
@@ -632,7 +638,7 @@ func (n *AstStatError) SetHasSemicolon() {
 }
 
 type AstStatExpr struct {
-	NodeLoc
+	*NodeLoc
 	Expr         AstExpr
 	HasSemicolon *bool
 }
@@ -644,7 +650,7 @@ func (n *AstStatExpr) SetHasSemicolon() {
 }
 
 type AstStatFor struct {
-	NodeLoc
+	*NodeLoc
 	Var          AstLocal
 	From         AstExpr
 	To           AstExpr
@@ -663,7 +669,7 @@ func (n *AstStatFor) SetHasSemicolon() {
 }
 
 type AstStatForIn struct {
-	NodeLoc
+	*NodeLoc
 	Vars         []AstLocal
 	Values       []AstExpr
 	Body         AstStatBlock
@@ -682,7 +688,7 @@ func (n *AstStatForIn) SetHasSemicolon() {
 }
 
 type AstStatFunction struct {
-	NodeLoc
+	*NodeLoc
 	Name         AstExpr
 	Func         AstExprFunction
 	HasSemicolon *bool
@@ -695,10 +701,10 @@ func (n *AstStatFunction) SetHasSemicolon() {
 }
 
 type AstStatIf struct {
-	NodeLoc
+	*NodeLoc
 	Condition    AstExpr
 	ThenBody     AstStatBlock
-	ElseBody     *AstStat
+	ElseBody     AstStat
 	ThenLocation *lex.Location
 	ElseLocation *lex.Location
 	HasSemicolon *bool
@@ -711,7 +717,7 @@ func (n *AstStatIf) SetHasSemicolon() {
 }
 
 type AstStatLocal struct {
-	NodeLoc
+	*NodeLoc
 	Vars               []AstLocal
 	Values             []AstExpr
 	EqualsSignLocation *lex.Location
@@ -725,7 +731,7 @@ func (n *AstStatLocal) SetHasSemicolon() {
 }
 
 type AstStatLocalFunction struct {
-	NodeLoc
+	*NodeLoc
 	Name         AstLocal
 	Func         AstExprFunction
 	HasSemicolon *bool
@@ -737,9 +743,8 @@ func (n *AstStatLocalFunction) SetHasSemicolon() {
 	n.HasSemicolon = &tru
 }
 
-
 type AstStatRepeat struct {
-	NodeLoc
+	*NodeLoc
 	Condition    AstExpr
 	Body         AstStatBlock
 	HasUntil     bool
@@ -753,7 +758,7 @@ func (n *AstStatRepeat) SetHasSemicolon() {
 }
 
 type AstStatReturn struct {
-	NodeLoc
+	*NodeLoc
 	List         []AstExpr
 	HasSemicolon *bool
 }
@@ -765,7 +770,7 @@ func (n *AstStatReturn) SetHasSemicolon() {
 }
 
 type AstStatTypeAlias struct {
-	NodeLoc
+	*NodeLoc
 	Name         string
 	NameLocation lex.Location
 	Generics     []AstGenericType
@@ -783,7 +788,7 @@ func (n *AstStatTypeAlias) SetHasSemicolon() {
 }
 
 type AstStatTypeFunction struct {
-	NodeLoc
+	*NodeLoc
 	Name         string
 	NameLocation lex.Location
 	Body         AstExprFunction
@@ -800,7 +805,7 @@ func (n *AstStatTypeFunction) SetHasSemicolon() {
 }
 
 type AstStatWhile struct {
-	NodeLoc
+	*NodeLoc
 	Condition    AstExpr
 	Body         AstStatBlock
 	HasDo        bool
@@ -824,14 +829,14 @@ type AstTableIndexer struct {
 
 type AstTableProp struct {
 	Name lex.AstName
-	NodeLoc
+	*NodeLoc
 	Type           AstType
 	Access         string
 	AccessLocation *lex.Location
 }
 
 type AstTypeError struct {
-	NodeLoc
+	*NodeLoc
 	Types        []AstType
 	IsMissing    bool
 	MessageIndex int
@@ -841,7 +846,7 @@ func (AstTypeError) isAstNode() {}
 func (AstTypeError) isAstType() {}
 
 type AstTypeFunction struct {
-	NodeLoc
+	*NodeLoc
 	Attributes   []AstAttr
 	Generics     []AstGenericType
 	GenericPacks []AstGenericTypePack
@@ -854,7 +859,7 @@ func (AstTypeFunction) isAstNode() {}
 func (AstTypeFunction) isAstType() {}
 
 type AstTypeGroup struct {
-	NodeLoc
+	*NodeLoc
 	Type AstType
 }
 
@@ -862,7 +867,7 @@ func (AstTypeGroup) isAstNode() {}
 func (AstTypeGroup) isAstType() {}
 
 type AstTypeIntersection struct {
-	NodeLoc
+	*NodeLoc
 	Types []AstType
 }
 
@@ -878,7 +883,7 @@ func (AstTypeList) isAstNode() {}
 func (AstTypeList) isAstType() {}
 
 type AstTypeOptional struct {
-	NodeLoc
+	*NodeLoc
 }
 
 func (AstTypeOptional) isAstNode() {}
@@ -890,7 +895,7 @@ type AstTypeOrPack struct {
 }
 
 type AstTypePackExplicit struct {
-	NodeLoc
+	*NodeLoc
 	Types    AstTypeList
 	TailType *AstTypePack
 }
@@ -899,7 +904,7 @@ func (AstTypePackExplicit) isAstNode()     {}
 func (AstTypePackExplicit) isAstTypePack() {}
 
 type AstTypePackGeneric struct {
-	NodeLoc
+	*NodeLoc
 	GenericName string
 }
 
@@ -908,7 +913,7 @@ func (AstTypePackGeneric) isAstTypePack()                  {}
 func (AstTypePackGeneric) isAstTypePackVariadicOrGeneric() {}
 
 type AstTypePackVariadic struct {
-	NodeLoc
+	*NodeLoc
 	VariadicType AstType
 }
 
@@ -917,7 +922,7 @@ func (AstTypePackVariadic) isAstTypePack()                  {}
 func (AstTypePackVariadic) isAstTypePackVariadicOrGeneric() {}
 
 type AstTypeReference struct {
-	NodeLoc
+	*NodeLoc
 	HasParameterList bool
 	Prefix           *string
 	PrefixLocation   *lex.Location
@@ -930,7 +935,7 @@ func (AstTypeReference) isAstNode() {}
 func (AstTypeReference) isAstType() {}
 
 type AstTypeSingletonBool struct {
-	NodeLoc
+	*NodeLoc
 	Value bool
 }
 
@@ -938,7 +943,7 @@ func (AstTypeSingletonBool) isAstNode() {}
 func (AstTypeSingletonBool) isAstType() {}
 
 type AstTypeSingletonString struct {
-	NodeLoc
+	*NodeLoc
 	Value string
 }
 
@@ -946,7 +951,7 @@ func (AstTypeSingletonString) isAstNode() {}
 func (AstTypeSingletonString) isAstType() {}
 
 type AstTypeTable struct {
-	NodeLoc
+	*NodeLoc
 	Props   []AstTableProp
 	Indexer *AstTableIndexer
 }
@@ -956,7 +961,7 @@ func (AstTypeTable) isAstType() {}
 
 // lol
 type AstTypeTypeof struct {
-	NodeLoc
+	*NodeLoc
 	Expr AstExpr
 }
 
@@ -964,7 +969,7 @@ func (AstTypeTypeof) isAstNode() {}
 func (AstTypeTypeof) isAstType() {}
 
 type AstTypeUnion struct {
-	NodeLoc
+	*NodeLoc
 	Types []AstType
 }
 
