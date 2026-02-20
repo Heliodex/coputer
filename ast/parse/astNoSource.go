@@ -12,7 +12,7 @@ const (
 // base for every node
 
 type NodeLoc struct {
-	lex.Location
+	Location lex.Location
 }
 
 func (l NodeLoc) GetLocation() lex.Location {
@@ -203,7 +203,7 @@ var (
 
 type AstTypePack interface {
 	AstNode
-	isAstTypePack()
+	GetLocation() lex.Location
 }
 
 var (
@@ -235,6 +235,7 @@ type AstType interface {
 	AstNode
 	isAstType()
 	// isAstNodePack() 😭
+	GetLocation() lex.Location
 }
 
 var (
@@ -471,7 +472,7 @@ func (AstExprVarargs) isAstExpr() {}
 
 type AstExprUnary struct {
 	*NodeLoc
-	Op   string
+	Op   UnaryOp
 	Expr AstExpr
 }
 

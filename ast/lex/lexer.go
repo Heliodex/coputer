@@ -1,6 +1,7 @@
 package lex
 
 import (
+	"fmt"
 	"slices"
 )
 
@@ -25,6 +26,10 @@ type Position struct {
 
 type Location struct {
 	Begin, End Position
+}
+
+func (l Location) String() string {
+	return fmt.Sprintf("%d:%d-%d:%d", l.Begin.Line, l.Begin.Column, l.End.Line, l.End.Column)
 }
 
 func LocationLen(start Position, l uint32) Location {
@@ -102,6 +107,12 @@ type Lexer struct {
 	readNames    bool
 
 	braceStack []BraceType
+}
+
+// NewLexer creates a new Lexer for the given source string with readNames enabled.
+func NewLexer(src string) Lexer {
+	table := MakeAstNameTable()
+	return Lexer{buffer: []byte(src), names: table, readNames: true}
 }
 
 func (l *Lexer) Current() Lexeme {
@@ -1101,4 +1112,21 @@ func (l *Lexer) fixupMultilineString(data *[]byte) {
 	}
 
 	*data = (*data)[:dst-int((*data)[0])]
+}
+
+// FixupQuotedString processes escape sequences in a quoted string.
+// Returns true if the string is valid, false if it contains malformed escapes.
+func (l *Lexer) FixupQuotedString(data []byte) (bool, []byte) {
+	result := make([]byte, len(data))
+	copy(result, data)
+	ok := l.fixupQuotedString(&result)
+	return ok, result
+}
+
+// FixupMultilineString normalizes newlines in a raw/multiline string.
+func (l *Lexer) FixupMultilineString(data []byte) []byte {
+	result := make([]byte, len(data))
+	copy(result, data)
+	l.fixupMultilineString(&result)
+	return result
 }

@@ -174,7 +174,7 @@ func (CstExprTable) isCstNode() {}
 type CstExprTableItem struct {
 	Kind                 string
 	EqualsPosition       *lex.Position
-	Separator            rune
+	Separator            *int
 	SeparatorPosition    lex.Position
 	IndexerOpenPosition  *lex.Position
 	IndexerClosePosition *lex.Position
@@ -323,7 +323,7 @@ func (CstTypeTable) isCstNode() {}
 type CstTypeTableItem struct {
 	Kind                 string // "Property" | "StringProperty" | "Indexer"
 	ColonPosition        *lex.Position
-	Separator            rune
+	Separator            *int
 	SeparatorPosition    *lex.Position
 	IndexerOpenPosition  *lex.Position
 	IndexerClosePosition *lex.Position
