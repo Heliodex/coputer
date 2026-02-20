@@ -119,7 +119,7 @@ func (l *Lexer) Current() Lexeme {
 	return l.lexeme
 }
 
-func (l *Lexer) next0() Lexeme {
+func (l *Lexer) Next0() Lexeme {
 	return l.next(l.skipComments, true)
 }
 
@@ -150,7 +150,7 @@ func (l *Lexer) nextline() {
 		l.consume()
 	}
 
-	l.next0()
+	l.Next0()
 }
 
 func (l *Lexer) Lookahead() Lexeme {
@@ -167,7 +167,7 @@ func (l *Lexer) Lookahead() Lexeme {
 		currentBraceType = l.braceStack[currentBraceStackSize-1]
 	}
 
-	result := l.next0()
+	result := l.Next0()
 
 	l.offset = currentOffset
 	l.line = currentLine
@@ -303,6 +303,7 @@ func (l *Lexer) readLongString(start Position, sep int, ok, broken LexemeType) L
 					Type:     ok,
 					Data:     l.buffer[startOffset:endOffset],
 					rest:     l.buffer[endOffset:],
+					Aux:      &sep,
 				}
 			}
 		} else {
@@ -366,11 +367,17 @@ func (l *Lexer) readQuotedString() Lexeme {
 
 	l.consume()
 
+	var aux int
+	if delimiter != '\'' {
+		aux = 1
+	}
+
 	return Lexeme{
 		Location: Location{start, l.position()},
 		Type:     QuotedString,
 		Data:     l.buffer[startOffset : l.offset-1],
 		rest:     l.buffer[l.offset-1:],
+		Aux:      &aux,
 	}
 }
 

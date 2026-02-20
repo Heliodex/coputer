@@ -3,7 +3,7 @@ package main
 import "fmt"
 
 func main() {
-	ok, res := Parse(`print "coi munje`, Options{})
+	ok, res := Parse(`print "coi munje"`, Options{})
 	if !ok {
 		fmt.Println("Parse failed with errors:")
 		for _, err := range res.Errors {

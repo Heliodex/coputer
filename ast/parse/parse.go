@@ -462,7 +462,16 @@ var lexer lex.Lexer
 
 func fillNext() {
 	for {
-		next := lexer.Lookahead()
+		next := lexer.Next0()
+
+		fmt.Println("lexed next type", lex.Lexeme{Type: next.Type}.String())
+
+		next_type = next.Type
+		next_location = next.Location
+		next_codepoint = next.Codepoint
+		nstr := string(next.Data)
+		next_string = &nstr
+		next_aux = next.Aux
 
 		if next.Type == lex.Comment || next.Type == lex.BlockComment || next.Type == lex.BrokenComment {
 			if captureComments {
@@ -489,6 +498,8 @@ func fillNext() {
 
 		break
 	}
+
+	fmt.Println("filled next with type", lex.Lexeme{Type: next_type}.String())
 }
 
 func nextLexeme() {
@@ -497,6 +508,7 @@ func nextLexeme() {
 
 	// Move NEXT to CURRENT
 	token_type = next_type
+	fmt.Println("set token_type to", lex.Lexeme{Type: token_type}.String())
 	token_location = next_location
 	token_string = next_string
 	token_aux = next_aux
@@ -926,6 +938,7 @@ func parseBlockNoScope() *AstStatBlock {
 
 	prevPos := prev_location.End
 
+	fmt.Println("Current token type at start of block:", token_type)
 	for !BlockFollow[token_type] {
 		oldRecursion := recursionCounter
 		recursionCounter++

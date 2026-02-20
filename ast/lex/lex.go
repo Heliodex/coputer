@@ -87,6 +87,7 @@ type Lexeme struct {
 	Data, rest []byte
 	name       *string
 	Codepoint  *uint32
+	Aux        *int // bruh (equivalent to next_aux)
 }
 
 func (l Lexeme) String() string {

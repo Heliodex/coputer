@@ -15,7 +15,7 @@ func TestBrokenStringWorks(t *testing.T) {
 	const testinput = "[["
 	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
-	lexeme := lexer.next0()
+	lexeme := lexer.Next0()
 	CHECK_EQ(t, lexeme.Type, BrokenString)
 	CHECK_EQ(t, lexeme.Location, Location{Position{0, 0}, Position{0, 2}})
 }
@@ -24,7 +24,7 @@ func TestBrokenComment(t *testing.T) {
 	const testinput = "--[[  "
 	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
-	lexeme := lexer.next0()
+	lexeme := lexer.Next0()
 	CHECK_EQ(t, lexeme.Type, BrokenComment)
 	CHECK_EQ(t, lexeme.Location, Location{Position{0, 0}, Position{0, 6}})
 }
@@ -33,22 +33,22 @@ func TestBrokenCommentKept(t *testing.T) {
 	const testinput = "--[[  "
 	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, skipComments: true, readNames: true}
-	CHECK_EQ(t, lexer.next0().Type, BrokenComment)
+	CHECK_EQ(t, lexer.Next0().Type, BrokenComment)
 }
 
 func TestCommentSkipped(t *testing.T) {
 	const testinput = "--  "
 	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, skipComments: true, readNames: true}
-	CHECK_EQ(t, lexer.next0().Type, Eof)
+	CHECK_EQ(t, lexer.Next0().Type, Eof)
 }
 
 func TestMultilineCommentWithLexemeInAndAfter(t *testing.T) {
 	const testinput = "--[[ function \n]] end"
 	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
-	comment := lexer.next0()
-	end := lexer.next0()
+	comment := lexer.Next0()
+	end := lexer.Next0()
 
 	CHECK_EQ(t, comment.Type, BlockComment)
 	CHECK_EQ(t, comment.Location, Location{Position{0, 0}, Position{1, 2}})
@@ -60,7 +60,7 @@ func TestBrokenEscapeTolerant(t *testing.T) {
 	const testinput = "'\\3729472897292378'"
 	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
-	lexeme := lexer.next0()
+	lexeme := lexer.Next0()
 
 	CHECK_EQ(t, lexeme.Type, QuotedString)
 	CHECK_EQ(t, lexeme.Location, Location{Position{0, 0}, Position{0, uint32(len(testinput))}})
@@ -70,7 +70,7 @@ func TestBigDelimiters(t *testing.T) {
 	const testinput = "--[===[\n\n\n\n]===]"
 	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
-	item := lexer.next0()
+	item := lexer.Next0()
 
 	CHECK_EQ(t, item.Type, BlockComment)
 	CHECK_EQ(t, item.Location, Location{Position{0, 0}, Position{4, 5}})
@@ -80,35 +80,35 @@ func TestLookahead(t *testing.T) {
 	const testinput = "foo --[[ comment ]] bar : nil end"
 	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, skipComments: true, readNames: true}
-	lexer.next0() // must call next() before reading data from lexer at least once
+	lexer.Next0() // must call next() before reading data from lexer at least once
 
 	CHECK_EQ(t, lexer.Current().Type, Name)
 	CHECK_EQ(t, *(lexer.Current().name), "foo")
 	CHECK_EQ(t, lexer.Lookahead().Type, Name)
 	CHECK_EQ(t, *(lexer.Lookahead().name), "bar")
 
-	lexer.next0()
+	lexer.Next0()
 
 	CHECK_EQ(t, lexer.Current().Type, Name)
 	CHECK_EQ(t, *(lexer.Current().name), "bar")
 	CHECK_EQ(t, lexer.Lookahead().Type, ':')
 
-	lexer.next0()
+	lexer.Next0()
 
 	CHECK_EQ(t, lexer.Current().Type, ':')
 	CHECK_EQ(t, lexer.Lookahead().Type, ReservedNil)
 
-	lexer.next0()
+	lexer.Next0()
 
 	CHECK_EQ(t, lexer.Current().Type, ReservedNil)
 	CHECK_EQ(t, lexer.Lookahead().Type, ReservedEnd)
 
-	lexer.next0()
+	lexer.Next0()
 
 	CHECK_EQ(t, lexer.Current().Type, ReservedEnd)
 	CHECK_EQ(t, lexer.Lookahead().Type, Eof)
 
-	lexer.next0()
+	lexer.Next0()
 
 	CHECK_EQ(t, lexer.Current().Type, Eof)
 	CHECK_EQ(t, lexer.Lookahead().Type, Eof)
@@ -119,13 +119,13 @@ func TestStringInterpolationBasic(t *testing.T) {
 	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
-	interpBegin := lexer.next0()
+	interpBegin := lexer.Next0()
 	CHECK_EQ(t, interpBegin.Type, InterpStringBegin)
 
-	quote := lexer.next0()
+	quote := lexer.Next0()
 	CHECK_EQ(t, quote.Type, QuotedString)
 
-	interpEnd := lexer.next0()
+	interpEnd := lexer.Next0()
 	CHECK_EQ(t, interpEnd.Type, InterpStringEnd)
 	// The InterpStringEnd should start with }, not `.
 	CHECK_EQ(t, interpEnd.Location.Begin.Column, 11)
@@ -136,24 +136,24 @@ func TestStringInterpolationFull(t *testing.T) {
 	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
-	interpBegin := lexer.next0()
+	interpBegin := lexer.Next0()
 	CHECK_EQ(t, interpBegin.Type, InterpStringBegin)
 	CHECK_EQ(t, interpBegin.String(), "`foo {")
 
-	quote1 := lexer.next0()
+	quote1 := lexer.Next0()
 	CHECK_EQ(t, quote1.Type, QuotedString)
 	CHECK_EQ(t, quote1.String(), "\"bar\"")
 
-	interpMid := lexer.next0()
+	interpMid := lexer.Next0()
 	CHECK_EQ(t, interpMid.Type, InterpStringMid)
 	CHECK_EQ(t, interpMid.String(), "} {")
 	CHECK_EQ(t, interpMid.Location.Begin.Column, 11)
 
-	quote2 := lexer.next0()
+	quote2 := lexer.Next0()
 	CHECK_EQ(t, quote2.Type, QuotedString)
 	CHECK_EQ(t, quote2.String(), "\"baz\"")
 
-	interpEnd := lexer.next0()
+	interpEnd := lexer.Next0()
 	CHECK_EQ(t, interpEnd.Type, InterpStringEnd)
 	CHECK_EQ(t, interpEnd.String(), "} end`")
 	CHECK_EQ(t, interpEnd.Location.Begin.Column, 19)
@@ -164,13 +164,13 @@ func TestStringInterpolationDoubleBrace(t *testing.T) {
 	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
-	brokenInterpBegin := lexer.next0()
+	brokenInterpBegin := lexer.Next0()
 	CHECK_EQ(t, brokenInterpBegin.Type, BrokenInterpDoubleBrace)
 	CHECK_EQ(t, string(brokenInterpBegin.Data), string("foo"))
 
-	CHECK_EQ(t, lexer.next0().Type, Name)
+	CHECK_EQ(t, lexer.Next0().Type, Name)
 
-	interpEnd := lexer.next0()
+	interpEnd := lexer.Next0()
 	CHECK_EQ(t, interpEnd.Type, InterpStringEnd)
 	CHECK_EQ(t, string(interpEnd.Data), string("}bar"))
 }
@@ -180,11 +180,11 @@ func TestStringInterpolationDoubleButUnmatchedBrace(t *testing.T) {
 	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
-	CHECK_EQ(t, lexer.next0().Type, BrokenInterpDoubleBrace)
-	CHECK_EQ(t, lexer.next0().Type, Name)
-	CHECK_EQ(t, lexer.next0().Type, InterpStringEnd)
-	CHECK_EQ(t, lexer.next0().Type, ',')
-	CHECK_EQ(t, lexer.next0().Type, Number)
+	CHECK_EQ(t, lexer.Next0().Type, BrokenInterpDoubleBrace)
+	CHECK_EQ(t, lexer.Next0().Type, Name)
+	CHECK_EQ(t, lexer.Next0().Type, InterpStringEnd)
+	CHECK_EQ(t, lexer.Next0().Type, ',')
+	CHECK_EQ(t, lexer.Next0().Type, Number)
 }
 
 func TestStringInterpolationUnmatchedBrace(t *testing.T) {
@@ -192,11 +192,11 @@ func TestStringInterpolationUnmatchedBrace(t *testing.T) {
 	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
-	CHECK_EQ(t, lexer.next0().Type, '{')
-	CHECK_EQ(t, lexer.next0().Type, InterpStringBegin)
-	CHECK_EQ(t, lexer.next0().Type, QuotedString)
-	CHECK_EQ(t, lexer.next0().Type, BrokenString)
-	CHECK_EQ(t, lexer.next0().Type, '}')
+	CHECK_EQ(t, lexer.Next0().Type, '{')
+	CHECK_EQ(t, lexer.Next0().Type, InterpStringBegin)
+	CHECK_EQ(t, lexer.Next0().Type, QuotedString)
+	CHECK_EQ(t, lexer.Next0().Type, BrokenString)
+	CHECK_EQ(t, lexer.Next0().Type, '}')
 }
 
 func TestStringInterpolationWithUnicodeEscape(t *testing.T) {
@@ -204,8 +204,8 @@ func TestStringInterpolationWithUnicodeEscape(t *testing.T) {
 	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
-	CHECK_EQ(t, lexer.next0().Type, InterpStringSimple)
-	CHECK_EQ(t, lexer.next0().Type, Eof)
+	CHECK_EQ(t, lexer.Next0().Type, InterpStringSimple)
+	CHECK_EQ(t, lexer.Next0().Type, Eof)
 }
 
 func TestSingleQuotedString(t *testing.T) {
@@ -213,7 +213,7 @@ func TestSingleQuotedString(t *testing.T) {
 	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
-	lexeme := lexer.next0()
+	lexeme := lexer.Next0()
 	CHECK_EQ(t, lexeme.Type, QuotedString)
 	CHECK_EQ(t, lexeme.getQuoteStyle(), Single)
 }
@@ -223,7 +223,7 @@ func TestDoubleQuotedString(t *testing.T) {
 	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
-	lexeme := lexer.next0()
+	lexeme := lexer.Next0()
 	CHECK_EQ(t, lexeme.Type, QuotedString)
 	CHECK_EQ(t, lexeme.getQuoteStyle(), Double)
 }
@@ -233,7 +233,7 @@ func TestLexerDeterminesStringBlockDepth0(t *testing.T) {
 	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
-	lexeme := lexer.next0()
+	lexeme := lexer.Next0()
 	CHECK_EQ(t, lexeme.Type, RawString)
 	CHECK_EQ(t, lexeme.getBlockDepth(), 0)
 }
@@ -245,7 +245,7 @@ func TestLexerDeterminesStringBlockDepth0Multiline1(t *testing.T) {
 	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
-	lexeme := lexer.next0()
+	lexeme := lexer.Next0()
 	CHECK_EQ(t, lexeme.Type, RawString)
 	CHECK_EQ(t, lexeme.getBlockDepth(), 0)
 }
@@ -258,7 +258,7 @@ func TestLexerDeterminesStringBlockDepth0Multiline2(t *testing.T) {
 	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
-	lexeme := lexer.next0()
+	lexeme := lexer.Next0()
 	CHECK_EQ(t, lexeme.Type, RawString)
 	CHECK_EQ(t, lexeme.getBlockDepth(), 0)
 }
@@ -270,7 +270,7 @@ func TestLexerDeterminesStringBlockDepth0Multiline3(t *testing.T) {
 	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
-	lexeme := lexer.next0()
+	lexeme := lexer.Next0()
 	CHECK_EQ(t, lexeme.Type, RawString)
 	CHECK_EQ(t, lexeme.getBlockDepth(), 0)
 }
@@ -280,7 +280,7 @@ func TestLexerDeterminesStringBlockDepth1(t *testing.T) {
 	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
-	lexeme := lexer.next0()
+	lexeme := lexer.Next0()
 	CHECK_EQ(t, lexeme.Type, RawString)
 	CHECK_EQ(t, lexeme.getBlockDepth(), 1)
 }
@@ -290,7 +290,7 @@ func TestLexerDeterminesStringBlockDepth2(t *testing.T) {
 	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
-	lexeme := lexer.next0()
+	lexeme := lexer.Next0()
 	CHECK_EQ(t, lexeme.Type, RawString)
 	CHECK_EQ(t, lexeme.getBlockDepth(), 2)
 }
@@ -301,7 +301,7 @@ func TestLexerDeterminesStringBlockDepth2Multiline1(t *testing.T) {
 	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
-	lexeme := lexer.next0()
+	lexeme := lexer.Next0()
 	CHECK_EQ(t, lexeme.Type, RawString)
 	CHECK_EQ(t, lexeme.getBlockDepth(), 2)
 }
@@ -313,7 +313,7 @@ func TestLexerDeterminesStringBlockDepth2Multiline2(t *testing.T) {
 	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
-	lexeme := lexer.next0()
+	lexeme := lexer.Next0()
 	CHECK_EQ(t, lexeme.Type, RawString)
 	CHECK_EQ(t, lexeme.getBlockDepth(), 2)
 }
@@ -325,7 +325,7 @@ func TestLexerDeterminesStringBlockDepth2Multiline3(t *testing.T) {
 	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
-	lexeme := lexer.next0()
+	lexeme := lexer.Next0()
 	CHECK_EQ(t, lexeme.Type, RawString)
 	CHECK_EQ(t, lexeme.getBlockDepth(), 2)
 }
@@ -335,7 +335,7 @@ func TestLexerDeterminesCommentBlockDepth0(t *testing.T) {
 	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
-	lexeme := lexer.next0()
+	lexeme := lexer.Next0()
 	CHECK_EQ(t, lexeme.Type, BlockComment)
 	CHECK_EQ(t, lexeme.getBlockDepth(), 0)
 }
@@ -345,7 +345,7 @@ func TestLexerDeterminesStringBlockDepth21(t *testing.T) {
 	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
-	lexeme := lexer.next0()
+	lexeme := lexer.Next0()
 	CHECK_EQ(t, lexeme.Type, BlockComment)
 	CHECK_EQ(t, lexeme.getBlockDepth(), 1)
 }
@@ -355,7 +355,7 @@ func TestLexerDeterminesStringBlockDepth22(t *testing.T) {
 	table := MakeAstNameTable()
 	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
 
-	lexeme := lexer.next0()
+	lexeme := lexer.Next0()
 	CHECK_EQ(t, lexeme.Type, BlockComment)
 	CHECK_EQ(t, lexeme.getBlockDepth(), 2)
 }
