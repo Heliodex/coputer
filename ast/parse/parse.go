@@ -970,7 +970,7 @@ func parseBlockNoScope() *AstStatBlock {
 		break // cuz I don't wanna label the loop
 	}
 
-	fmt.Println("Parsed block with body:", body)
+	// fmt.Println("Parsed block with body:", body)
 
 	return &AstStatBlock{
 		NodeLoc: &NodeLoc{
