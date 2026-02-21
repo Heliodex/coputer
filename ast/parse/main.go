@@ -21,17 +21,5 @@ end
 		return
 	}
 
-	fmt.Println("Root:")
-	fmt.Println(indentStart(res.Root.String(), 2))
-	// fmt.Println("  NodeLoc", res.Root.NodeLoc)
-	// fmt.Println("  Body")
-	// for _, stat := range res.Root.Body {
-	// 	fmt.Printf("    %T at %s\n", stat, stat.GetLocation())
-	// }
-	// fmt.Println("  HasEnd", res.Root.HasEnd)
-	// fmt.Println("  HasSemicolon", res.Root.HasSemicolon)
-	fmt.Println("CommentLocations", res.CommentLocations)
-	fmt.Println("HotComments", res.HotComments)
-	fmt.Println("CstNodeMap", res.CstNodeMap)
-
+	fmt.Println(res)
 }

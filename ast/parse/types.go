@@ -1,6 +1,11 @@
 package main
 
-import "github.com/Heliodex/coputer/ast/lex"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/Heliodex/coputer/ast/lex"
+)
 
 // bindings
 
@@ -35,6 +40,17 @@ type HotComment struct {
 	Location lex.Location
 }
 
+func (c HotComment) String() string {
+	var b strings.Builder
+
+	b.WriteString("HotComment\n")
+	b.WriteString(fmt.Sprintf("Header: %t\n", c.Header))
+	b.WriteString(fmt.Sprintf("Content: %q\n", c.Content))
+	b.WriteString(fmt.Sprintf("Location: %s\n", c.Location))
+
+	return b.String()
+}
+
 type FunctionState struct {
 	Vararg    bool
 	LoopDepth int
@@ -46,4 +62,41 @@ type Result struct {
 	HotComments      []HotComment
 	CstNodeMap       map[AstNode]CstNode
 	Errors           []ParseError
+}
+
+func (r Result) String() string {
+	var b strings.Builder
+
+	b.WriteString("Root:\n")
+	b.WriteString(indentStart(r.Root.String(), 2))
+
+	if len(r.CommentLocations) > 0 {
+		b.WriteString("CommentLocations:\n")
+		for _, c := range r.CommentLocations {
+			b.WriteString(indentStart(c.String(), 2))
+		}
+	}
+
+	if len(r.HotComments) > 0 {
+		b.WriteString("HotComments:\n")
+		for _, c := range r.HotComments {
+			b.WriteString(indentStart(c.String(), 2))
+		}
+	}
+
+	if len(r.CstNodeMap) > 0 {
+		b.WriteString("CstNodeMap:\n")
+		for k, v := range r.CstNodeMap {
+			b.WriteString(indentStart(fmt.Sprintf("%v: %v\n", k, v), 2))
+		}
+	}
+
+	if len(r.Errors) > 0 {
+		b.WriteString("Errors:\n")
+		for _, e := range r.Errors {
+			b.WriteString(indentStart(fmt.Sprintf("%s at %s\n", e.Message, e.Location), 2))
+		}
+	}
+
+	return b.String()
 }
