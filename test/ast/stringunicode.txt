@@ -1,66 +1,75 @@
 Root:
-    Type: AstStatBlock
+    StatBlock
     Location: 0,0 - 5,0
-    HasEnd: true
     Body:
-        Type: AstStatLocal
+        StatLocal
         Location: 0,0 - 0,27
         Vars:
-            LuauType:
-            Name: ctrl
-            Type: AstLocal
+            Local
             Location: 0,6 - 0,10
+            Name: "ctrl"
+            FunctionDepth: 0
+            LoopDepth: 0
         Values:
-            Type: AstExprConstantString
+            ExprConstantString
             Location: 0,13 - 0,27
-            Value: 
-    
-        Type: AstStatLocal
+            Value: "\a\b\f\r\t\v"
+            QuoteStyle: QuotedSimple
+        EqualsSignLocation: 0,11 - 0,12
+        StatLocal
         Location: 1,0 - 1,22
         Vars:
-            LuauType:
-            Name: normal
-            Type: AstLocal
+            Local
             Location: 1,6 - 1,12
+            Name: "normal"
+            FunctionDepth: 0
+            LoopDepth: 0
         Values:
-            Type: AstExprConstantString
+            ExprConstantString
             Location: 1,15 - 1,22
-            Value: hello
-    
-        Type: AstStatLocal
+            Value: "hello"
+            QuoteStyle: QuotedSimple
+        EqualsSignLocation: 1,13 - 1,14
+        StatLocal
         Location: 2,0 - 2,22
         Vars:
-            LuauType:
-            Name: uni
-            Type: AstLocal
+            Local
             Location: 2,6 - 2,9
+            Name: "uni"
+            FunctionDepth: 0
+            LoopDepth: 0
         Values:
-            Type: AstExprConstantString
+            ExprConstantString
             Location: 2,12 - 2,22
-            Value: àôéé
-    
-        Type: AstStatLocal
+            Value: "àôéé"
+            QuoteStyle: QuotedSimple
+        EqualsSignLocation: 2,10 - 2,11
+        StatLocal
         Location: 3,0 - 3,18
         Vars:
-            LuauType:
-            Name: bad
-            Type: AstLocal
+            Local
             Location: 3,6 - 3,9
+            Name: "bad"
+            FunctionDepth: 0
+            LoopDepth: 0
         Values:
-            Type: AstExprConstantString
+            ExprConstantString
             Location: 3,12 - 3,18
-            Value: �
-    
-        Type: AstStatLocal
+            Value: "\x80"
+            QuoteStyle: QuotedSimple
+        EqualsSignLocation: 3,10 - 3,11
+        StatLocal
         Location: 4,0 - 4,25
         Vars:
-            LuauType:
-            Name: quoted
-            Type: AstLocal
+            Local
             Location: 4,6 - 4,12
+            Name: "quoted"
+            FunctionDepth: 0
+            LoopDepth: 0
         Values:
-            Type: AstExprConstantString
+            ExprConstantString
             Location: 4,15 - 4,25
-            Value: quote"d
-
-Comment Locations:
+            Value: "quote\"d"
+            QuoteStyle: QuotedSimple
+        EqualsSignLocation: 4,13 - 4,14
+    HasEnd: false

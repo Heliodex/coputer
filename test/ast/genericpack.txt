@@ -1,72 +1,70 @@
 Root:
-    Type: AstStatBlock
+    StatBlock
     Location: 0,0 - 2,0
-    HasEnd: true
     Body:
-        Type: AstStatTypeAlias
+        StatTypeAlias
         Location: 0,0 - 0,17
-        Name: x
+        Name: "x"
+        NameLocation: 0,5 - 0,6
         Generics:
-            Type: AstGenericType
-            Name: T
-        GenericPacks:
-        Value:
-            Type: AstTypeTable
+            GenericType
+            Location: 0,7 - 0,8
+            Name: "T"
+        Type:
+            TypeTable
             Location: 0,12 - 0,17
-            Props:
             Indexer:
+                TableIndexer
                 Location: 0,14 - 0,15
                 IndexType:
-                    Type: AstTypeReference
+                    TypeReference
                     Location: 0,14 - 0,15
-                    Name: number
+                    HasParameterList: false
+                    Name: "number"
                     NameLocation: 0,14 - 0,15
-                    Parameters:
                 ResultType:
-                    Type: AstTypeReference
+                    TypeReference
                     Location: 0,14 - 0,15
-                    Name: T
+                    HasParameterList: false
+                    Name: "T"
                     NameLocation: 0,14 - 0,15
-                    Parameters:
+                Access: "ReadWrite"
         Exported: false
-    
-        Type: AstStatTypeAlias
-        Location: 1,0 - 1,43
-        Name: y
+        StatTypeAlias
+        Location: 1,0 - 1,42
+        Name: "y"
+        NameLocation: 1,5 - 1,6
         Generics:
-            Type: AstGenericType
-            Name: T
-            Type: AstGenericType
-            Name: U
+            GenericType
+            Location: 1,7 - 1,8
+            Name: "T"
+            GenericType
+            Location: 1,10 - 1,11
+            Name: "U"
         GenericPacks:
-            Type: AstGenericTypePack
-            Name: V
-            Type: AstGenericTypePack
-            Name: W
-        Value:
-            Type: AstTypeFunction
-            Location: 1,27 - 1,43
-            Attributes:
-            Generics:
-            GenericPacks:
+            GenericTypePack
+            Location: 1,13 - 1,14
+            Name: "V"
+            GenericTypePack
+            Location: 1,19 - 1,20
+            Name: "W"
+        Type:
+            TypeFunction
+            Location: 1,27 - 1,42
             ArgTypes:
-                Type: AstTypeList
-                Types:
+                TypeList
                 TailType:
-                    Type: AstTypePackGeneric
+                    TypePackGeneric
                     Location: 1,28 - 1,32
-                    GenericName: V
-            ArgNames:
+                    GenericName: "V"
             ReturnTypes:
-                Type: AstTypePackExplicit
-                Location: 1,37 - 1,43
-                TypeList:
-                    Type: AstTypeList
-                    Types:
+                TypePackExplicit
+                Location: 1,37 - 1,42
+                Types:
+                    TypeList
                     TailType:
-                        Type: AstTypePackGeneric
+                        TypePackGeneric
                         Location: 1,38 - 1,42
-                        GenericName: W
+                        GenericName: "W"
         Exported: false
-
-Comment Locations:
+    HasEnd: false

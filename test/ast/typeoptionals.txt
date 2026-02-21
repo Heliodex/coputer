@@ -1,32 +1,29 @@
 Root:
-    Type: AstStatBlock
+    StatBlock
     Location: 0,0 - 1,0
-    HasEnd: true
     Body:
-        Type: AstStatTypeAlias
+        StatTypeAlias
         Location: 0,0 - 0,15
-        Name: x
-        Generics:
-        GenericPacks:
-        Value:
-            Type: AstTypeUnion
+        Name: "x"
+        NameLocation: 0,5 - 0,6
+        Type:
+            TypeUnion
             Location: 0,9 - 0,15
             Types:
-                Type: AstTypeReference
+                TypeReference
                 Location: 0,9 - 0,10
-                Name: a
+                HasParameterList: false
+                Name: "a"
                 NameLocation: 0,9 - 0,10
-                Parameters:
-                Type: AstTypeOptional
+                TypeOptional
                 Location: 0,10 - 0,11
-                Type: AstTypeOptional
+                TypeOptional
                 Location: 0,11 - 0,12
-                Type: AstTypeOptional
+                TypeOptional
                 Location: 0,12 - 0,13
-                Type: AstTypeOptional
+                TypeOptional
                 Location: 0,13 - 0,14
-                Type: AstTypeOptional
+                TypeOptional
                 Location: 0,14 - 0,15
         Exported: false
-
-Comment Locations:
+    HasEnd: false

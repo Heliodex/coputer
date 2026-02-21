@@ -36,6 +36,20 @@ const (
 	QuoteStyle_Unquoted
 )
 
+func (q QuoteStyle) String() string {
+	switch q {
+	case QuoteStyle_QuotedSimple:
+		return "QuotedSimple"
+	case QuoteStyle_QuotedSingle:
+		return "QuotedSingle"
+	case QuoteStyle_QuotedRaw:
+		return "QuotedRaw"
+	case QuoteStyle_Unquoted:
+		return "Unquoted"
+	}
+	return "<unknown>"
+}
+
 type CstQuotes uint8
 
 const (
@@ -45,6 +59,20 @@ const (
 	CstQuotes_Interp
 )
 
+func (c CstQuotes) String() string {
+	switch c {
+	case CstQuotes_Single:
+		return "Single"
+	case CstQuotes_Double:
+		return "Double"
+	case CstQuotes_Raw:
+		return "Raw"
+	case CstQuotes_Interp:
+		return "Interp"
+	}
+	return "<unknown>"
+}
+
 type UnaryOp uint8
 
 const (
@@ -52,6 +80,18 @@ const (
 	UnaryOp_Minus
 	UnaryOp_Len
 )
+
+func (u UnaryOp) String() string {
+	switch u {
+	case UnaryOp_Not:
+		return "Not"
+	case UnaryOp_Minus:
+		return "Minus"
+	case UnaryOp_Len:
+		return "Len"
+	}
+	return "<unknown>"
+}
 
 type BinaryOp uint8
 
@@ -73,6 +113,44 @@ const (
 	BinaryOp_And
 	BinaryOp_Or
 )
+
+func (b BinaryOp) String() string {
+	switch b {
+	case BinaryOp_Add:
+		return "Add"
+	case BinaryOp_Sub:
+		return "Sub"
+	case BinaryOp_Mul:
+		return "Mul"
+	case BinaryOp_Div:
+		return "Div"
+	case BinaryOp_FloorDiv:
+		return "FloorDiv"
+	case BinaryOp_Mod:
+		return "Mod"
+	case BinaryOp_Pow:
+		return "Pow"
+	case BinaryOp_Concat:
+		return "Concat"
+	case BinaryOp_CompareNe:
+		return "CompareNe"
+	case BinaryOp_CompareEq:
+		return "CompareEq"
+	case BinaryOp_CompareLt:
+		return "CompareLt"
+	case BinaryOp_CompareLe:
+		return "CompareLe"
+	case BinaryOp_CompareGt:
+		return "CompareGt"
+	case BinaryOp_CompareGe:
+		return "CompareGe"
+	case BinaryOp_And:
+		return "And"
+	case BinaryOp_Or:
+		return "Or"
+	}
+	return "<unknown>"
+}
 
 var BinaryPriority = map[BinaryOp][2]int{
 	BinaryOp_Add:       {6, 6},
@@ -342,10 +420,7 @@ var kAttributeEntries = map[string]AttributeEntry{
 
 // Main
 
-var (
-	options Options
-	source  string
-)
+var options Options
 
 // Settings init
 
@@ -465,7 +540,7 @@ func fillNext() {
 	for {
 		next := lexer.Next0()
 
-		fmt.Println("lexed next type", lex.Lexeme{Type: next.Type}.String())
+		// fmt.Println("lexed next type", lex.Lexeme{Type: next.Type}.String())
 
 		next_type = next.Type
 		next_location = next.Location
@@ -500,7 +575,7 @@ func fillNext() {
 		break
 	}
 
-	fmt.Println("filled next with type", lex.Lexeme{Type: next_type}.String())
+	// fmt.Println("filled next with type", lex.Lexeme{Type: next_type}.String())
 }
 
 func nextLexeme() {
@@ -509,12 +584,12 @@ func nextLexeme() {
 
 	// Move NEXT to CURRENT
 	token_type = next_type
-	fmt.Println("set token_type to", lex.Lexeme{Type: token_type}.String())
+	// fmt.Println("set token_type to", lex.Lexeme{Type: token_type}.String())
 	token_location = next_location
 	// if next_string != nil {
 	token_string = next_string
 	// }
-	fmt.Println("set token_string to", *token_string)
+	// fmt.Println("set token_string to", *token_string)
 	token_aux = next_aux
 	token_codepoint = next_codepoint
 
@@ -942,7 +1017,7 @@ func parseBlockNoScope() *AstStatBlock {
 
 	prevPos := prev_location.End
 
-	fmt.Println("Current token type at start of block:", token_type)
+	// fmt.Println("Current token type at start of block:", token_type)
 	for !BlockFollow[token_type] {
 		oldRecursion := recursionCounter
 		recursionCounter++
@@ -1462,7 +1537,7 @@ func parseFunctionStat(attributes Attrs) *AstStatFunction {
 }
 
 func validateAttribute(loc lex.Location, attributeName string, attributes Attrs, args []AstExpr) *string {
-	fmt.Println("Validating attribute", attributeName, "with args", args)
+	// fmt.Println("Validating attribute", attributeName, "with args", args)
 	// checks if the attribute name is valid
 	entry, ok := kAttributeEntries[attributeName]
 	var type_ *string
@@ -2007,7 +2082,7 @@ func parseCompoundAssignment(initial AstExpr, op BinaryOp) *AstStatCompoundAssig
 
 	node := &AstStatCompoundAssign{
 		NodeLoc: &NodeLoc{lex.Location{Begin: initial.GetLocation().Begin, End: value.GetLocation().End}},
-		Op:      int(op),
+		Op:      op,
 		Var:     initial,
 		Value:   value,
 	}
@@ -4347,16 +4422,19 @@ func parseInterpString() AstExprInterpStringOrError {
 // parseCharArray parses string token and returns unescaped bytes, or nil on error
 func parseCharArray() *string {
 	t := token_type
+	// fmt.Println("Parsing char array token type", lex.Lexeme{Type: t}.String())
 	data := ""
 	if token_string != nil {
 		data = *token_string
 	}
+	// fmt.Println("Parsing char array data", data)
 
 	var result string
 
 	if t == lex.QuotedString || t == lex.InterpStringSimple {
 		ok, fixed := lexer.FixupQuotedString([]byte(data))
 		if !ok {
+			// fmt.Println("Failed to fixup quoted string")
 			nextLexeme()
 			return nil
 		}
@@ -4372,6 +4450,19 @@ func parseCharArray() *string {
 // parseString parses a string literal expression
 func parseString() AstExprConstantStringOrError {
 	location := snapshot()
+	quoteStyle := QuoteStyle_QuotedSimple
+
+	if token_type == lex.QuotedString {
+		if token_aux != nil && *token_aux == 0 {
+			quoteStyle = QuoteStyle_QuotedSingle
+		} else {
+			quoteStyle = QuoteStyle_QuotedSimple
+		}
+	} else if token_type == lex.InterpStringSimple {
+		quoteStyle = QuoteStyle_QuotedSimple
+	} else if token_type == lex.RawString {
+		quoteStyle = QuoteStyle_QuotedRaw
+	}
 
 	var fullStyle CstQuotes
 	var blockDepth int
@@ -4388,8 +4479,9 @@ func parseString() AstExprConstantStringOrError {
 
 	if value != nil {
 		node := AstExprConstantString{
-			NodeLoc: &NodeLoc{location},
-			Value:   *value,
+			NodeLoc:    &NodeLoc{location},
+			Value:      *value,
+			QuoteStyle: quoteStyle,
 		}
 
 		if storeCstData {
@@ -4503,7 +4595,7 @@ func parseNumber() AstExprConstantNumberOrError {
 		v, err := strconv.ParseFloat(cleanData, 64)
 		if err != nil && !errors.Is(err, strconv.ErrRange) { // wdc about value out of range
 			parseResult = NumberParseResult_Malformed
-			fmt.Println("Marked number as malformed:", v, cleanData, err)
+			// fmt.Println("Marked number as malformed:", v, cleanData, err)
 			value = 0
 		} else {
 			value = v

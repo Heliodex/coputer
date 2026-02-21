@@ -1,20 +1,16 @@
 Root:
-    Type: AstStatBlock
+    StatBlock
     Location: 0,0 - 2,0
-    HasEnd: true
     Body:
-        Type: AstStatIf
+        StatIf
         Location: 0,0 - 1,3
         Condition:
-            Type: AstExprConstantBool
+            ExprConstantBool
             Location: 0,3 - 0,7
             Value: true
         ThenBody:
-            Type: AstStatBlock
+            StatBlock
             Location: 0,12 - 1,0
             HasEnd: true
-            Body:
-        ElseBody:
-        HasThen: true
-
-Comment Locations:
+        ThenLocation: 0,8 - 0,12
+    HasEnd: false

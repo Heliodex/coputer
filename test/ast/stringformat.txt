@@ -1,97 +1,110 @@
 Root:
-    Type: AstStatBlock
+    StatBlock
     Location: 0,0 - 12,0
-    HasEnd: true
     Body:
-        Type: AstStatLocal
+        StatLocal
         Location: 0,0 - 0,28
         Vars:
-            LuauType:
-            Name: x
-            Type: AstLocal
+            Local
             Location: 0,6 - 0,7
+            Name: "x"
+            FunctionDepth: 0
+            LoopDepth: 0
         Values:
-            Type: AstExprConstantString
+            ExprConstantString
             Location: 0,10 - 0,28
-            Value: this is a "test"
-    
-        Type: AstStatLocal
+            Value: "this is a \"test\""
+            QuoteStyle: QuotedSingle
+        EqualsSignLocation: 0,8 - 0,9
+        StatLocal
         Location: 1,0 - 1,30
         Vars:
-            LuauType:
-            Name: y
-            Type: AstLocal
+            Local
             Location: 1,6 - 1,7
+            Name: "y"
+            FunctionDepth: 0
+            LoopDepth: 0
         Values:
-            Type: AstExprConstantString
+            ExprConstantString
             Location: 1,10 - 1,30
-            Value: this is a "test"
-    
-        Type: AstStatLocal
+            Value: "this is a \"test\""
+            QuoteStyle: QuotedRaw
+        EqualsSignLocation: 1,8 - 1,9
+        StatLocal
         Location: 2,0 - 2,30
         Vars:
-            LuauType:
-            Name: z
-            Type: AstLocal
+            Local
             Location: 2,6 - 2,7
+            Name: "z"
+            FunctionDepth: 0
+            LoopDepth: 0
         Values:
-            Type: AstExprConstantString
+            ExprConstantString
             Location: 2,10 - 2,30
-            Value: this 'is' a "test"
-    
-        Type: AstStatBlock
+            Value: "this 'is' a \"test\""
+            QuoteStyle: QuotedSimple
+        EqualsSignLocation: 2,8 - 2,9
+        StatBlock
         Location: 4,0 - 9,3
-        HasEnd: true
         Body:
-            Type: AstStatLocal
+            StatLocal
             Location: 5,1 - 5,30
             Vars:
-                LuauType:
-                Name: x
-                Type: AstLocal
+                Local
                 Location: 5,7 - 5,8
+                Name: "x"
+                Shadow: "x"
+                FunctionDepth: 0
+                LoopDepth: 0
             Values:
-                Type: AstExprConstantString
+                ExprConstantString
                 Location: 5,11 - 5,30
-                Value: this is
-                ]]a test
-        
-            Type: AstStatLocal
+                Value: "this is\n]]a test"
+                QuoteStyle: QuotedSimple
+            EqualsSignLocation: 5,9 - 5,10
+            StatLocal
             Location: 6,1 - 7,8
             Vars:
-                LuauType:
-                Name: y
-                Type: AstLocal
+                Local
                 Location: 6,7 - 6,8
+                Name: "y"
+                Shadow: "y"
+                FunctionDepth: 0
+                LoopDepth: 0
             Values:
-                Type: AstExprConstantString
+                ExprConstantString
                 Location: 6,11 - 7,8
-                Value: this is
-                a test
-        
-            Type: AstStatLocal
+                Value: "this is\na test"
+                QuoteStyle: QuotedRaw
+            EqualsSignLocation: 6,9 - 6,10
+            StatLocal
             Location: 8,1 - 8,28
             Vars:
-                LuauType:
-                Name: z
-                Type: AstLocal
+                Local
                 Location: 8,7 - 8,8
+                Name: "z"
+                Shadow: "z"
+                FunctionDepth: 0
+                LoopDepth: 0
             Values:
-                Type: AstExprConstantString
+                ExprConstantString
                 Location: 8,11 - 8,28
-                Value: this is
-                a test
-    
-        Type: AstStatLocal
+                Value: "this is\na test"
+                QuoteStyle: QuotedSimple
+            EqualsSignLocation: 8,9 - 8,10
+        HasEnd: true
+        StatLocal
         Location: 11,0 - 11,28
         Vars:
-            LuauType:
-            Name: esc
-            Type: AstLocal
+            Local
             Location: 11,6 - 11,9
+            Name: "esc"
+            FunctionDepth: 0
+            LoopDepth: 0
         Values:
-            Type: AstExprConstantString
+            ExprConstantString
             Location: 11,12 - 11,28
-            Value: 
-
-Comment Locations:
+            Value: "\a\b\f\n\r\t\v"
+            QuoteStyle: QuotedSimple
+        EqualsSignLocation: 11,10 - 11,11
+    HasEnd: false

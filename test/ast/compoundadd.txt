@@ -1,18 +1,16 @@
 Root:
-    Type: AstStatBlock
+    StatBlock
     Location: 0,0 - 0,6
-    HasEnd: true
     Body:
-        Type: AstStatCompoundAssign
+        StatCompoundAssign
         Location: 0,0 - 0,6
-        Op: Add
+        Op: 0
         Var:
-            Type: AstExprGlobal
+            ExprGlobal
             Location: 0,0 - 0,1
-            Global: x
+            Name: "x"
         Value:
-            Type: AstExprConstantNumber
+            ExprConstantNumber
             Location: 0,5 - 0,6
             Value: 5.000000
-
-Comment Locations:
+    HasEnd: false

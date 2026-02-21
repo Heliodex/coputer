@@ -1,64 +1,59 @@
 Root:
-    Type: AstStatBlock
+    StatBlock
     Location: 0,0 - 2,0
-    HasEnd: true
     Body:
-        Type: AstStatTypeAlias
+        StatTypeAlias
         Location: 0,0 - 0,23
-        Name: x
+        Name: "x"
+        NameLocation: 0,5 - 0,6
         Generics:
-            Type: AstGenericType
-            Name: T
-        GenericPacks:
-        Value:
-            Type: AstTypeFunction
+            GenericType
+            Location: 0,7 - 0,8
+            Name: "T"
+        Type:
+            TypeFunction
             Location: 0,12 - 0,23
-            Attributes:
-            Generics:
-            GenericPacks:
             ArgTypes:
-                Type: AstTypeList
+                TypeList
                 Types:
-                    Type: AstTypeReference
+                    TypeReference
                     Location: 0,16 - 0,17
-                    Name: T
+                    HasParameterList: false
+                    Name: "T"
                     NameLocation: 0,16 - 0,17
-                    Parameters:
-                TailType:
             ArgNames:
-                Type: AstArgumentName
-                Name: a
+                ArgumentName
+                Name: "a"
                 Location: 0,13 - 0,14
             ReturnTypes:
-                Type: AstTypePackExplicit
+                TypePackExplicit
                 Location: 0,22 - 0,23
-                TypeList:
-                    Type: AstTypeList
+                Types:
+                    TypeList
                     Types:
-                        Type: AstTypeReference
+                        TypeReference
                         Location: 0,22 - 0,23
-                        Name: T
+                        HasParameterList: false
+                        Name: "T"
                         NameLocation: 0,22 - 0,23
-                        Parameters:
-                    TailType:
         Exported: false
-    
-        Type: AstStatTypeAlias
+        StatTypeAlias
         Location: 1,0 - 1,18
-        Name: y
-        Generics:
-        GenericPacks:
-        Value:
-            Type: AstTypeReference
+        Name: "y"
+        NameLocation: 1,5 - 1,6
+        Type:
+            TypeReference
             Location: 1,9 - 1,18
-            Name: x
+            HasParameterList: true
+            Name: "x"
             NameLocation: 1,9 - 1,10
             Parameters:
-                Type: AstTypeReference
-                Location: 1,11 - 1,17
-                Name: number
-                NameLocation: 1,11 - 1,17
-                Parameters:
+                TypeOrPack
+                Type:
+                    TypeReference
+                    Location: 1,11 - 1,17
+                    HasParameterList: false
+                    Name: "number"
+                    NameLocation: 1,11 - 1,17
         Exported: false
-
-Comment Locations:
+    HasEnd: false

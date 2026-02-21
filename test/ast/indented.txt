@@ -1,120 +1,118 @@
 Root:
-    Type: AstStatBlock
+    StatBlock
     Location: 0,0 - 17,0
-    HasEnd: true
     Body:
-        Type: AstStatLocal
+        StatLocal
         Location: 0,0 - 0,15
         Vars:
-            LuauType:
-            Name: babyShark
-            Type: AstLocal
+            Local
             Location: 0,6 - 0,15
-        Values:
-    
-        Type: AstStatBlock
+            Name: "babyShark"
+            FunctionDepth: 0
+            LoopDepth: 0
+        StatBlock
         Location: 1,0 - 16,3
-        HasEnd: true
         Body:
-            Type: AstStatBlock
+            StatBlock
             Location: 2,1 - 15,4
-            HasEnd: true
             Body:
-                Type: AstStatBlock
+                StatBlock
                 Location: 3,2 - 14,5
-                HasEnd: true
                 Body:
-                    Type: AstStatBlock
+                    StatBlock
                     Location: 4,3 - 13,6
-                    HasEnd: true
                     Body:
-                        Type: AstStatBlock
+                        StatBlock
                         Location: 5,4 - 12,7
-                        HasEnd: true
                         Body:
-                            Type: AstStatBlock
+                            StatBlock
                             Location: 6,5 - 11,8
-                            HasEnd: true
                             Body:
-                                Type: AstStatLocal
+                                StatLocal
                                 Location: 7,6 - 7,16
                                 Vars:
-                                    LuauType:
-                                    Name: lol1
-                                    Type: AstLocal
+                                    Local
                                     Location: 7,12 - 7,16
-                                Values:
-                            
-                                Type: AstStatLocal
+                                    Name: "lol1"
+                                    FunctionDepth: 0
+                                    LoopDepth: 0
+                                StatLocal
                                 Location: 8,6 - 8,22
                                 Vars:
-                                    LuauType:
-                                    Name: lol
-                                    Type: AstLocal
+                                    Local
                                     Location: 8,12 - 8,15
+                                    Name: "lol"
+                                    FunctionDepth: 0
+                                    LoopDepth: 0
                                 Values:
-                                    Type: AstExprConstantBool
+                                    ExprConstantBool
                                     Location: 8,18 - 8,22
                                     Value: true
-                            
-                                Type: AstStatLocalFunction
+                                EqualsSignLocation: 8,16 - 8,17
+                                StatLocalFunction
                                 Location: 9,6 - 9,49
                                 Name:
-                                    LuauType:
-                                    Name: thing
-                                    Type: AstLocal
-                                    Location: 9,21 - 9,26
+                                    Local
+                                    Location: 9,12 - 9,20
+                                    Name: "thing"
+                                    FunctionDepth: 0
+                                    LoopDepth: 0
                                 Func:
-                                    Type: AstExprFunction
-                                    Location: 9,6 - 9,49
-                                    Attributes:
-                                    Generics:
-                                    GenericPacks:
-                                    Args:
-                                    ReturnAnnotation:
+                                    ExprFunction
+                                    Location: 9,12 - 9,49
                                     Vararg: false
                                     VarargLocation: 0,0 - 0,0
                                     Body:
-                                        Type: AstStatBlock
+                                        StatBlock
                                         Location: 9,28 - 9,46
-                                        HasEnd: true
                                         Body:
-                                            Type: AstStatReturn
+                                            StatReturn
                                             Location: 9,29 - 9,45
                                             List:
-                                                Type: AstExprLocal
+                                                ExprLocal
                                                 Location: 9,36 - 9,45
                                                 Local:
-                                                    LuauType:
-                                                    Name: babyShark
-                                                    Type: AstLocal
+                                                    Local
                                                     Location: 0,6 - 0,15
+                                                    Name: "babyShark"
+                                                    FunctionDepth: 0
+                                                    LoopDepth: 0
+                                                Upvalue: true
+                                        HasEnd: true
                                     FunctionDepth: 1
-                                    Debugname: thing
-                            
-                                Type: AstStatAssign
+                                    Debugname: "thing"
+                                    ArgLocation: 9,26 - 9,28
+                                StatAssign
                                 Location: 10,6 - 10,19
                                 Vars:
-                                    Type: AstExprLocal
+                                    ExprLocal
                                     Location: 10,6 - 10,9
                                     Local:
-                                        LuauType:
-                                        Name: lol
-                                        Type: AstLocal
+                                        Local
                                         Location: 8,12 - 8,15
+                                        Name: "lol"
+                                        FunctionDepth: 0
+                                        LoopDepth: 0
+                                    Upvalue: false
                                 Values:
-                                    Type: AstExprCall
+                                    ExprCall
                                     Location: 10,12 - 10,19
                                     Func:
-                                        Type: AstExprLocal
+                                        ExprLocal
                                         Location: 10,12 - 10,17
                                         Local:
-                                            LuauType:
-                                            Name: thing
-                                            Type: AstLocal
-                                            Location: 9,21 - 9,26
-                                    Args:
+                                            Local
+                                            Location: 9,12 - 9,20
+                                            Name: "thing"
+                                            FunctionDepth: 0
+                                            LoopDepth: 0
+                                        Upvalue: false
                                     Self: false
                                     ArgLocation: 10,18 - 10,19
-
-Comment Locations:
+                            HasEnd: true
+                        HasEnd: true
+                    HasEnd: true
+                HasEnd: true
+            HasEnd: true
+        HasEnd: true
+    HasEnd: false

@@ -1,66 +1,70 @@
 Root:
-    Type: AstStatBlock
+    StatBlock
     Location: 0,0 - 4,0
-    HasEnd: true
     Body:
-        Type: AstStatLocal
+        StatLocal
         Location: 0,0 - 0,21
         Vars:
-            LuauType:
-            Name: x
-            Type: AstLocal
+            Local
             Location: 0,6 - 0,7
+            Name: "x"
+            FunctionDepth: 0
+            LoopDepth: 0
         Values:
-            Type: AstExprTable
+            ExprTable
             Location: 0,10 - 0,21
             Items:
-                Type: AstExprTableItem
-                Kind: item
-                Key:
+                ExprTableItem
+                Location: 0,0 - 0,0
+                Kind: "List"
                 Value:
-                    Type: AstExprConstantNumber
+                    ExprConstantNumber
                     Location: 0,12 - 0,13
                     Value: 1.000000
-                Type: AstExprTableItem
-                Kind: item
-                Key:
+                ExprTableItem
+                Location: 0,0 - 0,0
+                Kind: "List"
                 Value:
-                    Type: AstExprConstantNumber
+                    ExprConstantNumber
                     Location: 0,15 - 0,16
                     Value: 2.000000
-                Type: AstExprTableItem
-                Kind: item
-                Key:
+                ExprTableItem
+                Location: 0,0 - 0,0
+                Kind: "List"
                 Value:
-                    Type: AstExprConstantNumber
+                    ExprConstantNumber
                     Location: 0,18 - 0,19
                     Value: 3.000000
-    
-        Type: AstStatForIn
+        EqualsSignLocation: 0,8 - 0,9
+        StatForIn
         Location: 2,0 - 3,3
         Vars:
-            LuauType:
-            Name: i
-            Type: AstLocal
+            Local
             Location: 2,4 - 2,5
-            LuauType:
-            Name: v
-            Type: AstLocal
+            Name: "i"
+            FunctionDepth: 0
+            LoopDepth: 1
+            Local
             Location: 2,7 - 2,8
+            Name: "v"
+            FunctionDepth: 0
+            LoopDepth: 1
         Values:
-            Type: AstExprLocal
+            ExprLocal
             Location: 2,12 - 2,13
             Local:
-                LuauType:
-                Name: x
-                Type: AstLocal
+                Local
                 Location: 0,6 - 0,7
+                Name: "x"
+                FunctionDepth: 0
+                LoopDepth: 0
+            Upvalue: false
         Body:
-            Type: AstStatBlock
+            StatBlock
             Location: 2,16 - 3,0
             HasEnd: true
-            Body:
         HasIn: true
+        InLocation: 2,9 - 2,11
         HasDo: true
-
-Comment Locations:
+        DoLocation: 2,14 - 2,16
+    HasEnd: false

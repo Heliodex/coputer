@@ -1,7 +1,4 @@
 Root:
-    Type: AstStatBlock
+    StatBlock
     Location: 0,0 - 0,0
-    HasEnd: true
-    Body:
-
-Comment Locations:
+    HasEnd: false

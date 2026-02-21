@@ -1,40 +1,35 @@
 Root:
-    Type: AstStatBlock
+    StatBlock
     Location: 0,0 - 1,0
-    HasEnd: true
     Body:
-        Type: AstStatTypeAlias
-        Location: 0,0 - 0,36
-        Name: x
-        Generics:
-        GenericPacks:
-        Value:
-            Type: AstTypeFunction
-            Location: 0,9 - 0,36
-            Attributes:
+        StatTypeAlias
+        Location: 0,0 - 0,35
+        Name: "x"
+        NameLocation: 0,5 - 0,6
+        Type:
+            TypeFunction
+            Location: 0,9 - 0,35
             Generics:
-                Type: AstGenericType
-                Name: T
+                GenericType
+                Location: 0,10 - 0,11
+                Name: "T"
             GenericPacks:
-                Type: AstGenericTypePack
-                Name: U
-                Type: AstGenericTypePack
-                Name: V
+                GenericTypePack
+                Location: 0,13 - 0,14
+                Name: "U"
+                GenericTypePack
+                Location: 0,19 - 0,20
+                Name: "V"
             ArgTypes:
-                Type: AstTypeList
-                Types:
+                TypeList
                 TailType:
-                    Type: AstTypePackGeneric
+                    TypePackGeneric
                     Location: 0,25 - 0,29
-                    GenericName: U
-            ArgNames:
+                    GenericName: "U"
             ReturnTypes:
-                Type: AstTypePackExplicit
-                Location: 0,34 - 0,36
-                TypeList:
-                    Type: AstTypeList
-                    Types:
-                    TailType:
+                TypePackExplicit
+                Location: 0,34 - 0,35
+                Types:
+                    TypeList
         Exported: false
-
-Comment Locations:
+    HasEnd: false

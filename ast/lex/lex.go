@@ -146,8 +146,7 @@ func (l Lexeme) String() string {
 	case ConcatAssign:
 		return "'..='"
 
-	case RawString:
-	case QuotedString:
+	case RawString, QuotedString: // oof, this was quite the bug
 		if l.Data != nil {
 			return fmt.Sprintf("\"%s\"", string(l.Data))
 		}

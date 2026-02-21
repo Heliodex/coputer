@@ -1,75 +1,68 @@
 Root:
-    Type: AstStatBlock
+    StatBlock
     Location: 0,0 - 6,0
-    HasEnd: true
     Body:
-        Type: AstStatLocalFunction
+        StatLocalFunction
         Location: 0,0 - 5,3
         Name:
-            LuauType:
-            Name: horizontal
-            Type: AstLocal
-            Location: 0,15 - 0,25
+            Local
+            Location: 0,6 - 0,14
+            Name: "horizontal"
+            FunctionDepth: 0
+            LoopDepth: 0
         Func:
-            Type: AstExprFunction
-            Location: 0,0 - 5,3
-            Attributes:
-            Generics:
-            GenericPacks:
-            Args:
-            ReturnAnnotation:
+            ExprFunction
+            Location: 0,6 - 5,3
             Vararg: false
             VarargLocation: 0,0 - 0,0
             Body:
-                Type: AstStatBlock
+                StatBlock
                 Location: 0,27 - 5,0
-                HasEnd: true
                 Body:
-                    Type: AstStatWhile
+                    StatWhile
                     Location: 1,1 - 2,4
                     Condition:
-                        Type: AstExprConstantBool
+                        ExprConstantBool
                         Location: 1,7 - 1,11
                         Value: true
                     Body:
-                        Type: AstStatBlock
+                        StatBlock
                         Location: 1,14 - 2,1
                         HasEnd: true
-                        Body:
                     HasDo: true
-                
-                    Type: AstStatFor
+                    DoLocation: 1,12 - 1,14
+                    StatFor
                     Location: 3,1 - 4,4
                     Var:
-                        LuauType:
-                        Name: x
-                        Type: AstLocal
+                        Local
                         Location: 3,5 - 3,6
+                        Name: "x"
+                        FunctionDepth: 1
+                        LoopDepth: 1
                     From:
-                        Type: AstExprConstantNumber
+                        ExprConstantNumber
                         Location: 3,9 - 3,10
                         Value: 0.000000
                     To:
-                        Type: AstExprBinary
+                        ExprBinary
                         Location: 3,12 - 3,23
-                        Op: Sub
+                        Op: 1
                         Left:
-                            Type: AstExprGlobal
+                            ExprGlobal
                             Location: 3,12 - 3,16
-                            Global: size
+                            Name: "size"
                         Right:
-                            Type: AstExprGlobal
+                            ExprGlobal
                             Location: 3,19 - 3,23
-                            Global: nums
-                    Step:
-                        <nil>
+                            Name: "nums"
                     Body:
-                        Type: AstStatBlock
+                        StatBlock
                         Location: 3,26 - 4,1
                         HasEnd: true
-                        Body:
                     HasDo: true
+                    DoLocation: 3,24 - 3,26
+                HasEnd: true
             FunctionDepth: 1
-            Debugname: horizontal
-
-Comment Locations:
+            Debugname: "horizontal"
+            ArgLocation: 0,25 - 0,27
+    HasEnd: false

@@ -2,14 +2,22 @@ package main
 
 import "fmt"
 
+const src = `local x = 'this is a "test"'
+local y = [[this is a "test"]]
+local z = ` + "`this 'is' a \"test\"`" + `
+
+do
+	local x = "this is\n]]a test"
+	local y = [[this is
+a test]]
+	local z = ` + "`this is\\na test`" + `
+end
+
+local esc = "\a\b\f\n\r\t\v"
+`
+
 func main() {
-	ok, res := Parse(`local x = 500
-local y = 0x1f4
-local z = 0b1_1111_0100
-local overflow = 1e999
-local n = -42
-local noverflow = -1e999
-`, Options{})
+	ok, res := Parse(src, Options{})
 	if !ok {
 		fmt.Println("Parse failed with errors:")
 		for _, err := range res.Errors {

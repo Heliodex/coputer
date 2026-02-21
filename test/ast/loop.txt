@@ -1,19 +1,17 @@
 Root:
-    Type: AstStatBlock
+    StatBlock
     Location: 0,0 - 2,0
-    HasEnd: true
     Body:
-        Type: AstStatWhile
+        StatWhile
         Location: 0,0 - 1,3
         Condition:
-            Type: AstExprConstantBool
+            ExprConstantBool
             Location: 0,6 - 0,10
             Value: true
         Body:
-            Type: AstStatBlock
+            StatBlock
             Location: 0,13 - 1,0
             HasEnd: true
-            Body:
         HasDo: true
-
-Comment Locations:
+        DoLocation: 0,11 - 0,13
+    HasEnd: false

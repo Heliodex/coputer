@@ -1,37 +1,34 @@
 Root:
-    Type: AstStatBlock
+    StatBlock
     Location: 0,0 - 4,0
-    HasEnd: true
     Body:
-        Type: AstStatIf
+        StatIf
         Location: 0,0 - 3,3
         Condition:
-            Type: AstExprConstantBool
+            ExprConstantBool
             Location: 0,3 - 0,7
             Value: true
         ThenBody:
-            Type: AstStatBlock
+            StatBlock
             Location: 0,12 - 1,0
             HasEnd: true
-            Body:
         ElseBody:
-            Type: AstStatIf
+            StatIf
             Location: 1,0 - 3,3
             Condition:
-                Type: AstExprConstantBool
+                ExprConstantBool
                 Location: 1,7 - 1,12
                 Value: false
             ThenBody:
-                Type: AstStatBlock
+                StatBlock
                 Location: 1,17 - 2,0
                 HasEnd: true
-                Body:
             ElseBody:
-                Type: AstStatBlock
+                StatBlock
                 Location: 2,4 - 3,0
                 HasEnd: true
-                Body:
-            HasThen: true
-        HasThen: true
-
-Comment Locations:
+            ThenLocation: 1,13 - 1,17
+            ElseLocation: 2,0 - 2,4
+        ThenLocation: 0,8 - 0,12
+        ElseLocation: 1,0 - 1,6
+    HasEnd: false

@@ -1,86 +1,91 @@
 Root:
-    Type: AstStatBlock
+    StatBlock
     Location: 0,0 - 6,0
-    HasEnd: true
     Body:
-        Type: AstStatLocal
+        StatLocal
         Location: 0,0 - 0,13
         Vars:
-            LuauType:
-            Name: x
-            Type: AstLocal
+            Local
             Location: 0,6 - 0,7
+            Name: "x"
+            FunctionDepth: 0
+            LoopDepth: 0
         Values:
-            Type: AstExprConstantNumber
+            ExprConstantNumber
             Location: 0,10 - 0,13
             Value: 500.000000
-    
-        Type: AstStatLocal
+        EqualsSignLocation: 0,8 - 0,9
+        StatLocal
         Location: 1,0 - 1,15
         Vars:
-            LuauType:
-            Name: y
-            Type: AstLocal
+            Local
             Location: 1,6 - 1,7
+            Name: "y"
+            FunctionDepth: 0
+            LoopDepth: 0
         Values:
-            Type: AstExprConstantNumber
+            ExprConstantNumber
             Location: 1,10 - 1,15
             Value: 500.000000
-    
-        Type: AstStatLocal
+        EqualsSignLocation: 1,8 - 1,9
+        StatLocal
         Location: 2,0 - 2,23
         Vars:
-            LuauType:
-            Name: z
-            Type: AstLocal
+            Local
             Location: 2,6 - 2,7
+            Name: "z"
+            FunctionDepth: 0
+            LoopDepth: 0
         Values:
-            Type: AstExprConstantNumber
+            ExprConstantNumber
             Location: 2,10 - 2,23
             Value: 500.000000
-    
-        Type: AstStatLocal
+        EqualsSignLocation: 2,8 - 2,9
+        StatLocal
         Location: 3,0 - 3,22
         Vars:
-            LuauType:
-            Name: overflow
-            Type: AstLocal
+            Local
             Location: 3,6 - 3,14
+            Name: "overflow"
+            FunctionDepth: 0
+            LoopDepth: 0
         Values:
-            Type: AstExprConstantNumber
+            ExprConstantNumber
             Location: 3,17 - 3,22
             Value: +Inf
-    
-        Type: AstStatLocal
+        EqualsSignLocation: 3,15 - 3,16
+        StatLocal
         Location: 4,0 - 4,13
         Vars:
-            LuauType:
-            Name: n
-            Type: AstLocal
+            Local
             Location: 4,6 - 4,7
+            Name: "n"
+            FunctionDepth: 0
+            LoopDepth: 0
         Values:
-            Type: AstExprUnary
+            ExprUnary
             Location: 4,10 - 4,13
             Op: Minus
             Expr:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 4,11 - 4,13
                 Value: 42.000000
-    
-        Type: AstStatLocal
+        EqualsSignLocation: 4,8 - 4,9
+        StatLocal
         Location: 5,0 - 5,24
         Vars:
-            LuauType:
-            Name: noverflow
-            Type: AstLocal
+            Local
             Location: 5,6 - 5,15
+            Name: "noverflow"
+            FunctionDepth: 0
+            LoopDepth: 0
         Values:
-            Type: AstExprUnary
+            ExprUnary
             Location: 5,18 - 5,24
             Op: Minus
             Expr:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 5,19 - 5,24
                 Value: +Inf
-
-Comment Locations:
+        EqualsSignLocation: 5,16 - 5,17
+    HasEnd: false

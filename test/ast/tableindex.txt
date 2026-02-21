@@ -1,61 +1,67 @@
 Root:
-    Type: AstStatBlock
+    StatBlock
     Location: 0,0 - 3,0
-    HasEnd: true
     Body:
-        Type: AstStatLocal
+        StatLocal
         Location: 0,0 - 0,12
         Vars:
-            LuauType:
-            Name: x
-            Type: AstLocal
+            Local
             Location: 0,6 - 0,7
+            Name: "x"
+            FunctionDepth: 0
+            LoopDepth: 0
         Values:
-            Type: AstExprTable
+            ExprTable
             Location: 0,10 - 0,12
-            Items:
-    
-        Type: AstStatAssign
+        EqualsSignLocation: 0,8 - 0,9
+        StatAssign
         Location: 1,0 - 1,14
         Vars:
-            Type: AstExprIndexName
+            ExprIndexName
             Location: 1,0 - 1,7
             Expr:
-                Type: AstExprLocal
+                ExprLocal
                 Location: 1,0 - 1,1
                 Local:
-                    LuauType:
-                    Name: x
-                    Type: AstLocal
+                    Local
                     Location: 0,6 - 0,7
-            Index: hello
+                    Name: "x"
+                    FunctionDepth: 0
+                    LoopDepth: 0
+                Upvalue: false
+            Index: "hello"
+            IndexLocation: 1,2 - 1,7
+            Op: .
         Values:
-            Type: AstExprConstantString
+            ExprConstantString
             Location: 1,10 - 1,14
-            Value: hi
-    
-        Type: AstStatExpr
+            Value: "hi"
+            QuoteStyle: QuotedSimple
+        StatExpr
         Location: 2,0 - 2,14
         Expr:
-            Type: AstExprCall
+            ExprCall
             Location: 2,0 - 2,14
             Func:
-                Type: AstExprGlobal
+                ExprGlobal
                 Location: 2,0 - 2,5
-                Global: print
+                Name: "print"
             Args:
-                Type: AstExprIndexName
+                ExprIndexName
                 Location: 2,6 - 2,13
                 Expr:
-                    Type: AstExprLocal
+                    ExprLocal
                     Location: 2,6 - 2,7
                     Local:
-                        LuauType:
-                        Name: x
-                        Type: AstLocal
+                        Local
                         Location: 0,6 - 0,7
-                Index: hello
+                        Name: "x"
+                        FunctionDepth: 0
+                        LoopDepth: 0
+                    Upvalue: false
+                Index: "hello"
+                IndexLocation: 2,8 - 2,13
+                Op: .
             Self: false
             ArgLocation: 2,6 - 2,14
-
-Comment Locations:
+    HasEnd: false

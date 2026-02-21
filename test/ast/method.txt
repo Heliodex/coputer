@@ -1,160 +1,148 @@
 Root:
-    Type: AstStatBlock
+    StatBlock
     Location: 0,0 - 7,0
-    HasEnd: true
     Body:
-        Type: AstStatLocal
+        StatLocal
         Location: 0,0 - 0,12
         Vars:
-            LuauType:
-            Name: t
-            Type: AstLocal
+            Local
             Location: 0,6 - 0,7
+            Name: "t"
+            FunctionDepth: 0
+            LoopDepth: 0
         Values:
-            Type: AstExprTable
+            ExprTable
             Location: 0,10 - 0,12
-            Items:
-    
-        Type: AstStatLocal
+        EqualsSignLocation: 0,8 - 0,9
+        StatLocal
         Location: 2,0 - 2,27
         Vars:
-            LuauType:
-            Name: expr
-            Type: AstLocal
+            Local
             Location: 2,6 - 2,10
+            Name: "expr"
+            FunctionDepth: 0
+            LoopDepth: 0
         Values:
-            Type: AstExprFunction
+            ExprFunction
             Location: 2,13 - 2,27
-            Attributes:
-            Generics:
-            GenericPacks:
-            Args:
-            ReturnAnnotation:
             Vararg: false
             VarargLocation: 0,0 - 0,0
             Body:
-                Type: AstStatBlock
+                StatBlock
                 Location: 2,23 - 2,24
                 HasEnd: true
-                Body:
             FunctionDepth: 1
-            Debugname:
-    
-        Type: AstStatLocalFunction
+            Debugname: ""
+            ArgLocation: 2,21 - 2,23
+        EqualsSignLocation: 2,11 - 2,12
+        StatLocalFunction
         Location: 3,0 - 3,27
         Name:
-            LuauType:
-            Name: normal
-            Type: AstLocal
-            Location: 3,15 - 3,21
+            Local
+            Location: 3,6 - 3,14
+            Name: "normal"
+            FunctionDepth: 0
+            LoopDepth: 0
         Func:
-            Type: AstExprFunction
-            Location: 3,0 - 3,27
-            Attributes:
-            Generics:
-            GenericPacks:
-            Args:
-            ReturnAnnotation:
+            ExprFunction
+            Location: 3,6 - 3,27
             Vararg: false
             VarargLocation: 0,0 - 0,0
             Body:
-                Type: AstStatBlock
+                StatBlock
                 Location: 3,23 - 3,24
                 HasEnd: true
-                Body:
             FunctionDepth: 1
-            Debugname: normal
-    
-        Type: AstStatFunction
+            Debugname: "normal"
+            ArgLocation: 3,21 - 3,23
+        StatFunction
         Location: 4,0 - 4,21
         Name:
-            Type: AstExprGlobal
+            ExprGlobal
             Location: 4,9 - 4,15
-            Global: global
+            Name: "global"
         Func:
-            Type: AstExprFunction
+            ExprFunction
             Location: 4,0 - 4,21
-            Attributes:
-            Generics:
-            GenericPacks:
-            Args:
-            ReturnAnnotation:
             Vararg: false
             VarargLocation: 0,0 - 0,0
             Body:
-                Type: AstStatBlock
+                StatBlock
                 Location: 4,17 - 4,18
                 HasEnd: true
-                Body:
             FunctionDepth: 1
-            Debugname: global
-    
-        Type: AstStatFunction
+            Debugname: "global"
+            ArgLocation: 4,15 - 4,17
+        StatFunction
         Location: 5,0 - 5,25
         Name:
-            Type: AstExprIndexName
+            ExprIndexName
             Location: 5,9 - 5,15
             Expr:
-                Type: AstExprLocal
+                ExprLocal
                 Location: 5,9 - 5,10
                 Local:
-                    LuauType:
-                    Name: t
-                    Type: AstLocal
+                    Local
                     Location: 0,6 - 0,7
-            Index: func
+                    Name: "t"
+                    FunctionDepth: 0
+                    LoopDepth: 0
+                Upvalue: false
+            Index: "func"
+            IndexLocation: 5,11 - 5,15
+            Op: ,
         Func:
-            Type: AstExprFunction
+            ExprFunction
             Location: 5,0 - 5,25
-            Attributes:
-            Generics:
-            GenericPacks:
             Args:
-                LuauType:
-                Name: self
-                Type: AstLocal
+                Local
                 Location: 5,16 - 5,20
-            ReturnAnnotation:
+                Name: "self"
+                FunctionDepth: 1
+                LoopDepth: 0
             Vararg: false
             VarargLocation: 0,0 - 0,0
             Body:
-                Type: AstStatBlock
+                StatBlock
                 Location: 5,21 - 5,22
                 HasEnd: true
-                Body:
             FunctionDepth: 1
-            Debugname: func
-    
-        Type: AstStatFunction
+            Debugname: "func"
+            ArgLocation: 5,15 - 5,21
+        StatFunction
         Location: 6,0 - 6,23
         Name:
-            Type: AstExprIndexName
+            ExprIndexName
             Location: 6,9 - 6,17
             Expr:
-                Type: AstExprLocal
+                ExprLocal
                 Location: 6,9 - 6,10
                 Local:
-                    LuauType:
-                    Name: t
-                    Type: AstLocal
+                    Local
                     Location: 0,6 - 0,7
-            Index: method
+                    Name: "t"
+                    FunctionDepth: 0
+                    LoopDepth: 0
+                Upvalue: false
+            Index: "method"
+            IndexLocation: 6,11 - 6,17
+            Op: :
         Func:
-            Type: AstExprFunction
+            ExprFunction
             Location: 6,0 - 6,23
-            Attributes:
-            Generics:
-            GenericPacks:
-            Args:
-            ReturnAnnotation:
+            Self:
+                Local
+                Location: 6,0 - 6,8
+                Name: "self"
+                FunctionDepth: 1
+                LoopDepth: 0
             Vararg: false
             VarargLocation: 0,0 - 0,0
             Body:
-                Type: AstStatBlock
+                StatBlock
                 Location: 6,19 - 6,20
                 HasEnd: true
-                Body:
             FunctionDepth: 1
-            Debugname: method
-
-Comment Locations:
+            Debugname: "method"
+            ArgLocation: 6,17 - 6,19
+    HasEnd: false

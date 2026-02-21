@@ -1,30 +1,27 @@
 Root:
-    Type: AstStatBlock
+    StatBlock
     Location: 0,0 - 2,0
-    HasEnd: true
     Body:
-        Type: AstStatFor
+        StatFor
         Location: 0,0 - 1,3
         Var:
-            LuauType:
-            Name: i
-            Type: AstLocal
+            Local
             Location: 0,4 - 0,5
+            Name: "i"
+            FunctionDepth: 0
+            LoopDepth: 1
         From:
-            Type: AstExprConstantNumber
+            ExprConstantNumber
             Location: 0,8 - 0,9
             Value: 1.000000
         To:
-            Type: AstExprConstantNumber
+            ExprConstantNumber
             Location: 0,11 - 0,13
             Value: 10.000000
-        Step:
-            <nil>
         Body:
-            Type: AstStatBlock
+            StatBlock
             Location: 0,16 - 1,0
             HasEnd: true
-            Body:
         HasDo: true
-
-Comment Locations:
+        DoLocation: 0,14 - 0,16
+    HasEnd: false

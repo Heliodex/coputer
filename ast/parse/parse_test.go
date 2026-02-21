@@ -59,9 +59,9 @@ func TestAST(t *testing.T) {
 		o := out.String()
 
 		// write to file
-		if err = os.WriteFile(filename+".txt", []byte(o), 0o644); err != nil {
-			t.Fatal("error writing output file:", err)
-		}
+		// if err = os.WriteFile(filename+".txt", []byte(o), 0o644); err != nil {
+		// 	t.Fatal("error writing output file:", err)
+		// }
 
 		ogb, err := os.ReadFile(filename + ".txt")
 		if err != nil {

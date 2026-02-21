@@ -1,40 +1,47 @@
 Root:
-    Type: AstStatBlock
+    StatBlock
     Location: 0,0 - 1,0
-    HasEnd: true
     Body:
-        Type: AstStatTypeAlias
+        StatTypeAlias
         Location: 0,0 - 0,38
-        Name: X
+        Name: "X"
+        NameLocation: 0,5 - 0,6
         Generics:
-            Type: AstGenericType
-            Name: Y
-            Type: AstGenericType
-            Name: Z
-        GenericPacks:
-        Value:
-            Type: AstTypeTable
+            GenericType
+            Location: 0,7 - 0,8
+            Name: "Y"
+            GenericType
+            Location: 0,10 - 0,11
+            Name: "Z"
+            DefaultValue:
+                TypeReference
+                Location: 0,14 - 0,20
+                HasParameterList: false
+                Name: "string"
+                NameLocation: 0,14 - 0,20
+        Type:
+            TypeTable
             Location: 0,24 - 0,38
             Props:
-                Type: AstTableProp
+                TableProp
                 Location: 0,26 - 0,27
-                Name: y
-                PropType:
-                    Type: AstTypeReference
+                Name: "y"
+                Type:
+                    TypeReference
                     Location: 0,29 - 0,30
-                    Name: Y
+                    HasParameterList: false
+                    Name: "Y"
                     NameLocation: 0,29 - 0,30
-                    Parameters:
-                Type: AstTableProp
+                Access: "ReadWrite"
+                TableProp
                 Location: 0,32 - 0,33
-                Name: z
-                PropType:
-                    Type: AstTypeReference
+                Name: "z"
+                Type:
+                    TypeReference
                     Location: 0,35 - 0,36
-                    Name: Z
+                    HasParameterList: false
+                    Name: "Z"
                     NameLocation: 0,35 - 0,36
-                    Parameters:
-            Indexer:
+                Access: "ReadWrite"
         Exported: false
-
-Comment Locations:
+    HasEnd: false

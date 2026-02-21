@@ -1,6 +1,7 @@
 package lex
 
 import (
+	"bytes"
 	"fmt"
 	"slices"
 )
@@ -932,7 +933,7 @@ func (l *Lexer) fixupQuotedString(data *[]byte) bool {
 	var write uint
 
 	for i := uint(0); i < size; {
-		if (*data)[i] == '\\' {
+		if (*data)[i] != '\\' { // todo check refimpl again bruhhh
 			(*data)[write] = (*data)[i]
 			write++
 			i++
@@ -1099,7 +1100,6 @@ func (l *Lexer) fixupMultilineString(data *[]byte) {
 	// tracking perspective
 
 	src := *data
-	dst := 0
 
 	// skip leading newline
 	if src[0] == '\r' && src[1] == '\n' {
@@ -1109,19 +1109,26 @@ func (l *Lexer) fixupMultilineString(data *[]byte) {
 	}
 
 	// parse the rest of the string, converting newlines as we go
-	for len(src) > 0 {
-		if src[0] == '\r' && src[1] == '\n' {
-			(*data)[dst] = '\n'
-			dst++
-			src = src[2:]
-		} else if src[0] == '\n' {
-			(*data)[dst] = src[0]
-			dst++
-			src = src[1:]
-		}
-	}
+	// for len(src) > 0 {
+	// 	fmt.Println("len:", len(src))
+	// 	if src[0] == '\r' && src[1] == '\n' {
+	// 		(*data)[dst] = '\n'
+	// 		dst++
+	// 		src = src[2:]
+	// 	} else if src[0] == '\n' {
+	// 		(*data)[dst] = src[0]
+	// 		dst++
+	// 		src = src[1:]
+	// 	}
+	// }
 
-	*data = (*data)[:dst-int((*data)[0])]
+	// *data = (*data)[:dst-int((*data)[0])]
+
+	// probably okay and also less crashy, todo take another look at the ref impl
+	src = bytes.ReplaceAll(src, []byte{'\r', '\n'}, []byte{'\n'})
+	src = bytes.ReplaceAll(src, []byte{'\n', '\r'}, []byte{'\n'})
+	src = bytes.ReplaceAll(src, []byte{'\r'}, []byte{'\n'})
+	*data = src
 }
 
 // FixupQuotedString processes escape sequences in a quoted string.

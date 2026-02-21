@@ -446,7 +446,8 @@ func (n AstExprConstantNumber) String() string {
 
 type AstExprConstantString struct {
 	*NodeLoc
-	Value string
+	Value      string
+	QuoteStyle QuoteStyle
 }
 
 func (AstExprConstantString) isAstNode()                      {}
@@ -458,6 +459,7 @@ func (n AstExprConstantString) String() string {
 	b.WriteString("ExprConstantString\n")
 	b.WriteString(n.NodeLoc.String())
 	b.WriteString(fmt.Sprintf("Value: %q\n", n.Value))
+	b.WriteString(fmt.Sprintf("QuoteStyle: %v\n", n.QuoteStyle))
 
 	return b.String()
 }
@@ -1032,7 +1034,7 @@ func (n AstStatBreak) String() string {
 
 type AstStatCompoundAssign struct {
 	*NodeLoc
-	Op           int
+	Op           BinaryOp
 	Var          AstExpr
 	Value        AstExpr
 	HasSemicolon *bool

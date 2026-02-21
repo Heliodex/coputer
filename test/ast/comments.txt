@@ -1,115 +1,114 @@
 Root:
-    Type: AstStatBlock
+    StatBlock
     Location: 0,0 - 13,0
-    HasEnd: true
     Body:
-        Type: AstStatExpr
+        StatExpr
         Location: 0,0 - 0,25
         Expr:
-            Type: AstExprCall
+            ExprCall
             Location: 0,0 - 0,25
             Func:
-                Type: AstExprGlobal
+                ExprGlobal
                 Location: 0,0 - 0,5
-                Global: print
+                Name: "print"
             Args:
-                Type: AstExprBinary
+                ExprBinary
                 Location: 0,6 - 0,24
-                Op: Concat
+                Op: 7
                 Left:
-                    Type: AstExprConstantString
+                    ExprConstantString
                     Location: 0,6 - 0,13
-                    Value: hello
+                    Value: "hello"
+                    QuoteStyle: QuotedSimple
                 Right:
-                    Type: AstExprConstantString
+                    ExprConstantString
                     Location: 0,17 - 0,24
-                    Value: world
+                    Value: "world"
+                    QuoteStyle: QuotedSimple
             Self: false
             ArgLocation: 0,6 - 0,25
-    
-        Type: AstStatLocal
+        StatLocal
         Location: 3,0 - 3,17
         Vars:
-            LuauType:
-            Name: s
-            Type: AstLocal
+            Local
             Location: 3,6 - 3,7
+            Name: "s"
+            FunctionDepth: 0
+            LoopDepth: 0
         Values:
-            Type: AstExprConstantString
+            ExprConstantString
             Location: 3,10 - 3,17
-            Value: Hello
-    
-        Type: AstStatCompoundAssign
+            Value: "Hello"
+            QuoteStyle: QuotedSimple
+        EqualsSignLocation: 3,8 - 3,9
+        StatCompoundAssign
         Location: 5,0 - 6,13
-        Op: Concat
+        Op: 7
         Var:
-            Type: AstExprLocal
+            ExprLocal
             Location: 5,0 - 5,1
             Local:
-                LuauType:
-                Name: s
-                Type: AstLocal
+                Local
                 Location: 3,6 - 3,7
+                Name: "s"
+                FunctionDepth: 0
+                LoopDepth: 0
+            Upvalue: false
         Value:
-            Type: AstExprConstantString
+            ExprConstantString
             Location: 6,5 - 6,13
-            Value:  World
-    
-        Type: AstStatAssign
+            Value: " World"
+            QuoteStyle: QuotedSimple
+        StatAssign
         Location: 7,0 - 9,14
         Vars:
-            Type: AstExprLocal
+            ExprLocal
             Location: 7,0 - 7,1
             Local:
-                LuauType:
-                Name: s
-                Type: AstLocal
+                Local
                 Location: 3,6 - 3,7
+                Name: "s"
+                FunctionDepth: 0
+                LoopDepth: 0
+            Upvalue: false
         Values:
-            Type: AstExprBinary
+            ExprBinary
             Location: 9,1 - 9,14
-            Op: Concat
+            Op: 7
             Left:
-                Type: AstExprLocal
+                ExprLocal
                 Location: 9,1 - 9,2
                 Local:
-                    LuauType:
-                    Name: s
-                    Type: AstLocal
+                    Local
                     Location: 3,6 - 3,7
+                    Name: "s"
+                    FunctionDepth: 0
+                    LoopDepth: 0
+                Upvalue: false
             Right:
-                Type: AstExprConstantString
+                ExprConstantString
                 Location: 9,6 - 9,14
-                Value:  World
-    
-        Type: AstStatExpr
+                Value: " World"
+                QuoteStyle: QuotedSimple
+        StatExpr
         Location: 10,0 - 10,8
         Expr:
-            Type: AstExprCall
+            ExprCall
             Location: 10,0 - 10,8
             Func:
-                Type: AstExprGlobal
+                ExprGlobal
                 Location: 10,0 - 10,5
-                Global: print
+                Name: "print"
             Args:
-                Type: AstExprLocal
+                ExprLocal
                 Location: 10,6 - 10,7
                 Local:
-                    LuauType:
-                    Name: s
-                    Type: AstLocal
+                    Local
                     Location: 3,6 - 3,7
+                    Name: "s"
+                    FunctionDepth: 0
+                    LoopDepth: 0
+                Upvalue: false
             Self: false
             ArgLocation: 10,6 - 10,8
-
-Comment Locations:
-    Type: Comment
-    Location: 1,0 - 1,12
-    Type: Comment
-    Location: 4,0 - 4,12
-    Type: Comment
-    Location: 5,1 - 5,13
-    Type: Comment
-    Location: 8,1 - 8,13
-    Type: Comment
-    Location: 12,0 - 12,16
+    HasEnd: false

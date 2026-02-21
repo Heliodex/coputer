@@ -1,44 +1,42 @@
 Root:
-    Type: AstStatBlock
+    StatBlock
     Location: 0,0 - 1,15
-    HasEnd: true
     Body:
-        Type: AstStatExpr
+        StatExpr
         Location: 0,0 - 0,20
         Expr:
-            Type: AstExprCall
+            ExprCall
             Location: 0,0 - 0,20
             Func:
-                Type: AstExprGlobal
+                ExprGlobal
                 Location: 0,0 - 0,5
-                Global: print
+                Name: "print"
             Args:
-                Type: AstExprInterpString
+                ExprInterpString
                 Location: 0,6 - 0,19
                 Strings:
-                    Hello,
-                    !
+                    "Hello, "
+                    "!"
                 Expressions:
-                    Type: AstExprGlobal
+                    ExprGlobal
                     Location: 0,15 - 0,16
-                    Global: x
+                    Name: "x"
             Self: false
             ArgLocation: 0,6 - 0,20
-    
-        Type: AstStatExpr
+        StatExpr
         Location: 1,0 - 1,15
         Expr:
-            Type: AstExprCall
+            ExprCall
             Location: 1,0 - 1,15
             Func:
-                Type: AstExprGlobal
+                ExprGlobal
                 Location: 1,0 - 1,5
-                Global: print
+                Name: "print"
             Args:
-                Type: AstExprConstantString
+                ExprConstantString
                 Location: 1,6 - 1,14
-                Value: Hello!
+                Value: "Hello!"
+                QuoteStyle: QuotedSimple
             Self: false
             ArgLocation: 1,6 - 1,15
-
-Comment Locations:
+    HasEnd: false

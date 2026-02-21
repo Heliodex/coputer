@@ -1,468 +1,499 @@
 Root:
-    Type: AstStatBlock
+    StatBlock
     Location: 0,0 - 17,0
-    HasEnd: true
     Body:
-        Type: AstStatLocal
+        StatLocal
         Location: 0,0 - 0,10
         Vars:
-            LuauType:
-                Type: AstTypeReference
-                Location: 0,9 - 0,10
-                Name: T
-                NameLocation: 0,9 - 0,10
-                Parameters:
-            Name: x
-            Type: AstLocal
+            Local
             Location: 0,6 - 0,7
-        Values:
-    
-        Type: AstStatAssign
+            Name: "x"
+            FunctionDepth: 0
+            LoopDepth: 0
+            Annotation:
+                TypeReference
+                Location: 0,9 - 0,10
+                HasParameterList: false
+                Name: "T"
+                NameLocation: 0,9 - 0,10
+        StatAssign
         Location: 1,0 - 1,9
         Vars:
-            Type: AstExprLocal
+            ExprLocal
             Location: 1,0 - 1,1
             Local:
-                LuauType:
-                    Type: AstTypeReference
-                    Location: 0,9 - 0,10
-                    Name: T
-                    NameLocation: 0,9 - 0,10
-                    Parameters:
-                Name: x
-                Type: AstLocal
+                Local
                 Location: 0,6 - 0,7
+                Name: "x"
+                FunctionDepth: 0
+                LoopDepth: 0
+                Annotation:
+                    TypeReference
+                    Location: 0,9 - 0,10
+                    HasParameterList: false
+                    Name: "T"
+                    NameLocation: 0,9 - 0,10
+            Upvalue: false
         Values:
-            Type: AstExprBinary
+            ExprBinary
             Location: 1,4 - 1,9
-            Op: Add
+            Op: 0
             Left:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 1,4 - 1,5
                 Value: 1.000000
             Right:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 1,8 - 1,9
                 Value: 2.000000
-    
-        Type: AstStatAssign
+        StatAssign
         Location: 2,0 - 2,9
         Vars:
-            Type: AstExprLocal
+            ExprLocal
             Location: 2,0 - 2,1
             Local:
-                LuauType:
-                    Type: AstTypeReference
-                    Location: 0,9 - 0,10
-                    Name: T
-                    NameLocation: 0,9 - 0,10
-                    Parameters:
-                Name: x
-                Type: AstLocal
+                Local
                 Location: 0,6 - 0,7
+                Name: "x"
+                FunctionDepth: 0
+                LoopDepth: 0
+                Annotation:
+                    TypeReference
+                    Location: 0,9 - 0,10
+                    HasParameterList: false
+                    Name: "T"
+                    NameLocation: 0,9 - 0,10
+            Upvalue: false
         Values:
-            Type: AstExprBinary
+            ExprBinary
             Location: 2,4 - 2,9
-            Op: Sub
+            Op: 1
             Left:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 2,4 - 2,5
                 Value: 1.000000
             Right:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 2,8 - 2,9
                 Value: 2.000000
-    
-        Type: AstStatAssign
+        StatAssign
         Location: 3,0 - 3,9
         Vars:
-            Type: AstExprLocal
+            ExprLocal
             Location: 3,0 - 3,1
             Local:
-                LuauType:
-                    Type: AstTypeReference
-                    Location: 0,9 - 0,10
-                    Name: T
-                    NameLocation: 0,9 - 0,10
-                    Parameters:
-                Name: x
-                Type: AstLocal
+                Local
                 Location: 0,6 - 0,7
+                Name: "x"
+                FunctionDepth: 0
+                LoopDepth: 0
+                Annotation:
+                    TypeReference
+                    Location: 0,9 - 0,10
+                    HasParameterList: false
+                    Name: "T"
+                    NameLocation: 0,9 - 0,10
+            Upvalue: false
         Values:
-            Type: AstExprBinary
+            ExprBinary
             Location: 3,4 - 3,9
-            Op: Mul
+            Op: 2
             Left:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 3,4 - 3,5
                 Value: 1.000000
             Right:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 3,8 - 3,9
                 Value: 2.000000
-    
-        Type: AstStatAssign
+        StatAssign
         Location: 4,0 - 4,9
         Vars:
-            Type: AstExprLocal
+            ExprLocal
             Location: 4,0 - 4,1
             Local:
-                LuauType:
-                    Type: AstTypeReference
-                    Location: 0,9 - 0,10
-                    Name: T
-                    NameLocation: 0,9 - 0,10
-                    Parameters:
-                Name: x
-                Type: AstLocal
+                Local
                 Location: 0,6 - 0,7
+                Name: "x"
+                FunctionDepth: 0
+                LoopDepth: 0
+                Annotation:
+                    TypeReference
+                    Location: 0,9 - 0,10
+                    HasParameterList: false
+                    Name: "T"
+                    NameLocation: 0,9 - 0,10
+            Upvalue: false
         Values:
-            Type: AstExprBinary
+            ExprBinary
             Location: 4,4 - 4,9
-            Op: Div
+            Op: 3
             Left:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 4,4 - 4,5
                 Value: 1.000000
             Right:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 4,8 - 4,9
                 Value: 2.000000
-    
-        Type: AstStatAssign
+        StatAssign
         Location: 5,0 - 5,9
         Vars:
-            Type: AstExprLocal
+            ExprLocal
             Location: 5,0 - 5,1
             Local:
-                LuauType:
-                    Type: AstTypeReference
-                    Location: 0,9 - 0,10
-                    Name: T
-                    NameLocation: 0,9 - 0,10
-                    Parameters:
-                Name: x
-                Type: AstLocal
+                Local
                 Location: 0,6 - 0,7
+                Name: "x"
+                FunctionDepth: 0
+                LoopDepth: 0
+                Annotation:
+                    TypeReference
+                    Location: 0,9 - 0,10
+                    HasParameterList: false
+                    Name: "T"
+                    NameLocation: 0,9 - 0,10
+            Upvalue: false
         Values:
-            Type: AstExprBinary
+            ExprBinary
             Location: 5,4 - 5,9
-            Op: Mod
+            Op: 5
             Left:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 5,4 - 5,5
                 Value: 1.000000
             Right:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 5,8 - 5,9
                 Value: 2.000000
-    
-        Type: AstStatAssign
+        StatAssign
         Location: 6,0 - 6,9
         Vars:
-            Type: AstExprLocal
+            ExprLocal
             Location: 6,0 - 6,1
             Local:
-                LuauType:
-                    Type: AstTypeReference
-                    Location: 0,9 - 0,10
-                    Name: T
-                    NameLocation: 0,9 - 0,10
-                    Parameters:
-                Name: x
-                Type: AstLocal
+                Local
                 Location: 0,6 - 0,7
+                Name: "x"
+                FunctionDepth: 0
+                LoopDepth: 0
+                Annotation:
+                    TypeReference
+                    Location: 0,9 - 0,10
+                    HasParameterList: false
+                    Name: "T"
+                    NameLocation: 0,9 - 0,10
+            Upvalue: false
         Values:
-            Type: AstExprBinary
+            ExprBinary
             Location: 6,4 - 6,9
-            Op: Pow
+            Op: 6
             Left:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 6,4 - 6,5
                 Value: 1.000000
             Right:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 6,8 - 6,9
                 Value: 2.000000
-    
-        Type: AstStatAssign
+        StatAssign
         Location: 7,0 - 7,10
         Vars:
-            Type: AstExprLocal
+            ExprLocal
             Location: 7,0 - 7,1
             Local:
-                LuauType:
-                    Type: AstTypeReference
-                    Location: 0,9 - 0,10
-                    Name: T
-                    NameLocation: 0,9 - 0,10
-                    Parameters:
-                Name: x
-                Type: AstLocal
+                Local
                 Location: 0,6 - 0,7
+                Name: "x"
+                FunctionDepth: 0
+                LoopDepth: 0
+                Annotation:
+                    TypeReference
+                    Location: 0,9 - 0,10
+                    HasParameterList: false
+                    Name: "T"
+                    NameLocation: 0,9 - 0,10
+            Upvalue: false
         Values:
-            Type: AstExprBinary
+            ExprBinary
             Location: 7,4 - 7,10
-            Op: FloorDiv
+            Op: 4
             Left:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 7,4 - 7,5
                 Value: 1.000000
             Right:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 7,9 - 7,10
                 Value: 2.000000
-    
-        Type: AstStatAssign
+        StatAssign
         Location: 8,0 - 8,9
         Vars:
-            Type: AstExprLocal
+            ExprLocal
             Location: 8,0 - 8,1
             Local:
-                LuauType:
-                    Type: AstTypeReference
-                    Location: 0,9 - 0,10
-                    Name: T
-                    NameLocation: 0,9 - 0,10
-                    Parameters:
-                Name: x
-                Type: AstLocal
+                Local
                 Location: 0,6 - 0,7
+                Name: "x"
+                FunctionDepth: 0
+                LoopDepth: 0
+                Annotation:
+                    TypeReference
+                    Location: 0,9 - 0,10
+                    HasParameterList: false
+                    Name: "T"
+                    NameLocation: 0,9 - 0,10
+            Upvalue: false
         Values:
-            Type: AstExprBinary
+            ExprBinary
             Location: 8,4 - 8,9
-            Op: CompareLt
+            Op: 10
             Left:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 8,4 - 8,5
                 Value: 1.000000
             Right:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 8,8 - 8,9
                 Value: 2.000000
-    
-        Type: AstStatAssign
+        StatAssign
         Location: 9,0 - 9,9
         Vars:
-            Type: AstExprLocal
+            ExprLocal
             Location: 9,0 - 9,1
             Local:
-                LuauType:
-                    Type: AstTypeReference
-                    Location: 0,9 - 0,10
-                    Name: T
-                    NameLocation: 0,9 - 0,10
-                    Parameters:
-                Name: x
-                Type: AstLocal
+                Local
                 Location: 0,6 - 0,7
+                Name: "x"
+                FunctionDepth: 0
+                LoopDepth: 0
+                Annotation:
+                    TypeReference
+                    Location: 0,9 - 0,10
+                    HasParameterList: false
+                    Name: "T"
+                    NameLocation: 0,9 - 0,10
+            Upvalue: false
         Values:
-            Type: AstExprBinary
+            ExprBinary
             Location: 9,4 - 9,9
-            Op: CompareGt
+            Op: 12
             Left:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 9,4 - 9,5
                 Value: 1.000000
             Right:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 9,8 - 9,9
                 Value: 2.000000
-    
-        Type: AstStatAssign
+        StatAssign
         Location: 10,0 - 10,10
         Vars:
-            Type: AstExprLocal
+            ExprLocal
             Location: 10,0 - 10,1
             Local:
-                LuauType:
-                    Type: AstTypeReference
-                    Location: 0,9 - 0,10
-                    Name: T
-                    NameLocation: 0,9 - 0,10
-                    Parameters:
-                Name: x
-                Type: AstLocal
+                Local
                 Location: 0,6 - 0,7
+                Name: "x"
+                FunctionDepth: 0
+                LoopDepth: 0
+                Annotation:
+                    TypeReference
+                    Location: 0,9 - 0,10
+                    HasParameterList: false
+                    Name: "T"
+                    NameLocation: 0,9 - 0,10
+            Upvalue: false
         Values:
-            Type: AstExprBinary
+            ExprBinary
             Location: 10,4 - 10,10
-            Op: CompareLe
+            Op: 11
             Left:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 10,4 - 10,5
                 Value: 1.000000
             Right:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 10,9 - 10,10
                 Value: 2.000000
-    
-        Type: AstStatAssign
+        StatAssign
         Location: 11,0 - 11,10
         Vars:
-            Type: AstExprLocal
+            ExprLocal
             Location: 11,0 - 11,1
             Local:
-                LuauType:
-                    Type: AstTypeReference
-                    Location: 0,9 - 0,10
-                    Name: T
-                    NameLocation: 0,9 - 0,10
-                    Parameters:
-                Name: x
-                Type: AstLocal
+                Local
                 Location: 0,6 - 0,7
+                Name: "x"
+                FunctionDepth: 0
+                LoopDepth: 0
+                Annotation:
+                    TypeReference
+                    Location: 0,9 - 0,10
+                    HasParameterList: false
+                    Name: "T"
+                    NameLocation: 0,9 - 0,10
+            Upvalue: false
         Values:
-            Type: AstExprBinary
+            ExprBinary
             Location: 11,4 - 11,10
-            Op: CompareGe
+            Op: 13
             Left:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 11,4 - 11,5
                 Value: 1.000000
             Right:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 11,9 - 11,10
                 Value: 2.000000
-    
-        Type: AstStatAssign
+        StatAssign
         Location: 12,0 - 12,10
         Vars:
-            Type: AstExprLocal
+            ExprLocal
             Location: 12,0 - 12,1
             Local:
-                LuauType:
-                    Type: AstTypeReference
-                    Location: 0,9 - 0,10
-                    Name: T
-                    NameLocation: 0,9 - 0,10
-                    Parameters:
-                Name: x
-                Type: AstLocal
+                Local
                 Location: 0,6 - 0,7
+                Name: "x"
+                FunctionDepth: 0
+                LoopDepth: 0
+                Annotation:
+                    TypeReference
+                    Location: 0,9 - 0,10
+                    HasParameterList: false
+                    Name: "T"
+                    NameLocation: 0,9 - 0,10
+            Upvalue: false
         Values:
-            Type: AstExprBinary
+            ExprBinary
             Location: 12,4 - 12,10
-            Op: CompareEq
+            Op: 9
             Left:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 12,4 - 12,5
                 Value: 1.000000
             Right:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 12,9 - 12,10
                 Value: 2.000000
-    
-        Type: AstStatAssign
+        StatAssign
         Location: 13,0 - 13,10
         Vars:
-            Type: AstExprLocal
+            ExprLocal
             Location: 13,0 - 13,1
             Local:
-                LuauType:
-                    Type: AstTypeReference
-                    Location: 0,9 - 0,10
-                    Name: T
-                    NameLocation: 0,9 - 0,10
-                    Parameters:
-                Name: x
-                Type: AstLocal
+                Local
                 Location: 0,6 - 0,7
+                Name: "x"
+                FunctionDepth: 0
+                LoopDepth: 0
+                Annotation:
+                    TypeReference
+                    Location: 0,9 - 0,10
+                    HasParameterList: false
+                    Name: "T"
+                    NameLocation: 0,9 - 0,10
+            Upvalue: false
         Values:
-            Type: AstExprBinary
+            ExprBinary
             Location: 13,4 - 13,10
-            Op: CompareNe
+            Op: 8
             Left:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 13,4 - 13,5
                 Value: 1.000000
             Right:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 13,9 - 13,10
                 Value: 2.000000
-    
-        Type: AstStatAssign
+        StatAssign
         Location: 14,0 - 14,11
         Vars:
-            Type: AstExprLocal
+            ExprLocal
             Location: 14,0 - 14,1
             Local:
-                LuauType:
-                    Type: AstTypeReference
-                    Location: 0,9 - 0,10
-                    Name: T
-                    NameLocation: 0,9 - 0,10
-                    Parameters:
-                Name: x
-                Type: AstLocal
+                Local
                 Location: 0,6 - 0,7
+                Name: "x"
+                FunctionDepth: 0
+                LoopDepth: 0
+                Annotation:
+                    TypeReference
+                    Location: 0,9 - 0,10
+                    HasParameterList: false
+                    Name: "T"
+                    NameLocation: 0,9 - 0,10
+            Upvalue: false
         Values:
-            Type: AstExprBinary
+            ExprBinary
             Location: 14,4 - 14,11
-            Op: And
+            Op: 14
             Left:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 14,4 - 14,5
                 Value: 1.000000
             Right:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 14,10 - 14,11
                 Value: 2.000000
-    
-        Type: AstStatAssign
+        StatAssign
         Location: 15,0 - 15,10
         Vars:
-            Type: AstExprLocal
+            ExprLocal
             Location: 15,0 - 15,1
             Local:
-                LuauType:
-                    Type: AstTypeReference
-                    Location: 0,9 - 0,10
-                    Name: T
-                    NameLocation: 0,9 - 0,10
-                    Parameters:
-                Name: x
-                Type: AstLocal
+                Local
                 Location: 0,6 - 0,7
+                Name: "x"
+                FunctionDepth: 0
+                LoopDepth: 0
+                Annotation:
+                    TypeReference
+                    Location: 0,9 - 0,10
+                    HasParameterList: false
+                    Name: "T"
+                    NameLocation: 0,9 - 0,10
+            Upvalue: false
         Values:
-            Type: AstExprBinary
+            ExprBinary
             Location: 15,4 - 15,10
-            Op: Or
+            Op: 15
             Left:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 15,4 - 15,5
                 Value: 1.000000
             Right:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 15,9 - 15,10
                 Value: 2.000000
-    
-        Type: AstStatAssign
+        StatAssign
         Location: 16,0 - 16,10
         Vars:
-            Type: AstExprLocal
+            ExprLocal
             Location: 16,0 - 16,1
             Local:
-                LuauType:
-                    Type: AstTypeReference
-                    Location: 0,9 - 0,10
-                    Name: T
-                    NameLocation: 0,9 - 0,10
-                    Parameters:
-                Name: x
-                Type: AstLocal
+                Local
                 Location: 0,6 - 0,7
+                Name: "x"
+                FunctionDepth: 0
+                LoopDepth: 0
+                Annotation:
+                    TypeReference
+                    Location: 0,9 - 0,10
+                    HasParameterList: false
+                    Name: "T"
+                    NameLocation: 0,9 - 0,10
+            Upvalue: false
         Values:
-            Type: AstExprBinary
+            ExprBinary
             Location: 16,4 - 16,10
-            Op: Concat
+            Op: 7
             Left:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 16,4 - 16,5
                 Value: 1.000000
             Right:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 16,9 - 16,10
                 Value: 2.000000
-
-Comment Locations:
+    HasEnd: false

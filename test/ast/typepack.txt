@@ -1,118 +1,111 @@
 Root:
-    Type: AstStatBlock
+    StatBlock
     Location: 0,0 - 2,0
-    HasEnd: true
     Body:
-        Type: AstStatTypeAlias
+        StatTypeAlias
         Location: 0,0 - 0,55
-        Name: Signal1
+        Name: "Signal1"
+        NameLocation: 0,5 - 0,12
         Generics:
-            Type: AstGenericType
-            Name: T
+            GenericType
+            Location: 0,13 - 0,14
+            Name: "T"
         GenericPacks:
-            Type: AstGenericTypePack
-            Name: U
-        Value:
-            Type: AstTypeTable
+            GenericTypePack
+            Location: 0,16 - 0,17
+            Name: "U"
+        Type:
+            TypeTable
             Location: 0,24 - 0,55
             Props:
-                Type: AstTableProp
+                TableProp
                 Location: 0,26 - 0,30
-                Name: data
-                PropType:
-                    Type: AstTypeReference
+                Name: "data"
+                Type:
+                    TypeReference
                     Location: 0,32 - 0,33
-                    Name: T
+                    HasParameterList: false
+                    Name: "T"
                     NameLocation: 0,32 - 0,33
-                    Parameters:
-                Type: AstTableProp
+                Access: "ReadWrite"
+                TableProp
                 Location: 0,35 - 0,36
-                Name: f
-                PropType:
-                    Type: AstTypeFunction
-                    Location: 0,38 - 0,53
-                    Attributes:
-                    Generics:
-                    GenericPacks:
+                Name: "f"
+                Type:
+                    TypeFunction
+                    Location: 0,38 - 0,52
                     ArgTypes:
-                        Type: AstTypeList
+                        TypeList
                         Types:
-                            Type: AstTypeReference
+                            TypeReference
                             Location: 0,39 - 0,40
-                            Name: T
+                            HasParameterList: false
+                            Name: "T"
                             NameLocation: 0,39 - 0,40
-                            Parameters:
                         TailType:
-                            Type: AstTypePackGeneric
+                            TypePackGeneric
                             Location: 0,42 - 0,46
-                            GenericName: U
-                    ArgNames:
+                            GenericName: "U"
                     ReturnTypes:
-                        Type: AstTypePackExplicit
-                        Location: 0,51 - 0,53
-                        TypeList:
-                            Type: AstTypeList
-                            Types:
-                            TailType:
-            Indexer:
+                        TypePackExplicit
+                        Location: 0,51 - 0,52
+                        Types:
+                            TypeList
+                Access: "ReadWrite"
         Exported: false
-    
-        Type: AstStatTypeAlias
+        StatTypeAlias
         Location: 1,0 - 1,52
-        Name: Signal2
+        Name: "Signal2"
+        NameLocation: 1,5 - 1,12
         Generics:
-            Type: AstGenericType
-            Name: T
-            Type: AstGenericType
-            Name: U
-        GenericPacks:
-        Value:
-            Type: AstTypeTable
+            GenericType
+            Location: 1,13 - 1,14
+            Name: "T"
+            GenericType
+            Location: 1,16 - 1,17
+            Name: "U"
+        Type:
+            TypeTable
             Location: 1,21 - 1,52
             Props:
-                Type: AstTableProp
+                TableProp
                 Location: 1,23 - 1,27
-                Name: data
-                PropType:
-                    Type: AstTypeReference
+                Name: "data"
+                Type:
+                    TypeReference
                     Location: 1,29 - 1,30
-                    Name: T
+                    HasParameterList: false
+                    Name: "T"
                     NameLocation: 1,29 - 1,30
-                    Parameters:
-                Type: AstTableProp
+                Access: "ReadWrite"
+                TableProp
                 Location: 1,32 - 1,33
-                Name: f
-                PropType:
-                    Type: AstTypeFunction
-                    Location: 1,35 - 1,50
-                    Attributes:
-                    Generics:
-                    GenericPacks:
+                Name: "f"
+                Type:
+                    TypeFunction
+                    Location: 1,35 - 1,49
                     ArgTypes:
-                        Type: AstTypeList
+                        TypeList
                         Types:
-                            Type: AstTypeReference
+                            TypeReference
                             Location: 1,36 - 1,37
-                            Name: T
+                            HasParameterList: false
+                            Name: "T"
                             NameLocation: 1,36 - 1,37
-                            Parameters:
                         TailType:
-                            Type: AstTypePackVariadic
+                            TypePackVariadic
                             Location: 1,39 - 1,43
-                            VariadicType: Type: AstTypeReference
-                            Location: 1,42 - 1,43
-                            Name: U
-                            NameLocation: 1,42 - 1,43
-                            Parameters:
-                    ArgNames:
+                            VariadicType:
+                                TypeReference
+                                Location: 1,42 - 1,43
+                                HasParameterList: false
+                                Name: "U"
+                                NameLocation: 1,42 - 1,43
                     ReturnTypes:
-                        Type: AstTypePackExplicit
-                        Location: 1,48 - 1,50
-                        TypeList:
-                            Type: AstTypeList
-                            Types:
-                            TailType:
-            Indexer:
+                        TypePackExplicit
+                        Location: 1,48 - 1,49
+                        Types:
+                            TypeList
+                Access: "ReadWrite"
         Exported: false
-
-Comment Locations:
+    HasEnd: false

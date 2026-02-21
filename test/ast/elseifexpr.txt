@@ -1,82 +1,83 @@
 Root:
-    Type: AstStatBlock
+    StatBlock
     Location: 0,0 - 2,0
-    HasEnd: true
     Body:
-        Type: AstStatLocal
+        StatLocal
         Location: 0,0 - 0,51
         Vars:
-            LuauType:
-            Name: x
-            Type: AstLocal
+            Local
             Location: 0,6 - 0,7
+            Name: "x"
+            FunctionDepth: 0
+            LoopDepth: 0
         Values:
-            Type: AstExprIfElse
+            ExprIfElse
             Location: 0,10 - 0,51
             Condition:
-                Type: AstExprConstantBool
+                ExprConstantBool
                 Location: 0,13 - 0,17
                 Value: true
             HasThen: true
             TrueExpr:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 0,23 - 0,24
                 Value: 1.000000
             HasElse: true
             FalseExpr:
-                Type: AstExprIfElse
+                ExprIfElse
                 Location: 0,25 - 0,51
                 Condition:
-                    Type: AstExprConstantBool
+                    ExprConstantBool
                     Location: 0,32 - 0,37
                     Value: false
                 HasThen: true
                 TrueExpr:
-                    Type: AstExprConstantNumber
+                    ExprConstantNumber
                     Location: 0,43 - 0,44
                     Value: 2.000000
                 HasElse: true
                 FalseExpr:
-                    Type: AstExprConstantNumber
+                    ExprConstantNumber
                     Location: 0,50 - 0,51
                     Value: 3.000000
-    
-        Type: AstStatLocal
+        EqualsSignLocation: 0,8 - 0,9
+        StatLocal
         Location: 1,0 - 1,52
         Vars:
-            LuauType:
-            Name: y
-            Type: AstLocal
+            Local
             Location: 1,6 - 1,7
+            Name: "y"
+            FunctionDepth: 0
+            LoopDepth: 0
         Values:
-            Type: AstExprIfElse
+            ExprIfElse
             Location: 1,10 - 1,52
             Condition:
-                Type: AstExprConstantBool
+                ExprConstantBool
                 Location: 1,13 - 1,17
                 Value: true
             HasThen: true
             TrueExpr:
-                Type: AstExprConstantNumber
+                ExprConstantNumber
                 Location: 1,23 - 1,24
                 Value: 1.000000
             HasElse: true
             FalseExpr:
-                Type: AstExprIfElse
+                ExprIfElse
                 Location: 1,30 - 1,52
                 Condition:
-                    Type: AstExprConstantBool
+                    ExprConstantBool
                     Location: 1,33 - 1,38
                     Value: false
                 HasThen: true
                 TrueExpr:
-                    Type: AstExprConstantNumber
+                    ExprConstantNumber
                     Location: 1,44 - 1,45
                     Value: 2.000000
                 HasElse: true
                 FalseExpr:
-                    Type: AstExprConstantNumber
+                    ExprConstantNumber
                     Location: 1,51 - 1,52
                     Value: 3.000000
-
-Comment Locations:
+        EqualsSignLocation: 1,8 - 1,9
+    HasEnd: false

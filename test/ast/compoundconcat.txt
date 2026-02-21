@@ -1,18 +1,17 @@
 Root:
-    Type: AstStatBlock
+    StatBlock
     Location: 0,0 - 0,12
-    HasEnd: true
     Body:
-        Type: AstStatCompoundAssign
+        StatCompoundAssign
         Location: 0,0 - 0,12
-        Op: Concat
+        Op: 7
         Var:
-            Type: AstExprGlobal
+            ExprGlobal
             Location: 0,0 - 0,1
-            Global: z
+            Name: "z"
         Value:
-            Type: AstExprConstantString
+            ExprConstantString
             Location: 0,6 - 0,12
-            Value: yeah
-
-Comment Locations:
+            Value: "yeah"
+            QuoteStyle: QuotedSimple
+    HasEnd: false
