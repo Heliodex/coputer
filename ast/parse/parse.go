@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -425,9 +426,9 @@ var next_type = lex.Eof
 var next_location lex.Location
 
 var (
-	next_codepoint *uint32 = nil
-	next_string    *string = nil
-	next_aux       *int    = nil
+	next_codepoint *uint32
+	next_string    *string
+	next_aux       *int
 )
 
 var suspect_type = lex.Eof
@@ -510,7 +511,10 @@ func nextLexeme() {
 	token_type = next_type
 	fmt.Println("set token_type to", lex.Lexeme{Type: token_type}.String())
 	token_location = next_location
+	// if next_string != nil {
 	token_string = next_string
+	// }
+	fmt.Println("set token_string to", *token_string)
 	token_aux = next_aux
 	token_codepoint = next_codepoint
 
@@ -1361,14 +1365,13 @@ func parseFor() AstStatForOrForIn {
 }
 
 // funcname ::= Name {`.' Name} [`:' Name]
-func parseFunctionName(hasRef []bool, debugNameRef *[]*string) *AstExprIndexName {
+func parseFunctionName(hasRef []bool, debugNameRef *[]*string) AstExpr {
 	if token_type == lex.Name {
 		(*debugNameRef)[0] = token_string // TODO: slice bounds
 	}
 
 	// parse funcname into a chain of indexing operators
 	expr := AstExpr(parseNameExpr("function name"))
-	var newExpr *AstExprIndexName // split it into this for better types
 
 	oldRecursionCount := recursionCounter
 
@@ -1382,7 +1385,7 @@ func parseFunctionName(hasRef []bool, debugNameRef *[]*string) *AstExprIndexName
 		// while we could concatenate the name chain, for now let's just write the short name
 		(*debugNameRef)[0] = &name.Name.Value
 
-		newExpr = &AstExprIndexName{
+		expr = &AstExprIndexName{
 			NodeLoc:       &NodeLoc{lex.Location{Begin: expr.GetLocation().Begin, End: name.Location.End}},
 			Expr:          expr,
 			Index:         name.Name.Value,
@@ -1408,7 +1411,7 @@ func parseFunctionName(hasRef []bool, debugNameRef *[]*string) *AstExprIndexName
 		// while we could concatenate the name chain, for now let's just write the short name
 		(*debugNameRef)[0] = &name.Name.Value
 
-		newExpr = &AstExprIndexName{
+		expr = &AstExprIndexName{
 			NodeLoc:       &NodeLoc{lex.Location{Begin: expr.GetLocation().Begin, End: name.Location.End}},
 			Expr:          expr,
 			Index:         name.Name.Value,
@@ -1420,7 +1423,7 @@ func parseFunctionName(hasRef []bool, debugNameRef *[]*string) *AstExprIndexName
 		hasRef[0] = true // again, todo bounds check
 	}
 
-	return newExpr
+	return expr
 }
 
 // function funcname funcbody
@@ -1459,6 +1462,7 @@ func parseFunctionStat(attributes Attrs) *AstStatFunction {
 }
 
 func validateAttribute(loc lex.Location, attributeName string, attributes Attrs, args []AstExpr) *string {
+	fmt.Println("Validating attribute", attributeName, "with args", args)
 	// checks if the attribute name is valid
 	entry, ok := kAttributeEntries[attributeName]
 	var type_ *string
@@ -4402,6 +4406,16 @@ func parseString() AstExprConstantStringOrError {
 	return reportExprError(location, nil, "String literal contains malformed escape sequence")
 }
 
+type NumberParseResult uint8
+
+const (
+	NumberParseResult_Ok NumberParseResult = iota
+	NumberParseResult_Malformed
+	NumberParseResult_Imprecise
+	NumberParseResult_BinOverflow
+	NumberParseResult_HexOverflow
+)
+
 // parseNumber parses a number literal expression
 func parseNumber() AstExprConstantNumberOrError {
 	start := snapshot()
@@ -4418,34 +4432,104 @@ func parseNumber() AstExprConstantNumberOrError {
 	cleanData := strings.ReplaceAll(data, "_", "")
 
 	value := 0.0
-	malformed := false
+	var parseResult NumberParseResult
 
+	// Hexadecimal check (0x...)
 	if strings.HasPrefix(cleanData, "0x") || strings.HasPrefix(cleanData, "0X") {
-		v, err := strconv.ParseUint(cleanData[2:], 16, 64)
-		if err != nil {
-			malformed = true
+		// v, err := strconv.ParseUint(cleanData[2:], 16, 64)
+		// if err != nil {
+		// 	malformed = true
+		// } else {
+		// 	value = float64(v)
+		// }
+		content := cleanData[2:]
+		significant := "0"
+		// get all characters after the leading zeros
+		for i, c := range content {
+			if c != '0' {
+				significant = content[i:]
+				break
+			}
+		}
+
+		if len(significant) > 16 {
+			parseResult = NumberParseResult_HexOverflow
+			value = 0
 		} else {
-			value = float64(v)
+			v, err := strconv.ParseUint(content, 16, 64)
+			if err != nil {
+				parseResult = NumberParseResult_Malformed
+				value = 0
+			} else {
+				value = float64(v)
+				if v >= 9007199254740992 { // 2^53
+					parseResult = NumberParseResult_Imprecise
+				}
+			}
 		}
 	} else if strings.HasPrefix(cleanData, "0b") || strings.HasPrefix(cleanData, "0B") {
-		v, err := strconv.ParseUint(cleanData[2:], 2, 64)
-		if err != nil {
-			malformed = true
+		// v, err := strconv.ParseUint(cleanData[2:], 2, 64)
+		// if err != nil {
+		// 	malformed = true
+		// } else {
+		// 	value = float64(v)
+		// }
+		content := cleanData[2:]
+		significant := "0"
+		// get all characters after the leading zeros
+		for i, c := range content {
+			if c != '0' {
+				significant = content[i:]
+				break
+			}
+		}
+
+		if len(significant) > 64 {
+			parseResult = NumberParseResult_BinOverflow
+			value = 0
 		} else {
-			value = float64(v)
+			v, err := strconv.ParseUint(content, 2, 64)
+			if err != nil {
+				parseResult = NumberParseResult_Malformed
+				value = 0
+			} else {
+				value = float64(v)
+				if v >= 9007199254740992 { // 2^53
+					parseResult = NumberParseResult_Imprecise
+				}
+			}
 		}
 	} else {
 		v, err := strconv.ParseFloat(cleanData, 64)
-		if err != nil {
-			malformed = true
+		if err != nil && !errors.Is(err, strconv.ErrRange) { // wdc about value out of range
+			parseResult = NumberParseResult_Malformed
+			fmt.Println("Marked number as malformed:", v, cleanData, err)
+			value = 0
 		} else {
 			value = v
+
+			if value >= 9007199254740992 {
+				isAllDigits := true
+				for _, c := range cleanData {
+					if c < '0' || c > '9' {
+						isAllDigits = false
+						break
+					}
+				}
+
+				if isAllDigits {
+					repr := fmt.Sprintf("%.0f", value)
+					if repr != cleanData {
+						parseResult = NumberParseResult_Imprecise
+					}
+				}
+			}
 		}
 	}
 
 	nextLexeme()
 
-	if malformed {
+	if parseResult == NumberParseResult_Malformed {
 		return reportExprError(start, nil, "Malformed number")
 	}
 

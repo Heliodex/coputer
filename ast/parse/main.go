@@ -3,15 +3,12 @@ package main
 import "fmt"
 
 func main() {
-	ok, res := Parse(`if true then
-elseif false then
-end
-
-if true then
-else
-	if false then
-	end
-end
+	ok, res := Parse(`local x = 500
+local y = 0x1f4
+local z = 0b1_1111_0100
+local overflow = 1e999
+local n = -42
+local noverflow = -1e999
 `, Options{})
 	if !ok {
 		fmt.Println("Parse failed with errors:")

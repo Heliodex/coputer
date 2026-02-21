@@ -37,7 +37,7 @@ func (l *NodeLoc) String() string {
 func indentStart(s string, n int) string {
 	lines := strings.Split(strings.TrimSpace(s), "\n")
 	for i, line := range lines {
-		lines[i] = strings.Repeat(" ", n) + line
+		lines[i] = strings.Repeat("  ", n) + line
 	}
 	return strings.Join(lines, "\n")
 }
@@ -1426,8 +1426,10 @@ func (n AstStatFunction) String() string {
 
 	b.WriteString("StatFunction\n")
 	b.WriteString(n.NodeLoc.String())
-	b.WriteString("Name:\n")
-	b.WriteString(indentStart(n.Name.String(), 2))
+	if n.Name != nil {
+		b.WriteString("Name:\n")
+		b.WriteString(indentStart(n.Name.String(), 2))
+	}
 	b.WriteByte('\n')
 	b.WriteString("Func:\n")
 	b.WriteString(indentStart(n.Func.String(), 2))

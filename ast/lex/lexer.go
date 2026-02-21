@@ -29,7 +29,7 @@ type Location struct {
 }
 
 func (l Location) String() string {
-	return fmt.Sprintf("%d:%d-%d:%d", l.Begin.Line, l.Begin.Column, l.End.Line, l.End.Column)
+	return fmt.Sprintf("%d,%d - %d,%d", l.Begin.Line, l.Begin.Column, l.End.Line, l.End.Column)
 }
 
 func LocationLen(start Position, l uint32) Location {
@@ -816,11 +816,13 @@ func (l *Lexer) readNext() Lexeme {
 		}
 
 	case '@':
+		startOffset := l.offset
 		attribute := l.readName()
 		return Lexeme{
 			Location: Location{start, l.position()},
 			Type:     Attribute,
 			name:     &attribute.Name.Value,
+			Data:     l.buffer[startOffset+1 : l.offset],
 		}
 
 	default:
@@ -833,6 +835,7 @@ func (l *Lexer) readNext() Lexeme {
 				Location: Location{start, l.position()},
 				Type:     name.Type,
 				name:     &name.Name.Value,
+				Data:     l.buffer[l.offset-uint32(len(name.Name.Value)) : l.offset], // whatever3
 			}
 		} else if (l.peekch0() & 0x80) != 0 {
 			return l.readUtf8Error()
