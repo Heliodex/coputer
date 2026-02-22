@@ -106,26 +106,8 @@ func parseFile(t *testing.T, f os.DirEntry, dir string) {
 	t.Log(" -- Testing", name, "--")
 	filename := fmt.Sprintf("../%s/%s", dir, name)
 
-	if name == "luauception" {
-		return
-		fmt.Println("⚠️ WARNING! ⚠️ This test takes about a minute to run. It will also eat all of your RAM.")
-	}
-
-	// out, err := LuauAst(filename + Ext)
-	// if err != nil {
-	// 	t.Fatal("error running luau-ast:", err)
-	// }
-
-	// fmt.Println("luau-ast completed")
 	st := time.Now()
-
-	// // Decode the AST
-	// if _, err = DecodeAST(out); err != nil {
-	// 	t.Fatal("error decoding AST:", err)
-	// }
-
 	getAST(t, filename)
-
 	fmt.Println("decoded in", time.Since(st))
 }
 
