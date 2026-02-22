@@ -172,7 +172,7 @@ type CstExprTable struct {
 func (CstExprTable) isCstNode() {}
 
 type CstExprTableItem struct {
-	Kind                 string
+	Kind                 ExprTableItemKind
 	EqualsPosition       *lex.Position
 	Separator            *int
 	SeparatorPosition    lex.Position

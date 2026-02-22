@@ -327,10 +327,10 @@ func isLiteralTable(aexpr AstExpr) bool {
 	}
 
 	for _, item := range expr.Items {
-		if item.Kind == "General" {
+		if item.Kind == General {
 			return false
 		}
-		if item.Kind == "Record" || item.Kind == "List" {
+		if item.Kind == Record || item.Kind == List {
 			if !ConstantLiteral(item.Value) && !isLiteralTable(item.Value) {
 				return false
 			}
@@ -365,7 +365,7 @@ func deprecatedArgsValidator(attrLoc lex.Location, args []AstExpr) (errors []Par
 	}
 
 	for _, item := range arg.Items {
-		if item.Key != nil && item.Kind == "Record" {
+		if item.Key != nil && item.Kind == Record {
 			if itemKey, ok := (*item.Key).(AstExprConstantString); ok {
 				keyString := itemKey.Value
 				if _, ok := item.Value.(AstExprConstantString); ok {
@@ -4156,7 +4156,7 @@ func parseTableConstructor() AstExprTable {
 
 			items = append(items, AstExprTableItem{
 				NodeLoc: &NodeLoc{lex.Location{}},
-				Kind:    "General",
+				Kind:    General,
 				Key:     &key,
 				Value:   value,
 			})
@@ -4164,7 +4164,7 @@ func parseTableConstructor() AstExprTable {
 			if storeCstData {
 				sepPos := token_location.Begin
 				cstItems = append(cstItems, CstExprTableItem{
-					Kind:                 "General",
+					Kind:                 General,
 					IndexerOpenPosition:  &indexerOpenPos,
 					IndexerClosePosition: &indexerClosePos,
 					EqualsPosition:       &equalsPos,
@@ -4194,7 +4194,7 @@ func parseTableConstructor() AstExprTable {
 
 			items = append(items, AstExprTableItem{
 				NodeLoc: &NodeLoc{lex.Location{}},
-				Kind:    "Record",
+				Kind:    Record,
 				Key:     &keyExpr,
 				Value:   value,
 			})
@@ -4202,7 +4202,7 @@ func parseTableConstructor() AstExprTable {
 			if storeCstData {
 				sepPos := token_location.Begin
 				cstItems = append(cstItems, CstExprTableItem{
-					Kind:              "Record",
+					Kind:              Record,
 					EqualsPosition:    &equalsPos,
 					Separator:         tableSeparator(),
 					SeparatorPosition: sepPos,
@@ -4212,14 +4212,14 @@ func parseTableConstructor() AstExprTable {
 			expr := parseExpr(0)
 			items = append(items, AstExprTableItem{
 				NodeLoc: &NodeLoc{lex.Location{}},
-				Kind:    "List",
+				Kind:    List,
 				Value:   expr,
 			})
 
 			if storeCstData {
 				sepPos := token_location.Begin
 				cstItems = append(cstItems, CstExprTableItem{
-					Kind:              "List",
+					Kind:              List,
 					Separator:         tableSeparator(),
 					SeparatorPosition: sepPos,
 				})

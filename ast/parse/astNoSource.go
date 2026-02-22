@@ -792,9 +792,29 @@ func (n AstExprTable) String() string {
 	return b.String()
 }
 
+type ExprTableItemKind uint8
+
+const (
+	General ExprTableItemKind = iota
+	Record
+	List
+)
+
+func (e ExprTableItemKind) String() string {
+	switch e {
+	case General:
+		return "General"
+	case Record:
+		return "Record"
+	case List:
+		return "List"
+	}
+	return "Unknown"
+}
+
 type AstExprTableItem struct {
 	*NodeLoc
-	Kind  string
+	Kind  ExprTableItemKind
 	Key   *AstExpr
 	Value AstExpr
 }
