@@ -1,6 +1,6 @@
 module github.com/Heliodex/coputer/gateway
 
-go 1.25.3
+go 1.26.1
 
 require (
 	github.com/Heliodex/coputer/litecode v0.0.0-20250622152943-83f44d21f6b9
@@ -8,8 +8,8 @@ require (
 )
 
 require (
-	golang.org/x/crypto v0.45.0 // indirect
-	golang.org/x/sys v0.38.0 // indirect
+	golang.org/x/crypto v0.48.0 // indirect
+	golang.org/x/sys v0.42.0 // indirect
 )
 
 replace github.com/Heliodex/coputer/litecode => ../litecode

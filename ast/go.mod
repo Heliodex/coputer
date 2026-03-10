@@ -1,3 +1,3 @@
 module github.com/Heliodex/coputer/ast
 
-go 1.25.3
+go 1.26.1

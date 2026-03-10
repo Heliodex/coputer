@@ -1,6 +1,6 @@
 module github.com/Heliodex/coputer/litecode
 
-go 1.25.3
+go 1.26.1
 
 require golang.org/x/text v0.26.0
 
