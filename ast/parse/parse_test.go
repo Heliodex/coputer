@@ -67,7 +67,7 @@ func TestAST(t *testing.T) {
 		if err != nil {
 			t.Fatal("error reading expected output:", err)
 		}
-		og := string(ogb)
+		og := strings.ReplaceAll(string(ogb), "\r\n", "\n")
 
 		if o != og {
 			t.Errorf("output mismatch:\n-- Expected\n%s\n-- Got\n%s\n", og, o)
