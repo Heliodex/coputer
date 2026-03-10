@@ -843,8 +843,7 @@ func incrementRecursionCounter(context string) {
 // The core of the code
 
 func parseBinding() Binding {
-	context := "variable name"
-	nameOpt := parseNameOpt(&context)
+	nameOpt := parseNameOpt(new("variable name"))
 
 	var bindingName Binding
 	if nameOpt != nil {
@@ -1169,8 +1168,7 @@ func parseWhile() *AstStatWhile {
 	Do_begin := token_location.Begin
 	Do_end := token_location.End
 
-	context := "while loop"
-	hasDo := expectAndConsume(lex.ReservedDo, &context)
+	hasDo := expectAndConsume(lex.ReservedDo, new("while loop"))
 
 	functionStack[len(functionStack)-1].LoopDepth++
 	body := parseBlock()
@@ -1309,8 +1307,7 @@ func parseFor() AstStatForOrForIn {
 		from := parseExpr(0)
 
 		endCommaPosition := token_location.Begin
-		context := "index range"
-		expectAndConsume(',', &context)
+		expectAndConsume(',', new("index range"))
 
 		to := parseExpr(0)
 
@@ -1454,8 +1451,7 @@ func parseFunctionName(hasRef []bool, debugNameRef *[]*string) AstExpr {
 		opPosition := token_location.Begin
 		nextLexeme()
 
-		context := "field name"
-		name := parseName(&context)
+		name := parseName(new("field name"))
 
 		// while we could concatenate the name chain, for now let's just write the short name
 		(*debugNameRef)[0] = &name.Name.Value
@@ -1480,8 +1476,7 @@ func parseFunctionName(hasRef []bool, debugNameRef *[]*string) AstExpr {
 		opPosition := token_location.Begin
 		nextLexeme()
 
-		context := "method name"
-		name := parseName(&context)
+		name := parseName(new("method name"))
 
 		// while we could concatenate the name chain, for now let's just write the short name
 		(*debugNameRef)[0] = &name.Name.Value
@@ -2035,8 +2030,7 @@ func parseAssignment(initial AstExpr) *AstStatAssign {
 	}
 
 	equalsPosition := token_location.Begin
-	context := "assignment"
-	expectAndConsume('=', &context)
+	expectAndConsume('=', new("assignment"))
 
 	var values []AstExpr
 	var valuesCommaPositions []lex.Position
@@ -2168,8 +2162,7 @@ func parseFunctionBody(hasself bool, matchFunction lex.Lexeme, debugname *string
 	parenType := token_type
 	parenBegin := token_location.Begin
 
-	context := "function"
-	expectAndConsume('(', &context)
+	expectAndConsume('(', new("function"))
 
 	matchRecovery[')']++
 
@@ -2460,8 +2453,7 @@ func parseTypeList(result *[]AstType, resultNames *[]*AstArgumentName, commaPosi
 				*nameColonPositions = append(*nameColonPositions, &colonPos)
 			}
 
-			context := ""
-			expectAndConsume(':', &context)
+			expectAndConsume(':', new(""))
 		} else if len(*resultNames) > 0 {
 			*resultNames = append(*resultNames, nil)
 			if nameColonPositions != nil {
@@ -2703,8 +2695,7 @@ func parseTableIndexer(access string, accessLoc *lex.Location, begin lex.Lexeme)
 	expectMatchAndConsume(']', begin.Type, begin.Location.Begin, nil)
 
 	colonPos := token_location.Begin
-	context := "table field"
-	expectAndConsume(':', &context)
+	expectAndConsume(':', new("table field"))
 
 	result := parseType(false)
 	resultLoc := result.GetLocation()
@@ -2735,8 +2726,7 @@ func parseTableType(inDeclarationContext bool) AstTypeTable {
 
 	start := snapshot()
 	matchBrace := get_lexeme()
-	context := "table type"
-	expectAndConsume('{', &context)
+	expectAndConsume('{', new("table type"))
 
 	for token_type != '}' {
 		access := "ReadWrite"
@@ -2948,8 +2938,7 @@ func parseFunctionType(allowPack bool, attributes Attrs) (AstType, AstTypePack) 
 	generics, genericPacks := parseGenericTypeList(false, openGenPosRef, &genCommaPos, closeGenPosRef)
 
 	paramStart := get_lexeme()
-	context := "function parameters"
-	expectAndConsume('(', &context)
+	expectAndConsume('(', new("function parameters"))
 
 	matchRecovery[lex.SkinnyArrow]++
 
@@ -3072,8 +3061,7 @@ func parseFunctionTypeTail(begin lex.Lexeme, attributes Attrs, generics []AstGen
 			NameLocation:     begin.Location,
 		}
 	} else {
-		context := "function type"
-		expectAndConsume(lex.SkinnyArrow, &context)
+		expectAndConsume(lex.SkinnyArrow, new("function type"))
 	}
 
 	returnType := parseReturnType()
@@ -4129,8 +4117,7 @@ func parseTableConstructor() AstExprTable {
 
 	braceType := token_type
 	braceBegin := token_location.Begin
-	context := "table literal"
-	expectAndConsume('{', &context)
+	expectAndConsume('{', new("table literal"))
 
 	lastElementIndent := uint32(0)
 
