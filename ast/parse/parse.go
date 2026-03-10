@@ -4098,7 +4098,8 @@ func parseIndexName(context *string, prev lex.Position) Binding {
 
 // parseCallList parses function call arguments (used by intepstring etc.)
 func parseCallList(commaPositions *[]lex.Position) ([]AstExpr, lex.Location, lex.Location) {
-	if token_type == '(' {
+	switch token_type {
+	case '(':
 		argStart := token_location.End
 		parenType := token_type
 		parenBegin := token_location.Begin
@@ -4117,7 +4118,8 @@ func parseCallList(commaPositions *[]lex.Position) ([]AstExpr, lex.Location, lex
 		return args,
 			lex.Location{Begin: argStart, End: end.End},
 			lex.Location{Begin: parenBegin, End: prev_location.End}
-	} else if token_type == '{' {
+
+	case '{':
 		argStart := token_location.End
 		expr := parseTableConstructor()
 
@@ -4372,14 +4374,15 @@ func parseInterpString() AstExprInterpStringOrError {
 			expressions = append(expressions, parseExpr(0))
 		}
 
-		t = token_type
-
-		if t == lex.InterpStringBegin || t == lex.InterpStringMid || t == lex.InterpStringEnd {
+		switch t = token_type; t {
+		case lex.InterpStringBegin, lex.InterpStringMid, lex.InterpStringEnd:
 			// continue reading
-		} else if t == lex.BrokenInterpDoubleBrace {
+
+		case lex.BrokenInterpDoubleBrace:
 			nextLexeme()
 			return reportExprError(endLocation, nil, "Double braces are not permitted within interpolated strings; did you mean '\\{'?")
-		} else if t == lex.BrokenString || t == lex.Eof {
+
+		case lex.BrokenString, lex.Eof:
 			if t == lex.BrokenString {
 				nextLexeme()
 			}
@@ -4404,7 +4407,8 @@ func parseInterpString() AstExprInterpStringOrError {
 			}
 
 			return node
-		} else {
+
+		default:
 			currLex := lex.Lexeme{Type: token_type, Codepoint: token_codepoint}
 			if token_string != nil {
 				currLex.Data = []byte(*token_string)
@@ -4462,15 +4466,18 @@ func parseString() AstExprConstantStringOrError {
 	location := snapshot()
 	quoteStyle := QuoteStyle_QuotedSimple
 
-	if token_type == lex.QuotedString {
+	switch token_type {
+	case lex.QuotedString:
 		if token_aux != nil && *token_aux == 0 {
 			quoteStyle = QuoteStyle_QuotedSingle
-		} else {
-			quoteStyle = QuoteStyle_QuotedSimple
+			break
 		}
-	} else if token_type == lex.InterpStringSimple {
 		quoteStyle = QuoteStyle_QuotedSimple
-	} else if token_type == lex.RawString {
+
+	case lex.InterpStringSimple:
+		quoteStyle = QuoteStyle_QuotedSimple
+
+	case lex.RawString:
 		quoteStyle = QuoteStyle_QuotedRaw
 	}
 
