@@ -196,17 +196,17 @@ func (l *Lexer) isReserved(word string) bool {
 }
 
 func (l *Lexer) peekch0() byte {
-	if l.offset < uint32(len(l.buffer)) {
-		return l.buffer[l.offset]
+	if l.offset >= uint32(len(l.buffer)) {
+		return 0
 	}
-	return 0
+	return l.buffer[l.offset]
 }
 
 func (l *Lexer) peekch(lookahead uint32) byte {
-	if (l.offset + lookahead) < uint32(len(l.buffer)) {
-		return l.buffer[l.offset+lookahead]
+	if (l.offset + lookahead) >= uint32(len(l.buffer)) {
+		return 0
 	}
-	return 0
+	return l.buffer[l.offset+lookahead]
 }
 
 func (l *Lexer) position() Position {
@@ -239,9 +239,7 @@ func (l *Lexer) readCommentBody() Lexeme {
 	startOffset := l.offset
 
 	if l.peekch0() == '[' {
-		sep := l.skipLongSeparator()
-
-		if sep >= 0 {
+		if sep := l.skipLongSeparator(); sep >= 0 {
 			return l.readLongString(start, sep, BlockComment, BrokenComment)
 		}
 	}
@@ -513,28 +511,31 @@ func (l *Lexer) readNext() Lexeme {
 		}
 
 	case '-':
-		if l.peekch(1) == '>' {
+		switch l.peekch(1) {
+		case '>':
 			l.consume()
 			l.consume()
 			return Lexeme{
 				Location: LocationLen(start, 2),
 				Type:     SkinnyArrow,
 			}
-		} else if l.peekch(1) == '=' {
+
+		case '=':
 			l.consume()
 			l.consume()
 			return Lexeme{
 				Location: LocationLen(start, 2),
 				Type:     SubAssign,
 			}
-		} else if l.peekch(1) == '-' {
+
+		case '-':
 			return l.readCommentBody()
-		} else {
-			l.consume()
-			return Lexeme{
-				Location: LocationLen(start, 1),
-				Type:     '-',
-			}
+		}
+
+		l.consume()
+		return Lexeme{
+			Location: LocationLen(start, 1),
+			Type:     '-',
 		}
 
 	case '[':
@@ -542,16 +543,17 @@ func (l *Lexer) readNext() Lexeme {
 
 		if sep >= 0 {
 			return l.readLongString(start, sep, RawString, BrokenString)
-		} else if sep == -1 {
+		}
+		if sep == -1 {
 			return Lexeme{
 				Location: LocationLen(start, 1),
 				Type:     '[',
 			}
-		} else {
-			return Lexeme{
-				Location: LocationLen(start, 1),
-				Type:     BrokenString,
-			}
+		}
+
+		return Lexeme{
+			Location: LocationLen(start, 1),
+			Type:     BrokenString,
 		}
 
 	case '{':
@@ -597,11 +599,11 @@ func (l *Lexer) readNext() Lexeme {
 				Location: LocationLen(start, 2),
 				Type:     Equal,
 			}
-		} else {
-			return Lexeme{
-				Location: LocationLen(start, 1),
-				Type:     '=',
-			}
+		}
+
+		return Lexeme{
+			Location: LocationLen(start, 1),
+			Type:     '=',
 		}
 
 	case '<':
@@ -613,11 +615,11 @@ func (l *Lexer) readNext() Lexeme {
 				Location: LocationLen(start, 2),
 				Type:     LessEqual,
 			}
-		} else {
-			return Lexeme{
-				Location: LocationLen(start, 1),
-				Type:     '<',
-			}
+		}
+
+		return Lexeme{
+			Location: LocationLen(start, 1),
+			Type:     '<',
 		}
 
 	case '>':
@@ -629,11 +631,11 @@ func (l *Lexer) readNext() Lexeme {
 				Location: LocationLen(start, 2),
 				Type:     GreaterEqual,
 			}
-		} else {
-			return Lexeme{
-				Location: LocationLen(start, 1),
-				Type:     '>',
-			}
+		}
+
+		return Lexeme{
+			Location: LocationLen(start, 1),
+			Type:     '>',
 		}
 
 	case '~':
@@ -645,11 +647,11 @@ func (l *Lexer) readNext() Lexeme {
 				Location: LocationLen(start, 2),
 				Type:     NotEqual,
 			}
-		} else {
-			return Lexeme{
-				Location: LocationLen(start, 1),
-				Type:     '~', // is this even a valid luau token
-			}
+		}
+
+		return Lexeme{
+			Location: LocationLen(start, 1),
+			Type:     '~', // is this even a valid luau token
 		}
 
 	case '"', '\'':
@@ -664,34 +666,35 @@ func (l *Lexer) readNext() Lexeme {
 		if l.peekch0() == '.' {
 			l.consume()
 
-			if l.peekch0() == '.' {
+			switch l.peekch0() {
+			case '.':
 				l.consume()
-
 				return Lexeme{
 					Location: LocationLen(start, 3),
 					Type:     Dot3,
 				}
-			} else if l.peekch0() == '=' {
-				l.consume()
 
+			case '=':
+				l.consume()
 				return Lexeme{
 					Location: LocationLen(start, 3),
 					Type:     ConcatAssign,
 				}
-			} else {
-				return Lexeme{
-					Location: LocationLen(start, 2),
-					Type:     Dot2,
-				}
 			}
+
+			return Lexeme{
+				Location: LocationLen(start, 2),
+				Type:     Dot2,
+			}
+
 		} else {
 			if isDigit(l.peekch0()) {
 				return l.readNumber(start, l.offset-1)
-			} else {
-				return Lexeme{
-					Location: LocationLen(start, 1),
-					Type:     '.',
-				}
+			}
+
+			return Lexeme{
+				Location: LocationLen(start, 1),
+				Type:     '.',
 			}
 		}
 
@@ -704,92 +707,88 @@ func (l *Lexer) readNext() Lexeme {
 				Location: LocationLen(start, 2),
 				Type:     AddAssign,
 			}
-		} else {
-			return Lexeme{
-				Location: LocationLen(start, 1),
-				Type:     '+',
-			}
+		}
+
+		return Lexeme{
+			Location: LocationLen(start, 1),
+			Type:     '+',
 		}
 
 	case '/':
 		l.consume()
 
-		ch := l.peekch0()
-
-		if ch == '=' {
+		switch l.peekch0() {
+		case '=':
 			l.consume()
 			return Lexeme{
 				Location: LocationLen(start, 2),
 				Type:     DivAssign,
 			}
-		} else if ch == '/' {
-			l.consume()
 
+		case '/':
+			l.consume()
 			if l.peekch0() == '=' {
 				l.consume()
 				return Lexeme{
 					Location: LocationLen(start, 3),
 					Type:     FloorDivAssign,
 				}
-			} else {
-				return Lexeme{
-					Location: LocationLen(start, 2),
-					Type:     FloorDiv,
-				}
 			}
-		} else {
+
 			return Lexeme{
-				Location: LocationLen(start, 1),
-				Type:     '/',
+				Location: LocationLen(start, 2),
+				Type:     FloorDiv,
 			}
+		}
+
+		return Lexeme{
+			Location: LocationLen(start, 1),
+			Type:     '/',
 		}
 
 	case '*':
 		l.consume()
-
 		if l.peekch0() == '=' {
 			l.consume()
 			return Lexeme{
 				Location: LocationLen(start, 2),
 				Type:     MulAssign,
 			}
-		} else {
-			return Lexeme{
-				Location: LocationLen(start, 1),
-				Type:     '*',
-			}
+		}
+
+		return Lexeme{
+			Location: LocationLen(start, 1),
+			Type:     '*',
 		}
 
 	case '%':
 		l.consume()
-
 		if l.peekch0() == '=' {
 			l.consume()
 			return Lexeme{
 				Location: LocationLen(start, 2),
 				Type:     ModAssign,
 			}
-		} else {
-			return Lexeme{
-				Location: LocationLen(start, 1),
-				Type:     '%',
-			}
+		}
+
+		return Lexeme{
+			Location: LocationLen(start, 1),
+			Type:     '%',
 		}
 
 	case '^':
 		l.consume()
-
 		if l.peekch0() == '=' {
 			l.consume()
 			return Lexeme{
 				Location: LocationLen(start, 2),
 				Type:     PowAssign,
 			}
-		} else {
-			return Lexeme{
-				Location: LocationLen(start, 1),
-				Type:     '^',
-			}
+		}
+
+		return Lexeme{
+			Location: LocationLen(start, 1),
+			Type:     '^',
 		}
 
 	case ':':
@@ -800,11 +799,11 @@ func (l *Lexer) readNext() Lexeme {
 				Location: LocationLen(start, 2),
 				Type:     DoubleColon,
 			}
-		} else {
-			return Lexeme{
-				Location: LocationLen(start, 1),
-				Type:     ':',
-			}
+		}
+
+		return Lexeme{
+			Location: LocationLen(start, 1),
+			Type:     ':',
 		}
 
 	case '(', ')', ']', ';', ',', '#', '?', '&', '|':
@@ -829,7 +828,8 @@ func (l *Lexer) readNext() Lexeme {
 	default:
 		if isDigit(l.peekch0()) {
 			return l.readNumber(start, l.offset)
-		} else if isAlpha(l.peekch0()) || l.peekch0() == '_' {
+		}
+		if isAlpha(l.peekch0()) || l.peekch0() == '_' {
 			name := l.readName()
 
 			return Lexeme{
@@ -838,16 +838,17 @@ func (l *Lexer) readNext() Lexeme {
 				name:     &name.Name.Value,
 				Data:     l.buffer[l.offset-uint32(len(name.Name.Value)) : l.offset], // whatever3
 			}
-		} else if (l.peekch0() & 0x80) != 0 {
+		}
+		if (l.peekch0() & 0x80) != 0 {
 			return l.readUtf8Error()
-		} else {
-			ch := l.peekch0()
-			l.consume()
+		}
 
-			return Lexeme{
-				Location: LocationLen(start, 1),
-				Type:     LexemeType(ch),
-			}
+		ch := l.peekch0()
+		l.consume()
+
+		return Lexeme{
+			Location: LocationLen(start, 1),
+			Type:     LexemeType(ch),
 		}
 	}
 }
@@ -904,24 +905,27 @@ func toUtf8(buf []byte, codepoint uint32) uint {
 	if codepoint < 0x80 { // U+0000..U+007F
 		buf[0] = byte(codepoint)
 		return 1
-	} else if codepoint < 0x800 { // U+0080..U+07FF
+	}
+	if codepoint < 0x800 { // U+0080..U+07FF
 		buf[0] = byte(0xC0 | (codepoint >> 6))
 		buf[1] = byte(0x80 | (codepoint & 0x3F))
 		return 2
-	} else if codepoint < 0x10000 { // U+0800..U+FFFF
+	}
+	if codepoint < 0x10000 { // U+0800..U+FFFF
 		buf[0] = byte(0xE0 | (codepoint >> 12))
 		buf[1] = byte(0x80 | ((codepoint >> 6) & 0x3F))
 		buf[2] = byte(0x80 | (codepoint & 0x3F))
 		return 3
-	} else if codepoint < 0x110000 { // U+10000..U+10FFFF
+	}
+	if codepoint < 0x110000 { // U+10000..U+10FFFF
 		buf[0] = byte(0xF0 | (codepoint >> 18))
 		buf[1] = byte(0x80 | ((codepoint >> 12) & 0x3F))
 		buf[2] = byte(0x80 | ((codepoint >> 6) & 0x3F))
 		buf[3] = byte(0x80 | (codepoint & 0x3F))
 		return 4
-	} else {
-		return 0 // invalid code point
 	}
+
+	return 0 // invalid code point
 }
 
 func (l *Lexer) fixupQuotedString(data *[]byte) bool {
@@ -1016,7 +1020,6 @@ func (l *Lexer) fixupQuotedString(data *[]byte) bool {
 				}
 
 				ch := (*data)[i]
-
 				if ch == '}' {
 					break
 				}
