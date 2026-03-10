@@ -1657,9 +1657,10 @@ func parseAttributeStat() AstStat {
 	attributes := parseAttributes()
 	type_ := token_type
 
-	if type_ == lex.ReservedFunction {
+	switch type_ {
+	case lex.ReservedFunction:
 		return parseFunctionStat(attributes)
-	} else if type_ == lex.ReservedLocal {
+	case lex.ReservedLocal:
 		return parseLocal(attributes)
 	}
 
@@ -1979,13 +1980,13 @@ var (
 )
 
 func tableSeparator() *int {
-	if token_type == ',' {
+	switch token_type {
+	case ',':
 		return &pzero
-	} else if token_type == ';' {
+	case ';':
 		return &pone
-	} else {
-		return nil
 	}
+	return nil
 }
 
 // explist ::= {exp `,'} exp
@@ -2669,15 +2670,18 @@ func parseReturnType() AstTypePack {
 }
 
 func extractStringDetails() (style CstQuotes, depth int) {
-	if token_type == lex.QuotedString {
+	switch token_type {
+	case lex.QuotedString:
 		if token_aux != nil && *token_aux == 1 {
 			style = CstQuotes_Single
-		} else {
-			style = CstQuotes_Double
+			break
 		}
-	} else if token_type == lex.InterpStringSimple {
+		style = CstQuotes_Double
+
+	case lex.InterpStringSimple:
 		style = CstQuotes_Interp
-	} else if token_type == lex.RawString {
+
+	case lex.RawString:
 		style = CstQuotes_Raw
 		if token_aux != nil {
 			depth = *token_aux
@@ -2732,19 +2736,18 @@ func parseTableType(inDeclarationContext bool) AstTypeTable {
 		access := "ReadWrite"
 		var accessLoc *lex.Location
 
-		if token_type == lex.Name && next_type != ':' {
-			if token_string != nil {
-				if *token_string == "read" {
-					loc := snapshot()
-					accessLoc = &loc
-					access = "Read"
-					nextLexeme()
-				} else if *token_string == "write" {
-					loc := snapshot()
-					accessLoc = &loc
-					access = "Write"
-					nextLexeme()
-				}
+		if token_type == lex.Name && next_type != ':' && token_string != nil {
+			switch *token_string {
+			case "read":
+				loc := snapshot()
+				accessLoc = &loc
+				access = "Read"
+				nextLexeme()
+			case "write":
+				loc := snapshot()
+				accessLoc = &loc
+				access = "Write"
+				nextLexeme()
 			}
 		}
 
@@ -3107,11 +3110,13 @@ func parseTypeSuffix(type_ AstType, begin lex.Location) AstType {
 	var separatorPositions []lex.Position
 	var leadingPosition *lex.Position
 
+loop:
 	for {
 		t := token_type
 		separatorPosition := token_location.Begin
 
-		if t == '|' {
+		switch t {
+		case '|':
 			nextLexeme()
 
 			oldRecursion := recursionCounter
@@ -3131,14 +3136,16 @@ func parseTypeSuffix(type_ AstType, begin lex.Location) AstType {
 					separatorPositions = append(separatorPositions, separatorPosition)
 				}
 			}
-		} else if t == '?' {
+
+		case '?':
 			loc := snapshot()
 			nextLexeme()
 
 			parts = append(parts, AstTypeOptional{NodeLoc: &NodeLoc{loc}})
 			optionalCount++
 			isUnion = true
-		} else if t == '&' {
+
+		case '&':
 			nextLexeme()
 
 			oldRecursion := recursionCounter
@@ -3158,11 +3165,13 @@ func parseTypeSuffix(type_ AstType, begin lex.Location) AstType {
 					separatorPositions = append(separatorPositions, separatorPosition)
 				}
 			}
-		} else if t == lex.Dot3 {
+
+		case lex.Dot3:
 			report(snapshot(), "Unexpected '...' after type annotation")
 			nextLexeme()
-		} else {
-			break
+
+		default:
+			break loop
 		}
 
 		if len(parts) > TypeLengthLimit+optionalCount {
@@ -3241,10 +3250,12 @@ func parseSimpleType(allowPack bool, inDeclarationContext bool) (AstType, AstTyp
 
 	start := snapshot()
 
-	if token_type == lex.Attribute || token_type == lex.AttributeOpen {
+	switch token_type {
+	case lex.Attribute, lex.AttributeOpen:
 		attributes := parseAttributes()
 		return parseFunctionType(allowPack, attributes)
-	} else if token_type == lex.ReservedNil {
+
+	case lex.ReservedNil:
 		nextLexeme()
 		return AstTypeReference{
 			NodeLoc:          &NodeLoc{start},
@@ -3252,25 +3263,31 @@ func parseSimpleType(allowPack bool, inDeclarationContext bool) (AstType, AstTyp
 			Name:             nameNil,
 			NameLocation:     start,
 		}, nil
-	} else if token_type == lex.ReservedTrue {
+
+	case lex.ReservedTrue:
 		nextLexeme()
 		return AstTypeSingletonBool{NodeLoc: &NodeLoc{start}, Value: true}, nil
-	} else if token_type == lex.ReservedFalse {
+
+	case lex.ReservedFalse:
 		nextLexeme()
 		return AstTypeSingletonBool{NodeLoc: &NodeLoc{start}, Value: false}, nil
-	} else if token_type == lex.RawString || token_type == lex.QuotedString {
+
+	case lex.RawString, lex.QuotedString:
 		chars := parseCharArray()
 		if chars != nil {
 			return AstTypeSingletonString{NodeLoc: &NodeLoc{start}, Value: *chars}, nil
 		}
 		return reportTypeError(start, nil, "String literal contains malformed escape sequence"), nil
-	} else if token_type == lex.InterpStringBegin || token_type == lex.InterpStringSimple {
+
+	case lex.InterpStringBegin, lex.InterpStringSimple:
 		parseInterpString()
 		return reportTypeError(start, nil, "Interpolated string literals cannot be used as types"), nil
-	} else if token_type == lex.BrokenString {
+
+	case lex.BrokenString:
 		nextLexeme()
 		return reportTypeError(start, nil, "Malformed string; did you forget to finish it?"), nil
-	} else if token_type == lex.Name {
+
+	case lex.Name:
 		ctx := "type name"
 		name := parseName(&ctx)
 		var prefix *string
@@ -3351,27 +3368,30 @@ func parseSimpleType(allowPack bool, inDeclarationContext bool) (AstType, AstTyp
 
 		_ = inDeclarationContext
 		return node, nil
-	} else if token_type == '{' {
+
+	case '{':
 		return parseTableType(inDeclarationContext), nil
-	} else if token_type == '(' || token_type == '<' {
+
+	case '(', '<':
 		return parseFunctionType(allowPack, Attrs{})
-	} else if token_type == lex.ReservedFunction {
+
+	case lex.ReservedFunction:
 		nextLexeme()
 		return reportTypeError(start, nil, "Using 'function' as a type annotation is not supported, consider using a typed function decorator instead"), nil
-	} else {
-		currLex := lex.Lexeme{Type: token_type, Codepoint: token_codepoint}
-		if token_string != nil {
-			currLex.Data = []byte(*token_string)
-		}
-		report(start, fmt.Sprintf("Expected type, got %s", currLex.String()))
-
-		return AstTypeError{
-			NodeLoc:      &NodeLoc{start},
-			Types:        nil,
-			IsMissing:    true,
-			MessageIndex: len(parseErrors),
-		}, nil
 	}
+
+	currLex := lex.Lexeme{Type: token_type, Codepoint: token_codepoint}
+	if token_string != nil {
+		currLex.Data = []byte(*token_string)
+	}
+	report(start, fmt.Sprintf("Expected type, got %s", currLex.String()))
+
+	return AstTypeError{
+		NodeLoc:      &NodeLoc{start},
+		Types:        nil,
+		IsMissing:    true,
+		MessageIndex: len(parseErrors),
+	}, nil
 }
 
 // parseVariadicArgumentTypePack parses T... or Name...
@@ -3951,7 +3971,8 @@ func parseSimpleExpr() AstExpr {
 
 // parseFunctionArgs parses `(' [explist] `)' | tableconstructor | String
 func parseFunctionArgs(funcExpr AstExpr, selfCall bool) AstExpr {
-	if token_type == '(' {
+	switch token_type {
+	case '(':
 		if funcExpr.GetLocation().End.Line != token_location.Begin.Line {
 			reportAmbiguousCallError()
 		}
@@ -3988,7 +4009,8 @@ func parseFunctionArgs(funcExpr AstExpr, selfCall bool) AstExpr {
 		}
 
 		return result
-	} else if token_type == '{' {
+
+	case '{':
 		argStart := token_location.End
 		tableExpr := parseTableConstructor()
 		argEnd := prev_location.End
@@ -4006,7 +4028,8 @@ func parseFunctionArgs(funcExpr AstExpr, selfCall bool) AstExpr {
 		}
 
 		return result
-	} else if token_type == lex.RawString || token_type == lex.QuotedString {
+
+	case lex.RawString, lex.QuotedString:
 		argLocation := snapshot()
 		strExpr := parseString()
 
