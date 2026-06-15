@@ -49,7 +49,7 @@ func Compile(c Compiler, path string) (p Program, err error) {
 	// find if file at path exists
 	if _, err := os.Stat(pathext); err != nil {
 		if _, err := os.Stat(path); err != nil {
-			return Program{}, errors.New("error finding file")
+			return p, errors.New("error finding file")
 		}
 		// main.luau directory
 		pathext = path + "/main" + Ext
@@ -57,13 +57,13 @@ func Compile(c Compiler, path string) (p Program, err error) {
 
 	b, err := luauCompile(pathext, c.O)
 	if err != nil {
-		return Program{}, fmt.Errorf("compile file: %w", err)
+		return p, fmt.Errorf("compile file: %w", err)
 	}
 
 	// dbgpath has the extension and all
 	d, err := Deserialise(b)
 	if err != nil {
-		return Program{}, fmt.Errorf("deserialise bytecode: %w", err)
+		return p, fmt.Errorf("deserialise bytecode: %w", err)
 	}
 
 	dp := internal.Deserpath{
