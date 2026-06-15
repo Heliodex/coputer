@@ -279,6 +279,9 @@ func (s *stream) readInst(code *[]*internal.Inst) (bool, error) {
 		fallthrough
 	case 1: // A
 		i.A = int32(uint8(value >> 8)) // 8 bit
+	case 0:
+	default:
+		return false, fmt.Errorf("unknown instruction mode %d", opinfo.Mode)
 	}
 	// fmt.Println("Opcode:", opcode, "A:", i.A, "B:", i.B, "C:", i.C, "D:", i.D)
 
@@ -418,7 +421,7 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 				s.skipVarInt()
 			}
 		default:
-			return nil, fmt.Errorf("unknown ktype %d", kt)
+			return nil, fmt.Errorf("unknown constant kind %d", kt)
 		}
 	}
 
@@ -442,7 +445,11 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 	if dbgnamei := s.rVarInt(); dbgnamei == 0 {
 		p.Dbgname = "(??)"
 	} else {
-		p.Dbgname = stringList[dbgnamei-1]
+		i := dbgnamei - 1
+		if i >= uint32(len(stringList)) {
+			return nil, fmt.Errorf("invalid dbgname index %d", dbgnamei)
+		}
+		p.Dbgname = stringList[i]
 	}
 
 	// LineInfoEnabled
@@ -457,8 +464,8 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 }
 
 var (
-	errUnsupportedVersion      = errors.New("the version of the provided bytecode is unsupported")
-	errUnsupportedTypesVersion = errors.New("the types version of the provided bytecode is unsupported")
+	errUnsupportedVersion      = errors.New("bytecode version mismatch")
+	errUnsupportedTypesVersion = errors.New("bytecode type version mismatch")
 )
 
 const (
