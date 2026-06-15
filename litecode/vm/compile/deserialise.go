@@ -29,7 +29,7 @@ import (
 //		6 = AUX number low 24 bits
 // HasAux boolean specifies whether the instruction is followed up with an AUX word, which may be used to execute the instruction.
 
-var opList = [83]internal.OpInfo{
+var opList = [89]internal.OpInfo{
 	{Mode: 0, KMode: 0, HasAux: false}, // NOP
 	{Mode: 0, KMode: 0, HasAux: false}, // BREAK
 	{Mode: 1, KMode: 0, HasAux: false}, // LOADNIL
@@ -113,6 +113,12 @@ var opList = [83]internal.OpInfo{
 	{Mode: 4, KMode: 6, HasAux: true},  // JUMPXEQKS
 	{Mode: 3, KMode: 0, HasAux: false}, // IDIV
 	{Mode: 3, KMode: 2, HasAux: false}, // IDIVK
+	{},                                 // GETUDATAKS
+	{},                                 // SETUDATAKS
+	{},                                 // NAMECALLUDATA
+	{},                                 // NEWCLASSMEMBER
+	{},                                 // CALLFB
+	{},                                 // CMPPROTO
 }
 
 func checkkmode(i *internal.Inst, k []Val) {
@@ -460,6 +466,19 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 	if s.rBool() {
 		s.skipDebugInfo()
 	}
+
+	// new in v11
+
+	feedbackvecsize := s.rVarInt()
+	// feedbackvec := make([]uint32, feedbackvecsize)
+
+	for range feedbackvecsize {
+		slottype := s.rByte()
+		if slottype != 0 {
+			return nil, fmt.Errorf("unexpected feedback slot type %d", slottype)
+		}
+	}
+
 	return
 }
 
