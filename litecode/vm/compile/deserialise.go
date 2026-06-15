@@ -413,16 +413,29 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 	return
 }
 
+var (
+	errUnsupportedVersion      = errors.New("the version of the provided bytecode is unsupported")
+	errUnsupportedTypesVersion = errors.New("the types version of the provided bytecode is unsupported")
+)
+
+const (
+	expectedLuauVersion      = 6
+	expectedLuauTypesVersion = 3
+)
+
 func Deserialise(b []byte) (d internal.Deserialised, err error) {
 	s := &stream{data: b}
 
-	if luauVersion := s.rByte(); luauVersion == 0 {
-		return internal.Deserialised{}, errors.New("the provided bytecode is an error message")
-	} else if luauVersion != 6 {
-		return internal.Deserialised{}, errors.New("the version of the provided bytecode is unsupported")
+	luauVersion := s.rByte()
+	if luauVersion == 0 {
+		return d, errors.New("the provided bytecode is an error message")
 	}
-	if s.rByte() != 3 { // types version
-		return internal.Deserialised{}, errors.New("the types version of the provided bytecode is unsupported")
+	if luauVersion != expectedLuauVersion {
+		return d, fmt.Errorf("%w: expected %d, got %d", errUnsupportedVersion, expectedLuauVersion, luauVersion)
+	}
+
+	if luauTypesVersion := s.rByte(); luauTypesVersion != expectedLuauTypesVersion {
+		return d, fmt.Errorf("%w: expected %d, got %d", errUnsupportedTypesVersion, expectedLuauTypesVersion, luauTypesVersion)
 	}
 
 	// fmt.Println("Rest:", s.data[s.pos:])
