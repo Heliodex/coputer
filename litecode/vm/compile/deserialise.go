@@ -237,10 +237,13 @@ func (s *stream) checkEnd() error {
 }
 
 // reads either 1 or 2 words
-func (s *stream) readInst(code *[]*internal.Inst) bool {
+func (s *stream) readInst(code *[]*internal.Inst) (bool, error) {
 	value := s.rUint32()
 
 	opcode := uint8(value)
+	if int(opcode) >= len(opList) {
+		return false, fmt.Errorf("invalid opcode %d", opcode)
+	}
 	opinfo := opList[opcode]
 
 	i := internal.Inst{
@@ -269,14 +272,14 @@ func (s *stream) readInst(code *[]*internal.Inst) bool {
 	// fmt.Println("Opcode:", opcode, "A:", i.A, "B:", i.B, "C:", i.C, "D:", i.D)
 
 	*code = append(*code, &i)
-	if opinfo.HasAux {
-		i.Aux = s.rUint32()
-
-		*code = append(*code, &internal.Inst{})
-		return true
+	if !opinfo.HasAux {
+		return false, nil
 	}
 
-	return false
+	i.Aux = s.rUint32()
+
+	*code = append(*code, &internal.Inst{})
+	return true, nil
 }
 
 func (s *stream) readLineInfo(sizecode uint32) (instLineInfo []uint32) {
@@ -340,7 +343,12 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 	sizecode := s.rVarInt()
 	// fmt.Println("Sizecode:", sizecode)
 	for i := uint32(0); i < sizecode; i++ {
-		if s.readInst(&p.Code) {
+		hasAux, err := s.readInst(&p.Code)
+		if err != nil {
+			return nil, fmt.Errorf("readInst %d: %w", i, err)
+		}
+
+		if hasAux {
 			// fmt.Println("Insts (aux)  ", *p.Code[i-1], *p.Code[i])
 			i++
 		}
@@ -419,23 +427,23 @@ var (
 )
 
 const (
-	expectedLuauVersion      = 6
-	expectedLuauTypesVersion = 3
+	expectedBytecodeVersion = 11
+	expectedTypesVersion    = 3
 )
 
 func Deserialise(b []byte) (d internal.Deserialised, err error) {
 	s := &stream{data: b}
 
-	luauVersion := s.rByte()
-	if luauVersion == 0 {
+	version := s.rByte()
+	if version == 0 {
 		return d, errors.New("the provided bytecode is an error message")
 	}
-	if luauVersion != expectedLuauVersion {
-		return d, fmt.Errorf("%w: expected %d, got %d", errUnsupportedVersion, expectedLuauVersion, luauVersion)
+	if version != expectedBytecodeVersion {
+		return d, fmt.Errorf("%w: expected %d, got %d", errUnsupportedVersion, expectedBytecodeVersion, version)
 	}
 
-	if luauTypesVersion := s.rByte(); luauTypesVersion != expectedLuauTypesVersion {
-		return d, fmt.Errorf("%w: expected %d, got %d", errUnsupportedTypesVersion, expectedLuauTypesVersion, luauTypesVersion)
+	if typesVersion := s.rByte(); typesVersion != expectedTypesVersion {
+		return d, fmt.Errorf("%w: expected %d, got %d", errUnsupportedTypesVersion, expectedTypesVersion, typesVersion)
 	}
 
 	// fmt.Println("Rest:", s.data[s.pos:])
