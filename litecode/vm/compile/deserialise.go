@@ -220,6 +220,17 @@ func (s *stream) skipVarInt() {
 	}
 }
 
+func (s *stream) rVarInt64() (r uint64) {
+	for i := range 8 {
+		v := uint64(s.rByte())
+		r |= v & 0b0111_1111 << (i * 7)
+		if v&0b1000_0000 == 0 {
+			return
+		}
+	}
+	return
+}
+
 func (s *stream) rString() (str string) {
 	size := s.rVarInt()
 	// fmt.Println("String size:", size)
@@ -382,6 +393,30 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 			// fmt.Println("case 6", p.K[i])
 		case 7: // Vector
 			K[i] = s.rVector()
+		case 8: // Table with constants
+			// I guess??
+			for range s.rVarInt() {
+				s.skipVarInt()
+				s.skipUint32()
+			}
+		case 9: // Integer
+			isNegative := s.rBool()
+			magnitude := s.rVarInt64()
+			if isNegative {
+				K[i] = int64(^magnitude + 1)
+			} else {
+				K[i] = int64(magnitude)
+			}
+		case 10: // Class shape
+			// cnid := s.rVarInt()
+			s.skipVarInt()
+			numProps := s.rVarInt()
+			numMethods := s.rVarInt()
+			numMembers := numProps + numMethods
+			for range numMembers {
+				// mid := s.rVarInt()
+				s.skipVarInt()
+			}
 		default:
 			return nil, fmt.Errorf("unknown ktype %d", kt)
 		}
