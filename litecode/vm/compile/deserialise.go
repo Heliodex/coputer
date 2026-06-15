@@ -558,12 +558,13 @@ func Deserialise(b []byte) (d internal.Deserialised, err error) {
 	// fmt.Println("Rest:", s.data[s.pos:])
 
 	protoCount := s.rVarInt()
+	// fmt.Println("protos", protoCount)
 	// fmt.Println("Rest:", s.data[s.pos:])
 
 	protoList := make([]*internal.Proto, protoCount)
 	for i := range protoCount {
 		if protoList[i], err = s.readProto(stringList); err != nil {
-			return
+			return d, fmt.Errorf("readProto %d: %w", i, err)
 		}
 		// fmt.Println("Proto:", protoList[i])
 	}

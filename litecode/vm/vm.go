@@ -478,7 +478,10 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			stack[i.A] = stack[i.B]
 			pc++
 		case 7: // GETGLOBAL
-			kv := i.K.(string)
+			kv, ok := i.K.(string)
+			if !ok {
+				return nil, fmt.Errorf("invalid constant type for GETGLOBAL: %T", i.K)
+			}
 			// fmt.Println("GETTING GLOBAL", kv, "from", towrap.env)
 
 			if e, ok := exts[kv]; ok {
@@ -489,7 +492,10 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			pc += 2 // -- adjust for aux
 		case 8: // SETGLOBAL
 			// LOL
-			kv := i.K.(string)
+			kv, ok := i.K.(string)
+			if !ok {
+				return nil, fmt.Errorf("invalid constant type for SETGLOBAL: %T", i.K)
+			}
 
 			if _, ok := exts[kv]; ok {
 				return nil, fmt.Errorf("attempt to redefine global '%s'", kv)
