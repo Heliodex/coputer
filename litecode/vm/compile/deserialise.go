@@ -121,7 +121,7 @@ var opList = [89]internal.OpInfo{
 	{},                                 // CMPPROTO
 }
 
-func checkkmode(i *internal.Inst, k []Val) {
+func checkkmode(i *internal.Inst, k []Val) error {
 	// fmt.Println("AUX:", i.Aux, "KMODE:", i.KMode)
 	switch aux := i.Aux; i.KMode {
 	case 1: // AUX
@@ -129,29 +129,49 @@ func checkkmode(i *internal.Inst, k []Val) {
 			i.K = k[aux]
 		}
 	case 2: // C
+		if i.C >= uint8(len(k)) {
+			return fmt.Errorf("invalid constant index for C: %d", i.C)
+		}
 		i.K = k[i.C]
 		// fmt.Println("SET K TO", i.K, "FROM", i.C)
 	case 3: // D
+		if i.D >= int32(len(k)) {
+			return fmt.Errorf("invalid constant index for D: %d", i.D)
+		}
 		i.K = k[i.D]
 	case 4: // AUX import
 		count := uint8(aux >> 30)
 		i.KC = count
 
 		id0 := aux >> 20 & 0x3ff
-		i.K0 = k[id0].(string) // lmk if this panics lol
+
+		var ok bool
+		// don't lmk if this panics
+		kid0 := k[id0]
+		if i.K0, ok = kid0.(string); !ok {
+			return fmt.Errorf("invalid constant type for K0: %T", kid0)
+		}
 		// fmt.Println("AUX", i.K0)
 
 		if count < 2 {
 			break
 		}
 		id1 := aux >> 10 & 0x3ff
-		i.K1 = k[id1].(string)
+
+		kid1 := k[id1]
+		if i.K1, ok = kid1.(string); !ok {
+			return fmt.Errorf("invalid constant type for K1: %T", kid1)
+		}
 
 		if count < 3 { // should never be >3
 			break
 		}
 		id2 := aux & 0x3ff
-		i.K2 = k[id2].(string)
+
+		kid2 := k[id2]
+		if i.K2, ok = kid2.(string); !ok {
+			return fmt.Errorf("invalid constant type for K2: %T", kid2)
+		}
 	case 5: // AUX boolean low 1 bit
 		i.K = aux&1 == 1
 		i.KN = aux>>31 == 1
@@ -165,6 +185,7 @@ func checkkmode(i *internal.Inst, k []Val) {
 	}
 
 	// fmt.Println("K:", i.K)
+	return nil
 }
 
 type stream struct {
@@ -362,7 +383,7 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 
 	sizecode := s.rVarInt()
 	// fmt.Println("Sizecode:", sizecode)
-	for i := uint32(0); i < sizecode; i++ {
+	for i := range uint32(sizecode) {
 		hasAux, err := s.readInst(&p.Code)
 		if err != nil {
 			return nil, fmt.Errorf("readInst %d: %w", i, err)
@@ -431,12 +452,14 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 		}
 	}
 
-	// fmt.Println("K:", K)
+	// fmt.Println ("K:", K)
 
 	// -- 2nd pass to replace constant references in the instruction
 	for i := range sizecode {
 		// fmt.Println("Checking inst - aux:", p.Code[i].Aux, "kmode:", p.Code[i].KMode)
-		checkkmode(p.Code[i], K)
+		if err := checkkmode(p.Code[i], K); err != nil {
+			return nil, fmt.Errorf("checkkmode %d: %w", i, err)
+		}
 	}
 
 	sizep := s.rVarInt()
