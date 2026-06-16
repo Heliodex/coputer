@@ -277,6 +277,7 @@ func (s *stream) checkEnd() error {
 // reads either 1 or 2 words
 func (s *stream) readInst(code *[]*internal.Inst) (bool, error) {
 	value := s.rUint32()
+	// fmt.Println(": ", value)
 
 	opcode := uint8(value)
 	if int(opcode) >= len(opList) {
@@ -353,14 +354,20 @@ func (s *stream) readLineInfo(sizecode uint32) (instLineInfo []uint32) {
 }
 
 func (s *stream) skipDebugInfo() {
-	for range s.rVarInt() { // sizel
-		s.skipVarInt()
-		s.skipVarInt()
-		s.skipVarInt()
-		s.pos++
+	for range s.rVarInt() { // sizelocvars
+		s.skipVarInt() // varname
+		s.skipVarInt() // startpc
+		s.skipVarInt() // endpc
+		s.pos++ // reg
+		// startpc := s.rVarInt()
+		// fmt.Println("startpc:", startpc)
+		// endpc := s.rVarInt()
+		// fmt.Println("endpc:", endpc)
+		// reg := s.rByte()
+		// fmt.Println("reg:", reg)
 	}
 	for range s.rVarInt() { // sizeupvalues
-		s.skipVarInt()
+		s.skipVarInt() // upvalue
 	}
 }
 
@@ -371,6 +378,7 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 		NumParams:    s.rByte(),
 		Nups:         s.rByte(),
 	}
+	// fmt.Println("maxstacksize", p.MaxStackSize, "numparams", p.NumParams, "nups", p.Nups)
 
 	// s.rBool()            // isvararg
 	// native := s.rByte() // -- flags
@@ -383,7 +391,11 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 
 	sizecode := s.rVarInt()
 	// fmt.Println("Sizecode:", sizecode)
-	for i := range uint32(sizecode) {
+	// MUST BE A NON-RANGE FOR LOOP
+	// because i is incremented if the instruction has aux
+	b := 0
+	for i := uint32(0); i < sizecode; i++ {
+		// fmt.Print("code", b)
 		hasAux, err := s.readInst(&p.Code)
 		if err != nil {
 			return nil, fmt.Errorf("readInst %d: %w", i, err)
@@ -393,14 +405,17 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 			// fmt.Println("Insts (aux)  ", *p.Code[i-1], *p.Code[i])
 			i++
 		}
+		b++
 	}
 
 	sizek := s.rVarInt()
+	// fmt.Println("sizek", sizek)
 	K := make([]Val, sizek) // krazy
 
 	for i := range sizek {
-		// fmt.Println("Ktype:", kt)
-		switch kt := s.rByte(); kt {
+		kt := s.rByte()
+		// fmt.Println("Ktype", i, kt)
+		switch kt {
 		case 0: // Nil
 			// yeah
 		case 1: // Bool
@@ -463,9 +478,12 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 	}
 
 	sizep := s.rVarInt()
+	// fmt.Println("sizep", sizep)
+
 	p.Protos = make([]uint32, sizep)
 	for i := range sizep {
 		p.Protos[i] = s.rVarInt()
+		// fmt.Println("p", i, p.Protos[i])
 	}
 
 	// p.LineDefined = s.rVarInt()
@@ -482,24 +500,32 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 	}
 
 	// LineInfoEnabled
-	if s.rBool() {
+	lineinfo := s.rBool()
+	// fmt.Println("lineinfo", lineinfo)
+	if lineinfo {
 		p.InstLineInfo = s.readLineInfo(sizecode)
 	}
 
-	if s.rBool() {
+	debuginfo := s.rBool()
+	// fmt.Println("debuginfo", debuginfo)
+	if debuginfo {
 		s.skipDebugInfo()
 	}
 
 	// new in v11
 
 	feedbackvecsize := s.rVarInt()
+	// fmt.Println("feedbackvecsize", feedbackvecsize)
 	// feedbackvec := make([]uint32, feedbackvecsize)
 
-	for range feedbackvecsize {
+	for i := range feedbackvecsize {
 		slottype := s.rByte()
 		if slottype != 0 {
-			return nil, fmt.Errorf("unexpected feedback slot type %d", slottype)
+			return nil, fmt.Errorf("unexpected feedback slot %d type %d", i, slottype)
 		}
+
+		// pc := s.rVarInt()
+		s.skipVarInt()
 	}
 
 	return
@@ -519,6 +545,8 @@ func Deserialise(b []byte) (d internal.Deserialised, err error) {
 	s := &stream{data: b}
 
 	version := s.rByte()
+	// fmt.Println("version", version)
+
 	if version == 0 {
 		return d, errors.New("the provided bytecode is an error message")
 	}

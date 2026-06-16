@@ -131,8 +131,11 @@ func TestConformance(t *testing.T) {
 		// fix all newlines to be \n
 		og = strings.ReplaceAll(og, "\r\n", "\n")
 
+		// fmt.Println("o0")
 		o0, _ := litecode(t, filename, c0)
+		// fmt.Println("o1")
 		o1, _ := litecode(t, filename, c1)
+		// fmt.Println("o2")
 		o2, _ := litecode(t, filename, c2)
 		fmt.Println()
 
