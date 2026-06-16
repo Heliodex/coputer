@@ -330,7 +330,12 @@ func handleRequire(towrap toWrap, p compile.Program, co *Coroutine) (rets []Val,
 }
 
 func call(top *int32, A int32, B, C uint8, towrap toWrap, stack *[]Val, co *Coroutine) (err error) {
+	l := int32(len(*stack))
+	if A > l {
+		return fmt.Errorf("stack index out of range: %d > %d", A, len(*stack))
+	}
 	f := (*stack)[A]
+
 	fn, ok := f.(Function)
 	if !ok {
 		return uncallableType(std.TypeOf(f))
@@ -351,7 +356,22 @@ func call(top *int32, A int32, B, C uint8, towrap toWrap, stack *[]Val, co *Coro
 	if rco == nil { // make sure any function is called in the coroutine of its own file (mainly for correct error messages)
 		rco = co
 	}
-	retList, err := (*fn.Run)(rco, (*stack)[A+1:][:params-1]...) // not inclusive
+
+	start := A + 1
+	if start < 0 {
+		return fmt.Errorf("stack start index out of range: %d < 0", start)
+	}
+
+	end := params - 1 + start
+	if end > l {
+		return fmt.Errorf("stack end index out of range: %d > %d", end, len(*stack))
+	}
+
+	if start > end {
+		return fmt.Errorf("invalid stack bounds: start %d > end %d", start, end)
+	}
+
+	retList, err := (*fn.Run)(rco, (*stack)[start:end]...) // not inclusive
 	// fmt.Println("upvals2", len(upvals))
 	if err != nil {
 		return

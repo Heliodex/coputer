@@ -124,6 +124,8 @@ var opList = [89]internal.OpInfo{
 func checkkmode(i *internal.Inst, k []Val) error {
 	// fmt.Println("AUX:", i.Aux, "KMODE:", i.KMode)
 	switch aux := i.Aux; i.KMode {
+	case 0:
+		// lel2
 	case 1: // AUX
 		if aux < uint32(len(k)) { // sometimes huge for some reason
 			i.K = k[aux]
@@ -182,6 +184,8 @@ func checkkmode(i *internal.Inst, k []Val) error {
 		i.K = k[i.B]
 	case 8: // AUX number low 16 bits ig
 		i.K = uint8(aux & 0xf) // forgloop
+	default:
+		return fmt.Errorf("unknown KMode %d", i.KMode)
 	}
 
 	// fmt.Println("K:", i.K)
