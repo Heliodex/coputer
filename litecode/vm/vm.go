@@ -947,6 +947,16 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			} else {
 				pc += 2
 			}
+		// case 83: // GETUDATAKS
+		// case 84: // SETUDATAKS
+		// case 85: // NAMECALLUDATA
+		// case 86: // NEWCLASSMEMBER
+		case 87: // CALLFB
+			if err = call(&top, i.A, i.B, i.C, towrap, &stack, co); err != nil {
+				return
+			}
+			pc += 2 // adjust for aux
+		// case 88: // CMPPROTO
 		default:
 			return nil, fmt.Errorf("unsupported opcode: %d", op)
 		}

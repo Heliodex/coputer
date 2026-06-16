@@ -117,7 +117,7 @@ var opList = [89]internal.OpInfo{
 	{},                                 // SETUDATAKS
 	{},                                 // NAMECALLUDATA
 	{},                                 // NEWCLASSMEMBER
-	{},                                 // CALLFB
+	{Mode: 3, KMode: 0, HasAux: true}, // CALLFB
 	{},                                 // CMPPROTO
 }
 
@@ -358,7 +358,7 @@ func (s *stream) skipDebugInfo() {
 		s.skipVarInt() // varname
 		s.skipVarInt() // startpc
 		s.skipVarInt() // endpc
-		s.pos++ // reg
+		s.pos++        // reg
 		// startpc := s.rVarInt()
 		// fmt.Println("startpc:", startpc)
 		// endpc := s.rVarInt()
