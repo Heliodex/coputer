@@ -8,8 +8,8 @@ require (
 )
 
 require (
-	golang.org/x/crypto v0.48.0 // indirect
-	golang.org/x/sys v0.42.0 // indirect
+	golang.org/x/crypto v0.52.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
 )
 
 replace github.com/Heliodex/coputer/litecode => ../litecode
