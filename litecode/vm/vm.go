@@ -371,11 +371,15 @@ func call(top *int32, A int32, B, C uint8, towrap toWrap, stack *[]Val, co *Coro
 		return fmt.Errorf("invalid stack bounds: start %d > end %d", start, end)
 	}
 
+	fmt.Println("  start", start, "end", end, (*stack)[start:end])
+
 	retList, err := (*fn.Run)(rco, (*stack)[start:end]...) // not inclusive
 	// fmt.Println("upvals2", len(upvals))
 	if err != nil {
 		return
 	}
+
+	fmt.Println("retlist", retList)
 	// fmt.Println("resultt", retList)
 	retCount := int32(len(retList))
 
@@ -474,8 +478,12 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 		// 	fmt.Println("upval", upvals[0])
 		// }
 
+		for i, v := range stack {
+			fmt.Println("    ", i, std.ToString(v))
+		}
+
 		i := *code[pc]
-		// fmt.Println("OP", i.Opcode, "at pc", pc)
+		fmt.Println("OP", i.Opcode, "at pc", pc)
 		switch op := i.Opcode; op {
 		case 0: // NOP
 			// -- Do nothing
@@ -644,6 +652,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			}
 
 			// execute() should pretty much always exit through here
+			fmt.Println("  returning", stack[i.A:max(i.A+b, 0)])
 			return stack[i.A:max(i.A+b, 0)], nil
 		case 23, 24: // JUMP, JUMPBACK
 			pc += i.D + 1

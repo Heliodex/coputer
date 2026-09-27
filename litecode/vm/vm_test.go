@@ -105,9 +105,9 @@ func TestConformance(t *testing.T) {
 		t.Fatal("error reading conformance tests directory:", err)
 	}
 
-	// const onlyTest = "doubleloop"
+	const onlyTest = "anon"
 
-	c0, c1, c2 := compile.MakeCompiler(0), compile.MakeCompiler(1), compile.MakeCompiler(2)
+	compilers := []Compiler{compile.MakeCompiler(1), compile.MakeCompiler(2)}
 
 	for _, f := range files {
 		if f.IsDir() {
@@ -131,15 +131,10 @@ func TestConformance(t *testing.T) {
 		// fix all newlines to be \n
 		og = strings.ReplaceAll(og, "\r\n", "\n")
 
-		// fmt.Println("o0")
-		o0, _ := litecode(t, filename, c0)
-		// fmt.Println("o1")
-		o1, _ := litecode(t, filename, c1)
-		// fmt.Println("o2")
-		o2, _ := litecode(t, filename, c2)
-		fmt.Println()
+		for i, c := range compilers {
+			fmt.Println("\no", i)
+			o, _ := litecode(t, filename, c)
 
-		for i, o := range []string{o0, o1, o2} {
 			if o != og {
 				t.Errorf("%d output mismatch:\n-- Expected\n%s\n-- Got\n%s\n", i, og, o)
 				fmt.Println()

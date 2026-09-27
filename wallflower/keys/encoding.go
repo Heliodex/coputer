@@ -48,7 +48,7 @@ const (
 func digitEncoding[T [pkStringLength]uint | [skStringLength]uint, K PK | SK](k K) (digits T) {
 	var di int
 
-	for i := 0; i < len(k); i++ {
+	for i := range len(k) {
 		carry := uint(k[i])
 		for j := range di {
 			carry += digits[j] << 8

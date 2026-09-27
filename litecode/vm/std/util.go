@@ -35,6 +35,14 @@ func ToString(a Val) string {
 		return fmt.Sprintf("%s, %s, %s", num2str(float64(v[0])), num2str(float64(v[1])), num2str(float64(v[2])))
 	case string:
 		return strings.ReplaceAll(v, "\n", "\r\n") // bruh
+	case *Table:
+		return fmt.Sprintf("table: %v", *v)
+	case Function:
+		return fmt.Sprintf("function: %v", v)
+	case *Coroutine:
+		return fmt.Sprintf("thread: %v", *v)
+	case *Buffer:
+		return fmt.Sprintf("buffer: %v", *v)
 	}
 	// panic("tostring bad type")
 	return "userdata"
