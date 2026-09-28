@@ -29,7 +29,7 @@ import (
 //		6 = AUX number low 24 bits
 // HasAux boolean specifies whether the instruction is followed up with an AUX word, which may be used to execute the instruction.
 
-var opList = [89]internal.OpInfo{
+var opList = [90]internal.OpInfo{
 	{Mode: 0, KMode: 0, HasAux: false}, // NOP
 	{Mode: 0, KMode: 0, HasAux: false}, // BREAK
 	{Mode: 1, KMode: 0, HasAux: false}, // LOADNIL
@@ -117,8 +117,9 @@ var opList = [89]internal.OpInfo{
 	{},                                 // SETUDATAKS
 	{},                                 // NAMECALLUDATA
 	{},                                 // NEWCLASSMEMBER
-	{Mode: 3, KMode: 0, HasAux: true}, // CALLFB
+	{Mode: 3, KMode: 0, HasAux: true},  // CALLFB
 	{},                                 // CMPPROTO
+	{Mode: 3, KMode: 0, HasAux: false}, // FASTPCALL
 }
 
 func checkkmode(i *internal.Inst, k []Val) error {
@@ -193,8 +194,9 @@ func checkkmode(i *internal.Inst, k []Val) error {
 }
 
 type stream struct {
-	data []byte
-	pos  uint32
+	data    []byte
+	pos     uint32
+	version uint8
 }
 
 func (s *stream) rByte() (b byte) {
@@ -377,6 +379,15 @@ func (s *stream) skipDebugInfo() {
 
 func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 	// fmt.Println("Reading proto...", s.data[s.pos:])
+
+	// v12+ prepends each proto with its size in bytes so that unknown trailing
+	// data can be skipped over
+	var protoSize, protoStart uint32
+	if s.version >= 12 {
+		protoSize = s.rVarInt()
+		protoStart = s.pos
+	}
+
 	p = &internal.Proto{
 		MaxStackSize: s.rByte(),
 		NumParams:    s.rByte(),
@@ -432,10 +443,13 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 			// only used with useImportConstants
 			s.skipUint32()
 		case 5: // Table
-			// moot, whatever
+			// table shape without constant values; keys have placeholder values
+			t := &Table{}
 			for range s.rVarInt() {
-				s.skipVarInt()
+				key := s.rVarInt()
+				t.Set(K[key], 0.0)
 			}
+			K[i] = t
 		case 6: // Closure
 			// pain in the cranium
 			K[i] = s.rVarInt() // ⚠️ not a val ⚠️
@@ -443,11 +457,18 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 		case 7: // Vector
 			K[i] = s.rVector()
 		case 8: // Table with constants
-			// I guess??
+			t := &Table{}
 			for range s.rVarInt() {
-				s.skipVarInt()
-				s.skipUint32()
+				key := s.rVarInt()
+				cidx := int32(s.rUint32())
+				if cidx < 0 {
+					continue
+				}
+				if v := K[cidx]; v != nil {
+					t.Set(K[key], v)
+				}
 			}
+			K[i] = t
 		case 9: // Integer
 			isNegative := s.rBool()
 			magnitude := s.rVarInt64()
@@ -466,6 +487,12 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 				// mid := s.rVarInt()
 				s.skipVarInt()
 			}
+		case 11: // Vector (double precision)
+			var v Vector
+			for i := range 4 {
+				v[i] = float32(s.rFloat64())
+			}
+			K[i] = v
 		default:
 			return nil, fmt.Errorf("unknown constant kind %d", kt)
 		}
@@ -532,6 +559,13 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 		s.skipVarInt()
 	}
 
+	// v12+ may append a cost value (when LPF_INLINABLE is set) and/or other
+	// unknown data; the size prefix read at the start of the proto lets us
+	// skip whatever we don't understand.
+	if s.version >= 12 {
+		s.pos = protoStart + protoSize
+	}
+
 	return
 }
 
@@ -541,7 +575,7 @@ var (
 )
 
 const (
-	expectedBytecodeVersion = 11
+	expectedBytecodeVersion = 14
 	expectedTypesVersion    = 3
 )
 
@@ -557,6 +591,7 @@ func Deserialise(b []byte) (d internal.Deserialised, err error) {
 	if version != expectedBytecodeVersion {
 		return d, fmt.Errorf("%w: expected %d, got %d", errUnsupportedVersion, expectedBytecodeVersion, version)
 	}
+	s.version = version
 
 	if typesVersion := s.rByte(); typesVersion != expectedTypesVersion {
 		return d, fmt.Errorf("%w: expected %d, got %d", errUnsupportedTypesVersion, expectedTypesVersion, typesVersion)

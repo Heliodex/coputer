@@ -154,6 +154,21 @@ func (t *Table) Set(k Val, v Val) {
 	t.setHash(k, v)
 }
 
+// Clone returns a shallow copy of the table, mirroring the reference implementation's luaH_clone used to instantiate DUPTABLE templates.
+func (t *Table) Clone() *Table {
+	n := &Table{}
+	if t.List != nil {
+		n.List = slices.Clone(t.List)
+	}
+	if t.Hash != nil {
+		n.Hash = make(map[Val]Val, len(t.Hash))
+		for k, v := range t.Hash {
+			n.Hash[k] = v
+		}
+	}
+	return n
+}
+
 // GetHash returns a value at a key, only searching the hash part of the table.
 func (t *Table) GetHash(k Val) (v Val) {
 	if t.Hash == nil {

@@ -105,9 +105,9 @@ func TestConformance(t *testing.T) {
 		t.Fatal("error reading conformance tests directory:", err)
 	}
 
-	const onlyTest = "anon"
+	// const onlyTest = "doubleloop"
 
-	compilers := []Compiler{compile.MakeCompiler(1), compile.MakeCompiler(2)}
+	compilers := []Compiler{compile.MakeCompiler(0), compile.MakeCompiler(1), compile.MakeCompiler(2)}
 
 	for _, f := range files {
 		if f.IsDir() {

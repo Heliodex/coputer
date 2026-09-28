@@ -2,7 +2,6 @@ package compile
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	"slices"
@@ -16,11 +15,11 @@ func Expect(t *testing.T, got, want any) {
 }
 
 func TestDeserialise(t *testing.T) {
-	const file = "hello.bytecode"
+	const file = "../../../test/conformance/hello.luau"
 
-	bytecode, err := os.ReadFile(file)
+	bytecode, err := luauCompile(file, 1)
 	if err != nil {
-		t.Fatalf("Failed to read bytecode file: %v", err)
+		t.Fatalf("Failed to compile bytecode: %v", err)
 	}
 
 	d, err := Deserialise(bytecode)
