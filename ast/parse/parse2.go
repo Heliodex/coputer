@@ -6,87 +6,81 @@ import (
 
 // parse 2 go!
 
-// braceStack for interpolated string parsing
-var braceStack []lex.BraceType
+// parse resets the parser state and parses the whole source, storing the root
+// block in p.parseRoot.
+func (p *Parser) parse() {
+	p.token_type = lex.Eof
+	p.token_location = lex.Location{}
+	p.prev_location = lex.Location{}
+	p.token_string = nil
+	p.token_aux = nil
+	p.token_codepoint = nil
 
-var parseRoot *AstStatBlock
+	p.recursionCounter = 0
 
-func parseInternal(src string, opts Options) {
-	captureComments = opts.CaptureComments
-	storeCstData = opts.StoreCstData
+	p.commentLocations = nil
+	p.hotcomments = nil
+	p.parseErrors = nil
+	p.cstNodes = map[AstNode]CstNode{}
 
-	lexer = lex.NewLexer(src)
+	p.declaredExportBindings = map[string]lex.Location{}
+	p.hasModuleReturn = false
 
-	token_type = lex.Eof
-	token_location = lex.Location{}
-	prev_location = lex.Location{}
-	token_string = nil
-	token_aux = nil
-	token_codepoint = nil
+	p.hotcommentHeader = true
 
-	recursionCounter = 0
+	p.suspect_type = lex.Eof
+	p.suspect_line = 0
 
-	commentLocations = nil
-	hotcomments = nil
-	parseErrors = nil
-	cstNodes = map[AstNode]CstNode{}
+	p.matchRecovery = [lex.Reserved_END]int{}
+	p.matchRecovery[lex.Eof] = 1
 
-	declaredExportBindings = map[string]lex.Location{}
-	hasModuleReturn = false
-
-	hotcommentHeader = true
-
-	suspect_type = lex.Eof
-	suspect_line = 0
-
-	matchRecovery = [lex.Reserved_END]int{}
-	matchRecovery[lex.Eof] = 1
-
-	functionStack = []FunctionState{
+	p.functionStack = []FunctionState{
 		{Vararg: true, LoopDepth: 0},
 	}
 
-	localStack = nil
-	localMap = map[string]*AstLocal{}
-	braceStack = nil
+	p.localStack = nil
+	p.localMap = map[string]*AstLocal{}
+	p.braceStack = nil
 
-	fillNext()
-	nextLexeme()
-	hotcommentHeader = false
+	p.fillNext()
+	p.nextLexeme()
+	p.hotcommentHeader = false
 
-	localsBegin := len(localStack)
-	result := parseBlockNoScope()
-	restoreLocals(localsBegin)
+	localsBegin := len(p.localStack)
+	result := p.parseBlockNoScope()
+	p.restoreLocals(localsBegin)
 
-	if token_type != lex.Eof {
-		expectAndConsumeFail(lex.Eof, nil)
+	if p.token_type != lex.Eof {
+		p.expectAndConsumeFail(lex.Eof, nil)
 	}
 
-	parseRoot = result
+	p.parseRoot = result
 }
 
 // Parse is the exported entry point
 func Parse(src string, opts Options) (bool, Result) {
+	p := newParser(src, opts)
+
 	func() {
 		defer func() {
 			if r := recover(); r != nil {
 				// on panic, return what we have
 			}
 		}()
-		parseInternal(src, opts)
+		p.parse()
 	}()
 
 	var rootBlock AstStatBlock
-	if root := parseRoot; root != nil {
+	if root := p.parseRoot; root != nil {
 		rootBlock = *root
 	}
 
-	return len(parseErrors) == 0,
+	return len(p.parseErrors) == 0,
 		Result{
 			Root:             rootBlock,
-			CommentLocations: commentLocations,
-			HotComments:      hotcomments,
-			CstNodeMap:       cstNodes,
-			Errors:           parseErrors,
+			CommentLocations: p.commentLocations,
+			HotComments:      p.hotcomments,
+			CstNodeMap:       p.cstNodes,
+			Errors:           p.parseErrors,
 		}
 }

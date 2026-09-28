@@ -103,6 +103,7 @@ type AstStat interface {
 	SetHasSemicolon()
 }
 
+// tru is an immutable sentinel used for HasSemicolon flags.
 var tru = true
 
 var (
