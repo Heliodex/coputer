@@ -238,11 +238,36 @@ func ConstantLiteral(expr AstExpr) bool {
 }
 
 func ExprLValues(expr AstExpr) bool {
-	switch expr.(type) {
-	case AstExprLocal, AstExprGlobal, AstExprIndexExpr, AstExprIndexName:
+	switch e := expr.(type) {
+	case AstExprLocal:
+		// Constant locals may not be reassigned
+		return !e.Local.IsConst
+	case AstExprGlobal, AstExprIndexExpr, AstExprIndexName:
 		return true
 	}
 	return false
+}
+
+// reportLValueError reports an error for an expression that cannot be assigned to,
+// distinguishing constant locals from other non-lvalue expressions.
+func reportLValueError(expr AstExpr) *AstExprError {
+	if e, ok := expr.(AstExprLocal); ok && e.Local.IsConst {
+		return reportExprError(expr.GetLocation(), []AstExpr{expr}, fmt.Sprintf("Variable '%s' is constant and may not be reassigned", e.Local.Name))
+	}
+	return reportExprError(expr.GetLocation(), []AstExpr{expr}, "Assigned expression must be a variable or a field")
+}
+
+// isEnoughValues reports whether an expression list definitely provides enough
+// values for the expected number of bindings. A trailing call or `...` may
+// expand to any number of values.
+func isEnoughValues(values []AstExpr, expected int) bool {
+	if len(values) > 0 {
+		switch values[len(values)-1].(type) {
+		case AstExprCall, AstExprVarargs:
+			return true
+		}
+	}
+	return len(values) == expected
 }
 
 // Lookups for Lexer
@@ -822,6 +847,7 @@ func pushLocal(binding Binding) *AstLocal {
 		FunctionDepth: len(functionStack) - 1,
 		LoopDepth:     functionStack[len(functionStack)-1].LoopDepth,
 		Annotation:    binding.Annotation,
+		IsConst:       binding.IsConst,
 	}
 
 	localMap[name] = local
@@ -842,7 +868,7 @@ func incrementRecursionCounter(context string) {
 
 // The core of the code
 
-func parseBinding() Binding {
+func parseBinding(isConst bool) Binding {
 	nameOpt := parseNameOpt(new("variable name"))
 
 	var bindingName Binding
@@ -863,11 +889,12 @@ func parseBinding() Binding {
 		NodeLoc:       bindingName.NodeLoc,
 		Annotation:    annotation,
 		ColonPosition: &colonPos,
+		IsConst:       isConst,
 	}
 }
 
 // bindinglist ::= (binding | `...') [`,' bindinglist]
-func parseBindingList(result *[]Binding, allowDot3 bool, commaPositions *[]lex.Position, initialComma *lex.Position, varargAnnotColonPos *[]*lex.Position) (bool, *lex.Location, AstTypePack) {
+func parseBindingList(result *[]Binding, allowDot3 bool, commaPositions *[]lex.Position, initialComma *lex.Position, varargAnnotColonPos *[]*lex.Position, isConst bool) (bool, *lex.Location, AstTypePack) {
 	localCommaPositions := []lex.Position{}
 
 	if commaPositions != nil && initialComma != nil {
@@ -899,7 +926,7 @@ func parseBindingList(result *[]Binding, allowDot3 bool, commaPositions *[]lex.P
 			return true, &varargLocation, tailAnnotation
 		}
 
-		*result = append(*result, parseBinding())
+		*result = append(*result, parseBinding(isConst))
 
 		if token_type != ',' {
 			break
@@ -953,7 +980,7 @@ func parseStat() AstStat {
 	case lex.ReservedFunction:
 		return parseFunctionStat(nil)
 	case lex.ReservedLocal:
-		return parseLocal(nil)
+		return parseLocal(snapshot(), token_location.Begin, nil, false)
 	case lex.ReservedReturn:
 		return parseReturn()
 	case lex.ReservedBreak:
@@ -1002,6 +1029,12 @@ func parseStat() AstStat {
 
 	if ident != nil && *ident == "continue" {
 		return parseContinue(expr.GetLocation())
+	}
+
+	if ident != nil && *ident == "const" {
+		// `const` is a contextual keyword; parsePrimaryExpr has already
+		// consumed it, so pass its location through to parseLocal.
+		return parseLocal(expr.GetLocation(), expr.GetLocation().Begin, nil, true)
 	}
 
 	if start_line == token_location.Begin.Line && start_column == token_location.Begin.Column {
@@ -1298,7 +1331,7 @@ func parseFor() AstStatForOrForIn {
 	start := snapshot()
 	nextLexeme() // for
 
-	varname := parseBinding()
+	varname := parseBinding(false)
 
 	if token_type == '=' { // === lel
 		equalsPosition := token_location.Begin
@@ -1371,7 +1404,7 @@ func parseFor() AstStatForOrForIn {
 		if token_type == ',' {
 			initialCommaPos := &token_location.Begin
 			nextLexeme()
-			parseBindingList(names, false, varsCommaPosition, initialCommaPos, nil)
+			parseBindingList(names, false, varsCommaPosition, initialCommaPos, nil, false)
 		}
 
 		inLocation := snapshot()
@@ -1512,7 +1545,7 @@ func parseFunctionStat(attributes Attrs) *AstStatFunction {
 
 	matchRecovery[lex.ReservedEnd]++
 
-	body, _ := parseFunctionBody(hasRef[0], matchFunction, debugnameRef[0], nil, attributes)
+	body, _ := parseFunctionBody(hasRef[0], matchFunction, debugnameRef[0], nil, attributes, false)
 
 	matchRecovery[lex.ReservedEnd]--
 
@@ -1661,7 +1694,13 @@ func parseAttributeStat() AstStat {
 	case lex.ReservedFunction:
 		return parseFunctionStat(attributes)
 	case lex.ReservedLocal:
-		return parseLocal(attributes)
+		return parseLocal(snapshot(), token_location.Begin, attributes, false)
+	case lex.Name:
+		if token_string != nil && *token_string == "const" {
+			keywordPosition := token_location.Begin
+			nextLexeme() // consume 'const'
+			return parseLocal(snapshot(), keywordPosition, attributes, true)
+		}
 	}
 
 	currLex := lex.Lexeme{Type: token_type, Codepoint: token_codepoint}
@@ -1670,19 +1709,20 @@ func parseAttributeStat() AstStat {
 	}
 	return reportStatError(
 		snapshot(), nil, nil,
-		fmt.Sprintf("Expected 'function', 'local function', 'declare function' or a function type declaration after attribute, but got %s instead", currLex.String()),
+		fmt.Sprintf("Expected 'function', 'local function', 'const function', 'declare function' or a function type declaration after attribute, but got %s instead", currLex.String()),
 	)
 }
 
-// parseLocal handles `local function Name funcbody | local namelist [`=' explist]
-func parseLocal(attributes Attrs) AstStat {
-	start := snapshot()
+// parseLocal handles `local function Name funcbody | local namelist [`=' explist] | const namelist `=' explist
+func parseLocal(start lex.Location, keywordPosition lex.Position, attributes Attrs, isConst bool) AstStat {
 	if len(attributes) > 0 {
 		start = attributes[0].Location
 	}
 
-	localKeywordPosition := token_location.Begin
-	nextLexeme() // consume 'local'
+	localKeywordPosition := keywordPosition
+	if !isConst {
+		nextLexeme() // consume 'local'
+	}
 
 	if token_type == lex.ReservedFunction {
 		matchFunction := get_lexeme()
@@ -1700,7 +1740,7 @@ func parseLocal(attributes Attrs) AstStat {
 		matchRecovery[lex.ReservedEnd]++
 
 		debugname := name.Name.Value
-		body, funLocal := parseFunctionBody(false, matchFunction, &debugname, &debugname, attributes)
+		body, funLocal := parseFunctionBody(false, matchFunction, &debugname, &debugname, attributes, isConst)
 
 		matchRecovery[lex.ReservedEnd]--
 
@@ -1713,6 +1753,7 @@ func parseLocal(attributes Attrs) AstStat {
 			NodeLoc: &NodeLoc{lex.Location{Begin: start.Begin, End: body.GetLocation().End}},
 			Name:    varLocal,
 			Func:    body,
+			IsConst: isConst,
 		}
 
 		if storeCstData {
@@ -1742,9 +1783,9 @@ func parseLocal(attributes Attrs) AstStat {
 		var varsCommaPositions []lex.Position
 
 		if storeCstData {
-			parseBindingList(&names, false, &varsCommaPositions, nil, nil)
+			parseBindingList(&names, false, &varsCommaPositions, nil, nil, isConst)
 		} else {
-			parseBindingList(&names, false, nil, nil, nil)
+			parseBindingList(&names, false, nil, nil, nil, isConst)
 		}
 
 		matchRecovery['=']--
@@ -1780,6 +1821,7 @@ func parseLocal(attributes Attrs) AstStat {
 			Vars:               vars,
 			Values:             values,
 			EqualsSignLocation: equalsSignLocation,
+			IsConst:            isConst,
 		}
 
 		if storeCstData {
@@ -1788,6 +1830,19 @@ func parseLocal(attributes Attrs) AstStat {
 				VarsCommaPositions:           varsCommaPositions,
 				ValuesCommaPositions:         valuesCommaPositions,
 			}
+		}
+
+		// It is a syntax error when a const declaration *definitely* does
+		// not have enough values, for example:
+		//
+		//  const foo
+		//  const bar, baz = 42
+		//
+		// Both error as there's probably user error (`foo` and `baz` can
+		// only ever be `nil`). We report an error but return the
+		// declaration as-is, as it's still reasonable syntactically.
+		if isConst && !isEnoughValues(values, len(vars)) {
+			report(node.GetLocation(), "Missing initializer in const declaration")
 		}
 
 		return node
@@ -1913,7 +1968,7 @@ func parseTypeFunction(start lex.Location, exported bool, typeKeywordPosition le
 	typeFunctionDepth = len(functionStack)
 
 	fnNameStr := fnName.Name.Value
-	body, _ := parseFunctionBody(false, matchFn, &fnNameStr, nil, Attrs{})
+	body, _ := parseFunctionBody(false, matchFn, &fnNameStr, nil, Attrs{}, false)
 
 	typeFunctionDepth = oldTypeFunctionDepth
 	matchRecovery[lex.ReservedEnd]--
@@ -2011,7 +2066,7 @@ func parseExprList(result *[]AstExpr, commaPositions *[]lex.Position) {
 // parseAssignment handles varlist `=' explist
 func parseAssignment(initial AstExpr) *AstStatAssign {
 	if !ExprLValues(initial) {
-		initial = reportExprError(initial.GetLocation(), []AstExpr{initial}, "Assigned expression must be a variable or a field")
+		initial = reportLValueError(initial)
 	}
 
 	vars := []AstExpr{initial}
@@ -2025,7 +2080,7 @@ func parseAssignment(initial AstExpr) *AstStatAssign {
 
 		expr := parsePrimaryExpr(true)
 		if !ExprLValues(expr) {
-			expr = reportExprError(expr.GetLocation(), []AstExpr{expr}, "Assigned expression must be a variable or a field")
+			expr = reportLValueError(expr)
 		}
 		vars = append(vars, expr)
 	}
@@ -2067,7 +2122,7 @@ func parseAssignment(initial AstExpr) *AstStatAssign {
 // parseCompoundAssignment handles compound assignment operators
 func parseCompoundAssignment(initial AstExpr, op BinaryOp) *AstStatCompoundAssign {
 	if !ExprLValues(initial) {
-		initial = reportExprError(initial.GetLocation(), []AstExpr{initial}, "Assigned expression must be a variable or a field")
+		initial = reportLValueError(initial)
 	}
 
 	opPosition := token_location.Begin
@@ -2124,7 +2179,7 @@ func shouldParseTypePack() bool {
 }
 
 // parseFunctionBody parses funcbody ::= `(' [parlist] `)' [`:' ReturnType] block end
-func parseFunctionBody(hasself bool, matchFunction lex.Lexeme, debugname *string, localName *string, attributes Attrs) (AstExprFunction, *AstLocal) {
+func parseFunctionBody(hasself bool, matchFunction lex.Lexeme, debugname *string, localName *string, attributes Attrs, isConst bool) (AstExprFunction, *AstLocal) {
 	start := matchFunction.Location
 	if len(attributes) > 0 {
 		start = attributes[0].Location
@@ -2185,7 +2240,7 @@ func parseFunctionBody(hasself bool, matchFunction lex.Lexeme, debugname *string
 			vaAnnotPosSliceRef = &vaAnnotPosSlice
 		}
 
-		vararg, varargLocation, varargAnnotation = parseBindingList(&args, true, commaPositions, nil, vaAnnotPosSliceRef)
+		vararg, varargLocation, varargAnnotation = parseBindingList(&args, true, commaPositions, nil, vaAnnotPosSliceRef, false)
 
 		if cstExprFunc != nil && len(vaAnnotPosSlice) > 0 {
 			cstExprFunc.VarargAnnotationColonPosition = vaAnnotPosSlice[0]
@@ -2222,6 +2277,7 @@ func parseFunctionBody(hasself bool, matchFunction lex.Lexeme, debugname *string
 		funLocal = pushLocal(Binding{
 			Name:    lex.AstName{Value: *localName},
 			NodeLoc: &NodeLoc{start},
+			IsConst: isConst,
 		})
 	}
 
@@ -3939,7 +3995,7 @@ func parseSimpleExpr() AstExpr {
 	case lex.ReservedFunction:
 		matchFunction := get_lexeme()
 		nextLexeme()
-		node, _ := parseFunctionBody(false, matchFunction, nil, nil, attributes)
+		node, _ := parseFunctionBody(false, matchFunction, nil, nil, attributes, false)
 		return node
 	case lex.Number:
 		return parseNumber()

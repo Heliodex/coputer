@@ -14,6 +14,7 @@ type Binding struct {
 	Name          lex.AstName
 	Annotation    AstType
 	ColonPosition *lex.Position
+	IsConst       bool
 }
 
 type BindingList []Binding

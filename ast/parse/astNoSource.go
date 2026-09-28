@@ -945,6 +945,7 @@ type AstLocal struct {
 	FunctionDepth int
 	LoopDepth     int
 	Annotation    AstType
+	IsConst       bool
 }
 
 func (n AstLocal) String() string {
@@ -955,6 +956,9 @@ func (n AstLocal) String() string {
 	b.WriteString(fmt.Sprintf("Name: %q\n", n.Name))
 	if n.Shadow != nil {
 		b.WriteString(fmt.Sprintf("Shadow: %q\n", n.Shadow.Name))
+	}
+	if n.IsConst {
+		b.WriteString("IsConst: true\n")
 	}
 	b.WriteString(fmt.Sprintf("FunctionDepth: %d\n", n.FunctionDepth))
 	b.WriteString(fmt.Sprintf("LoopDepth: %d\n", n.LoopDepth))
@@ -1507,6 +1511,7 @@ type AstStatLocal struct {
 	Vars               []AstLocal
 	Values             []AstExpr
 	EqualsSignLocation *lex.Location
+	IsConst            bool
 	HasSemicolon       *bool
 }
 
@@ -1544,6 +1549,7 @@ type AstStatLocalFunction struct {
 	*NodeLoc
 	Name         AstLocal
 	Func         AstExprFunction
+	IsConst      bool
 	HasSemicolon *bool
 }
 
