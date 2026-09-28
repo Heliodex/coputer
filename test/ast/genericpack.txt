@@ -18,10 +18,10 @@ Root:
                 Location: 0,14 - 0,15
                 IndexType:
                     TypeReference
-                    Location: 0,14 - 0,15
+                    Location: 0,12 - 0,12
                     HasParameterList: false
                     Name: "number"
-                    NameLocation: 0,14 - 0,15
+                    NameLocation: 0,12 - 0,12
                 ResultType:
                     TypeReference
                     Location: 0,14 - 0,15

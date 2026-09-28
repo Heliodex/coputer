@@ -1,0 +1,71 @@
+Root:
+    StatBlock
+    Location: 0,0 - 5,0
+    Body:
+        StatIf
+        Location: 0,0 - 2,3
+        Condition:
+            ExprConstantNumber
+            Location: 0,13 - 0,14
+            Value: 1.000000
+        ThenBody:
+            StatBlock
+            Location: 0,19 - 2,0
+            Body:
+                StatExpr
+                Location: 1,1 - 1,9
+                Expr:
+                    ExprCall
+                    Location: 1,1 - 1,9
+                    Func:
+                        ExprGlobal
+                        Location: 1,1 - 1,6
+                        Name: "print"
+                    Args:
+                        ExprLocal
+                        Location: 1,7 - 1,8
+                        Local:
+                            Local
+                            Location: 0,9 - 0,10
+                            Name: "x"
+                            FunctionDepth: 0
+                            LoopDepth: 0
+                        Upvalue: false
+                    Self: false
+                    ArgLocation: 1,7 - 1,9
+            HasEnd: true
+        ThenLocation: 0,15 - 0,19
+        StatLocal
+        Location: 4,0 - 4,38
+        Vars:
+            Local
+            Location: 4,6 - 4,7
+            Name: "y"
+            FunctionDepth: 0
+            LoopDepth: 0
+        Values:
+            ExprIfElse
+            Location: 4,10 - 4,38
+            Condition:
+                ExprConstantNumber
+                Location: 4,23 - 4,24
+                Value: 2.000000
+            HasThen: true
+            TrueExpr:
+                ExprLocal
+                Location: 4,30 - 4,31
+                Local:
+                    Local
+                    Location: 4,19 - 4,20
+                    Name: "z"
+                    IsConst: true
+                    FunctionDepth: 0
+                    LoopDepth: 0
+                Upvalue: false
+            HasElse: true
+            FalseExpr:
+                ExprConstantNumber
+                Location: 4,37 - 4,38
+                Value: 0.000000
+        EqualsSignLocation: 4,8 - 4,9
+    HasEnd: false

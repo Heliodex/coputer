@@ -1,0 +1,48 @@
+Root:
+    StatBlock
+    Location: 0,0 - 3,0
+    Body:
+        StatLocal
+        Location: 0,0 - 0,12
+        Vars:
+            Local
+            Location: 0,6 - 0,7
+            Name: "x"
+            FunctionDepth: 0
+            LoopDepth: 0
+        Values:
+            ExprConstantInteger
+            Location: 0,10 - 0,12
+            Value: 1
+        EqualsSignLocation: 0,8 - 0,9
+        StatLocal
+        Location: 1,0 - 1,15
+        Vars:
+            Local
+            Location: 1,6 - 1,7
+            Name: "y"
+            FunctionDepth: 0
+            LoopDepth: 0
+        Values:
+            ExprConstantInteger
+            Location: 1,10 - 1,15
+            Value: 255
+        EqualsSignLocation: 1,8 - 1,9
+        StatLocal
+        Location: 2,0 - 2,13
+        Vars:
+            Local
+            Location: 2,6 - 2,7
+            Name: "z"
+            FunctionDepth: 0
+            LoopDepth: 0
+        Values:
+            ExprUnary
+            Location: 2,10 - 2,13
+            Op: Minus
+            Expr:
+                ExprConstantInteger
+                Location: 2,11 - 2,13
+                Value: 5
+        EqualsSignLocation: 2,8 - 2,9
+    HasEnd: false

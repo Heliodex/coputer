@@ -14,10 +14,10 @@ Root:
                 Location: 0,11 - 0,17
                 IndexType:
                     TypeReference
-                    Location: 0,11 - 0,17
+                    Location: 0,9 - 0,9
                     HasParameterList: false
                     Name: "number"
-                    NameLocation: 0,11 - 0,17
+                    NameLocation: 0,9 - 0,9
                 ResultType:
                     TypeReference
                     Location: 0,11 - 0,17

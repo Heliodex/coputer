@@ -1,0 +1,88 @@
+Root:
+    StatBlock
+    Location: 0,0 - 2,0
+    Body:
+        StatLocal
+        Location: 0,0 - 0,24
+        Vars:
+            Local
+            Location: 0,6 - 0,7
+            Name: "a"
+            FunctionDepth: 0
+            LoopDepth: 0
+        Values:
+            ExprCall
+            Location: 0,10 - 0,24
+            Func:
+                ExprInstantiate
+                Location: 0,10 - 0,21
+                Expr:
+                    ExprGlobal
+                    Location: 0,10 - 0,11
+                    Name: "f"
+                TypeArguments:
+                    TypeOrPack
+                    Type:
+                        TypeReference
+                        Location: 0,13 - 0,19
+                        HasParameterList: false
+                        Name: "number"
+                        NameLocation: 0,13 - 0,19
+            Args:
+                ExprConstantNumber
+                Location: 0,22 - 0,23
+                Value: 1.000000
+            Self: false
+            ArgLocation: 0,22 - 0,24
+        EqualsSignLocation: 0,8 - 0,9
+        StatLocal
+        Location: 1,0 - 1,41
+        Vars:
+            Local
+            Location: 1,6 - 1,7
+            Name: "b"
+            FunctionDepth: 0
+            LoopDepth: 0
+        Values:
+            ExprCall
+            Location: 1,10 - 1,41
+            Func:
+                ExprIndexName
+                Location: 1,10 - 1,13
+                Expr:
+                    ExprGlobal
+                    Location: 1,10 - 1,11
+                    Name: "t"
+                Index: "m"
+                IndexLocation: 1,12 - 1,13
+                Op: :
+            Args:
+                ExprConstantNumber
+                Location: 1,34 - 1,35
+                Value: 1.000000
+                ExprConstantString
+                Location: 1,37 - 1,40
+                Value: "a"
+                QuoteStyle: QuotedSimple
+            Self: true
+            ArgLocation: 1,34 - 1,41
+            TypeArguments:
+                TypeOrPack
+                Pack:
+                    TypePackExplicit
+                    Location: 1,15 - 1,30
+                    Types:
+                        TypeList
+                        Types:
+                            TypeReference
+                            Location: 1,16 - 1,22
+                            HasParameterList: false
+                            Name: "string"
+                            NameLocation: 1,16 - 1,22
+                            TypeReference
+                            Location: 1,24 - 1,30
+                            HasParameterList: false
+                            Name: "number"
+                            NameLocation: 1,24 - 1,30
+        EqualsSignLocation: 1,8 - 1,9
+    HasEnd: false

@@ -1,0 +1,56 @@
+Root:
+    StatBlock
+    Location: 0,0 - 3,0
+    Body:
+        StatLocal
+        Location: 0,0 - 0,18
+        Vars:
+            Local
+            Location: 0,13 - 0,14
+            Name: "x"
+            IsExported: true
+            FunctionDepth: 0
+            LoopDepth: 0
+        Values:
+            ExprConstantNumber
+            Location: 0,17 - 0,18
+            Value: 1.000000
+        EqualsSignLocation: 0,15 - 0,16
+        StatLocal
+        Location: 1,0 - 1,18
+        Vars:
+            Local
+            Location: 1,13 - 1,14
+            Name: "y"
+            IsConst: true
+            IsExported: true
+            FunctionDepth: 0
+            LoopDepth: 0
+        Values:
+            ExprConstantNumber
+            Location: 1,17 - 1,18
+            Value: 2.000000
+        EqualsSignLocation: 1,15 - 1,16
+        StatLocalFunction
+        Location: 2,0 - 2,23
+        Name:
+            Local
+            Location: 2,7 - 2,15
+            Name: "f"
+            IsConst: true
+            IsExported: true
+            FunctionDepth: 0
+            LoopDepth: 0
+        Func:
+            ExprFunction
+            Location: 2,7 - 2,23
+            Vararg: false
+            VarargLocation: 0,0 - 0,0
+            Body:
+                StatBlock
+                Location: 2,19 - 2,20
+                HasEnd: true
+            FunctionDepth: 1
+            Debugname: "f"
+            ArgLocation: 2,17 - 2,19
+    HasEnd: false
