@@ -113,12 +113,12 @@ var opList = [90]internal.OpInfo{
 	{Mode: 4, KMode: 6, HasAux: true},  // JUMPXEQKS
 	{Mode: 3, KMode: 0, HasAux: false}, // IDIV
 	{Mode: 3, KMode: 2, HasAux: false}, // IDIVK
-	{},                                 // GETUDATAKS
-	{},                                 // SETUDATAKS
-	{},                                 // NAMECALLUDATA
-	{},                                 // NEWCLASSMEMBER
+	{Mode: 3, KMode: 1, HasAux: true},  // GETUDATAKS
+	{Mode: 3, KMode: 1, HasAux: true},  // SETUDATAKS
+	{Mode: 3, KMode: 1, HasAux: true},  // NAMECALLUDATA
+	{Mode: 3, KMode: 1, HasAux: true},  // NEWCLASSMEMBER
 	{Mode: 3, KMode: 0, HasAux: true},  // CALLFB
-	{},                                 // CMPPROTO
+	{Mode: 4, KMode: 0, HasAux: true},  // CMPPROTO
 	{Mode: 3, KMode: 0, HasAux: false}, // FASTPCALL
 }
 
