@@ -31,6 +31,9 @@ func parseInternal(src string, opts Options) {
 	parseErrors = nil
 	cstNodes = map[AstNode]CstNode{}
 
+	declaredExportBindings = map[string]lex.Location{}
+	hasModuleReturn = false
+
 	hotcommentHeader = true
 
 	suspect_type = lex.Eof

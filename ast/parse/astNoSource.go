@@ -209,6 +209,7 @@ type AstExprConstantNumberOrError interface {
 
 var (
 	_ AstExprConstantNumberOrError = AstExprConstantNumber{}
+	_ AstExprConstantNumberOrError = AstExprConstantInteger{}
 	_ AstExprConstantNumberOrError = AstExprError{}
 )
 
@@ -444,6 +445,25 @@ func (n AstExprConstantNumber) String() string {
 	return b.String()
 }
 
+type AstExprConstantInteger struct {
+	*NodeLoc
+	Value       int64
+	ParseResult NumberParseResult
+}
+
+func (AstExprConstantInteger) isAstNode()                      {}
+func (AstExprConstantInteger) isAstExpr()                      {}
+func (AstExprConstantInteger) isAstExprConstantNumberOrError() {}
+func (n AstExprConstantInteger) String() string {
+	var b strings.Builder
+
+	b.WriteString("ExprConstantInteger\n")
+	b.WriteString(n.NodeLoc.String())
+	b.WriteString(fmt.Sprintf("Value: %d\n", n.Value))
+
+	return b.String()
+}
+
 type AstExprConstantString struct {
 	*NodeLoc
 	Value      string
@@ -615,6 +635,11 @@ type AstExprIfElse struct {
 	TrueExpr  AstExpr
 	HasElse   bool
 	FalseExpr AstExpr
+	// Active for `if local` / `if const` expressions; ConditionLocal is in scope for TrueExpr only
+	ConditionLocal           *AstLocal
+	ConditionIsConst         bool
+	ConditionKeywordLocation *lex.Location
+	ConditionEqualsLocation  *lex.Location
 }
 
 func (AstExprIfElse) isAstNode() {}
@@ -946,6 +971,7 @@ type AstLocal struct {
 	LoopDepth     int
 	Annotation    AstType
 	IsConst       bool
+	IsExported    bool
 }
 
 func (n AstLocal) String() string {
@@ -959,6 +985,9 @@ func (n AstLocal) String() string {
 	}
 	if n.IsConst {
 		b.WriteString("IsConst: true\n")
+	}
+	if n.IsExported {
+		b.WriteString("IsExported: true\n")
 	}
 	b.WriteString(fmt.Sprintf("FunctionDepth: %d\n", n.FunctionDepth))
 	b.WriteString(fmt.Sprintf("LoopDepth: %d\n", n.LoopDepth))
@@ -1471,7 +1500,12 @@ type AstStatIf struct {
 	ElseBody     AstStat
 	ThenLocation *lex.Location
 	ElseLocation *lex.Location
-	HasSemicolon *bool
+	// Active for `if local` and `if const` statements
+	ConditionLocal           *AstLocal
+	ConditionIsConst         bool
+	ConditionKeywordLocation *lex.Location
+	ConditionEqualsLocation  *lex.Location
+	HasSemicolon             *bool
 }
 
 func (AstStatIf) isAstNode() {}
@@ -1512,6 +1546,8 @@ type AstStatLocal struct {
 	Values             []AstExpr
 	EqualsSignLocation *lex.Location
 	IsConst            bool
+	IsExported         bool
+	KeywordLocation    *lex.Location
 	HasSemicolon       *bool
 }
 

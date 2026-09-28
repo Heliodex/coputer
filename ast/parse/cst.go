@@ -34,6 +34,7 @@ var (
 	_ CstNode = CstExprInterpString{}
 	_ CstNode = CstExprConstantString{}
 	_ CstNode = CstExprConstantNumber{}
+	_ CstNode = CstExprConstantInteger{}
 	_ CstNode = CstExprOp{}
 	_ CstNode = CstTypeTypeof{}
 	_ CstNode = CstTypeReference{}
@@ -249,6 +250,12 @@ type CstExprConstantNumber struct {
 }
 
 func (CstExprConstantNumber) isCstNode() {}
+
+type CstExprConstantInteger struct {
+	Value string
+}
+
+func (CstExprConstantInteger) isCstNode() {}
 
 type CstExprOp struct {
 	OpPosition lex.Position

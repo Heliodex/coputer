@@ -14,8 +14,8 @@ import (
 // Parser Settings
 
 const (
-	LuauExplicitTypeInstantiationSyntax = false
-	DesugaredArrayTypeReferenceIsEmpty  = false
+	LuauExplicitTypeInstantiationSyntax = true
+	DesugaredArrayTypeReferenceIsEmpty  = true
 	// LuauCstStatDoWithStatsStart         = true
 )
 
@@ -231,7 +231,7 @@ var BlockFollow = map[lex.LexemeType]bool{
 
 func ConstantLiteral(expr AstExpr) bool {
 	switch expr.(type) {
-	case AstExprConstantNil, AstExprConstantBool, AstExprConstantNumber, AstExprConstantString:
+	case AstExprConstantNil, AstExprConstantBool, AstExprConstantNumber, AstExprConstantInteger, AstExprConstantString:
 		return true
 	}
 	return false
@@ -507,6 +507,12 @@ var (
 	hotcomments      = []HotComment{}
 	parseErrors      = []ParseError{}
 	cstNodes         = map[AstNode]CstNode{} // todo: change to pointer if needed
+)
+
+// export value syntax state (top-level `export local/function/const`)
+var (
+	declaredExportBindings = map[string]lex.Location{}
+	hasModuleReturn        bool
 )
 
 // All unlocalized Parser functions
@@ -1021,10 +1027,17 @@ func parseStat() AstStat {
 		return parseTypeAlias(loc, false, loc.Begin)
 	}
 
-	if ident != nil && *ident == "export" && token_type == lex.Name && token_string != nil && *token_string == "type" {
-		typeKeywordPos := token_location.Begin
-		nextLexeme()
-		return parseTypeAlias(expr.GetLocation(), true, typeKeywordPos)
+	if ident != nil && *ident == "export" {
+		if token_type == lex.ReservedLocal || token_type == lex.ReservedFunction ||
+			(token_type == lex.Name && token_string != nil && *token_string == "const") {
+			return parseExportValue(expr.GetLocation(), expr.GetLocation().Begin, nil)
+		}
+
+		if token_type == lex.Name && token_string != nil && *token_string == "type" {
+			typeKeywordPos := token_location.Begin
+			nextLexeme()
+			return parseTypeAlias(expr.GetLocation(), true, typeKeywordPos)
+		}
 	}
 
 	if ident != nil && *ident == "continue" {
@@ -1110,11 +1123,61 @@ func parseIf() *AstStatIf {
 
 	nextLexeme()
 
+	if token_type == lex.ReservedLocal {
+		return parseIfLocalCondition(start)
+	}
+
+	if token_type == lex.Name && token_string != nil && *token_string == "const" && next_type == lex.Name {
+		return parseIfLocalCondition(start)
+	}
+
 	cond := parseExpr(0)
 
+	return parseIfTail(start, cond, nil, nil, false, nil, nil)
+}
+
+// parseIfLocalCondition parses `if local name = exp then ... end` and
+// `if const name = exp then ... end` (LuauExperimentalIfLocalSyntax).
+func parseIfLocalCondition(start lex.Location) *AstStatIf {
+	condIsConst := token_type == lex.Name && token_string != nil && *token_string == "const"
+
+	keywordLocation := snapshot()
+	nextLexeme() // consume 'local' or 'const'
+
+	binding := parseBinding(condIsConst)
+
+	if token_type == ',' {
+		report(token_location, "Expected '=' after variable name in 'if local', got ','; only a single binding is allowed")
+	}
+
+	var equalsPosition *lex.Location
+	if token_type == '=' {
+		loc := snapshot()
+		equalsPosition = &loc
+	}
+
+	expectAndConsume('=', new("if local declaration"))
+
+	cond := parseExpr(0)
+
+	localsBegin := len(localStack)
+	condLocal := pushLocal(binding)
+
+	node := parseIfTail(start, cond, condLocal, &keywordLocation, condIsConst, equalsPosition, func() {
+		// The condition local is only visible in the then-block
+		restoreLocals(localsBegin)
+	})
+
+	return node
+}
+
+// parseIfTail parses the then-block and optional else/elseif of an if statement.
+// afterThen, when non-nil, runs after the then-block is parsed (used by
+// `if local`/`if const` to scope the condition local to the then-block only).
+func parseIfTail(start lex.Location, cond AstExpr, condLocal *AstLocal, condKeyword *lex.Location, condIsConst bool, condEquals *lex.Location, afterThen func()) *AstStatIf {
 	// Then_location := token_location
 
-	// okay what the package main import ( "fmt" "net/http" "time" ) func greet(w http.ResponseWriter, r *http.Request) { fmt.Fprintf(w, "Hello World! %s", time.Now()) } func main() { http.HandleFunc("/", greet) http.ListenAndServe(":8080", nil) }
+	// okay what the package main import ( "fmt" "net/http" "time" ) func greet(w http.ResponseWriter, r *http.Request) { fmt.Fprintf(w, "Hello World! %s", time.Now()) } func main() { http.HandleFunc("/", greet); http.ListenAndServe(":8080", nil) }
 	Then_begin := token_location.Begin
 	Then_end := token_location.End
 
@@ -1128,6 +1191,10 @@ func parseIf() *AstStatIf {
 	}
 
 	thenBody := parseBlock()
+
+	if afterThen != nil {
+		afterThen()
+	}
 
 	var elsebody AstStat
 	end := start
@@ -1181,12 +1248,16 @@ func parseIf() *AstStatIf {
 	}
 
 	return &AstStatIf{
-		NodeLoc:      &NodeLoc{lex.Location{Begin: start.Begin, End: end.End}},
-		Condition:    cond, // sorry, it's my cawndishawn
-		ThenBody:     *thenBody,
-		ElseBody:     elsebody,
-		ThenLocation: thenLocation,
-		ElseLocation: elseLocation,
+		NodeLoc:                  &NodeLoc{lex.Location{Begin: start.Begin, End: end.End}},
+		Condition:                cond, // sorry, it's my cawndishawn
+		ThenBody:                 *thenBody,
+		ElseBody:                 elsebody,
+		ThenLocation:             thenLocation,
+		ElseLocation:             elseLocation,
+		ConditionLocal:           condLocal,
+		ConditionIsConst:         condIsConst,
+		ConditionKeywordLocation: condKeyword,
+		ConditionEqualsLocation:  condEquals,
 	}
 }
 
@@ -1696,6 +1767,11 @@ func parseAttributeStat() AstStat {
 	case lex.ReservedLocal:
 		return parseLocal(snapshot(), token_location.Begin, attributes, false)
 	case lex.Name:
+		if token_string != nil && *token_string == "export" {
+			keywordPosition := token_location.Begin
+			nextLexeme() // consume 'export'
+			return parseExportValue(snapshot(), keywordPosition, attributes)
+		}
 		if token_string != nil && *token_string == "const" {
 			keywordPosition := token_location.Begin
 			nextLexeme() // consume 'const'
@@ -1711,6 +1787,97 @@ func parseAttributeStat() AstStat {
 		snapshot(), nil, nil,
 		fmt.Sprintf("Expected 'function', 'local function', 'const function', 'declare function' or a function type declaration after attribute, but got %s instead", currLex.String()),
 	)
+}
+
+// parseExportValue parses `export local ...`, `export function ...` and `export const ...`
+func parseExportValue(start lex.Location, keywordPosition lex.Position, attributes Attrs) AstStat {
+	if len(functionStack) != 1 || recursionCounter != 1 {
+		report(start, "'export' may only be applied to top-level statements")
+	}
+
+	if hasModuleReturn {
+		report(start, "Exporting values is not compatible with top-level return (export/return conflict)")
+	}
+
+	checkDuplicateExport := func(name string, location lex.Location) bool {
+		if _, ok := declaredExportBindings[name]; ok {
+			return false
+		}
+
+		declaredExportBindings[name] = location
+		return true
+	}
+
+	exportLocalStat := func(stat AstStat, keywordLocation lex.Location) AstStat {
+		localStat, ok := stat.(*AstStatLocal)
+		if !ok {
+			panic("Expected export local/const to parse as AstStatLocal")
+		}
+
+		localStat.IsExported = true
+		localStat.KeywordLocation = &keywordLocation
+
+		for i := range localStat.Vars {
+			local := &localStat.Vars[i]
+			if !checkDuplicateExport(local.Name, local.GetLocation()) {
+				report(local.GetLocation(), fmt.Sprintf("Duplicate exported identifier '%s'", local.Name))
+				continue
+			}
+
+			local.IsExported = true
+		}
+
+		return stat
+	}
+
+	if len(attributes) != 0 && token_type != lex.ReservedFunction {
+		currLex := lex.Lexeme{Type: token_type, Codepoint: token_codepoint}
+		if token_string != nil {
+			currLex.Data = []byte(*token_string)
+		}
+		report(token_location, fmt.Sprintf("Expected 'function' after export declaration with attribute, but got %s instead", currLex.String()))
+	}
+
+	switch {
+	case token_type == lex.ReservedLocal:
+		localKeywordLocation := token_location
+
+		if next_type == lex.ReservedFunction {
+			report(start, "'export' must be followed by an identifier or 'function'; try removing 'local'")
+			// still parse the function for error recovery
+			return parseLocal(start, localKeywordLocation.Begin, nil, true)
+		}
+
+		return exportLocalStat(parseLocal(start, keywordPosition, nil, false), localKeywordLocation)
+	case token_type == lex.ReservedFunction:
+		funcStat := parseLocal(start, keywordPosition, attributes, true)
+		localFunc, ok := funcStat.(*AstStatLocalFunction)
+		if !ok {
+			// parseLocal returned a parse error
+			return funcStat
+		}
+
+		if !checkDuplicateExport(localFunc.Name.Name, localFunc.Name.GetLocation()) {
+			report(localFunc.Name.GetLocation(), fmt.Sprintf("Duplicate exported identifier '%s'", localFunc.Name.Name))
+		}
+
+		localFunc.Name.IsExported = true
+		localFunc.Name.IsConst = true
+		return localFunc
+	case token_type == lex.Name && token_string != nil && *token_string == "const":
+		constKeywordLocation := token_location
+		nextLexeme() // consume 'const'
+
+		if token_type == lex.ReservedFunction {
+			report(start, "'export' must be followed by an identifier or 'function'")
+			// still parse the function for error recovery
+			return parseLocal(start, constKeywordLocation.Begin, nil, true)
+		}
+
+		return exportLocalStat(parseLocal(start, constKeywordLocation.Begin, nil, true), constKeywordLocation)
+	}
+
+	return reportStatError(start, nil, nil, "'export' must be followed by an identifier or 'function'")
 }
 
 // parseLocal handles `local function Name funcbody | local namelist [`=' explist] | const namelist `=' explist
@@ -1877,6 +2044,14 @@ func parseReturn() *AstStatReturn {
 
 	if storeCstData {
 		cstNodes[node] = CstStatReturn{CommaPositions: commaPositions}
+	}
+
+	if len(functionStack) == 1 {
+		if len(declaredExportBindings) > 0 {
+			report(node.GetLocation(), "Exporting values is not compatible with top-level return (export/return conflict)")
+		}
+
+		hasModuleReturn = true
 	}
 
 	return node
@@ -4325,30 +4500,23 @@ func parseIfElseExpr() AstExprIfElse {
 	start := snapshot()
 	nextLexeme() // consume 'if' or 'elseif'
 
+	if token_type == lex.ReservedLocal {
+		return parseIfElseExprLocalCondition(start)
+	}
+
+	if token_type == lex.Name && token_string != nil && *token_string == "const" && next_type == lex.Name {
+		return parseIfElseExprLocalCondition(start)
+	}
+
 	condition := parseExpr(0)
 
 	thenPosition := token_location.Begin
 	hasThen := expectAndConsume(lex.ReservedThen, nil)
 
 	trueExpr := parseExpr(0)
-	var falseExpr AstExpr
 
 	elsePosition := token_location.Begin
-	isElseIf := false
-	hasElse := false
-
-	if token_type == lex.ReservedElseif {
-		oldRecursion := recursionCounter
-		incrementRecursionCounter("expression")
-		hasElse = true
-		result := parseIfElseExpr()
-		falseExpr = result
-		recursionCounter = oldRecursion
-		isElseIf = true
-	} else {
-		hasElse = expectAndConsume(lex.ReservedElse, nil)
-		falseExpr = parseExpr(0)
-	}
+	falseExpr, hasElse, isElseIf := parseIfElseExprTail()
 
 	var falseEnd lex.Position
 	if falseExpr != nil {
@@ -4373,6 +4541,92 @@ func parseIfElseExpr() AstExprIfElse {
 	}
 
 	return node
+}
+
+// parseIfElseExprLocalCondition parses the `if local x = e then a else b` (and
+// `const`) expression form (LuauExperimentalIfLocalSyntax).
+func parseIfElseExprLocalCondition(start lex.Location) AstExprIfElse {
+	condIsConst := token_type == lex.Name && token_string != nil && *token_string == "const"
+
+	keywordLocation := snapshot()
+	nextLexeme() // consume 'local' or 'const'
+
+	binding := parseBinding(condIsConst)
+
+	if token_type == ',' {
+		report(token_location, "Expected '=' after variable name in 'if local', got ','; only a single binding is allowed")
+	}
+
+	var equalsPosition *lex.Location
+	if token_type == '=' {
+		loc := snapshot()
+		equalsPosition = &loc
+	}
+
+	expectAndConsume('=', new("if local declaration"))
+
+	condition := parseExpr(0)
+
+	thenPosition := token_location.Begin
+	hasThen := expectAndConsume(lex.ReservedThen, new("if then else expression"))
+
+	// Push the binding after the condition so the condition cannot reference it,
+	// and restore after the true expression so it isn't visible in else/elseif.
+	localsBegin := len(localStack)
+	condLocal := pushLocal(binding)
+
+	trueExpr := parseExpr(0)
+
+	restoreLocals(localsBegin)
+
+	elsePosition := token_location.Begin
+	falseExpr, hasElse, isElseIf := parseIfElseExprTail()
+
+	var falseEnd lex.Position
+	if falseExpr != nil {
+		falseEnd = falseExpr.GetLocation().End
+	}
+
+	node := AstExprIfElse{
+		NodeLoc:                  &NodeLoc{lex.Location{Begin: start.Begin, End: falseEnd}},
+		Condition:                condition,
+		HasThen:                  hasThen,
+		TrueExpr:                 trueExpr,
+		HasElse:                  hasElse,
+		FalseExpr:                falseExpr,
+		ConditionLocal:           condLocal,
+		ConditionIsConst:         condIsConst,
+		ConditionKeywordLocation: &keywordLocation,
+		ConditionEqualsLocation:  equalsPosition,
+	}
+
+	if storeCstData {
+		cstNodes[node] = CstExprIfElse{
+			ThenPosition: thenPosition,
+			ElsePosition: elsePosition,
+			IsElseIf:     isElseIf,
+		}
+	}
+
+	return node
+}
+
+// parseIfElseExprTail parses the `elseif ...`/`else ...` part of an if-expression.
+func parseIfElseExprTail() (falseExpr AstExpr, hasElse bool, isElseIf bool) {
+	if token_type == lex.ReservedElseif {
+		oldRecursion := recursionCounter
+		incrementRecursionCounter("expression")
+		hasElse = true
+		result := parseIfElseExpr()
+		falseExpr = result
+		recursionCounter = oldRecursion
+		isElseIf = true
+	} else {
+		hasElse = expectAndConsume(lex.ReservedElse, nil)
+		falseExpr = parseExpr(0)
+	}
+
+	return falseExpr, hasElse, isElseIf
 }
 
 // parseInterpString parses an interpolated string expression
@@ -4579,6 +4833,7 @@ const (
 	NumberParseResult_Imprecise
 	NumberParseResult_BinOverflow
 	NumberParseResult_HexOverflow
+	NumberParseResult_IntOverflow
 )
 
 // parseNumber parses a number literal expression
@@ -4595,6 +4850,67 @@ func parseNumber() AstExprConstantNumberOrError {
 	}
 
 	cleanData := strings.ReplaceAll(data, "_", "")
+
+	// Integer literal with an `i` suffix, e.g. `1i` or `0xFFi`
+	if strings.HasSuffix(cleanData, "i") {
+		integerData := cleanData[:len(cleanData)-1]
+		var intValue int64
+		var intResult NumberParseResult
+
+		switch {
+		case strings.HasPrefix(integerData, "0x") || strings.HasPrefix(integerData, "0X"):
+			u, err := strconv.ParseUint(integerData[2:], 16, 64)
+			switch {
+			case err == nil:
+				intValue = int64(u)
+			case errors.Is(err, strconv.ErrRange):
+				intResult = NumberParseResult_HexOverflow
+			default:
+				intResult = NumberParseResult_Malformed
+			}
+		case strings.HasPrefix(integerData, "0b") || strings.HasPrefix(integerData, "0B"):
+			u, err := strconv.ParseUint(integerData[2:], 2, 64)
+			switch {
+			case err == nil:
+				intValue = int64(u)
+			case errors.Is(err, strconv.ErrRange):
+				intResult = NumberParseResult_BinOverflow
+			default:
+				intResult = NumberParseResult_Malformed
+			}
+		default:
+			v, err := strconv.ParseInt(integerData, 10, 64)
+			switch {
+			case err == nil:
+				intValue = v
+			case errors.Is(err, strconv.ErrRange):
+				intResult = NumberParseResult_IntOverflow
+			default:
+				intResult = NumberParseResult_Malformed
+			}
+		}
+
+		nextLexeme()
+
+		if intResult == NumberParseResult_Malformed {
+			return reportExprError(start, nil, "Malformed integer")
+		}
+		if intResult != NumberParseResult_Ok {
+			return reportExprError(start, nil, "Integer overflow")
+		}
+
+		node := AstExprConstantInteger{
+			NodeLoc:     &NodeLoc{start},
+			Value:       intValue,
+			ParseResult: intResult,
+		}
+
+		if storeCstData {
+			cstNodes[node] = CstExprConstantInteger{Value: sourceData}
+		}
+
+		return node
+	}
 
 	value := 0.0
 	var parseResult NumberParseResult
