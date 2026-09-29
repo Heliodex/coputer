@@ -1445,7 +1445,7 @@ func (p *Parser) parseFunctionName(hasRef []bool, debugNameRef *[]*string) AstEx
 			Index:         name.Name.Value,
 			IndexLocation: name.Location,
 			OpPosition:    opPosition,
-			Op:            ',',
+			Op:            '.',
 		}
 
 		// note: while the parser isn't recursive here, we're generating recursive structures of unbounded depth

@@ -90,7 +90,7 @@ Root:
                 Upvalue: false
             Index: "func"
             IndexLocation: 5,11 - 5,15
-            Op: ,
+            Op: .
         Func:
             ExprFunction
             Location: 5,0 - 5,25
