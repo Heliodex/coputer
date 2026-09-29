@@ -52,6 +52,8 @@ func indentStart(s string, n int) string {
 type AstNode interface {
 	isAstNode()
 	String() string
+	// Source renders the node as formatted Luau code.
+	Source() string
 }
 
 // --------------------------------------------------------------------------------
@@ -850,7 +852,7 @@ func (n AstExprTableItem) String() string {
 
 	b.WriteString("ExprTableItem\n")
 	b.WriteString(n.NodeLoc.String())
-	b.WriteString(fmt.Sprintf("Kind: %q\n", n.Kind))
+	fmt.Fprintf(&b, "Kind: %q\n", n.Kind)
 	if n.Key != nil {
 		b.WriteString("Key:\n")
 		b.WriteString(indentStart((*n.Key).String(), 2))
@@ -914,7 +916,7 @@ func (n AstExprUnary) String() string {
 
 	b.WriteString("ExprUnary\n")
 	b.WriteString(n.NodeLoc.String())
-	b.WriteString(fmt.Sprintf("Op: %v\n", n.Op))
+	fmt.Fprintf(&b, "Op: %v\n", n.Op)
 	b.WriteString("Expr:\n")
 	b.WriteString(indentStart(n.Expr.String(), 2))
 	b.WriteByte('\n')
@@ -933,7 +935,7 @@ func (n AstGenericType) String() string {
 
 	b.WriteString("GenericType\n")
 	b.WriteString(n.NodeLoc.String())
-	b.WriteString(fmt.Sprintf("Name: %q\n", n.Name))
+	fmt.Fprintf(&b, "Name: %q\n", n.Name)
 	if n.DefaultValue != nil {
 		b.WriteString("DefaultValue:\n")
 		b.WriteString(indentStart((*n.DefaultValue).String(), 2))
@@ -954,7 +956,7 @@ func (n AstGenericTypePack) String() string {
 
 	b.WriteString("GenericTypePack\n")
 	b.WriteString(n.NodeLoc.String())
-	b.WriteString(fmt.Sprintf("Name: %q\n", n.Name))
+	fmt.Fprintf(&b, "Name: %q\n", n.Name)
 	if n.DefaultValue != nil {
 		b.WriteString("DefaultValue:\n")
 		b.WriteString(indentStart((*n.DefaultValue).String(), 2))
