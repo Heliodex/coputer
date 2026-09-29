@@ -116,14 +116,14 @@ func StringToSource(str string) string {
 
 		r := []rune(string(sbs[i:]))[0]
 		if unicode.IsControl(r) {
-			bs = append(bs, []byte(fmt.Sprintf("\\%d", r))...)
+			bs = append(bs, fmt.Appendf(nil, "\\%d", r)...)
 			i += len(string(r)) - 1
 			continue
 		}
 
 		if r == unicode.ReplacementChar && unicode.IsControl(rune(b)) {
 			// invalid utf-8 byte
-			bs = append(bs, []byte(fmt.Sprintf("\\%d", b))...)
+			bs = append(bs, fmt.Appendf(nil, "\\%d", b)...)
 			continue
 		}
 
