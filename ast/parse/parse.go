@@ -808,9 +808,7 @@ func (p *Parser) parseBindingList(result *[]Binding, allowDot3 bool, commaPositi
 			}
 
 			if commaPositions != nil {
-				for _, v := range localCommaPositions {
-					*commaPositions = append(*commaPositions, v)
-				}
+				*commaPositions = append(*commaPositions, localCommaPositions...)
 			}
 
 			return true, &varargLocation, tailAnnotation
@@ -830,9 +828,7 @@ func (p *Parser) parseBindingList(result *[]Binding, allowDot3 bool, commaPositi
 	}
 
 	if commaPositions != nil {
-		for _, v := range localCommaPositions {
-			*commaPositions = append(*commaPositions, v)
-		}
+		*commaPositions = append(*commaPositions, localCommaPositions...)
 	}
 
 	return false, nil, nil
@@ -1099,7 +1095,6 @@ func (p *Parser) parseIfTail(start lex.Location, cond AstExpr, condLocal *AstLoc
 		ThenElse_type := p.token_type
 
 		ThenElse_begin := p.token_location.Begin
-		ThenElse_end := p.token_location.End
 
 		if p.token_type == lex.ReservedElse {
 			thenBody.HasEnd = true
@@ -1109,7 +1104,7 @@ func (p *Parser) parseIfTail(start lex.Location, cond AstExpr, condLocal *AstLoc
 			ThenElse_type = p.token_type
 
 			ThenElse_begin = p.token_location.Begin
-			ThenElse_end = p.token_location.End
+			ThenElse_end := p.token_location.End
 
 			p.nextLexeme()
 
@@ -1590,7 +1585,7 @@ func (p *Parser) parseAttribute(attributes *Attrs) {
 				nameLoc := name_.NodeLoc.Location
 				attrName := name_.Name.Value
 				var args []AstExpr
-				argsLocation := p.snapshot()
+				var argsLocation lex.Location
 
 				if p.token_type == lex.RawString || p.token_type == lex.QuotedString || p.token_type == '{' || p.token_type == '(' {
 					var argsOpenLoc lex.Location
@@ -3821,7 +3816,6 @@ func (p *Parser) parsePrefixExpr() AstExpr {
 			p.expectMatchAndConsumeFail(')', parenType, parenBegin, extra)
 			end = p.prev_location.End
 		} else {
-			end = p.token_location.End
 			p.nextLexeme()
 		}
 

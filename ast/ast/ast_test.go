@@ -91,7 +91,7 @@ func parseFile(t *testing.T, f os.DirEntry, dir string) {
 
 	if name == "luauception" {
 		return
-		fmt.Println("⚠️ WARNING! ⚠️ This test takes about a minute to run. It will also eat all of your RAM.")
+		// fmt.Println("⚠️ WARNING! ⚠️ This test takes about a minute to run. It will also eat all of your RAM.")
 	}
 
 	out, err := LuauAst(filename + Ext)

@@ -1967,7 +1967,6 @@ type AstTypeList struct {
 }
 
 func (AstTypeList) isAstNode() {}
-func (AstTypeList) isAstType() {}
 func (n AstTypeList) String() string {
 	var b strings.Builder
 
@@ -2032,8 +2031,7 @@ type AstTypePackExplicit struct {
 	TailType *AstTypePack
 }
 
-func (AstTypePackExplicit) isAstNode()     {}
-func (AstTypePackExplicit) isAstTypePack() {}
+func (AstTypePackExplicit) isAstNode() {}
 func (n AstTypePackExplicit) String() string {
 	var b strings.Builder
 
@@ -2057,7 +2055,6 @@ type AstTypePackGeneric struct {
 }
 
 func (AstTypePackGeneric) isAstNode()                      {}
-func (AstTypePackGeneric) isAstTypePack()                  {}
 func (AstTypePackGeneric) isAstTypePackVariadicOrGeneric() {}
 func (n AstTypePackGeneric) String() string {
 	var b strings.Builder
@@ -2075,7 +2072,6 @@ type AstTypePackVariadic struct {
 }
 
 func (AstTypePackVariadic) isAstNode()                      {}
-func (AstTypePackVariadic) isAstTypePack()                  {}
 func (AstTypePackVariadic) isAstTypePackVariadicOrGeneric() {}
 func (n AstTypePackVariadic) String() string {
 	var b strings.Builder

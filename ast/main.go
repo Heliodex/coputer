@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	. "github.com/Heliodex/coputer/ast/ast"
+	"github.com/Heliodex/coputer/ast/ast"
 )
 
 const LuauExt = ".luau"
@@ -17,7 +17,7 @@ func processFile(filepath string, stdout bool) error {
 		return fmt.Errorf("read file: %w", err)
 	}
 
-	out, err := LuauAst(filepath)
+	out, err := ast.LuauAst(filepath)
 	if err != nil {
 		return fmt.Errorf("convert to Luau AST: %w", err)
 	}
@@ -29,14 +29,14 @@ func processFile(filepath string, stdout bool) error {
 	// }
 
 	// encode as AST
-	ast, err := DecodeAST(out)
+	tree, err := ast.DecodeAST(out)
 	if err != nil {
 		return fmt.Errorf("decode AST: %w", err)
 	}
 
-	// fmt.Println(ast)
+	// fmt.Println(tree)
 
-	newsource, err := ast.Source(string(content))
+	newsource, err := tree.Source(string(content))
 	if err != nil {
 		return fmt.Errorf("encode AST: %w", err)
 	}
@@ -122,18 +122,18 @@ func cmdDir(dirarg string) error {
 }
 
 func cmdInput(content []byte) error {
-	out, err := LuauAstInput(content)
+	out, err := ast.LuauAstInput(content)
 	if err != nil {
 		return fmt.Errorf("convert to Luau AST: %w", err)
 	}
 
 	// encode as AST
-	ast, err := DecodeAST(out)
+	tree, err := ast.DecodeAST(out)
 	if err != nil {
 		return fmt.Errorf("decode AST: %w", err)
 	}
 
-	newsource, err := ast.Source(string(content))
+	newsource, err := tree.Source(string(content))
 	if err != nil {
 		return fmt.Errorf("encode AST: %w", err)
 	}

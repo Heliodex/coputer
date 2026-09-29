@@ -146,14 +146,6 @@ func (l *Lexer) next(skipComments, updatePrevLocation bool) Lexeme {
 	return l.lexeme
 }
 
-func (l *Lexer) nextline() {
-	for l.peekch0() != 0 && l.peekch0() != '\r' && !isNewline(l.peekch0()) {
-		l.consume()
-	}
-
-	l.Next0()
-}
-
 func (l *Lexer) Lookahead() Lexeme {
 	currentOffset := l.offset
 	currentLine := l.line
@@ -183,16 +175,6 @@ func (l *Lexer) Lookahead() Lexeme {
 	}
 
 	return result
-}
-
-func (l *Lexer) isReserved(word string) bool {
-	for i := Reserved_BEGIN; i < Reserved_END; i++ {
-		if word == kReserved[i-Reserved_BEGIN] {
-			return true
-		}
-	}
-
-	return false
 }
 
 func (l *Lexer) peekch0() byte {
