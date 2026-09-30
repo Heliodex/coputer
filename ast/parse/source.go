@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math"
 	"strings"
+
+	"github.com/Heliodex/coputer/ast/lex"
 )
 
 // This file implements Source() for every AST node. Each Source() renders the
@@ -35,20 +37,110 @@ func sourceIndent(s string, levels int) string {
 // sourceBlockBody renders a block's statements indented one level, preceded by
 // a newline. Empty blocks render as an empty string.
 func sourceBlockBody(body AstStatBlock) string {
-	s := sourceStatList(body.Body)
+	s := sourceStatList(body.Body, body.Comments)
 	if s == "" {
 		return ""
 	}
 	return "\n" + sourceIndent(s, 1)
 }
 
-// sourceStatList renders statements separated by newlines.
-func sourceStatList(stats []AstStat) string {
-	parts := make([]string, len(stats))
+// sourceStatList renders statements separated by newlines, interleaving the
+// block's comments in their original positions: leading comments stay above the
+// statement they precede and trailing comments stay on the same line.
+func sourceStatList(stats []AstStat, comments []Comment) string {
+	var lines []string
+	ci := 0
+
 	for i, stat := range stats {
-		parts[i] = sourceStat(stat)
+		statLoc := stat.GetLocation()
+
+		// comments that start at or before this statement go on their own line
+		for ci < len(comments) && !comments[ci].Location.Begin.After(statLoc.Begin) {
+			lines = append(lines, sourceComment(comments[ci]))
+			ci++
+		}
+
+		src := sourceStat(stat)
+
+		// comments on the same line as the end of the statement stay there
+		for ci < len(comments) &&
+			comments[ci].Location.Begin.Line == statLoc.End.Line &&
+			(i+1 >= len(stats) || comments[ci].Location.Begin.Before(stats[i+1].GetLocation().Begin)) {
+			src += " " + sourceComment(comments[ci])
+			ci++
+		}
+
+		lines = append(lines, src)
 	}
-	return strings.Join(parts, "\n")
+
+	// comments after the last statement
+	for ci < len(comments) {
+		lines = append(lines, sourceComment(comments[ci]))
+		ci++
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+// sourceComment renders a comment.
+func sourceComment(comment Comment) string {
+	if comment.Type == lex.BlockComment || comment.Type == lex.BrokenComment {
+		return "--" + sourceLongString(normalizeCommentContent(comment.Content))
+	}
+	return "--" + comment.Content
+}
+
+// normalizeCommentContent removes the common leading indentation from the
+// continuation lines of a block comment. Without this, re-indenting a comment
+// when rendering would keep adding whitespace every time the output is parsed
+// and rendered again.
+func normalizeCommentContent(content string) string {
+	if !strings.Contains(content, "\n") {
+		return content
+	}
+
+	lines := strings.Split(content, "\n")
+
+	common := ""
+	for i := 1; i < len(lines); i++ {
+		if strings.TrimSpace(lines[i]) == "" {
+			continue
+		}
+
+		indent := leadingWhitespace(lines[i])
+		if common == "" {
+			common = indent
+			continue
+		}
+		common = commonLeadingWhitespace(common, indent)
+	}
+
+	if common == "" {
+		return content
+	}
+
+	for i := 1; i < len(lines); i++ {
+		lines[i] = strings.TrimPrefix(lines[i], common)
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+func leadingWhitespace(s string) string {
+	i := 0
+	for i < len(s) && (s[i] == ' ' || s[i] == '\t') {
+		i++
+	}
+	return s[:i]
+}
+
+func commonLeadingWhitespace(a, b string) string {
+	n := min(len(a), len(b))
+	i := 0
+	for i < n && a[i] == b[i] {
+		i++
+	}
+	return a[:i]
 }
 
 // sourceStat renders a statement, preserving a trailing semicolon when the
@@ -642,7 +734,7 @@ func (n AstStatAssign) Source() string {
 }
 
 func (n AstStatBlock) Source() string {
-	body := sourceStatList(n.Body)
+	body := sourceStatList(n.Body, n.Comments)
 	if !n.HasEnd {
 		return body
 	}
@@ -778,7 +870,7 @@ func (n AstDeclaredExternTypeProperty) Source() string {
 
 func (n AstStatError) Source() string {
 	if len(n.Statements) > 0 {
-		return sourceStatList(n.Statements)
+		return sourceStatList(n.Statements, nil)
 	}
 	if len(n.Expressions) > 0 {
 		return sourceExprList(n.Expressions)

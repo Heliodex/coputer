@@ -29,6 +29,8 @@ type ParseError struct {
 }
 
 type Options struct {
+	// CaptureComments reports the parsed comment locations in Result. Comments
+	// are always collected internally so that Source() can reproduce them.
 	CaptureComments bool
 	StoreCstData    bool
 }

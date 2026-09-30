@@ -112,6 +112,66 @@ end`
 	}
 }
 
+// TestSourceComments checks that comments are rendered near their original
+// positions: leading comments stay above the statement they precede, trailing
+// comments stay on the same line, and comments inside a block stay inside it.
+func TestSourceComments(t *testing.T) {
+	src := "-- leading comment\n" +
+		"local x = 1 -- trailing comment\n" +
+		"--[[ block comment ]]\n" +
+		"local function f()\n" +
+		"\t-- inner comment\n" +
+		"\treturn x -- return comment\n" +
+		"end\n" +
+		"do\n" +
+		"\t--[[ multi\n" +
+		"\tline ]]\n" +
+		"end\n"
+
+	expected := "-- leading comment\n" +
+		"local x = 1 -- trailing comment\n" +
+		"--[[ block comment ]]\n" +
+		"local function f()\n" +
+		"\t-- inner comment\n" +
+		"\treturn x -- return comment\n" +
+		"end\n" +
+		"do\n" +
+		"\t--[[ multi\n" +
+		"\tline ]]\n" +
+		"end"
+
+	ok, res := Parse(src, Options{})
+	if !ok {
+		t.Fatal("error parsing source:", res.Errors)
+	}
+
+	if got := res.Root.Source(); got != expected {
+		t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", expected, got)
+	}
+}
+
+// TestSourceCommentsOption checks that comments are always rendered by
+// Source(), while Result.CommentLocations still respects CaptureComments.
+func TestSourceCommentsOption(t *testing.T) {
+	src := "-- comment\nlocal x = 1\n"
+
+	_, res := Parse(src, Options{})
+	if len(res.CommentLocations) != 0 {
+		t.Errorf("expected no comment locations without CaptureComments, got %d", len(res.CommentLocations))
+	}
+	if !strings.Contains(res.Root.Source(), "-- comment") {
+		t.Errorf("expected Source() to include comments without CaptureComments")
+	}
+
+	_, res = Parse(src, Options{CaptureComments: true})
+	if len(res.CommentLocations) != 1 {
+		t.Fatalf("expected 1 comment location, got %d", len(res.CommentLocations))
+	}
+	if res.CommentLocations[0].Content != " comment" {
+		t.Errorf("unexpected comment content: %q", res.CommentLocations[0].Content)
+	}
+}
+
 // TestSourceDeclareNodes checks Source() for declaration nodes, which are part
 // of the AST but aren't produced by this parser.
 func TestSourceDeclareNodes(t *testing.T) {

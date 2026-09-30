@@ -41,9 +41,11 @@ type Parser struct {
 	localMap      map[string]*AstLocal
 
 	commentLocations []Comment
-	hotcomments      []HotComment
-	parseErrors      []ParseError
-	cstNodes         map[AstNode]CstNode
+	// pendingComments are comments not yet attached to the block they appear in
+	pendingComments []Comment
+	hotcomments     []HotComment
+	parseErrors     []ParseError
+	cstNodes        map[AstNode]CstNode
 
 	recursionCounter int
 

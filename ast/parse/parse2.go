@@ -19,6 +19,7 @@ func (p *Parser) parse() {
 	p.recursionCounter = 0
 
 	p.commentLocations = nil
+	p.pendingComments = nil
 	p.hotcomments = nil
 	p.parseErrors = nil
 	p.cstNodes = map[AstNode]CstNode{}
@@ -75,10 +76,17 @@ func Parse(src string, opts Options) (bool, Result) {
 		rootBlock = *root
 	}
 
+	// comments are always collected so that Source() can reproduce them, but
+	// they're only reported in the result when requested
+	var commentLocations []Comment
+	if p.captureComments {
+		commentLocations = p.commentLocations
+	}
+
 	return len(p.parseErrors) == 0,
 		Result{
 			Root:             rootBlock,
-			CommentLocations: p.commentLocations,
+			CommentLocations: commentLocations,
 			HotComments:      p.hotcomments,
 			CstNodeMap:       p.cstNodes,
 			Errors:           p.parseErrors,

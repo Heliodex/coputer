@@ -465,12 +465,15 @@ func (p *Parser) fillNext() {
 		p.next_aux = next.Aux
 
 		if next.Type == lex.Comment || next.Type == lex.BlockComment || next.Type == lex.BrokenComment {
-			if p.captureComments {
-				p.commentLocations = append(p.commentLocations, Comment{
-					Type:    next.Type,
-					NodeLoc: &NodeLoc{next.Location},
-				})
+			// comments are always collected: they're attached to the blocks
+			// they appear in so that Source() can reproduce them
+			comment := Comment{
+				Type:    next.Type,
+				Content: nstr,
+				NodeLoc: &NodeLoc{next.Location},
 			}
+			p.commentLocations = append(p.commentLocations, comment)
+			p.pendingComments = append(p.pendingComments, comment)
 
 			if next.Type == lex.Comment && p.next_string != nil && (*p.next_string)[0] == '!' {
 				p.hotcomments = append(p.hotcomments, HotComment{
@@ -976,7 +979,7 @@ func (p *Parser) parseBlockNoScope() *AstStatBlock {
 
 	// fmt.Println("Parsed block with body:", body)
 
-	return &AstStatBlock{
+	block := &AstStatBlock{
 		NodeLoc: &NodeLoc{
 			lex.Location{
 				Begin: prevPos,
@@ -986,6 +989,12 @@ func (p *Parser) parseBlockNoScope() *AstStatBlock {
 		Body:   body,
 		HasEnd: false,
 	}
+
+	// attach the comments contained in this block; nested blocks are finished
+	// first, so comments end up on the deepest block containing them
+	p.attachBlockComments(block)
+
+	return block
 }
 
 // chunk ::= {stat [`;']} [laststat [`;']]
@@ -995,6 +1004,27 @@ func (p *Parser) parseBlock() *AstStatBlock {
 	result := p.parseBlockNoScope()
 	p.restoreLocals(localsBegin)
 	return result
+}
+
+// attachBlockComments moves the comments contained in block out of the pending
+// list and onto the block. Nested blocks are finalized before their parents, so
+// every comment ends up attached to the deepest block that contains it.
+func (p *Parser) attachBlockComments(block *AstStatBlock) {
+	if len(p.pendingComments) == 0 {
+		return
+	}
+
+	loc := block.GetLocation()
+
+	remaining := p.pendingComments[:0]
+	for _, comment := range p.pendingComments {
+		if loc.Contains(comment.Location) {
+			block.Comments = append(block.Comments, comment)
+		} else {
+			remaining = append(remaining, comment)
+		}
+	}
+	p.pendingComments = remaining
 }
 
 // if exp then block {elseif exp then block} [else block] end

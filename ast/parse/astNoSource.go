@@ -278,6 +278,8 @@ var (
 
 type Comment struct {
 	Type lex.LexemeType
+	// Content is the comment body, without the `--` or block delimiters.
+	Content string
 	*NodeLoc
 }
 
@@ -1042,6 +1044,8 @@ type AstStatBlock struct {
 	Body         []AstStat
 	HasEnd       bool
 	HasSemicolon *bool
+	// Comments contains the comments lexed within this block, in source order.
+	Comments []Comment
 }
 
 func (AstStatBlock) isAstNode() {}

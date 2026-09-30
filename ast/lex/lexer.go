@@ -33,6 +33,21 @@ func (l Location) String() string {
 	return fmt.Sprintf("%d,%d - %d,%d", l.Begin.Line, l.Begin.Column, l.End.Line, l.End.Column)
 }
 
+// Before reports whether pos comes before other.
+func (pos Position) Before(other Position) bool {
+	return pos.Line < other.Line || (pos.Line == other.Line && pos.Column < other.Column)
+}
+
+// After reports whether pos comes after other.
+func (pos Position) After(other Position) bool {
+	return other.Before(pos)
+}
+
+// Contains reports whether l fully contains other.
+func (l Location) Contains(other Location) bool {
+	return !other.Begin.Before(l.Begin) && !other.End.After(l.End)
+}
+
 func LocationLen(start Position, l uint32) Location {
 	return Location{
 		Begin: start,
