@@ -585,7 +585,7 @@ func (n AstExprInterpString) Source() string {
 func sourceInterpStringPart(s string) string {
 	var b strings.Builder
 
-	for i := 0; i < len(s); i++ {
+	for i := range s {
 		ch := s[i]
 		switch ch {
 		case '\\':
@@ -654,9 +654,8 @@ func (n AstExprTableItem) Source() string {
 			return "[" + (*n.Key).Source() + "] = " + n.Value.Source()
 		}
 		return n.Value.Source()
-	default:
-		return n.Value.Source()
 	}
+	return n.Value.Source()
 }
 
 func (n AstExprTypeAssertion) Source() string {
