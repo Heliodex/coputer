@@ -3209,14 +3209,6 @@ func (p *Parser) parseFunctionTypeTail(begin lex.Lexeme, attributes Attrs, gener
 	returnType := p.parseReturnType()
 	retTypeLoc := returnType.GetLocation()
 
-	retTypePack, ok := returnType.(AstTypePackExplicit)
-	if !ok {
-		retTypePack = AstTypePackExplicit{
-			NodeLoc: &NodeLoc{retTypeLoc},
-			Types:   AstTypeList{},
-		}
-	}
-
 	return AstTypeFunction{
 		NodeLoc:      &NodeLoc{lex.Location{Begin: begin.Location.Begin, End: retTypeLoc.End}},
 		Attributes:   []AstAttr(attributes),
@@ -3224,7 +3216,7 @@ func (p *Parser) parseFunctionTypeTail(begin lex.Lexeme, attributes Attrs, gener
 		GenericPacks: genericPacks,
 		ArgTypes:     AstTypeList{Types: params, TailType: varargAnnotation},
 		ArgNames:     paramNames,
-		ReturnTypes:  retTypePack,
+		ReturnTypes:  returnType,
 	}
 }
 

@@ -12,6 +12,10 @@ const (
 	AstDir         = "../test/ast"
 	BenchmarkDir   = "../test/benchmark"
 	ConformanceDir = "../test/conformance"
+	FormattingDir  = "../test/formatting"
+	// FormattingOutSuffix is appended to a formatting test's name to get the
+	// file containing its expected formatted output.
+	FormattingOutSuffix = "_out"
 )
 
 // base for every node
@@ -1877,7 +1881,7 @@ type AstTypeFunction struct {
 	GenericPacks []AstGenericTypePack
 	ArgTypes     AstTypeList
 	ArgNames     []*AstArgumentName
-	ReturnTypes  AstTypePackExplicit
+	ReturnTypes  AstTypePack
 }
 
 func (AstTypeFunction) isAstNode() {}
