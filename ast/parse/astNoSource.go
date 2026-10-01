@@ -292,7 +292,7 @@ func (n Comment) String() string {
 
 	b.WriteString("Comment\n")
 	b.WriteString(n.NodeLoc.String())
-	b.WriteString(fmt.Sprintf("Type: %v\n", n.Type))
+	fmt.Fprintf(&b, "Type: %v\n", n.Type)
 
 	return b.String()
 }
@@ -310,7 +310,7 @@ func (n AstAttr) String() string {
 
 	b.WriteString("Attr\n")
 	b.WriteString(n.NodeLoc.String())
-	b.WriteString(fmt.Sprintf("Type: %q\n", n.Type))
+	fmt.Fprintf(&b, "Type: %q\n", n.Type)
 	if len(n.Args) > 0 {
 		b.WriteString("Args:\n")
 		for _, arg := range n.Args {
@@ -319,7 +319,7 @@ func (n AstAttr) String() string {
 		}
 	}
 	if n.Name != nil {
-		b.WriteString(fmt.Sprintf("Name: %q\n", *n.Name))
+		fmt.Fprintf(&b, "Name: %q\n", *n.Name)
 	}
 
 	return b.String()
@@ -334,8 +334,8 @@ func (n AstArgumentName) String() string {
 	var b strings.Builder
 
 	b.WriteString("ArgumentName\n")
-	b.WriteString(fmt.Sprintf("Name: %q\n", n.Name))
-	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location.String()))
+	fmt.Fprintf(&b, "Name: %q\n", n.Name)
+	fmt.Fprintf(&b, "Location: %s\n", n.Location.String())
 
 	return b.String()
 }
@@ -354,7 +354,7 @@ func (n AstExprBinary) String() string {
 
 	b.WriteString("ExprBinary\n")
 	b.WriteString(n.NodeLoc.String())
-	b.WriteString(fmt.Sprintf("Op: %d\n", n.Op))
+	fmt.Fprintf(&b, "Op: %d\n", n.Op)
 	b.WriteString("Left:\n")
 	b.WriteString(indentStart(n.Left.String(), 2))
 	b.WriteByte('\n')
@@ -391,8 +391,8 @@ func (n AstExprCall) String() string {
 			b.WriteByte('\n')
 		}
 	}
-	b.WriteString(fmt.Sprintf("Self: %t\n", n.Self))
-	b.WriteString(fmt.Sprintf("ArgLocation: %s\n", n.ArgLocation.String()))
+	fmt.Fprintf(&b, "Self: %t\n", n.Self)
+	fmt.Fprintf(&b, "ArgLocation: %s\n", n.ArgLocation.String())
 	if n.TypeArguments != nil {
 		b.WriteString("TypeArguments:\n")
 		for _, typeArg := range *n.TypeArguments {
@@ -416,7 +416,7 @@ func (n AstExprConstantBool) String() string {
 
 	b.WriteString("ExprConstantBool\n")
 	b.WriteString(n.NodeLoc.String())
-	b.WriteString(fmt.Sprintf("Value: %t\n", n.Value))
+	fmt.Fprintf(&b, "Value: %t\n", n.Value)
 
 	return b.String()
 }
@@ -449,7 +449,7 @@ func (n AstExprConstantNumber) String() string {
 
 	b.WriteString("ExprConstantNumber\n")
 	b.WriteString(n.NodeLoc.String())
-	b.WriteString(fmt.Sprintf("Value: %f\n", n.Value))
+	fmt.Fprintf(&b, "Value: %f\n", n.Value)
 
 	return b.String()
 }
@@ -468,7 +468,7 @@ func (n AstExprConstantInteger) String() string {
 
 	b.WriteString("ExprConstantInteger\n")
 	b.WriteString(n.NodeLoc.String())
-	b.WriteString(fmt.Sprintf("Value: %d\n", n.Value))
+	fmt.Fprintf(&b, "Value: %d\n", n.Value)
 
 	return b.String()
 }
@@ -487,8 +487,8 @@ func (n AstExprConstantString) String() string {
 
 	b.WriteString("ExprConstantString\n")
 	b.WriteString(n.NodeLoc.String())
-	b.WriteString(fmt.Sprintf("Value: %q\n", n.Value))
-	b.WriteString(fmt.Sprintf("QuoteStyle: %v\n", n.QuoteStyle))
+	fmt.Fprintf(&b, "Value: %q\n", n.Value)
+	fmt.Fprintf(&b, "QuoteStyle: %v\n", n.QuoteStyle)
 
 	return b.String()
 }
@@ -515,7 +515,7 @@ func (n AstExprError) String() string {
 		b.WriteString(indentStart(expr.String(), 2))
 		b.WriteByte('\n')
 	}
-	b.WriteString(fmt.Sprintf("MessageIndex: %d\n", n.MessageIndex))
+	fmt.Fprintf(&b, "MessageIndex: %d\n", n.MessageIndex)
 
 	return b.String()
 }
@@ -582,8 +582,8 @@ func (n AstExprFunction) String() string {
 		b.WriteString(indentStart((*n.ReturnAnnotation).String(), 2))
 		b.WriteByte('\n')
 	}
-	b.WriteString(fmt.Sprintf("Vararg: %t\n", n.Vararg))
-	b.WriteString(fmt.Sprintf("VarargLocation: %s\n", n.VarargLocation.String()))
+	fmt.Fprintf(&b, "Vararg: %t\n", n.Vararg)
+	fmt.Fprintf(&b, "VarargLocation: %s\n", n.VarargLocation.String())
 	if n.VarargAnnotation != nil {
 		b.WriteString("VarargAnnotation:\n")
 		b.WriteString(indentStart((*n.VarargAnnotation).String(), 2))
@@ -592,10 +592,10 @@ func (n AstExprFunction) String() string {
 	b.WriteString("Body:\n")
 	b.WriteString(indentStart(n.Body.String(), 2))
 	b.WriteByte('\n')
-	b.WriteString(fmt.Sprintf("FunctionDepth: %d\n", n.FunctionDepth))
-	b.WriteString(fmt.Sprintf("Debugname: %q\n", n.Debugname))
+	fmt.Fprintf(&b, "FunctionDepth: %d\n", n.FunctionDepth)
+	fmt.Fprintf(&b, "Debugname: %q\n", n.Debugname)
 	if n.ArgLocation != nil {
-		b.WriteString(fmt.Sprintf("ArgLocation: %s\n", n.ArgLocation.String()))
+		fmt.Fprintf(&b, "ArgLocation: %s\n", n.ArgLocation.String())
 	}
 
 	return b.String()
@@ -614,7 +614,7 @@ func (n AstExprGlobal) String() string {
 
 	b.WriteString("ExprGlobal\n")
 	b.WriteString(n.NodeLoc.String())
-	b.WriteString(fmt.Sprintf("Name: %q\n", n.Name))
+	fmt.Fprintf(&b, "Name: %q\n", n.Name)
 
 	return b.String()
 }
@@ -661,11 +661,11 @@ func (n AstExprIfElse) String() string {
 	b.WriteString("Condition:\n")
 	b.WriteString(indentStart(n.Condition.String(), 2))
 	b.WriteByte('\n')
-	b.WriteString(fmt.Sprintf("HasThen: %t\n", n.HasThen))
+	fmt.Fprintf(&b, "HasThen: %t\n", n.HasThen)
 	b.WriteString("TrueExpr:\n")
 	b.WriteString(indentStart(n.TrueExpr.String(), 2))
 	b.WriteByte('\n')
-	b.WriteString(fmt.Sprintf("HasElse: %t\n", n.HasElse))
+	fmt.Fprintf(&b, "HasElse: %t\n", n.HasElse)
 	b.WriteString("FalseExpr:\n")
 	b.WriteString(indentStart(n.FalseExpr.String(), 2))
 	b.WriteByte('\n')
@@ -715,9 +715,9 @@ func (n AstExprIndexName) String() string {
 	b.WriteString("Expr:\n")
 	b.WriteString(indentStart(n.Expr.String(), 2))
 	b.WriteByte('\n')
-	b.WriteString(fmt.Sprintf("Index: %q\n", n.Index))
-	b.WriteString(fmt.Sprintf("IndexLocation: %s\n", n.IndexLocation.String()))
-	b.WriteString(fmt.Sprintf("Op: %c\n", n.Op))
+	fmt.Fprintf(&b, "Index: %q\n", n.Index)
+	fmt.Fprintf(&b, "IndexLocation: %s\n", n.IndexLocation.String())
+	fmt.Fprintf(&b, "Op: %c\n", n.Op)
 
 	return b.String()
 }
@@ -798,7 +798,7 @@ func (n AstExprLocal) String() string {
 	b.WriteString("Local:\n")
 	b.WriteString(indentStart(n.Local.String(), 2))
 	b.WriteByte('\n')
-	b.WriteString(fmt.Sprintf("Upvalue: %t\n", n.Upvalue))
+	fmt.Fprintf(&b, "Upvalue: %t\n", n.Upvalue)
 
 	return b.String()
 }
@@ -988,9 +988,9 @@ func (n AstLocal) String() string {
 
 	b.WriteString("Local\n")
 	b.WriteString(n.NodeLoc.String())
-	b.WriteString(fmt.Sprintf("Name: %q\n", n.Name))
+	fmt.Fprintf(&b, "Name: %q\n", n.Name)
 	if n.Shadow != nil {
-		b.WriteString(fmt.Sprintf("Shadow: %q\n", n.Shadow.Name))
+		fmt.Fprintf(&b, "Shadow: %q\n", n.Shadow.Name)
 	}
 	if n.IsConst {
 		b.WriteString("IsConst: true\n")
@@ -998,8 +998,8 @@ func (n AstLocal) String() string {
 	if n.IsExported {
 		b.WriteString("IsExported: true\n")
 	}
-	b.WriteString(fmt.Sprintf("FunctionDepth: %d\n", n.FunctionDepth))
-	b.WriteString(fmt.Sprintf("LoopDepth: %d\n", n.LoopDepth))
+	fmt.Fprintf(&b, "FunctionDepth: %d\n", n.FunctionDepth)
+	fmt.Fprintf(&b, "LoopDepth: %d\n", n.LoopDepth)
 	if n.Annotation != nil {
 		b.WriteString("Annotation:\n")
 		b.WriteString(indentStart(n.Annotation.String(), 2))
@@ -1070,7 +1070,7 @@ func (n AstStatBlock) String() string {
 			b.WriteByte('\n')
 		}
 	}
-	b.WriteString(fmt.Sprintf("HasEnd: %t\n", n.HasEnd))
+	fmt.Fprintf(&b, "HasEnd: %t\n", n.HasEnd)
 
 	return b.String()
 }
@@ -1115,7 +1115,7 @@ func (n AstStatCompoundAssign) String() string {
 
 	b.WriteString("StatCompoundAssign\n")
 	b.WriteString(n.NodeLoc.String())
-	b.WriteString(fmt.Sprintf("Op: %d\n", n.Op))
+	fmt.Fprintf(&b, "Op: %d\n", n.Op)
 	b.WriteString("Var:\n")
 	b.WriteString(indentStart(n.Var.String(), 2))
 	b.WriteByte('\n')
@@ -1180,8 +1180,8 @@ func (n AstStatDeclareFunction) String() string {
 			b.WriteByte('\n')
 		}
 	}
-	b.WriteString(fmt.Sprintf("Name: %q\n", n.Name))
-	b.WriteString(fmt.Sprintf("NameLocation: %s\n", n.NameLocation.String()))
+	fmt.Fprintf(&b, "Name: %q\n", n.Name)
+	fmt.Fprintf(&b, "NameLocation: %s\n", n.NameLocation.String())
 	if len(n.Generics) > 0 {
 		b.WriteString("Generics:\n")
 		for _, generic := range n.Generics {
@@ -1206,8 +1206,8 @@ func (n AstStatDeclareFunction) String() string {
 			b.WriteByte('\n')
 		}
 	}
-	b.WriteString(fmt.Sprintf("Vararg: %t\n", n.Vararg))
-	b.WriteString(fmt.Sprintf("VarargLocation: %s\n", n.VarargLocation.String()))
+	fmt.Fprintf(&b, "Vararg: %t\n", n.Vararg)
+	fmt.Fprintf(&b, "VarargLocation: %s\n", n.VarargLocation.String())
 	if n.RetTypes != nil {
 		b.WriteString("RetTypes:\n")
 		b.WriteString(indentStart(n.RetTypes.String(), 2))
@@ -1236,8 +1236,8 @@ func (n AstStatDeclareGlobal) String() string {
 
 	b.WriteString("StatDeclareGlobal\n")
 	b.WriteString(n.NodeLoc.String())
-	b.WriteString(fmt.Sprintf("Name: %q\n", n.Name))
-	b.WriteString(fmt.Sprintf("NameLocation: %s\n", n.NameLocation.String()))
+	fmt.Fprintf(&b, "Name: %q\n", n.Name)
+	fmt.Fprintf(&b, "NameLocation: %s\n", n.NameLocation.String())
 	b.WriteString("Type:\n")
 	b.WriteString(indentStart(n.Type.String(), 2))
 	b.WriteByte('\n')
@@ -1265,9 +1265,9 @@ func (n AstStatDeclareExternType) String() string {
 
 	b.WriteString("StatDeclareExternType\n")
 	b.WriteString(n.NodeLoc.String())
-	b.WriteString(fmt.Sprintf("Name: %q\n", n.Name))
+	fmt.Fprintf(&b, "Name: %q\n", n.Name)
 	if n.SuperName != nil {
-		b.WriteString(fmt.Sprintf("SuperName: %q\n", *n.SuperName))
+		fmt.Fprintf(&b, "SuperName: %q\n", *n.SuperName)
 	}
 	if len(n.Props) > 0 {
 		b.WriteString("Props:\n")
@@ -1297,13 +1297,13 @@ func (n AstDeclaredExternTypeProperty) String() string {
 	var b strings.Builder
 
 	b.WriteString("DeclaredExternTypeProperty\n")
-	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location.String()))
-	b.WriteString(fmt.Sprintf("Name: %q\n", n.Name.Value))
-	b.WriteString(fmt.Sprintf("NameLocation: %s\n", n.NameLocation.String()))
+	fmt.Fprintf(&b, "Location: %s\n", n.Location.String())
+	fmt.Fprintf(&b, "Name: %q\n", n.Name.Value)
+	fmt.Fprintf(&b, "NameLocation: %s\n", n.NameLocation.String())
 	b.WriteString("Ty:\n")
 	b.WriteString(indentStart(n.Ty.String(), 2))
 	b.WriteByte('\n')
-	b.WriteString(fmt.Sprintf("IsMethod: %t\n", n.IsMethod))
+	fmt.Fprintf(&b, "IsMethod: %t\n", n.IsMethod)
 
 	return b.String()
 }
@@ -1343,7 +1343,7 @@ func (n AstStatError) String() string {
 			b.WriteByte('\n')
 		}
 	}
-	b.WriteString(fmt.Sprintf("MessageIndex: %d\n", n.MessageIndex))
+	fmt.Fprintf(&b, "MessageIndex: %d\n", n.MessageIndex)
 
 	return b.String()
 }
@@ -1417,8 +1417,8 @@ func (n AstStatFor) String() string {
 		b.WriteString(indentStart(n.Body.String(), 2))
 		b.WriteByte('\n')
 	}
-	b.WriteString(fmt.Sprintf("HasDo: %t\n", n.HasDo))
-	b.WriteString(fmt.Sprintf("DoLocation: %s\n", n.DoLocation.String()))
+	fmt.Fprintf(&b, "HasDo: %t\n", n.HasDo)
+	fmt.Fprintf(&b, "DoLocation: %s\n", n.DoLocation.String())
 
 	return b.String()
 }
@@ -1466,10 +1466,10 @@ func (n AstStatForIn) String() string {
 		b.WriteString(indentStart(n.Body.String(), 2))
 		b.WriteByte('\n')
 	}
-	b.WriteString(fmt.Sprintf("HasIn: %t\n", n.HasIn))
-	b.WriteString(fmt.Sprintf("InLocation: %s\n", n.InLocation.String()))
-	b.WriteString(fmt.Sprintf("HasDo: %t\n", n.HasDo))
-	b.WriteString(fmt.Sprintf("DoLocation: %s\n", n.DoLocation.String()))
+	fmt.Fprintf(&b, "HasIn: %t\n", n.HasIn)
+	fmt.Fprintf(&b, "InLocation: %s\n", n.InLocation.String())
+	fmt.Fprintf(&b, "HasDo: %t\n", n.HasDo)
+	fmt.Fprintf(&b, "DoLocation: %s\n", n.DoLocation.String())
 
 	return b.String()
 }
@@ -1542,10 +1542,10 @@ func (n AstStatIf) String() string {
 		b.WriteByte('\n')
 	}
 	if n.ThenLocation != nil {
-		b.WriteString(fmt.Sprintf("ThenLocation: %s\n", n.ThenLocation.String()))
+		fmt.Fprintf(&b, "ThenLocation: %s\n", n.ThenLocation.String())
 	}
 	if n.ElseLocation != nil {
-		b.WriteString(fmt.Sprintf("ElseLocation: %s\n", n.ElseLocation.String()))
+		fmt.Fprintf(&b, "ElseLocation: %s\n", n.ElseLocation.String())
 	}
 
 	return b.String()
@@ -1586,7 +1586,7 @@ func (n AstStatLocal) String() string {
 		}
 	}
 	if n.EqualsSignLocation != nil {
-		b.WriteString(fmt.Sprintf("EqualsSignLocation: %s\n", n.EqualsSignLocation.String()))
+		fmt.Fprintf(&b, "EqualsSignLocation: %s\n", n.EqualsSignLocation.String())
 	}
 
 	return b.String()
@@ -1648,7 +1648,7 @@ func (n AstStatRepeat) String() string {
 		b.WriteString(indentStart(n.Body.String(), 2))
 		b.WriteByte('\n')
 	}
-	b.WriteString(fmt.Sprintf("HasUntil: %t\n", n.HasUntil))
+	fmt.Fprintf(&b, "HasUntil: %t\n", n.HasUntil)
 
 	return b.String()
 }
@@ -1704,8 +1704,8 @@ func (n AstStatTypeAlias) String() string {
 
 	b.WriteString("StatTypeAlias\n")
 	b.WriteString(n.NodeLoc.String())
-	b.WriteString(fmt.Sprintf("Name: %q\n", n.Name))
-	b.WriteString(fmt.Sprintf("NameLocation: %s\n", n.NameLocation.String()))
+	fmt.Fprintf(&b, "Name: %q\n", n.Name)
+	fmt.Fprintf(&b, "NameLocation: %s\n", n.NameLocation.String())
 	if len(n.Generics) > 0 {
 		b.WriteString("Generics:\n")
 		for _, generic := range n.Generics {
@@ -1723,7 +1723,7 @@ func (n AstStatTypeAlias) String() string {
 	b.WriteString("Type:\n")
 	b.WriteString(indentStart(n.Type.String(), 2))
 	b.WriteByte('\n')
-	b.WriteString(fmt.Sprintf("Exported: %t\n", n.Exported))
+	fmt.Fprintf(&b, "Exported: %t\n", n.Exported)
 
 	return b.String()
 }
@@ -1750,13 +1750,13 @@ func (n AstStatTypeFunction) String() string {
 
 	b.WriteString("StatTypeFunction\n")
 	b.WriteString(n.NodeLoc.String())
-	b.WriteString(fmt.Sprintf("Name: %q\n", n.Name))
-	b.WriteString(fmt.Sprintf("NameLocation: %s\n", n.NameLocation.String()))
+	fmt.Fprintf(&b, "Name: %q\n", n.Name)
+	fmt.Fprintf(&b, "NameLocation: %s\n", n.NameLocation.String())
 	b.WriteString("Body:\n")
 	b.WriteString(indentStart(n.Body.String(), 2))
 	b.WriteByte('\n')
-	b.WriteString(fmt.Sprintf("Exported: %t\n", n.Exported))
-	b.WriteString(fmt.Sprintf("HasErrors: %t\n", n.HasErrors))
+	fmt.Fprintf(&b, "Exported: %t\n", n.Exported)
+	fmt.Fprintf(&b, "HasErrors: %t\n", n.HasErrors)
 
 	return b.String()
 }
@@ -1789,8 +1789,8 @@ func (n AstStatWhile) String() string {
 		b.WriteString(indentStart(n.Body.String(), 2))
 		b.WriteByte('\n')
 	}
-	b.WriteString(fmt.Sprintf("HasDo: %t\n", n.HasDo))
-	b.WriteString(fmt.Sprintf("DoLocation: %s\n", n.DoLocation.String()))
+	fmt.Fprintf(&b, "HasDo: %t\n", n.HasDo)
+	fmt.Fprintf(&b, "DoLocation: %s\n", n.DoLocation.String())
 
 	return b.String()
 }
@@ -1807,16 +1807,16 @@ func (n AstTableIndexer) String() string {
 	var b strings.Builder
 
 	b.WriteString("TableIndexer\n")
-	b.WriteString(fmt.Sprintf("Location: %s\n", n.Location.String()))
+	fmt.Fprintf(&b, "Location: %s\n", n.Location.String())
 	b.WriteString("IndexType:\n")
 	b.WriteString(indentStart(n.IndexType.String(), 2))
 	b.WriteByte('\n')
 	b.WriteString("ResultType:\n")
 	b.WriteString(indentStart(n.ResultType.String(), 2))
 	b.WriteByte('\n')
-	b.WriteString(fmt.Sprintf("Access: %q\n", n.Access))
+	fmt.Fprintf(&b, "Access: %q\n", n.Access)
 	if n.AccessLocation != nil {
-		b.WriteString(fmt.Sprintf("AccessLocation: %s\n", n.AccessLocation.String()))
+		fmt.Fprintf(&b, "AccessLocation: %s\n", n.AccessLocation.String())
 	}
 
 	return b.String()
@@ -1835,13 +1835,13 @@ func (n AstTableProp) String() string {
 
 	b.WriteString("TableProp\n")
 	b.WriteString(n.NodeLoc.String())
-	b.WriteString(fmt.Sprintf("Name: %q\n", n.Name.Value))
+	fmt.Fprintf(&b, "Name: %q\n", n.Name.Value)
 	b.WriteString("Type:\n")
 	b.WriteString(indentStart(n.Type.String(), 2))
 	b.WriteByte('\n')
-	b.WriteString(fmt.Sprintf("Access: %q\n", n.Access))
+	fmt.Fprintf(&b, "Access: %q\n", n.Access)
 	if n.AccessLocation != nil {
-		b.WriteString(fmt.Sprintf("AccessLocation: %s\n", n.AccessLocation.String()))
+		fmt.Fprintf(&b, "AccessLocation: %s\n", n.AccessLocation.String())
 	}
 
 	return b.String()
@@ -1868,8 +1868,8 @@ func (n AstTypeError) String() string {
 			b.WriteByte('\n')
 		}
 	}
-	b.WriteString(fmt.Sprintf("IsMissing: %t\n", n.IsMissing))
-	b.WriteString(fmt.Sprintf("MessageIndex: %d\n", n.MessageIndex))
+	fmt.Fprintf(&b, "IsMissing: %t\n", n.IsMissing)
+	fmt.Fprintf(&b, "MessageIndex: %d\n", n.MessageIndex)
 
 	return b.String()
 }
@@ -2071,7 +2071,7 @@ func (n AstTypePackGeneric) String() string {
 
 	b.WriteString("TypePackGeneric\n")
 	b.WriteString(n.NodeLoc.String())
-	b.WriteString(fmt.Sprintf("GenericName: %q\n", n.GenericName))
+	fmt.Fprintf(&b, "GenericName: %q\n", n.GenericName)
 
 	return b.String()
 }
@@ -2111,15 +2111,15 @@ func (n AstTypeReference) String() string {
 
 	b.WriteString("TypeReference\n")
 	b.WriteString(n.NodeLoc.String())
-	b.WriteString(fmt.Sprintf("HasParameterList: %t\n", n.HasParameterList))
+	fmt.Fprintf(&b, "HasParameterList: %t\n", n.HasParameterList)
 	if n.Prefix != nil {
-		b.WriteString(fmt.Sprintf("Prefix: %q\n", *n.Prefix))
+		fmt.Fprintf(&b, "Prefix: %q\n", *n.Prefix)
 	}
 	if n.PrefixLocation != nil {
-		b.WriteString(fmt.Sprintf("PrefixLocation: %s\n", n.PrefixLocation.String()))
+		fmt.Fprintf(&b, "PrefixLocation: %s\n", n.PrefixLocation.String())
 	}
-	b.WriteString(fmt.Sprintf("Name: %q\n", n.Name))
-	b.WriteString(fmt.Sprintf("NameLocation: %s\n", n.NameLocation.String()))
+	fmt.Fprintf(&b, "Name: %q\n", n.Name)
+	fmt.Fprintf(&b, "NameLocation: %s\n", n.NameLocation.String())
 	if len(n.Parameters) > 0 {
 		b.WriteString("Parameters:\n")
 		for _, param := range n.Parameters {
@@ -2143,7 +2143,7 @@ func (n AstTypeSingletonBool) String() string {
 
 	b.WriteString("TypeSingletonBool\n")
 	b.WriteString(n.NodeLoc.String())
-	b.WriteString(fmt.Sprintf("Value: %t\n", n.Value))
+	fmt.Fprintf(&b, "Value: %t\n", n.Value)
 
 	return b.String()
 }
@@ -2160,7 +2160,7 @@ func (n AstTypeSingletonString) String() string {
 
 	b.WriteString("TypeSingletonString\n")
 	b.WriteString(n.NodeLoc.String())
-	b.WriteString(fmt.Sprintf("Value: %q\n", n.Value))
+	fmt.Fprintf(&b, "Value: %q\n", n.Value)
 
 	return b.String()
 }

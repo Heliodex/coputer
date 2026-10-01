@@ -47,9 +47,9 @@ func (c HotComment) String() string {
 	var b strings.Builder
 
 	b.WriteString("HotComment\n")
-	b.WriteString(fmt.Sprintf("Header: %t\n", c.Header))
-	b.WriteString(fmt.Sprintf("Content: %q\n", c.Content))
-	b.WriteString(fmt.Sprintf("Location: %s\n", c.Location))
+	fmt.Fprintf(&b, "Header: %t\n", c.Header)
+	fmt.Fprintf(&b, "Content: %q\n", c.Content)
+	fmt.Fprintf(&b, "Location: %s\n", c.Location)
 
 	return b.String()
 }

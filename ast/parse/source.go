@@ -697,24 +697,21 @@ func sourceIsIdentifier(s string) bool {
 }
 
 func (n AstExprTableItem) Source() string {
+	if n.Key == nil {
+		return n.Value.Source()
+	}
 	switch n.Kind {
 	case Record:
-		if n.Key != nil {
-			if key, ok := (*n.Key).(AstExprConstantString); ok {
-				return key.Value + " = " + n.Value.Source()
-			}
-			return (*n.Key).Source() + " = " + n.Value.Source()
+		if key, ok := (*n.Key).(AstExprConstantString); ok {
+			return key.Value + " = " + n.Value.Source()
 		}
-		return n.Value.Source()
+		return (*n.Key).Source() + " = " + n.Value.Source()
 	case General:
-		if n.Key != nil {
-			// a string key that's a valid identifier can use the record form
-			if key, ok := sourceRecordKey(*n.Key); ok {
-				return key + " = " + n.Value.Source()
-			}
-			return "[" + (*n.Key).Source() + "] = " + n.Value.Source()
+		// a string key that's a valid identifier can use the record form
+		if key, ok := sourceRecordKey(*n.Key); ok {
+			return key + " = " + n.Value.Source()
 		}
-		return n.Value.Source()
+		return "[" + (*n.Key).Source() + "] = " + n.Value.Source()
 	}
 	return n.Value.Source()
 }

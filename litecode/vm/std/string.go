@@ -179,7 +179,7 @@ func formatItem(args *Args, formatIndicator byte, form string, b *strings.Builde
 		n := args.GetNumber()
 
 		format := fmt.Sprintf("%%%s%c", form, formatIndicator)
-		b.WriteString(fmt.Sprintf(format, n))
+		fmt.Fprintf(b, format, n)
 	case 'q':
 		addquoted(*args, b)
 	case 's':

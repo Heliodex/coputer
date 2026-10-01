@@ -382,8 +382,8 @@ func (a AstArgumentName) String() string {
 	var b strings.Builder
 
 	b.WriteString(a.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Name: %s\n", a.Name))
-	b.WriteString(fmt.Sprintf("Location: %s\n", a.Location))
+	fmt.Fprintf(&b, "Name: %s\n", a.Name)
+	fmt.Fprintf(&b, "Location: %s\n", a.Location)
 
 	return b.String()
 }
@@ -413,8 +413,8 @@ func (a AstAttr) String() string {
 	var b strings.Builder
 
 	b.WriteString(a.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s\n", a.Location))
-	b.WriteString(fmt.Sprintf("Name: %s\n", a.Name))
+	fmt.Fprintf(&b, "Location: %s\n", a.Location)
+	fmt.Fprintf(&b, "Name: %s\n", a.Name)
 
 	return b.String()
 }
@@ -452,9 +452,9 @@ func (d AstDeclaredClassProp[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(d.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Name: %s", d.Name))
-	b.WriteString(fmt.Sprintf("\nNameLocation: %s", d.NameLocation))
-	b.WriteString(fmt.Sprintf("\nLocation: %s", d.Location))
+	fmt.Fprintf(&b, "Name: %s", d.Name)
+	fmt.Fprintf(&b, "\nNameLocation: %s", d.NameLocation)
+	fmt.Fprintf(&b, "\nLocation: %s", d.Location)
 	b.WriteString("\nLuauType:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(d.LuauType), 4))
 
@@ -743,8 +743,8 @@ func (n AstExprConstantNumber) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString(fmt.Sprintf("\nValue: %f", n.Value))
+	fmt.Fprintf(&b, "Location: %s", n.Location)
+	fmt.Fprintf(&b, "\nValue: %f", n.Value)
 
 	return b.String()
 }
@@ -774,8 +774,8 @@ func (n AstExprConstantString) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString(fmt.Sprintf("\nValue: %s", n.Value))
+	fmt.Fprintf(&b, "Location: %s", n.Location)
+	fmt.Fprintf(&b, "\nValue: %s", n.Value)
 
 	return b.String()
 }
@@ -815,7 +815,7 @@ func (n AstExprFunction[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	fmt.Fprintf(&b, "Location: %s", n.Location)
 	b.WriteString("\nAttributes:")
 	for _, attr := range n.Attributes {
 		b.WriteByte('\n')
@@ -842,12 +842,12 @@ func (n AstExprFunction[T]) String() string {
 		b.WriteString(indentStart(StringMaybeEvaluated(*n.ReturnAnnotation), 4))
 	}
 
-	b.WriteString(fmt.Sprintf("\nVararg: %t", n.Vararg))
-	b.WriteString(fmt.Sprintf("\nVarargLocation: %s", n.VarargLocation))
+	fmt.Fprintf(&b, "\nVararg: %t", n.Vararg)
+	fmt.Fprintf(&b, "\nVarargLocation: %s", n.VarargLocation)
 	b.WriteString("\nBody:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Body), 4))
-	b.WriteString(fmt.Sprintf("\nFunctionDepth: %d", n.FunctionDepth))
-	b.WriteString(fmt.Sprintf("\nDebugname: %s", n.Debugname))
+	fmt.Fprintf(&b, "\nFunctionDepth: %d", n.FunctionDepth)
+	fmt.Fprintf(&b, "\nDebugname: %s", n.Debugname)
 
 	return b.String()
 }
@@ -920,20 +920,20 @@ func (n AstExprFunction[T]) SourceMain(og string, indent int, isExpr bool) (stri
 
 		allGenerics := append(genericStrings, genericPackStrings...)
 
-		b.WriteString(fmt.Sprintf("<%s>", strings.Join(allGenerics, ", ")))
+		fmt.Fprintf(&b, "<%s>", strings.Join(allGenerics, ", "))
 	}
 
-	b.WriteString(fmt.Sprintf("(%s)", strings.Join(argStrings, ", ")))
+	fmt.Fprintf(&b, "(%s)", strings.Join(argStrings, ", "))
 
 	if in.ReturnAnnotation != nil {
 		rts, err := in.ReturnAnnotation.Source(og, indent)
 		if err != nil {
 			return "", fmt.Errorf("get return annotation source: %w", err)
 		}
-		b.WriteString(fmt.Sprintf(": %s", rts))
+		fmt.Fprintf(&b, ": %s", rts)
 	}
 
-	b.WriteString(fmt.Sprintf("\n%s\n", bs))
+	fmt.Fprintf(&b, "\n%s\n", bs)
 	b.WriteString(IndentSize(indent))
 	b.WriteString("end")
 	return b.String(), nil
@@ -1008,8 +1008,8 @@ func (n AstExprGlobal) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString(fmt.Sprintf("\nGlobal: %s", n.Global))
+	fmt.Fprintf(&b, "Location: %s", n.Location)
+	fmt.Fprintf(&b, "\nGlobal: %s", n.Global)
 
 	return b.String()
 }
@@ -1040,7 +1040,7 @@ func (n AstExprGroup[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	fmt.Fprintf(&b, "Location: %s", n.Location)
 	b.WriteString("\nExpr:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Expr), 4))
 
@@ -1096,13 +1096,13 @@ func (n AstExprIfElse[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	fmt.Fprintf(&b, "Location: %s", n.Location)
 	b.WriteString("\nCondition:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Condition), 4))
-	b.WriteString(fmt.Sprintf("\nHasThen: %t", n.HasThen))
+	fmt.Fprintf(&b, "\nHasThen: %t", n.HasThen)
 	b.WriteString("\nTrueExpr:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.TrueExpr), 4))
-	b.WriteString(fmt.Sprintf("\nHasElse: %t", n.HasElse))
+	fmt.Fprintf(&b, "\nHasElse: %t", n.HasElse)
 	b.WriteString("\nFalseExpr:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.FalseExpr), 4))
 
@@ -1892,7 +1892,7 @@ func (n AstStatAssign[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	fmt.Fprintf(&b, "Location: %s", n.Location)
 	b.WriteString("\nVars:")
 	for _, v := range n.Vars {
 		b.WriteByte('\n')
@@ -2104,7 +2104,7 @@ func (n AstStatBreak) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	fmt.Fprintf(&b, "Location: %s", n.Location)
 
 	return b.String()
 }
@@ -2137,8 +2137,8 @@ func (n AstStatCompoundAssign[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
-	b.WriteString(fmt.Sprintf("\nOp: %s", n.Op))
+	fmt.Fprintf(&b, "Location: %s", n.Location)
+	fmt.Fprintf(&b, "\nOp: %s", n.Op)
 	b.WriteString("\nVar:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Var), 4))
 	b.WriteString("\nValue:\n")
@@ -2397,7 +2397,7 @@ func (n AstStatFor[T]) String() string {
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Step), 4))
 	b.WriteString("\nBody:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Body), 4))
-	b.WriteString(fmt.Sprintf("\nHasDo: %t\n", n.HasDo))
+	fmt.Fprintf(&b, "\nHasDo: %t\n", n.HasDo)
 
 	return b.String()
 }
@@ -2431,7 +2431,7 @@ func (n AstStatFor[T]) Source(og string, indent int) (string, error) {
 
 	var b strings.Builder
 	b.WriteString(IndentSize(indent))
-	b.WriteString(fmt.Sprintf("for %s = %s, %s", svar, sfrom, sto))
+	fmt.Fprintf(&b, "for %s = %s, %s", svar, sfrom, sto)
 
 	if in.Step != nil {
 		sstep, err := (*in.Step).Source(og, indent)
@@ -2439,10 +2439,10 @@ func (n AstStatFor[T]) Source(og string, indent int) (string, error) {
 			return "", fmt.Errorf("get step source: %w", err)
 		}
 
-		b.WriteString(fmt.Sprintf(", %s", sstep))
+		fmt.Fprintf(&b, ", %s", sstep)
 	}
 
-	b.WriteString(fmt.Sprintf(" do\n%s\n", sbody))
+	fmt.Fprintf(&b, " do\n%s\n", sbody)
 	b.WriteString(IndentSize(indent))
 	b.WriteString("end")
 	return b.String(), nil
@@ -2511,7 +2511,7 @@ func (n AstStatForIn[T]) String() string {
 	var b strings.Builder
 
 	b.WriteString(n.ASTNode.String())
-	b.WriteString(fmt.Sprintf("Location: %s", n.Location))
+	fmt.Fprintf(&b, "Location: %s", n.Location)
 	b.WriteString("\nVars:")
 	for _, v := range n.Vars {
 		b.WriteByte('\n')
@@ -2524,8 +2524,8 @@ func (n AstStatForIn[T]) String() string {
 	}
 	b.WriteString("\nBody:\n")
 	b.WriteString(indentStart(StringMaybeEvaluated(n.Body), 4))
-	b.WriteString(fmt.Sprintf("\nHasIn: %t\n", n.HasIn))
-	b.WriteString(fmt.Sprintf("HasDo: %t\n", n.HasDo))
+	fmt.Fprintf(&b, "\nHasIn: %t\n", n.HasIn)
+	fmt.Fprintf(&b, "HasDo: %t\n", n.HasDo)
 
 	return b.String()
 }
