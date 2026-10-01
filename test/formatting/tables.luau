@@ -6,4 +6,5 @@ local mixed = {
 	a = 2,
 	[3] = 4,
 }
+local mixed2 = { 1, a = 2, [3] = 4 }
 local empty = {}
