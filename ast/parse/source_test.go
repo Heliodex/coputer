@@ -97,7 +97,7 @@ local t = {
 if local n = #t then
 	print(n, t.a)
 elseif false then
-	print("no")
+	print "no"
 else
 	print("n is " .. tostring(t.a))
 end`

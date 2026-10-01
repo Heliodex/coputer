@@ -417,6 +417,17 @@ func (n AstExprBinary) Source() string {
 	return n.Left.Source() + " " + sourceBinaryOp(BinaryOp(n.Op)) + " " + n.Right.Source()
 }
 
+// sourceCallSugar reports whether a call argument can be passed without parentheses, i.e. `f "string"` or `f { table }`.
+func sourceCallSugar(expr AstExpr) bool {
+	switch expr.(type) {
+	case AstExprConstantString, *AstExprConstantString:
+		return true
+	case AstExprTable, *AstExprTable:
+		return true
+	}
+	return false
+}
+
 func (n AstExprCall) Source() string {
 	var b strings.Builder
 
@@ -426,6 +437,13 @@ func (n AstExprCall) Source() string {
 		b.WriteString("<<")
 		b.WriteString(sourceTypeOrPackList(*n.TypeArguments))
 		b.WriteString(">>")
+	}
+
+	// a call with a single string or table argument can omit its parentheses
+	if len(n.Args) == 1 && sourceCallSugar(n.Args[0]) {
+		b.WriteByte(' ')
+		b.WriteString(n.Args[0].Source())
+		return b.String()
 	}
 
 	b.WriteString("(")

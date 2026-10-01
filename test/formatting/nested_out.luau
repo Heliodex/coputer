@@ -3,7 +3,7 @@ do
 		for x in y do
 			repeat
 				do
-					print("Hello")
+					print "Hello"
 				end
 			until false
 		end
