@@ -155,7 +155,7 @@ func sourceStat(stat AstStat) string {
 
 func sourceHasSemicolon(stat AstStat) bool {
 	switch s := stat.(type) {
-	case *AstStatAssign:
+	case *AstStatAssign: // more uncollapsible type switches yayyy
 		return s.HasSemicolon != nil && *s.HasSemicolon
 	case *AstStatBlock:
 		return s.HasSemicolon != nil && *s.HasSemicolon
@@ -171,27 +171,27 @@ func sourceHasSemicolon(stat AstStat) bool {
 		return s.HasSemicolon != nil && *s.HasSemicolon
 	case *AstStatDeclareExternType:
 		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatError:
+	case *AstStatError: // i
 		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatExpr:
+	case *AstStatExpr: // could
 		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatFor:
+	case *AstStatFor: // use
 		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatForIn:
+	case *AstStatForIn: // an
 		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatFunction:
+	case *AstStatFunction: // interface
 		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatIf:
+	case *AstStatIf: // for
 		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatLocal:
+	case *AstStatLocal: // this
 		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatLocalFunction:
+	case *AstStatLocalFunction: // but
 		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatRepeat:
+	case *AstStatRepeat: // can't
 		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatReturn:
+	case *AstStatReturn: // be
 		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatTypeAlias:
+	case *AstStatTypeAlias: // arsed
 		return s.HasSemicolon != nil && *s.HasSemicolon
 	case *AstStatTypeFunction:
 		return s.HasSemicolon != nil && *s.HasSemicolon
@@ -311,8 +311,9 @@ func sourceString(value string, style QuoteStyle) string {
 func sourceLongString(value string) string {
 	for eq := 0; ; eq++ {
 		eqs := strings.Repeat("=", eq)
-		if !strings.Contains(value, "]"+eqs+"]") {
-			return "[" + eqs + "[" + value + "]" + eqs + "]"
+		strend := "]" + eqs + "]"
+		if !strings.Contains(value, strend) {
+			return "[" + eqs + "[" + value + strend
 		}
 	}
 }
@@ -910,21 +911,22 @@ func (n AstStatDeclareExternType) Source() string {
 func (n AstDeclaredExternTypeProperty) Source() string {
 	name := n.Name.Value
 
-	if n.IsMethod {
-		if fn, ok := n.Ty.(AstTypeFunction); ok {
-			params, ret := fn.sourceParamsAndReturn()
-			// declared methods require `self` as the unannotated first parameter
-			if params == "" {
-				params = "self"
-			} else {
-				params = "self, " + params
-			}
-			return "function " + name + "(" + params + "): " + ret
-		}
-		return "function " + name + ": " + n.Ty.Source()
+	if !n.IsMethod {
+		return name + ": " + n.Ty.Source()
 	}
 
-	return name + ": " + n.Ty.Source()
+	if fn, ok := n.Ty.(AstTypeFunction); ok {
+		params, ret := fn.sourceParamsAndReturn()
+		// declared methods require `self` as the unannotated first parameter
+		if params == "" {
+			params = "self"
+		} else {
+			params = "self, " + params
+		}
+		return "function " + name + "(" + params + "): " + ret
+	}
+
+	return "function " + name + ": " + n.Ty.Source()
 }
 
 func (n AstStatError) Source() string {
@@ -1110,7 +1112,7 @@ func (n AstStatRepeat) Source() string {
 
 func (n AstStatReturn) Source() string {
 	if len(n.List) == 0 {
-		return "return"
+		return "return" // a "return" return
 	}
 	return "return " + sourceExprList(n.List)
 }
