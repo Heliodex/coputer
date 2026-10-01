@@ -282,6 +282,17 @@ func isSpace(ch byte) bool {
 
 var kReserved = [...]string{"and", "break", "do", "else", "elseif", "end", "false", "for", "function", "if", "in", "local", "nil", "not", "or", "repeat", "return", "then", "true", "until", "while"}
 
+// IsReserved reports whether word is a Luau reserved keyword.
+func IsReserved(word string) bool {
+	for i := range Reserved_END - Reserved_BEGIN {
+		if word == kReserved[i] {
+			return true
+		}
+	}
+
+	return false
+}
+
 func isAlpha(ch byte) bool {
 	// use or trick to convert to lower case and unsigned comparison to do range check
 	return uint8((ch|' ')-'a') < 26

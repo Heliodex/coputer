@@ -657,6 +657,44 @@ func (n AstExprTable) Source() string {
 	return "{ " + strings.Join(parts, ", ") + " }"
 }
 
+// sourceRecordKey returns the bare record-key form of a string table key, if the string is a valid identifier that isn't a reserved word.
+func sourceRecordKey(expr AstExpr) (string, bool) {
+	var value string
+	switch key := expr.(type) {
+	case AstExprConstantString: // can't collapse these cuz typing
+		value = key.Value
+	case *AstExprConstantString:
+		value = key.Value
+	default:
+		return "", false
+	}
+
+	if !sourceIsIdentifier(value) || lex.IsReserved(value) {
+		return "", false
+	}
+
+	return value, true
+}
+
+// sourceIsIdentifier reports whether s is a valid Luau identifier.
+func sourceIsIdentifier(s string) bool {
+	if s == "" {
+		return false
+	}
+
+	for i := range s {
+		ch := s[i]
+		switch {
+		case ch == '_' || ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z':
+		case i > 0 && ch >= '0' && ch <= '9':
+		default:
+			return false
+		}
+	}
+
+	return true
+}
+
 func (n AstExprTableItem) Source() string {
 	switch n.Kind {
 	case Record:
@@ -669,6 +707,10 @@ func (n AstExprTableItem) Source() string {
 		return n.Value.Source()
 	case General:
 		if n.Key != nil {
+			// a string key that's a valid identifier can use the record form
+			if key, ok := sourceRecordKey(*n.Key); ok {
+				return key + " = " + n.Value.Source()
+			}
 			return "[" + (*n.Key).Source() + "] = " + n.Value.Source()
 		}
 		return n.Value.Source()
