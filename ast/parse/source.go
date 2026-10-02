@@ -399,11 +399,88 @@ func appendEnd(body string) string {
 	return body + "\nend"
 }
 
-// sourceExprList renders comma-separated expressions.
+// Expression precedence levels, mirroring the parser's binding powers. A group can be dropped when its contents bind at least as tightly as the context.
+const (
+	precIfElse       = 0
+	precUnaryOperand = 8
+	precUnary        = 9
+	precAssert       = 11
+	precFunction     = 11
+	precPrimary      = 12
+)
+
+// sourceExprPrecedence returns the binding power of an expression, used to decide whether a parenthesised group can be dropped.
+func sourceExprPrecedence(expr AstExpr) int {
+	switch e := expr.(type) {
+	case AstExprBinary:
+		return BinaryPriority[BinaryOp(e.Op)][0]
+	case AstExprUnary:
+		return precUnary
+	case AstExprIfElse:
+		return precIfElse
+	case AstExprTypeAssertion:
+		return precAssert
+	case AstExprFunction, *AstExprFunction:
+		return precFunction
+	}
+	return precPrimary
+}
+
+// sourceExprExpands reports whether a bare expression can expand to multiple values, i.e. a call or `...`.
+func sourceExprExpands(expr AstExpr) bool {
+	switch expr.(type) {
+	case AstExprCall, *AstExprCall, AstExprVarargs, *AstExprVarargs:
+		return true
+	}
+	return false
+}
+
+// sourceParens wraps an expression in parentheses, indenting multi-line contents onto their own lines.
+func sourceParens(s string) string {
+	if strings.Contains(s, "\n") {
+		return "(\n" + sourceIndent(s, 1) + "\n)"
+	}
+	return "(" + s + ")"
+}
+
+// sourceExpr renders expr in a context requiring at least minPrec. When expand is true the expression sits where a bare call or `...` would expand to multiple values, so parentheses around one are kept. Groups are dropped when they affect neither operator precedence nor the number of values.
+func sourceExpr(expr AstExpr, minPrec int, expand bool) string {
+	var group *AstExprGroup
+	switch e := expr.(type) {
+	case AstExprGroup:
+		group = &e
+	case *AstExprGroup:
+		group = e
+	}
+
+	if group != nil {
+		inner := group.Expr
+
+		// a group around a call or `...` truncates it to a single value
+		if expand && sourceExprExpands(inner) {
+			return sourceParens(sourceExpr(inner, 0, false))
+		}
+
+		return sourceExpr(inner, minPrec, expand)
+	}
+
+	s := expr.Source()
+	if sourceExprPrecedence(expr) < minPrec {
+		return sourceParens(s)
+	}
+	return s
+}
+
+// sourceExprPrec renders expr in a single-value context requiring at least minPrec.
+func sourceExprPrec(expr AstExpr, minPrec int) string {
+	return sourceExpr(expr, minPrec, false)
+}
+
+// sourceExprList renders comma-separated expressions, allowing the last one to expand into multiple values.
 func sourceExprList(exprs []AstExpr) string {
 	parts := make([]string, len(exprs))
 	for i, expr := range exprs {
-		parts[i] = expr.Source()
+		parts[i] = sourceExpr(expr, 0, i == len(exprs)-1)
 	}
 	return strings.Join(parts, ", ")
 }
@@ -443,9 +520,23 @@ func sourceAttrs(attrs []AstAttr) string {
 	return b.String()
 }
 
+// sourceUnwrapGroup removes any parentheses groups around an expression.
+func sourceUnwrapGroup(expr AstExpr) AstExpr {
+	for {
+		switch e := expr.(type) {
+		case AstExprGroup:
+			expr = e.Expr
+		case *AstExprGroup:
+			expr = e.Expr
+		default:
+			return expr
+		}
+	}
+}
+
 // sourceCallSugar reports whether a call argument can be passed without parentheses, i.e. `f "string"` or `f { table }`.
 func sourceCallSugar(expr AstExpr) bool {
-	switch expr.(type) {
+	switch sourceUnwrapGroup(expr).(type) {
 	case AstExprConstantString, *AstExprConstantString:
 		return true
 	case AstExprTable, *AstExprTable:
@@ -500,7 +591,7 @@ func asIfElseExpr(expr AstExpr) (AstExprIfElse, bool) {
 // expression.
 func sourceHasIfExpr(exprs []AstExpr) bool {
 	for _, expr := range exprs {
-		if _, ok := asIfElseExpr(expr); ok {
+		if _, ok := asIfElseExpr(sourceUnwrapGroup(expr)); ok {
 			return true
 		}
 	}
@@ -515,7 +606,7 @@ func writeIfBranch(b *strings.Builder, expr AstExpr) {
 		return
 	}
 
-	s := expr.Source()
+	s := sourceExprPrec(expr, 0)
 	if strings.Contains(s, "\n") {
 		b.WriteByte('\n')
 		b.WriteString(sourceIndent(s, 1))
@@ -622,7 +713,7 @@ func sourceIsIdentifier(s string) bool {
 // sourceRecordKey returns the bare record-key form of a string table key, if the string is a valid identifier that isn't a reserved word.
 func sourceRecordKey(expr AstExpr) (string, bool) {
 	var value string
-	switch key := expr.(type) {
+	switch key := sourceUnwrapGroup(expr).(type) {
 	case AstExprConstantString: // can't collapse these cuz typing
 		value = key.Value
 	case *AstExprConstantString:
@@ -636,6 +727,31 @@ func sourceRecordKey(expr AstExpr) (string, bool) {
 	}
 
 	return value, true
+}
+
+// sourceTableItem renders a table item, allowing the value of a trailing list
+// item to expand into multiple values.
+func sourceTableItem(item AstExprTableItem, expand bool) string {
+	if item.Key == nil {
+		return sourceExpr(item.Value, 0, expand)
+	}
+
+	value := sourceExpr(item.Value, 0, expand)
+
+	switch item.Kind {
+	case Record:
+		if key, ok := (*item.Key).(AstExprConstantString); ok {
+			return key.Value + " = " + value
+		}
+		return sourceExprPrec(*item.Key, 0) + " = " + value
+	case General:
+		// a string key that's a valid identifier can use the record form
+		if key, ok := sourceRecordKey(*item.Key); ok {
+			return key + " = " + value
+		}
+		return "[" + sourceExprPrec(*item.Key, 0) + "] = " + value
+	}
+	return value
 }
 
 // sourceUnionIntersection renders union and intersection types. Types are
@@ -708,13 +824,30 @@ func asBlock(stat AstStat) (*AstStatBlock, bool) {
 // --------------------------------------------------------------------------------
 
 func (n AstExprBinary) Source() string {
-	return n.Left.Source() + " " + sourceBinaryOp(BinaryOp(n.Op)) + " " + n.Right.Source()
+	op := BinaryOp(n.Op)
+	priorities := BinaryPriority[op]
+
+	leftMin := priorities[0]
+	rightMin := priorities[1]
+
+	if priorities[1] < priorities[0] {
+		// right-associative: only the left operand can repeat the operator
+		leftMin++
+	} else {
+		// left-associative: only the right operand can repeat the operator
+		rightMin++
+	}
+
+	left := sourceExpr(n.Left, leftMin, false)
+	right := sourceExpr(n.Right, rightMin, false)
+
+	return left + " " + sourceBinaryOp(op) + " " + right
 }
 
 func (n AstExprCall) Source() string {
 	var b strings.Builder
 
-	b.WriteString(n.Func.Source())
+	b.WriteString(sourceExprPrec(n.Func, precPrimary))
 
 	if n.TypeArguments != nil && len(*n.TypeArguments) > 0 {
 		b.WriteString("<<")
@@ -725,7 +858,7 @@ func (n AstExprCall) Source() string {
 	// a call with a single string or table argument can omit its parentheses
 	if len(n.Args) == 1 && sourceCallSugar(n.Args[0]) {
 		b.WriteByte(' ')
-		b.WriteString(n.Args[0].Source())
+		b.WriteString(sourceExpr(n.Args[0], 0, true))
 		return b.String()
 	}
 
@@ -761,7 +894,7 @@ func (n AstExprConstantString) Source() string {
 
 func (n AstExprError) Source() string {
 	if len(n.Expressions) > 0 {
-		return n.Expressions[0].Source()
+		return sourceExprPrec(n.Expressions[0], 0)
 	}
 	return "nil"
 }
@@ -846,11 +979,11 @@ func (n AstExprIfElse) sourceIf(keyword string) string {
 		b.WriteString(n.ConditionLocal.Name)
 		b.WriteString(" = ")
 	}
-	b.WriteString(n.Condition.Source())
+	b.WriteString(sourceExprPrec(n.Condition, 0))
 	b.WriteString(" then")
 	writeIfBranch(&b, n.TrueExpr)
 
-	if falseExpr, ok := asIfElseExpr(n.FalseExpr); ok {
+	if falseExpr, ok := asIfElseExpr(sourceUnwrapGroup(n.FalseExpr)); ok {
 		// `else` + `if ...` renders as an `elseif ...` chain
 		b.WriteByte('\n')
 		b.WriteString(falseExpr.sourceIf("elseif"))
@@ -864,11 +997,11 @@ func (n AstExprIfElse) sourceIf(keyword string) string {
 }
 
 func (n AstExprIndexExpr) Source() string {
-	return n.Expr.Source() + "[" + n.Index.Source() + "]"
+	return sourceExprPrec(n.Expr, precPrimary) + "[" + sourceExprPrec(n.Index, 0) + "]"
 }
 
 func (n AstExprIndexName) Source() string {
-	return n.Expr.Source() + string(n.Op) + n.Index
+	return sourceExprPrec(n.Expr, precPrimary) + string(n.Op) + n.Index
 }
 
 func (n AstExprInterpString) Source() string {
@@ -879,7 +1012,7 @@ func (n AstExprInterpString) Source() string {
 		b.WriteString(sourceInterpStringPart(str))
 		if i < len(n.Expressions) {
 			b.WriteByte('{')
-			b.WriteString(n.Expressions[i].Source())
+			b.WriteString(sourceExprPrec(n.Expressions[i], 0))
 			b.WriteByte('}')
 		}
 	}
@@ -889,7 +1022,7 @@ func (n AstExprInterpString) Source() string {
 }
 
 func (n AstExprInstantiate) Source() string {
-	return n.Expr.Source() + "<<" + sourceTypeOrPackList(n.TypeArguments) + ">>"
+	return sourceExprPrec(n.Expr, precPrimary) + "<<" + sourceTypeOrPackList(n.TypeArguments) + ">>"
 }
 
 func (n AstExprLocal) Source() string {
@@ -903,7 +1036,8 @@ func (n AstExprTable) Source() string {
 
 	parts := make([]string, len(n.Items))
 	for i, item := range n.Items {
-		parts[i] = item.Source()
+		expand := i == len(n.Items)-1 && item.Kind == List
+		parts[i] = sourceTableItem(item, expand)
 	}
 
 	// tables are always split across multiple lines, one item per line
@@ -911,27 +1045,11 @@ func (n AstExprTable) Source() string {
 }
 
 func (n AstExprTableItem) Source() string {
-	if n.Key == nil {
-		return n.Value.Source()
-	}
-	switch n.Kind {
-	case Record:
-		if key, ok := (*n.Key).(AstExprConstantString); ok {
-			return key.Value + " = " + n.Value.Source()
-		}
-		return (*n.Key).Source() + " = " + n.Value.Source()
-	case General:
-		// a string key that's a valid identifier can use the record form
-		if key, ok := sourceRecordKey(*n.Key); ok {
-			return key + " = " + n.Value.Source()
-		}
-		return "[" + (*n.Key).Source() + "] = " + n.Value.Source()
-	}
-	return n.Value.Source()
+	return sourceTableItem(n, false)
 }
 
 func (n AstExprTypeAssertion) Source() string {
-	return n.Expr.Source() + " :: " + n.Annotation.Source()
+	return sourceExpr(n.Expr, precPrimary, false) + " :: " + n.Annotation.Source()
 }
 
 func (n AstExprVarargs) Source() string {
@@ -940,7 +1058,7 @@ func (n AstExprVarargs) Source() string {
 
 func (n AstExprUnary) Source() string {
 	op := sourceUnaryOp(n.Op)
-	expr := n.Expr.Source()
+	expr := sourceExpr(n.Expr, precUnaryOperand, false)
 
 	// avoid producing a `--` comment from `- -x`
 	if op == "-" && strings.HasPrefix(expr, "-") {
@@ -1021,13 +1139,13 @@ func (n AstStatBreak) Source() string {
 func (n AstStatCompoundAssign) Source() string {
 	var b strings.Builder
 
-	b.WriteString(n.Var.Source())
+	b.WriteString(sourceExprPrec(n.Var, 0))
 	b.WriteByte(' ')
 	b.WriteString(sourceBinaryOp(n.Op))
 	b.WriteString("=")
 
-	value := n.Value.Source()
-	if _, ok := asIfElseExpr(n.Value); ok {
+	value := sourceExprPrec(n.Value, 0)
+	if _, ok := asIfElseExpr(sourceUnwrapGroup(n.Value)); ok {
 		b.WriteByte('\n')
 		b.WriteString(sourceIndent(value, 1))
 	} else {
@@ -1135,7 +1253,7 @@ func (n AstStatError) Source() string {
 }
 
 func (n AstStatExpr) Source() string {
-	return n.Expr.Source()
+	return sourceExprPrec(n.Expr, 0)
 }
 
 func (n AstStatFor) Source() string {
@@ -1146,12 +1264,12 @@ func (n AstStatFor) Source() string {
 		b.WriteString(n.Var.Source())
 	}
 	b.WriteString(" = ")
-	b.WriteString(n.From.Source())
+	b.WriteString(sourceExprPrec(n.From, 0))
 	b.WriteString(", ")
-	b.WriteString(n.To.Source())
+	b.WriteString(sourceExprPrec(n.To, 0))
 	if n.Step != nil {
 		b.WriteString(", ")
-		b.WriteString(n.Step.Source())
+		b.WriteString(sourceExprPrec(n.Step, 0))
 	}
 	b.WriteString(" do")
 
@@ -1193,7 +1311,7 @@ func (n AstStatFunction) Source() string {
 
 	b.WriteString(sourceAttrs(n.Func.Attributes))
 	b.WriteString("function ")
-	b.WriteString(n.Name.Source())
+	b.WriteString(sourceExprPrec(n.Name, precPrimary))
 	b.WriteString(n.Func.sourceRest())
 
 	return b.String()
@@ -1221,7 +1339,7 @@ func (n AstStatIf) sourceIf(keyword string) string {
 		b.WriteString(" = ")
 	}
 
-	b.WriteString(n.Condition.Source())
+	b.WriteString(sourceExprPrec(n.Condition, 0))
 	b.WriteString(" then")
 
 	thenBody := sourceBlockBody(n.ThenBody)
@@ -1305,7 +1423,7 @@ func (n AstStatRepeat) Source() string {
 		b.WriteString(sourceBlockBody(*n.Body))
 	}
 	b.WriteString("\nuntil ")
-	b.WriteString(n.Condition.Source())
+	b.WriteString(sourceExprPrec(n.Condition, 0))
 
 	return b.String()
 }
@@ -1363,7 +1481,7 @@ func (n AstStatWhile) Source() string {
 	var b strings.Builder
 
 	b.WriteString("while ")
-	b.WriteString(n.Condition.Source())
+	b.WriteString(sourceExprPrec(n.Condition, 0))
 	b.WriteString(" do")
 
 	var body string
@@ -1578,7 +1696,7 @@ func (n AstTypeTable) Source() string {
 }
 
 func (n AstTypeTypeof) Source() string {
-	return "typeof(" + n.Expr.Source() + ")"
+	return "typeof(" + sourceExprPrec(n.Expr, 0) + ")"
 }
 
 func (n AstTypeUnion) Source() string {

@@ -5,7 +5,7 @@ print {
 }
 t:m "str"
 f<<number>> "str"
-print(("grouped"))
+print "grouped"
 f "a" "b"
 f {
 	a = 1,
