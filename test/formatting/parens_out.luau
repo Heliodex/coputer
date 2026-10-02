@@ -1,0 +1,41 @@
+local atom = 1
+local nested = atom
+local bin = a + b
+local mul = (a + b) * c
+local add = a + (b + c)
+local sub = a - (b - c)
+local pow = (a ^ b) ^ c
+local pow2 = a ^ b ^ c
+local concat = (a .. b) .. c
+local concat2 = a .. b .. c
+local unary = -a
+local index = a.b
+local callindex = f().x
+local calladd = f() + 1
+local truncate = f((g()))
+local notruncate = f(g())
+local tablelast = {
+	(f()),
+}
+local tablenotlast = {
+	f(),
+	(g()),
+}
+local assertion = a :: number + 1
+local assertindex = (a :: number).x
+local ifexpr = (
+	if c then a
+	else b
+) + 1
+local ifarg = f(if c then a
+else b)
+local notcmp = not (a == b)
+local cmpnot = not a == b
+local negpow = (-a) ^ b
+local powneg = -a ^ b
+local callfn = (
+	function()
+	end
+)()
+local andor = (a or b) and c
+local andor2 = a or b and c
