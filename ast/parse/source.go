@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 
 	"github.com/Heliodex/coputer/ast/lex"
@@ -177,35 +178,23 @@ func sourceNumber(value float64) string {
 		return "-math.huge"
 	}
 
-	rep := fmt.Sprintf("%g", value)
-	rep = strings.Replace(rep, "e+", "e", 1)
+	exp := fmt.Sprintf("%g", value)
+	exp = strings.Replace(exp, "e+", "e", 1)
 
-	for strings.Contains(rep, "e0") {
-		rep = strings.Replace(rep, "e0", "e", 1)
+	for strings.Contains(exp, "e0") {
+		exp = strings.Replace(exp, "e0", "e", 1)
 	}
-	for strings.Contains(rep, "e-0") {
-		rep = strings.Replace(rep, "e-0", "e-", 1)
-	}
-
-	if strings.Contains(rep, "e-") || !strings.Contains(rep, "e") {
-		return rep
+	for strings.Contains(exp, "e-0") {
+		exp = strings.Replace(exp, "e-0", "e-", 1)
 	}
 
-	// remove the exponent if it merely reflects the number of decimal places
-	eSplit := strings.Split(rep, "e")
-	if len(eSplit) == 1 {
-		return rep
-	}
-	dotSplit := strings.Split(eSplit[0], ".")
-	if len(dotSplit) == 1 {
-		return rep
+	// prefer the plain decimal form when it isn't longer than the exponent form
+	plain := strconv.FormatFloat(value, 'f', -1, 64)
+	if len(plain) <= len(exp) {
+		return plain
 	}
 
-	start, decimal, exponent := dotSplit[0], dotSplit[1], eSplit[1]
-	if exponent == fmt.Sprintf("%d", len(decimal)) {
-		return start + decimal
-	}
-	return rep
+	return exp
 }
 
 // sourceBinaryOp renders a binary operator.
