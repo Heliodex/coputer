@@ -874,12 +874,8 @@ func (n AstExprTable) Source() string {
 		parts[i] = item.Source()
 	}
 
-	// keep tables that were written across multiple lines multi-line
-	if n.NodeLoc != nil && n.Location.Begin.Line != n.Location.End.Line {
-		return "{\n" + sourceIndent(strings.Join(parts, ",\n"), 1) + ",\n}"
-	}
-
-	return "{ " + strings.Join(parts, ", ") + " }"
+	// tables are always split across multiple lines, one item per line
+	return "{\n" + sourceIndent(strings.Join(parts, ",\n"), 1) + ",\n}"
 }
 
 func (n AstExprTableItem) Source() string {
