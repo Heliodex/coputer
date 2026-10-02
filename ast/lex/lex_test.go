@@ -228,6 +228,21 @@ func TestDoubleQuotedString(t *testing.T) {
 	CHECK_EQ(t, lexeme.getQuoteStyle(), Double)
 }
 
+func TestQuotedStringHexEscape(t *testing.T) {
+	const testinput = `"\x41\x00"`
+	table := MakeAstNameTable()
+	lexer := Lexer{buffer: []byte(testinput), names: table, readNames: true}
+
+	lexeme := lexer.Next0()
+	CHECK_EQ(t, lexeme.Type, QuotedString)
+
+	ok, fixed := lexer.FixupQuotedString(lexeme.Data)
+	if !ok {
+		t.Fatal("expected hex escape sequence to be valid")
+	}
+	CHECK_EQ(t, string(fixed), "A\x00")
+}
+
 func TestLexerDeterminesStringBlockDepth0(t *testing.T) {
 	const testinput = "[[ test ]]"
 	table := MakeAstNameTable()

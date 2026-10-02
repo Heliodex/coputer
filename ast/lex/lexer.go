@@ -988,6 +988,7 @@ func (l *Lexer) fixupQuotedString(data *[]byte) bool {
 
 			(*data)[write] = byte(code)
 			write++
+			i += 2
 
 		case 'z':
 			for i < size && isSpace((*data)[i]) {
