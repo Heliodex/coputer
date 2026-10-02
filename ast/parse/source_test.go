@@ -48,16 +48,14 @@ func sourceFiles(t *testing.T, dir string) {
 	}
 }
 
-// TestSourceRoundTrip checks that Source() output is valid, stable Luau for
-// every file in the AST, conformance and benchmark test suites.
+// TestSourceRoundTrip checks that Source() output is valid, stable Luau for every file in the AST, conformance and benchmark test suites.
 func TestSourceRoundTrip(t *testing.T) {
 	sourceFiles(t, AstDir)
 	sourceFiles(t, ConformanceDir)
 	sourceFiles(t, BenchmarkDir)
 }
 
-// TestSourceFormatting checks the formatted output for a representative mix of
-// declarations, functions, tables, if-local statements and types.
+// TestSourceFormatting checks the formatted output for a representative mix of declarations, functions, tables, if-local statements and types.
 func TestSourceFormatting(t *testing.T) {
 	src := `export type Point = { x: number, y: number }
 type Callback<T> = (T) -> ()
@@ -112,9 +110,7 @@ end`
 	}
 }
 
-// TestSourceComments checks that comments are rendered near their original
-// positions: leading comments stay above the statement they precede, trailing
-// comments stay on the same line, and comments inside a block stay inside it.
+// TestSourceComments checks that comments are rendered near their original positions: leading comments stay above the statement they precede, trailing comments stay on the same line, and comments inside a block stay inside it.
 func TestSourceComments(t *testing.T) {
 	src := "-- leading comment\n" +
 		"local x = 1 -- trailing comment\n" +
@@ -150,8 +146,7 @@ func TestSourceComments(t *testing.T) {
 	}
 }
 
-// TestSourceCommentsOption checks that comments are always rendered by
-// Source(), while Result.CommentLocations still respects CaptureComments.
+// TestSourceCommentsOption checks that comments are always rendered by Source(), while Result.CommentLocations still respects CaptureComments.
 func TestSourceCommentsOption(t *testing.T) {
 	src := "-- comment\nlocal x = 1\n"
 
@@ -172,8 +167,7 @@ func TestSourceCommentsOption(t *testing.T) {
 	}
 }
 
-// TestSourceDeclareNodes checks Source() for declaration nodes, which are part
-// of the AST but aren't produced by this parser.
+// TestSourceDeclareNodes checks Source() for declaration nodes, which are part of the AST but aren't produced by this parser.
 func TestSourceDeclareNodes(t *testing.T) {
 	ref := func(name string) AstTypeReference {
 		return AstTypeReference{NodeLoc: &NodeLoc{}, Name: name}
