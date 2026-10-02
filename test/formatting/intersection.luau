@@ -1,4 +1,5 @@
-type union =
+type intersection = string & number
+type intersection =
 	& A
 	& B
 	& C
