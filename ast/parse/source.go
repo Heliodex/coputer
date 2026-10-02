@@ -498,6 +498,29 @@ func (n AstExprFunction) Source() string {
 	return b.String()
 }
 
+// writeAnnotation writes `: annotation`, putting a multi-line annotation on its
+// own indented lines.
+func writeAnnotation(b *strings.Builder, annotation string) {
+	if strings.Contains(annotation, "\n") {
+		b.WriteString(":\n")
+		b.WriteString(sourceIndent(annotation, 1))
+		return
+	}
+
+	b.WriteString(": ")
+	b.WriteString(annotation)
+}
+
+// writeTypeAnnotation writes `: type`, putting a multi-line type on its own
+// indented lines.
+func writeTypeAnnotation(b *strings.Builder, annotation AstType) {
+	if annotation == nil {
+		return
+	}
+
+	writeAnnotation(b, annotation.Source())
+}
+
 // sourceRest renders a function body from the generics onwards, i.e. without
 // the leading `function` keyword. Named function statements use this so the
 // name can be spliced in between `function` and the parameter list.
@@ -526,8 +549,7 @@ func (n AstExprFunction) sourceRest() string {
 	b.WriteString(")")
 
 	if n.ReturnAnnotation != nil {
-		b.WriteString(": ")
-		b.WriteString((*n.ReturnAnnotation).Source())
+		writeAnnotation(&b, (*n.ReturnAnnotation).Source())
 	}
 
 	b.WriteString(sourceBlockBody(n.Body))
@@ -775,11 +797,10 @@ func (n AstGenericTypePack) Source() string {
 
 // Source renders a binding, i.e. `name` or `name: type`.
 func (n AstLocal) Source() string {
-	s := n.Name
-	if n.Annotation != nil {
-		s += ": " + n.Annotation.Source()
-	}
-	return s
+	var b strings.Builder
+	b.WriteString(n.Name)
+	writeTypeAnnotation(&b, n.Annotation)
+	return b.String()
 }
 
 // --------------------------------------------------------------------------------
@@ -832,8 +853,7 @@ func (n AstStatDeclareFunction) Source() string {
 	b.WriteString(")")
 
 	if n.RetTypes != nil {
-		b.WriteString(": ")
-		b.WriteString(n.RetTypes.Source())
+		writeAnnotation(&b, n.RetTypes.Source())
 	}
 
 	return b.String()
@@ -920,7 +940,15 @@ func (n AstDeclaredExternTypeProperty) Source() string {
 		} else {
 			params = "self, " + params
 		}
-		return "function " + name + "(" + params + "): " + ret
+
+		var b strings.Builder
+		b.WriteString("function ")
+		b.WriteString(name)
+		b.WriteString("(")
+		b.WriteString(params)
+		b.WriteString(")")
+		writeAnnotation(&b, ret)
+		return b.String()
 	}
 
 	return "function " + name + ": " + n.Ty.Source()
@@ -1129,8 +1157,16 @@ func (n AstStatTypeAlias) Source() string {
 		b.WriteString(">")
 	}
 
-	b.WriteString(" = ")
-	b.WriteString(n.Type.Source())
+	// types that span multiple lines start on their own line
+	typeSource := n.Type.Source()
+	b.WriteString(" =")
+	if strings.Contains(typeSource, "\n") {
+		b.WriteByte('\n')
+		b.WriteString(sourceIndent(typeSource, 1))
+	} else {
+		b.WriteByte(' ')
+		b.WriteString(typeSource)
+	}
 
 	return b.String()
 }
@@ -1174,8 +1210,8 @@ func (n AstTableIndexer) Source() string {
 
 	b.WriteString("[")
 	b.WriteString(n.IndexType.Source())
-	b.WriteString("]: ")
-	b.WriteString(n.ResultType.Source())
+	b.WriteString("]")
+	writeTypeAnnotation(&b, n.ResultType)
 
 	return b.String()
 }
@@ -1191,8 +1227,7 @@ func (n AstTableProp) Source() string {
 	}
 
 	b.WriteString(n.Name.Value)
-	b.WriteString(": ")
-	b.WriteString(n.Type.Source())
+	writeTypeAnnotation(&b, n.Type)
 
 	return b.String()
 }
@@ -1207,10 +1242,25 @@ func (n AstTypeError) Source() string {
 func (n AstTypeFunction) Source() string {
 	params, ret := n.sourceParamsAndReturn()
 
+	var b strings.Builder
 	if generics := sourceGenerics(n.Generics, n.GenericPacks); generics != "" {
-		return "<" + generics + ">(" + params + ") -> " + ret
+		b.WriteString("<")
+		b.WriteString(generics)
+		b.WriteString(">")
 	}
-	return "(" + params + ") -> " + ret
+	b.WriteString("(")
+	b.WriteString(params)
+	b.WriteString(")")
+
+	if strings.Contains(ret, "\n") {
+		b.WriteString(" ->\n")
+		b.WriteString(sourceIndent(ret, 1))
+	} else {
+		b.WriteString(" -> ")
+		b.WriteString(ret)
+	}
+
+	return b.String()
 }
 
 // sourceParamsAndReturn renders the parameter list and return type of a
@@ -1234,15 +1284,61 @@ func (n AstTypeFunction) sourceParamsAndReturn() (params string, ret string) {
 }
 
 func (n AstTypeGroup) Source() string {
-	return "(" + n.Type.Source() + ")"
+	inner := n.Type.Source()
+	if strings.Contains(inner, "\n") {
+		return "(\n" + sourceIndent(inner, 1) + "\n)"
+	}
+	return "(" + inner + ")"
 }
 
 func (n AstTypeIntersection) Source() string {
-	parts := make([]string, len(n.Types))
-	for i, typ := range n.Types {
+	return sourceUnionIntersection(n.Types, "&")
+}
+
+// sourceUnionIntersection renders union and intersection types. Types are
+// always split across multiple lines, one per line, each prefixed by op.
+func sourceUnionIntersection(types []AstType, op string) string {
+	var nonOptional []AstType
+	seenOptional := false
+
+	for _, typ := range types {
+		if _, ok := typ.(AstTypeOptional); ok {
+			seenOptional = true
+			continue
+		}
+		nonOptional = append(nonOptional, typ)
+	}
+
+	if len(nonOptional) == 0 {
+		return "?"
+	}
+
+	parts := make([]string, len(nonOptional))
+	for i, typ := range nonOptional {
 		parts[i] = typ.Source()
 	}
-	return strings.Join(parts, " & ")
+
+	if len(nonOptional) == 1 {
+		if seenOptional {
+			return parts[0] + "?"
+		}
+		return parts[0]
+	}
+
+	var b strings.Builder
+	for i, part := range parts {
+		if i > 0 {
+			b.WriteByte('\n')
+		}
+		b.WriteString(op)
+		b.WriteByte(' ')
+		b.WriteString(part)
+	}
+
+	if seenOptional {
+		return "(\n" + sourceIndent(b.String(), 1) + "\n)?"
+	}
+	return b.String()
 }
 
 func (n AstTypeList) Source() string {
@@ -1351,34 +1447,7 @@ func (n AstTypeTypeof) Source() string {
 }
 
 func (n AstTypeUnion) Source() string {
-	var nonOptional []AstType
-	seenOptional := false
-
-	for _, typ := range n.Types {
-		if _, ok := typ.(AstTypeOptional); ok {
-			seenOptional = true
-			continue
-		}
-		nonOptional = append(nonOptional, typ)
-	}
-
-	parts := make([]string, len(nonOptional))
-	for i, typ := range nonOptional {
-		parts[i] = typ.Source()
-	}
-	joined := strings.Join(parts, " | ")
-
-	if !seenOptional {
-		return joined
-	}
-
-	if len(nonOptional) == 0 {
-		return "?"
-	}
-	if len(nonOptional) == 1 {
-		return joined + "?"
-	}
-	return "(" + joined + ")?"
+	return sourceUnionIntersection(n.Types, "|")
 }
 
 // --------------------------------------------------------------------------------
