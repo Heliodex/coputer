@@ -475,7 +475,7 @@ func (p *Parser) fillNext() {
 			p.commentLocations = append(p.commentLocations, comment)
 			p.pendingComments = append(p.pendingComments, comment)
 
-			if next.Type == lex.Comment && p.next_string != nil && (*p.next_string)[0] == '!' {
+			if next.Type == lex.Comment && p.next_string != nil && len(*p.next_string) > 0 && (*p.next_string)[0] == '!' {
 				p.hotcomments = append(p.hotcomments, HotComment{
 					Header:   p.hotcommentHeader,
 					Location: next.Location,
