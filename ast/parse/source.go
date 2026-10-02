@@ -34,60 +34,33 @@ func sourceIndent(s string, levels int) string {
 	return strings.Join(lines, "\n")
 }
 
-// sourceBlockBody renders a block's statements indented one level, preceded by
-// a newline. Empty blocks render as an empty string.
-func sourceBlockBody(body AstStatBlock) string {
-	s := sourceStatList(body.Body, body.Comments)
-	if s == "" {
-		return ""
+func leadingWhitespace(s string) string {
+	i := 0
+	for i < len(s) && (s[i] == ' ' || s[i] == '\t') {
+		i++
 	}
-	return "\n" + sourceIndent(s, 1)
+	return s[:i]
 }
 
-// sourceStatList renders statements separated by newlines, interleaving the
-// block's comments in their original positions: leading comments stay above the
-// statement they precede and trailing comments stay on the same line.
-func sourceStatList(stats []AstStat, comments []Comment) string {
-	var lines []string
-	ci := 0
-
-	for i, stat := range stats {
-		statLoc := stat.GetLocation()
-
-		// comments that start at or before this statement go on their own line
-		for ci < len(comments) && !comments[ci].Location.Begin.After(statLoc.Begin) {
-			lines = append(lines, sourceComment(comments[ci]))
-			ci++
-		}
-
-		src := sourceStat(stat)
-
-		// comments on the same line as the end of the statement stay there
-		for ci < len(comments) &&
-			comments[ci].Location.Begin.Line == statLoc.End.Line &&
-			(i+1 >= len(stats) || comments[ci].Location.Begin.Before(stats[i+1].GetLocation().Begin)) {
-			src += " " + sourceComment(comments[ci])
-			ci++
-		}
-
-		lines = append(lines, src)
+func commonLeadingWhitespace(a, b string) string {
+	n := min(len(a), len(b))
+	i := 0
+	for i < n && a[i] == b[i] {
+		i++
 	}
-
-	// comments after the last statement
-	for ci < len(comments) {
-		lines = append(lines, sourceComment(comments[ci]))
-		ci++
-	}
-
-	return strings.Join(lines, "\n")
+	return a[:i]
 }
 
-// sourceComment renders a comment.
-func sourceComment(comment Comment) string {
-	if comment.Type == lex.BlockComment || comment.Type == lex.BrokenComment {
-		return "--" + sourceLongString(normalizeCommentContent(comment.Content))
+// sourceLongString renders a long (`[[...]]`) string with enough equals signs
+// to avoid an accidental terminator.
+func sourceLongString(value string) string {
+	for eq := 0; ; eq++ {
+		eqs := strings.Repeat("=", eq)
+		strend := "]" + eqs + "]"
+		if !strings.Contains(value, strend) {
+			return "[" + eqs + "[" + value + strend
+		}
 	}
-	return "--" + comment.Content
 }
 
 // normalizeCommentContent removes the common leading indentation from the
@@ -126,123 +99,12 @@ func normalizeCommentContent(content string) string {
 	return strings.Join(lines, "\n")
 }
 
-func leadingWhitespace(s string) string {
-	i := 0
-	for i < len(s) && (s[i] == ' ' || s[i] == '\t') {
-		i++
+// sourceComment renders a comment.
+func sourceComment(comment Comment) string {
+	if comment.Type == lex.BlockComment || comment.Type == lex.BrokenComment {
+		return "--" + sourceLongString(normalizeCommentContent(comment.Content))
 	}
-	return s[:i]
-}
-
-func commonLeadingWhitespace(a, b string) string {
-	n := min(len(a), len(b))
-	i := 0
-	for i < n && a[i] == b[i] {
-		i++
-	}
-	return a[:i]
-}
-
-// sourceStat renders a statement, preserving a trailing semicolon when the
-// source had one (semicolons can be semantically significant).
-func sourceStat(stat AstStat) string {
-	s := stat.Source()
-	if sourceHasSemicolon(stat) {
-		s += ";"
-	}
-	return s
-}
-
-func sourceHasSemicolon(stat AstStat) bool {
-	switch s := stat.(type) {
-	case *AstStatAssign: // more uncollapsible type switches yayyy
-		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatBlock:
-		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatBreak:
-		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatCompoundAssign:
-		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatContinue:
-		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatDeclareFunction:
-		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatDeclareGlobal:
-		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatDeclareExternType:
-		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatError: // i
-		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatExpr: // could
-		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatFor: // use
-		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatForIn: // an
-		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatFunction: // interface
-		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatIf: // for
-		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatLocal: // this
-		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatLocalFunction: // but
-		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatRepeat: // can't
-		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatReturn: // be
-		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatTypeAlias: // arsed
-		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatTypeFunction:
-		return s.HasSemicolon != nil && *s.HasSemicolon
-	case *AstStatWhile:
-		return s.HasSemicolon != nil && *s.HasSemicolon
-	}
-	return false
-}
-
-// sourceExprList renders comma-separated expressions.
-func sourceExprList(exprs []AstExpr) string {
-	parts := make([]string, len(exprs))
-	for i, expr := range exprs {
-		parts[i] = expr.Source()
-	}
-	return strings.Join(parts, ", ")
-}
-
-// sourceTypeOrPackList renders comma-separated types/type packs.
-func sourceTypeOrPackList(items []AstTypeOrPack) string {
-	parts := make([]string, len(items))
-	for i, item := range items {
-		parts[i] = item.Source()
-	}
-	return strings.Join(parts, ", ")
-}
-
-// sourceGenerics renders a generic list, e.g. `T, U..., V = string`.
-func sourceGenerics(generics []AstGenericType, packs []AstGenericTypePack) string {
-	parts := make([]string, 0, len(generics)+len(packs))
-	for _, generic := range generics {
-		parts = append(parts, generic.Source())
-	}
-	for _, pack := range packs {
-		parts = append(parts, pack.Source())
-	}
-	return strings.Join(parts, ", ")
-}
-
-// sourceAttrs renders attributes followed by newlines, or "" when there are none.
-func sourceAttrs(attrs []AstAttr) string {
-	if len(attrs) == 0 {
-		return ""
-	}
-
-	var b strings.Builder
-	for _, attr := range attrs {
-		b.WriteString(attr.Source())
-		b.WriteByte('\n')
-	}
-	return b.String()
+	return "--" + comment.Content
 }
 
 // sourceString renders a string literal in the requested quote style, falling
@@ -270,7 +132,7 @@ func sourceString(value string, style QuoteStyle) string {
 
 	var b strings.Builder
 	b.WriteByte(quote)
-	for i := 0; i < len(value); i++ {
+	for i := range len(value) {
 		ch := value[i]
 		switch ch {
 		case '\\':
@@ -304,18 +166,6 @@ func sourceString(value string, style QuoteStyle) string {
 	b.WriteByte(quote)
 
 	return b.String()
-}
-
-// sourceLongString renders a long (`[[...]]`) string with enough equals signs
-// to avoid an accidental terminator.
-func sourceLongString(value string) string {
-	for eq := 0; ; eq++ {
-		eqs := strings.Repeat("=", eq)
-		strend := "]" + eqs + "]"
-		if !strings.Contains(value, strend) {
-			return "[" + eqs + "[" + value + strend
-		}
-	}
 }
 
 // sourceNumber renders a numeric literal.
@@ -410,12 +260,154 @@ func sourceUnaryOp(op UnaryOp) string {
 	return "?"
 }
 
-// --------------------------------------------------------------------------------
-// -- EXPRESSIONS
-// --------------------------------------------------------------------------------
+func sourceHasSemicolon(stat AstStat) bool {
+	switch s := stat.(type) {
+	case *AstStatAssign: // more uncollapsible type switches yayyy
+		return s.HasSemicolon != nil && *s.HasSemicolon
+	case *AstStatBlock:
+		return s.HasSemicolon != nil && *s.HasSemicolon
+	case *AstStatBreak:
+		return s.HasSemicolon != nil && *s.HasSemicolon
+	case *AstStatCompoundAssign:
+		return s.HasSemicolon != nil && *s.HasSemicolon
+	case *AstStatContinue:
+		return s.HasSemicolon != nil && *s.HasSemicolon
+	case *AstStatDeclareFunction:
+		return s.HasSemicolon != nil && *s.HasSemicolon
+	case *AstStatDeclareGlobal:
+		return s.HasSemicolon != nil && *s.HasSemicolon
+	case *AstStatDeclareExternType:
+		return s.HasSemicolon != nil && *s.HasSemicolon
+	case *AstStatError: // i
+		return s.HasSemicolon != nil && *s.HasSemicolon
+	case *AstStatExpr: // could
+		return s.HasSemicolon != nil && *s.HasSemicolon
+	case *AstStatFor: // use
+		return s.HasSemicolon != nil && *s.HasSemicolon
+	case *AstStatForIn: // an
+		return s.HasSemicolon != nil && *s.HasSemicolon
+	case *AstStatFunction: // interface
+		return s.HasSemicolon != nil && *s.HasSemicolon
+	case *AstStatIf: // for
+		return s.HasSemicolon != nil && *s.HasSemicolon
+	case *AstStatLocal: // this
+		return s.HasSemicolon != nil && *s.HasSemicolon
+	case *AstStatLocalFunction: // but
+		return s.HasSemicolon != nil && *s.HasSemicolon
+	case *AstStatRepeat: // can't
+		return s.HasSemicolon != nil && *s.HasSemicolon
+	case *AstStatReturn: // be
+		return s.HasSemicolon != nil && *s.HasSemicolon
+	case *AstStatTypeAlias: // arsed
+		return s.HasSemicolon != nil && *s.HasSemicolon
+	case *AstStatTypeFunction:
+		return s.HasSemicolon != nil && *s.HasSemicolon
+	case *AstStatWhile:
+		return s.HasSemicolon != nil && *s.HasSemicolon
+	}
+	return false
+}
 
-func (n AstExprBinary) Source() string {
-	return n.Left.Source() + " " + sourceBinaryOp(BinaryOp(n.Op)) + " " + n.Right.Source()
+// sourceStat renders a statement, preserving a trailing semicolon when the
+// source had one (semicolons can be semantically significant).
+func sourceStat(stat AstStat) string {
+	s := stat.Source()
+	if sourceHasSemicolon(stat) {
+		s += ";"
+	}
+	return s
+}
+
+// sourceStatList renders statements separated by newlines, interleaving the
+// block's comments in their original positions: leading comments stay above the
+// statement they precede and trailing comments stay on the same line.
+func sourceStatList(stats []AstStat, comments []Comment) string {
+	var lines []string
+	ci := 0
+
+	for i, stat := range stats {
+		statLoc := stat.GetLocation()
+
+		// comments that start at or before this statement go on their own line
+		for ci < len(comments) && !comments[ci].Location.Begin.After(statLoc.Begin) {
+			lines = append(lines, sourceComment(comments[ci]))
+			ci++
+		}
+
+		src := sourceStat(stat)
+
+		// comments on the same line as the end of the statement stay there
+		for ci < len(comments) &&
+			comments[ci].Location.Begin.Line == statLoc.End.Line &&
+			(i+1 >= len(stats) || comments[ci].Location.Begin.Before(stats[i+1].GetLocation().Begin)) {
+			src += " " + sourceComment(comments[ci])
+			ci++
+		}
+
+		lines = append(lines, src)
+	}
+
+	// comments after the last statement
+	for ci < len(comments) {
+		lines = append(lines, sourceComment(comments[ci]))
+		ci++
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+// sourceBlockBody renders a block's statements indented one level, preceded by
+// a newline. Empty blocks render as an empty string.
+func sourceBlockBody(body AstStatBlock) string {
+	s := sourceStatList(body.Body, body.Comments)
+	if s == "" {
+		return ""
+	}
+	return "\n" + sourceIndent(s, 1)
+}
+
+// sourceExprList renders comma-separated expressions.
+func sourceExprList(exprs []AstExpr) string {
+	parts := make([]string, len(exprs))
+	for i, expr := range exprs {
+		parts[i] = expr.Source()
+	}
+	return strings.Join(parts, ", ")
+}
+
+// sourceTypeOrPackList renders comma-separated types/type packs.
+func sourceTypeOrPackList(items []AstTypeOrPack) string {
+	parts := make([]string, len(items))
+	for i, item := range items {
+		parts[i] = item.Source()
+	}
+	return strings.Join(parts, ", ")
+}
+
+// sourceGenerics renders a generic list, e.g. `T, U..., V = string`.
+func sourceGenerics(generics []AstGenericType, packs []AstGenericTypePack) string {
+	parts := make([]string, 0, len(generics)+len(packs))
+	for _, generic := range generics {
+		parts = append(parts, generic.Source())
+	}
+	for _, pack := range packs {
+		parts = append(parts, pack.Source())
+	}
+	return strings.Join(parts, ", ")
+}
+
+// sourceAttrs renders attributes followed by newlines, or "" when there are none.
+func sourceAttrs(attrs []AstAttr) string {
+	if len(attrs) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	for _, attr := range attrs {
+		b.WriteString(attr.Source())
+		b.WriteByte('\n')
+	}
+	return b.String()
 }
 
 // sourceCallSugar reports whether a call argument can be passed without parentheses, i.e. `f "string"` or `f { table }`.
@@ -427,6 +419,263 @@ func sourceCallSugar(expr AstExpr) bool {
 		return true
 	}
 	return false
+}
+
+// sourceInterpStringPart escapes a raw segment of an interpolated string.
+func sourceInterpStringPart(s string) string {
+	var b strings.Builder
+
+	for i := range s {
+		ch := s[i]
+		switch ch {
+		case '\\':
+			b.WriteString(`\\`)
+		case '`':
+			b.WriteString("\\`")
+		case '{':
+			b.WriteString("\\{")
+		case '\n':
+			b.WriteString(`\n`)
+		case '\r':
+			b.WriteString(`\r`)
+		case '\t':
+			b.WriteString(`\t`)
+		default:
+			if ch < 0x20 || ch == 0x7f {
+				// pad to three digits so a following digit isn't absorbed
+				fmt.Fprintf(&b, "\\%03d", ch)
+			} else {
+				b.WriteByte(ch)
+			}
+		}
+	}
+
+	return b.String()
+}
+
+func asIfElseExpr(expr AstExpr) (AstExprIfElse, bool) {
+	switch e := expr.(type) {
+	case AstExprIfElse:
+		return e, true
+	case *AstExprIfElse:
+		return *e, true
+	}
+	return AstExprIfElse{}, false
+}
+
+// sourceHasIfExpr reports whether any of the expressions is an if-then-else
+// expression.
+func sourceHasIfExpr(exprs []AstExpr) bool {
+	for _, expr := range exprs {
+		if _, ok := asIfElseExpr(expr); ok {
+			return true
+		}
+	}
+	return false
+}
+
+// writeIfBranch writes an if-expression branch value, putting a multi-line
+// value on its own indented line.
+func writeIfBranch(b *strings.Builder, expr AstExpr) {
+	if expr == nil {
+		b.WriteString(" nil")
+		return
+	}
+
+	s := expr.Source()
+	if strings.Contains(s, "\n") {
+		b.WriteByte('\n')
+		b.WriteString(sourceIndent(s, 1))
+		return
+	}
+
+	b.WriteByte(' ')
+	b.WriteString(s)
+}
+
+// writeAssignedValue writes ` = values`, putting if-expressions on their own
+// indented lines.
+func writeAssignedValue(b *strings.Builder, exprs []AstExpr) {
+	value := sourceExprList(exprs)
+	if sourceHasIfExpr(exprs) {
+		b.WriteString(" =\n")
+		b.WriteString(sourceIndent(value, 1))
+		return
+	}
+
+	b.WriteString(" = ")
+	b.WriteString(value)
+}
+
+// sourceVarargAnnotation renders a vararg annotation. The parser wraps
+// parameter vararg annotations in a variadic type pack, but the `...` is
+// already written as part of the parameter list.
+func sourceVarargAnnotation(pack AstTypePack) string {
+	switch p := pack.(type) {
+	case AstTypePackVariadic:
+		return p.VariadicType.Source()
+	case *AstTypePackVariadic:
+		return p.VariadicType.Source()
+	}
+	return pack.Source()
+}
+
+func sourceDeclareParams(params AstTypeList, names []AstArgumentName, vararg bool) string {
+	parts := make([]string, 0, len(params.Types)+1)
+
+	for i, param := range params.Types {
+		p := param.Source()
+		if i < len(names) && names[i].Name != "" {
+			p = names[i].Name + ": " + p
+		}
+		parts = append(parts, p)
+	}
+
+	if vararg {
+		p := "..."
+		if params.TailType != nil {
+			p += ": " + sourceVarargAnnotation(*params.TailType)
+		}
+		parts = append(parts, p)
+	} else if params.TailType != nil {
+		parts = append(parts, (*params.TailType).Source())
+	}
+
+	return strings.Join(parts, ", ")
+}
+
+// writeAnnotation writes `: annotation`, putting a multi-line annotation on its
+// own indented lines.
+func writeAnnotation(b *strings.Builder, annotation string) {
+	if strings.Contains(annotation, "\n") {
+		b.WriteString(":\n")
+		b.WriteString(sourceIndent(annotation, 1))
+		return
+	}
+
+	b.WriteString(": ")
+	b.WriteString(annotation)
+}
+
+// writeTypeAnnotation writes `: type`, putting a multi-line type on its own
+// indented lines.
+func writeTypeAnnotation(b *strings.Builder, annotation AstType) {
+	if annotation == nil {
+		return
+	}
+
+	writeAnnotation(b, annotation.Source())
+}
+
+// sourceIsIdentifier reports whether s is a valid Luau identifier.
+func sourceIsIdentifier(s string) bool {
+	if s == "" {
+		return false
+	}
+
+	for i := range s {
+		ch := s[i]
+		switch {
+		case ch == '_' || ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z':
+		case i > 0 && ch >= '0' && ch <= '9':
+		default:
+			return false
+		}
+	}
+
+	return true
+}
+
+// sourceRecordKey returns the bare record-key form of a string table key, if the string is a valid identifier that isn't a reserved word.
+func sourceRecordKey(expr AstExpr) (string, bool) {
+	var value string
+	switch key := expr.(type) {
+	case AstExprConstantString: // can't collapse these cuz typing
+		value = key.Value
+	case *AstExprConstantString:
+		value = key.Value
+	default:
+		return "", false
+	}
+
+	if !sourceIsIdentifier(value) || lex.IsReserved(value) {
+		return "", false
+	}
+
+	return value, true
+}
+
+// sourceUnionIntersection renders union and intersection types. Types are
+// always split across multiple lines, one per line, each prefixed by op.
+func sourceUnionIntersection(types []AstType, op string) string {
+	var nonOptional []AstType
+	seenOptional := false
+
+	for _, typ := range types {
+		if _, ok := typ.(AstTypeOptional); ok {
+			seenOptional = true
+			continue
+		}
+		nonOptional = append(nonOptional, typ)
+	}
+
+	if len(nonOptional) == 0 {
+		return "?"
+	}
+
+	parts := make([]string, len(nonOptional))
+	for i, typ := range nonOptional {
+		parts[i] = typ.Source()
+	}
+
+	if len(nonOptional) == 1 {
+		if seenOptional {
+			return parts[0] + "?"
+		}
+		return parts[0]
+	}
+
+	var b strings.Builder
+	for i, part := range parts {
+		if i > 0 {
+			b.WriteByte('\n')
+		}
+		b.WriteString(op)
+		b.WriteByte(' ')
+		b.WriteString(part)
+	}
+
+	if seenOptional {
+		return "(\n" + sourceIndent(b.String(), 1) + "\n)?"
+	}
+	return b.String()
+}
+
+func asIfStat(stat AstStat) (*AstStatIf, bool) {
+	if s, ok := stat.(*AstStatIf); ok {
+		return s, true
+	}
+	return nil, false
+}
+
+func isIfStat(stat AstStat) bool {
+	_, ok := asIfStat(stat)
+	return ok
+}
+
+func asBlock(stat AstStat) (*AstStatBlock, bool) {
+	if s, ok := stat.(*AstStatBlock); ok {
+		return s, true
+	}
+	return nil, false
+}
+
+// --------------------------------------------------------------------------------
+// -- EXPRESSIONS
+// --------------------------------------------------------------------------------
+
+func (n AstExprBinary) Source() string {
+	return n.Left.Source() + " " + sourceBinaryOp(BinaryOp(n.Op)) + " " + n.Right.Source()
 }
 
 func (n AstExprCall) Source() string {
@@ -498,29 +747,6 @@ func (n AstExprFunction) Source() string {
 	return b.String()
 }
 
-// writeAnnotation writes `: annotation`, putting a multi-line annotation on its
-// own indented lines.
-func writeAnnotation(b *strings.Builder, annotation string) {
-	if strings.Contains(annotation, "\n") {
-		b.WriteString(":\n")
-		b.WriteString(sourceIndent(annotation, 1))
-		return
-	}
-
-	b.WriteString(": ")
-	b.WriteString(annotation)
-}
-
-// writeTypeAnnotation writes `: type`, putting a multi-line type on its own
-// indented lines.
-func writeTypeAnnotation(b *strings.Builder, annotation AstType) {
-	if annotation == nil {
-		return
-	}
-
-	writeAnnotation(b, annotation.Source())
-}
-
 // sourceRest renders a function body from the generics onwards, i.e. without
 // the leading `function` keyword. Named function statements use this so the
 // name can be spliced in between `function` and the parameter list.
@@ -567,9 +793,18 @@ func (n AstExprGroup) Source() string {
 }
 
 func (n AstExprIfElse) Source() string {
+	return n.sourceIf("if")
+}
+
+// sourceIf renders an if-then-else expression with the given leading keyword,
+// so nested else-if expressions can be rendered as `elseif` chains. Each
+// if/elseif/else section is placed on its own line.
+func (n AstExprIfElse) sourceIf(keyword string) string {
 	var b strings.Builder
 
-	b.WriteString("if ")
+	b.WriteString(keyword)
+	b.WriteByte(' ')
+
 	if n.ConditionLocal != nil {
 		if n.ConditionIsConst {
 			b.WriteString("const ")
@@ -580,18 +815,17 @@ func (n AstExprIfElse) Source() string {
 		b.WriteString(" = ")
 	}
 	b.WriteString(n.Condition.Source())
-	b.WriteString(" then ")
-	b.WriteString(n.TrueExpr.Source())
-	b.WriteString(" else")
+	b.WriteString(" then")
+	writeIfBranch(&b, n.TrueExpr)
 
 	if falseExpr, ok := asIfElseExpr(n.FalseExpr); ok {
 		// `else` + `if ...` renders as an `elseif ...` chain
-		b.WriteString(falseExpr.Source())
-	} else if n.FalseExpr != nil {
-		b.WriteByte(' ')
-		b.WriteString(n.FalseExpr.Source())
+		b.WriteByte('\n')
+		b.WriteString(falseExpr.sourceIf("elseif"))
 	} else {
-		b.WriteString(" nil")
+		b.WriteByte('\n')
+		b.WriteString("else")
+		writeIfBranch(&b, n.FalseExpr)
 	}
 
 	return b.String()
@@ -622,38 +856,6 @@ func (n AstExprInterpString) Source() string {
 	return b.String()
 }
 
-// sourceInterpStringPart escapes a raw segment of an interpolated string.
-func sourceInterpStringPart(s string) string {
-	var b strings.Builder
-
-	for i := range s {
-		ch := s[i]
-		switch ch {
-		case '\\':
-			b.WriteString(`\\`)
-		case '`':
-			b.WriteString("\\`")
-		case '{':
-			b.WriteString("\\{")
-		case '\n':
-			b.WriteString(`\n`)
-		case '\r':
-			b.WriteString(`\r`)
-		case '\t':
-			b.WriteString(`\t`)
-		default:
-			if ch < 0x20 || ch == 0x7f {
-				// pad to three digits so a following digit isn't absorbed
-				fmt.Fprintf(&b, "\\%03d", ch)
-			} else {
-				b.WriteByte(ch)
-			}
-		}
-	}
-
-	return b.String()
-}
-
 func (n AstExprInstantiate) Source() string {
 	return n.Expr.Source() + "<<" + sourceTypeOrPackList(n.TypeArguments) + ">>"
 }
@@ -678,44 +880,6 @@ func (n AstExprTable) Source() string {
 	}
 
 	return "{ " + strings.Join(parts, ", ") + " }"
-}
-
-// sourceRecordKey returns the bare record-key form of a string table key, if the string is a valid identifier that isn't a reserved word.
-func sourceRecordKey(expr AstExpr) (string, bool) {
-	var value string
-	switch key := expr.(type) {
-	case AstExprConstantString: // can't collapse these cuz typing
-		value = key.Value
-	case *AstExprConstantString:
-		value = key.Value
-	default:
-		return "", false
-	}
-
-	if !sourceIsIdentifier(value) || lex.IsReserved(value) {
-		return "", false
-	}
-
-	return value, true
-}
-
-// sourceIsIdentifier reports whether s is a valid Luau identifier.
-func sourceIsIdentifier(s string) bool {
-	if s == "" {
-		return false
-	}
-
-	for i := range s {
-		ch := s[i]
-		switch {
-		case ch == '_' || ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z':
-		case i > 0 && ch >= '0' && ch <= '9':
-		default:
-			return false
-		}
-	}
-
-	return true
 }
 
 func (n AstExprTableItem) Source() string {
@@ -808,7 +972,10 @@ func (n AstLocal) Source() string {
 // --------------------------------------------------------------------------------
 
 func (n AstStatAssign) Source() string {
-	return sourceExprList(n.Vars) + " = " + sourceExprList(n.Values)
+	var b strings.Builder
+	b.WriteString(sourceExprList(n.Vars))
+	writeAssignedValue(&b, n.Values)
+	return b.String()
 }
 
 func (n AstStatBlock) Source() string {
@@ -828,7 +995,23 @@ func (n AstStatBreak) Source() string {
 }
 
 func (n AstStatCompoundAssign) Source() string {
-	return n.Var.Source() + " " + sourceBinaryOp(n.Op) + "= " + n.Value.Source()
+	var b strings.Builder
+
+	b.WriteString(n.Var.Source())
+	b.WriteByte(' ')
+	b.WriteString(sourceBinaryOp(n.Op))
+	b.WriteString("=")
+
+	value := n.Value.Source()
+	if _, ok := asIfElseExpr(n.Value); ok {
+		b.WriteByte('\n')
+		b.WriteString(sourceIndent(value, 1))
+	} else {
+		b.WriteByte(' ')
+		b.WriteString(value)
+	}
+
+	return b.String()
 }
 
 func (n AstStatContinue) Source() string {
@@ -857,43 +1040,6 @@ func (n AstStatDeclareFunction) Source() string {
 	}
 
 	return b.String()
-}
-
-// sourceVarargAnnotation renders a vararg annotation. The parser wraps
-// parameter vararg annotations in a variadic type pack, but the `...` is
-// already written as part of the parameter list.
-func sourceVarargAnnotation(pack AstTypePack) string {
-	switch p := pack.(type) {
-	case AstTypePackVariadic:
-		return p.VariadicType.Source()
-	case *AstTypePackVariadic:
-		return p.VariadicType.Source()
-	}
-	return pack.Source()
-}
-
-func sourceDeclareParams(params AstTypeList, names []AstArgumentName, vararg bool) string {
-	parts := make([]string, 0, len(params.Types)+1)
-
-	for i, param := range params.Types {
-		p := param.Source()
-		if i < len(names) && names[i].Name != "" {
-			p = names[i].Name + ": " + p
-		}
-		parts = append(parts, p)
-	}
-
-	if vararg {
-		p := "..."
-		if params.TailType != nil {
-			p += ": " + sourceVarargAnnotation(*params.TailType)
-		}
-		parts = append(parts, p)
-	} else if params.TailType != nil {
-		parts = append(parts, (*params.TailType).Source())
-	}
-
-	return strings.Join(parts, ", ")
 }
 
 func (n AstStatDeclareGlobal) Source() string {
@@ -1095,8 +1241,7 @@ func (n AstStatLocal) Source() string {
 	b.WriteString(strings.Join(vars, ", "))
 
 	if len(n.Values) > 0 {
-		b.WriteString(" = ")
-		b.WriteString(sourceExprList(n.Values))
+		writeAssignedValue(&b, n.Values)
 	}
 
 	return b.String()
@@ -1139,7 +1284,12 @@ func (n AstStatReturn) Source() string {
 	if len(n.List) == 0 {
 		return "return" // a "return" return
 	}
-	return "return " + sourceExprList(n.List)
+
+	list := sourceExprList(n.List)
+	if sourceHasIfExpr(n.List) {
+		return "return\n" + sourceIndent(list, 1)
+	}
+	return "return " + list
 }
 
 func (n AstStatTypeAlias) Source() string {
@@ -1295,52 +1445,6 @@ func (n AstTypeIntersection) Source() string {
 	return sourceUnionIntersection(n.Types, "&")
 }
 
-// sourceUnionIntersection renders union and intersection types. Types are
-// always split across multiple lines, one per line, each prefixed by op.
-func sourceUnionIntersection(types []AstType, op string) string {
-	var nonOptional []AstType
-	seenOptional := false
-
-	for _, typ := range types {
-		if _, ok := typ.(AstTypeOptional); ok {
-			seenOptional = true
-			continue
-		}
-		nonOptional = append(nonOptional, typ)
-	}
-
-	if len(nonOptional) == 0 {
-		return "?"
-	}
-
-	parts := make([]string, len(nonOptional))
-	for i, typ := range nonOptional {
-		parts[i] = typ.Source()
-	}
-
-	if len(nonOptional) == 1 {
-		if seenOptional {
-			return parts[0] + "?"
-		}
-		return parts[0]
-	}
-
-	var b strings.Builder
-	for i, part := range parts {
-		if i > 0 {
-			b.WriteByte('\n')
-		}
-		b.WriteString(op)
-		b.WriteByte(' ')
-		b.WriteString(part)
-	}
-
-	if seenOptional {
-		return "(\n" + sourceIndent(b.String(), 1) + "\n)?"
-	}
-	return b.String()
-}
-
 func (n AstTypeList) Source() string {
 	parts := make([]string, 0, len(n.Types)+1)
 	for _, typ := range n.Types {
@@ -1453,32 +1557,3 @@ func (n AstTypeUnion) Source() string {
 // --------------------------------------------------------------------------------
 // -- HELPERS FOR VALUE/POINTER UNION CASES
 // --------------------------------------------------------------------------------
-
-func asIfElseExpr(expr AstExpr) (AstExprIfElse, bool) {
-	switch e := expr.(type) {
-	case AstExprIfElse:
-		return e, true
-	case *AstExprIfElse:
-		return *e, true
-	}
-	return AstExprIfElse{}, false
-}
-
-func isIfStat(stat AstStat) bool {
-	_, ok := asIfStat(stat)
-	return ok
-}
-
-func asIfStat(stat AstStat) (*AstStatIf, bool) {
-	if s, ok := stat.(*AstStatIf); ok {
-		return s, true
-	}
-	return nil, false
-}
-
-func asBlock(stat AstStat) (*AstStatBlock, bool) {
-	if s, ok := stat.(*AstStatBlock); ok {
-		return s, true
-	}
-	return nil, false
-}
