@@ -382,9 +382,7 @@ func sourceEndChain(line string) bool {
 	return true
 }
 
-// appendEnd appends an `end` to a block body, collapsing it onto the previous
-// line when that line already ends a nested block. The collapsed line is
-// unindented one level, so a chain of ends lines up with the outermost block.
+// appendEnd appends an `end` to a block body, collapsing it onto the previous line when that line already ends a nested block. The collapsed line is unindented one level, so a chain of ends lines up with the outermost block.
 func appendEnd(body string) string {
 	if body == "" {
 		return "\nend"
