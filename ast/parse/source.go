@@ -366,6 +366,41 @@ func sourceBlockBody(body AstStatBlock) string {
 	return "\n" + sourceIndent(s, 1)
 }
 
+// sourceEndChain reports whether line consists solely of `end` keywords, e.g.
+// "end" or "end end end".
+func sourceEndChain(line string) bool {
+	fields := strings.Fields(line)
+	if len(fields) == 0 {
+		return false
+	}
+
+	for _, field := range fields {
+		if field != "end" {
+			return false
+		}
+	}
+	return true
+}
+
+// appendEnd appends an `end` to a block body, collapsing it onto the previous
+// line when that line already ends a nested block. The collapsed line is
+// unindented one level, so a chain of ends lines up with the outermost block.
+func appendEnd(body string) string {
+	if body == "" {
+		return "\nend"
+	}
+
+	lines := strings.Split(body, "\n")
+	last := len(lines) - 1
+
+	if sourceEndChain(lines[last]) {
+		lines[last] = strings.TrimPrefix(lines[last], "\t") + " end"
+		return strings.Join(lines, "\n")
+	}
+
+	return body + "\nend"
+}
+
 // sourceExprList renders comma-separated expressions.
 func sourceExprList(exprs []AstExpr) string {
 	parts := make([]string, len(exprs))
@@ -778,8 +813,7 @@ func (n AstExprFunction) sourceRest() string {
 		writeAnnotation(&b, (*n.ReturnAnnotation).Source())
 	}
 
-	b.WriteString(sourceBlockBody(n.Body))
-	b.WriteString("\nend")
+	b.WriteString(appendEnd(sourceBlockBody(n.Body)))
 
 	return b.String()
 }
@@ -975,15 +1009,11 @@ func (n AstStatAssign) Source() string {
 }
 
 func (n AstStatBlock) Source() string {
-	body := sourceStatList(n.Body, n.Comments)
 	if !n.HasEnd {
-		return body
+		return sourceStatList(n.Body, n.Comments)
 	}
 
-	if body == "" {
-		return "do\nend"
-	}
-	return "do\n" + sourceIndent(body, 1) + "\nend"
+	return "do" + appendEnd(sourceBlockBody(n))
 }
 
 func (n AstStatBreak) Source() string {
@@ -1127,10 +1157,11 @@ func (n AstStatFor) Source() string {
 	}
 	b.WriteString(" do")
 
+	var body string
 	if n.Body != nil {
-		b.WriteString(sourceBlockBody(*n.Body))
+		body = sourceBlockBody(*n.Body)
 	}
-	b.WriteString("\nend")
+	b.WriteString(appendEnd(body))
 
 	return b.String()
 }
@@ -1150,10 +1181,11 @@ func (n AstStatForIn) Source() string {
 	b.WriteString(sourceExprList(n.Values))
 	b.WriteString(" do")
 
+	var body string
 	if n.Body != nil {
-		b.WriteString(sourceBlockBody(*n.Body))
+		body = sourceBlockBody(*n.Body)
 	}
-	b.WriteString("\nend")
+	b.WriteString(appendEnd(body))
 
 	return b.String()
 }
@@ -1193,24 +1225,28 @@ func (n AstStatIf) sourceIf(keyword string) string {
 
 	b.WriteString(n.Condition.Source())
 	b.WriteString(" then")
-	b.WriteString(sourceBlockBody(n.ThenBody))
+
+	thenBody := sourceBlockBody(n.ThenBody)
 
 	switch {
 	case n.ElseBody == nil:
-		b.WriteString("\nend")
+		b.WriteString(appendEnd(thenBody))
 	case isIfStat(n.ElseBody):
+		b.WriteString(thenBody)
 		elseIf, _ := asIfStat(n.ElseBody)
 		b.WriteByte('\n')
 		b.WriteString(elseIf.sourceIf("elseif"))
 	default:
+		b.WriteString(thenBody)
 		b.WriteString("\nelse")
+
+		var elseBody string
 		if elseBlock, ok := asBlock(n.ElseBody); ok {
-			b.WriteString(sourceBlockBody(*elseBlock))
+			elseBody = sourceBlockBody(*elseBlock)
 		} else {
-			b.WriteByte('\n')
-			b.WriteString(sourceIndent(sourceStat(n.ElseBody), 1))
+			elseBody = "\n" + sourceIndent(sourceStat(n.ElseBody), 1)
 		}
-		b.WriteString("\nend")
+		b.WriteString(appendEnd(elseBody))
 	}
 
 	return b.String()
@@ -1332,10 +1368,11 @@ func (n AstStatWhile) Source() string {
 	b.WriteString(n.Condition.Source())
 	b.WriteString(" do")
 
+	var body string
 	if n.Body != nil {
-		b.WriteString(sourceBlockBody(*n.Body))
+		body = sourceBlockBody(*n.Body)
 	}
-	b.WriteString("\nend")
+	b.WriteString(appendEnd(body))
 
 	return b.String()
 }
