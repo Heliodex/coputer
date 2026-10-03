@@ -7,8 +7,7 @@ import (
 	"testing"
 )
 
-// compareSource reports a mismatch between a formatted source and its expected
-// file, including a line-by-line diff.
+// compareSource reports a mismatch between a formatted source and its expected file, including a line-by-line diff.
 func compareSource(t *testing.T, name, got, expected string) bool {
 	t.Helper()
 
@@ -38,8 +37,7 @@ func compareSource(t *testing.T, name, got, expected string) bool {
 	return false
 }
 
-// TestFormatting parses each {name}.luau file in test/formatting and checks
-// that its Source() output matches the expected {name}_out.luau file.
+// TestFormatting parses each {name}.luau file in test/formatting and checks that its Source() output matches the expected {name}_out.luau file.
 func TestFormatting(t *testing.T) {
 	files, err := os.ReadDir("../" + FormattingDir)
 	if err != nil {

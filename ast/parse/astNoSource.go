@@ -13,8 +13,7 @@ const (
 	BenchmarkDir   = "../test/benchmark"
 	ConformanceDir = "../test/conformance"
 	FormattingDir  = "../test/formatting"
-	// FormattingOutSuffix is appended to a formatting test's name to get the
-	// file containing its expected formatted output.
+	// FormattingOutSuffix is appended to a formatting test's name to get the file containing its expected formatted output.
 	FormattingOutSuffix = "_out"
 )
 

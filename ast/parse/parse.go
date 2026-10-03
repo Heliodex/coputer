@@ -246,8 +246,7 @@ func ExprLValues(expr AstExpr) bool {
 	return false
 }
 
-// reportLValueError reports an error for an expression that cannot be assigned to,
-// distinguishing constant locals from other non-lvalue expressions.
+// reportLValueError reports an error for an expression that cannot be assigned to, distinguishing constant locals from other non-lvalue expressions.
 func (p *Parser) reportLValueError(expr AstExpr) *AstExprError {
 	if e, ok := expr.(AstExprLocal); ok && e.Local.IsConst {
 		return p.reportExprError(expr.GetLocation(), []AstExpr{expr}, fmt.Sprintf("Variable '%s' is constant and may not be reassigned", e.Local.Name))

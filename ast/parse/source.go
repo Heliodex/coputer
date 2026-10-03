@@ -9,13 +9,9 @@ import (
 	"github.com/Heliodex/coputer/ast/lex"
 )
 
-// This file implements Source() for every AST node. Each Source() renders the
-// node as formatted Luau code starting at column zero, delegating to the
-// Source() methods of its children and re-indenting their output where needed.
+// This file implements Source() for every AST node. Each Source() renders the node as formatted Luau code starting at column zero, delegating to the Source() methods of its children and re-indenting their output where needed.
 //
-// Statements/expressions that span multiple lines indent their own contents
-// with tabs relative to their first line, so a parent can embed them by
-// indenting every line once more with sourceIndent.
+// Statements/expressions that span multiple lines indent their own contents with tabs relative to their first line, so a parent can embed them by indenting every line once more with sourceIndent.
 
 // sourceIndent prefixes every non-empty line of s with one tab per level.
 func sourceIndent(s string, levels int) string {
@@ -52,8 +48,7 @@ func commonLeadingWhitespace(a, b string) string {
 	return a[:i]
 }
 
-// sourceLongString renders a long (`[[...]]`) string with enough equals signs
-// to avoid an accidental terminator.
+// sourceLongString renders a long (`[[...]]`) string with enough equals signs to avoid an accidental terminator.
 func sourceLongString(value string) string {
 	for eq := 0; ; eq++ {
 		eqs := strings.Repeat("=", eq)
@@ -64,10 +59,7 @@ func sourceLongString(value string) string {
 	}
 }
 
-// normalizeCommentContent removes the common leading indentation from the
-// continuation lines of a block comment. Without this, re-indenting a comment
-// when rendering would keep adding whitespace every time the output is parsed
-// and rendered again.
+// normalizeCommentContent removes the common leading indentation from the continuation lines of a block comment. Without this, re-indenting a comment when rendering would keep adding whitespace every time the output is parsed and rendered again.
 func normalizeCommentContent(content string) string {
 	if !strings.Contains(content, "\n") {
 		return content
@@ -108,8 +100,7 @@ func sourceComment(comment Comment) string {
 	return "--" + comment.Content
 }
 
-// sourceString renders a string literal in the requested quote style, falling
-// back to a safer representation when needed.
+// sourceString renders a string literal in the requested quote style, falling back to a safer representation when needed.
 func sourceString(value string, style QuoteStyle) string {
 	// long strings are avoided when they contain newlines: a multi-line
 	// literal can't be re-indented without changing its value
@@ -297,8 +288,7 @@ func sourceHasSemicolon(stat AstStat) bool {
 	return false
 }
 
-// sourceStat renders a statement, preserving a trailing semicolon when the
-// source had one (semicolons can be semantically significant).
+// sourceStat renders a statement, preserving a trailing semicolon when the source had one (semicolons can be semantically significant).
 func sourceStat(stat AstStat) string {
 	s := stat.Source()
 	if sourceHasSemicolon(stat) {
@@ -307,9 +297,7 @@ func sourceStat(stat AstStat) string {
 	return s
 }
 
-// sourceStatList renders statements separated by newlines, interleaving the
-// block's comments in their original positions: leading comments stay above the
-// statement they precede and trailing comments stay on the same line.
+// sourceStatList renders statements separated by newlines, interleaving the block's comments in their original positions: leading comments stay above the statement they precede and trailing comments stay on the same line.
 func sourceStatList(stats []AstStat, comments []Comment) string {
 	var lines []string
 	ci := 0
@@ -345,8 +333,7 @@ func sourceStatList(stats []AstStat, comments []Comment) string {
 	return strings.Join(lines, "\n")
 }
 
-// sourceBlockBody renders a block's statements indented one level, preceded by
-// a newline. Empty blocks render as an empty string.
+// sourceBlockBody renders a block's statements indented one level, preceded by a newline. Empty blocks render as an empty string.
 func sourceBlockBody(body AstStatBlock) string {
 	s := sourceStatList(body.Body, body.Comments)
 	if s == "" {
@@ -610,8 +597,7 @@ func asIfElseExpr(expr AstExpr) (AstExprIfElse, bool) {
 	return AstExprIfElse{}, false
 }
 
-// sourceHasIfExpr reports whether any of the expressions is an if-then-else
-// expression.
+// sourceHasIfExpr reports whether any of the expressions is an if-then-else expression.
 func sourceHasIfExpr(exprs []AstExpr) bool {
 	for _, expr := range exprs {
 		if _, ok := asIfElseExpr(sourceUnwrapGroup(expr)); ok {
@@ -771,8 +757,7 @@ func writeIfBranch(b *strings.Builder, expr AstExpr) {
 	b.WriteString(s)
 }
 
-// writeAssignedValue writes ` = values`, putting if-expressions on their own
-// indented lines.
+// writeAssignedValue writes ` = values`, putting if-expressions on their own indented lines.
 func writeAssignedValue(b *strings.Builder, exprs []AstExpr) {
 	value := sourceExprList(exprs)
 	if sourceHasIfExpr(exprs) {
@@ -785,9 +770,7 @@ func writeAssignedValue(b *strings.Builder, exprs []AstExpr) {
 	b.WriteString(value)
 }
 
-// sourceVarargAnnotation renders a vararg annotation. The parser wraps
-// parameter vararg annotations in a variadic type pack, but the `...` is
-// already written as part of the parameter list.
+// sourceVarargAnnotation renders a vararg annotation. The parser wraps parameter vararg annotations in a variadic type pack, but the `...` is already written as part of the parameter list.
 func sourceVarargAnnotation(pack AstTypePack) string {
 	switch p := pack.(type) {
 	case AstTypePackVariadic:
@@ -822,14 +805,12 @@ func sourceDeclareParams(params AstTypeList, names []AstArgumentName, vararg boo
 	return strings.Join(parts, ", ")
 }
 
-// sourceTypeStartsInline reports whether a multi-line type should stay on the
-// current line, e.g. a table type's opening brace.
+// sourceTypeStartsInline reports whether a multi-line type should stay on the current line, e.g. a table type's opening brace.
 func sourceTypeStartsInline(s string) bool {
 	return strings.HasPrefix(s, "{")
 }
 
-// writeAnnotation writes `: annotation`, putting a multi-line annotation on its
-// own indented lines, unless it opens a block such as a table type.
+// writeAnnotation writes `: annotation`, putting a multi-line annotation on its own indented lines, unless it opens a block such as a table type.
 func writeAnnotation(b *strings.Builder, annotation string) {
 	if strings.Contains(annotation, "\n") && !sourceTypeStartsInline(annotation) {
 		b.WriteString(":\n")
@@ -841,8 +822,7 @@ func writeAnnotation(b *strings.Builder, annotation string) {
 	b.WriteString(annotation)
 }
 
-// writeTypeAnnotation writes `: type`, putting a multi-line type on its own
-// indented lines.
+// writeTypeAnnotation writes `: type`, putting a multi-line type on its own indented lines.
 func writeTypeAnnotation(b *strings.Builder, annotation AstType) {
 	if annotation == nil {
 		return
@@ -889,8 +869,7 @@ func sourceRecordKey(expr AstExpr) (string, bool) {
 	return value, true
 }
 
-// sourceTableItem renders a table item, allowing the value of a trailing list
-// item to expand into multiple values.
+// sourceTableItem renders a table item, allowing the value of a trailing list item to expand into multiple values.
 func sourceTableItem(item AstExprTableItem, expand bool) string {
 	if item.Key == nil {
 		return sourceExpr(item.Value, 0, expand)
@@ -914,8 +893,7 @@ func sourceTableItem(item AstExprTableItem, expand bool) string {
 	return value
 }
 
-// sourceUnionIntersection renders union and intersection types. Types are
-// always split across multiple lines, one per line, each prefixed by op.
+// sourceUnionIntersection renders union and intersection types. Types are always split across multiple lines, one per line, each prefixed by op.
 func sourceUnionIntersection(types []AstType, op string) string {
 	var nonOptional []AstType
 	seenOptional := false
@@ -979,9 +957,7 @@ func asBlock(stat AstStat) (*AstStatBlock, bool) {
 	return nil, false
 }
 
-// --------------------------------------------------------------------------------
-// -- EXPRESSIONS
-// --------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------- -- EXPRESSIONS --------------------------------------------------------------------------------
 
 func (n AstExprBinary) Source() string {
 	op := BinaryOp(n.Op)
@@ -1073,9 +1049,7 @@ func (n AstExprFunction) Source() string {
 	return b.String()
 }
 
-// sourceRest renders a function body from the generics onwards, i.e. without
-// the leading `function` keyword. Named function statements use this so the
-// name can be spliced in between `function` and the parameter list.
+// sourceRest renders a function body from the generics onwards, i.e. without the leading `function` keyword. Named function statements use this so the name can be spliced in between `function` and the parameter list.
 func (n AstExprFunction) sourceRest() string {
 	var b strings.Builder
 
@@ -1121,9 +1095,7 @@ func (n AstExprIfElse) Source() string {
 	return n.sourceIf("if")
 }
 
-// sourceIf renders an if-then-else expression with the given leading keyword,
-// so nested else-if expressions can be rendered as `elseif` chains. Each
-// if/elseif/else section is placed on its own line.
+// sourceIf renders an if-then-else expression with the given leading keyword, so nested else-if expressions can be rendered as `elseif` chains. Each if/elseif/else section is placed on its own line.
 func (n AstExprIfElse) sourceIf(keyword string) string {
 	var b strings.Builder
 
@@ -1228,9 +1200,7 @@ func (n AstExprUnary) Source() string {
 	return op + expr
 }
 
-// --------------------------------------------------------------------------------
-// -- LOCALS, GENERICS AND ATTRIBUTES
-// --------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------- -- LOCALS, GENERICS AND ATTRIBUTES --------------------------------------------------------------------------------
 
 func (n AstAttr) Source() string {
 	name := n.Type
@@ -1273,9 +1243,7 @@ func (n AstLocal) Source() string {
 	return b.String()
 }
 
-// --------------------------------------------------------------------------------
-// -- STATEMENTS
-// --------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------- -- STATEMENTS --------------------------------------------------------------------------------
 
 func (n AstStatAssign) Source() string {
 	// `target = target op value` can be written as `target op= value` when the target is safe to evaluate once
@@ -1488,8 +1456,7 @@ func (n AstStatIf) Source() string {
 	return n.sourceIf("if")
 }
 
-// sourceIf renders an if statement with the given leading keyword, so nested
-// else-if statements can be rendered as `elseif` chains.
+// sourceIf renders an if statement with the given leading keyword, so nested else-if statements can be rendered as `elseif` chains.
 func (n AstStatIf) sourceIf(keyword string) string {
 	var b strings.Builder
 
@@ -1622,8 +1589,7 @@ func (n AstStatTypeAlias) Source() string {
 		b.WriteString(">")
 	}
 
-	// multi-line types start on their own line, unless they open a block such
-	// as a table type
+	// multi-line types start on their own line, unless they open a block such as a table type
 	typeSource := n.Type.Source()
 	b.WriteString(" =")
 	if strings.Contains(typeSource, "\n") && !sourceTypeStartsInline(typeSource) {
@@ -1661,9 +1627,7 @@ func (n AstStatWhile) Source() string {
 	return b.String()
 }
 
-// --------------------------------------------------------------------------------
-// -- TYPES
-// --------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------- -- TYPES --------------------------------------------------------------------------------
 
 func (n AstTableIndexer) Source() string {
 	var b strings.Builder
@@ -1730,8 +1694,7 @@ func (n AstTypeFunction) Source() string {
 	return b.String()
 }
 
-// sourceParamsAndReturn renders the parameter list and return type of a
-// function type, so callers (e.g. declared methods) can splice a name in.
+// sourceParamsAndReturn renders the parameter list and return type of a function type, so callers (e.g. declared methods) can splice a name in.
 func (n AstTypeFunction) sourceParamsAndReturn() (params string, ret string) {
 	parts := make([]string, 0, len(n.ArgTypes.Types)+1)
 
@@ -1872,6 +1835,4 @@ func (n AstTypeUnion) Source() string {
 	return sourceUnionIntersection(n.Types, "|")
 }
 
-// --------------------------------------------------------------------------------
-// -- HELPERS FOR VALUE/POINTER UNION CASES
-// --------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------- -- HELPERS FOR VALUE/POINTER UNION CASES --------------------------------------------------------------------------------

@@ -4,9 +4,7 @@ import (
 	"github.com/Heliodex/coputer/ast/lex"
 )
 
-// Parser holds all mutable state for a single parse. Keeping the state on a
-// struct (instead of package-level globals) means each Parse call gets an
-// isolated parser, and parsing no longer relies on shared mutable globals.
+// Parser holds all mutable state for a single parse. Keeping the state on a struct (instead of package-level globals) means each Parse call gets an isolated parser, and parsing no longer relies on shared mutable globals.
 type Parser struct {
 	captureComments bool
 	storeCstData    bool

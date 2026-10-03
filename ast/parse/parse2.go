@@ -6,8 +6,7 @@ import (
 
 // parse 2 go!
 
-// parse resets the parser state and parses the whole source, storing the root
-// block in p.parseRoot.
+// parse resets the parser state and parses the whole source, storing the root block in p.parseRoot.
 func (p *Parser) parse() {
 	p.token_type = lex.Eof
 	p.token_location = lex.Location{}
@@ -76,8 +75,7 @@ func Parse(src string, opts Options) (bool, Result) {
 		rootBlock = *root
 	}
 
-	// comments are always collected so that Source() can reproduce them, but
-	// they're only reported in the result when requested
+	// comments are always collected so that Source() can reproduce them, but they're only reported in the result when requested
 	var commentLocations []Comment
 	if p.captureComments {
 		commentLocations = p.commentLocations
