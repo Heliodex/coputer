@@ -10,3 +10,8 @@
 	- Same for range-over-slice `for i := range slice` instead of `for i := 0; i < len(slice); i++`
 - Use guard clauses where possible to reduce nesting and improve readability
 - Put function declarations above their usage in the same file, never below
+
+## Comments
+
+- Do not hard-wrap. Never split a sentence over multiple lines
+	- If the new line is after a semicolon or is a new sentence, OK
