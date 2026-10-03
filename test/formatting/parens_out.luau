@@ -11,6 +11,10 @@ local concat2 = a .. b .. c
 local unary = -a
 local index = a.b
 local callindex = f().x
+local litindex = (1).k
+local strindex = ("s").k
+local tableindex = ({}).k
+local nestedlit = (1).k
 local calladd = f() + 1
 local truncate = f((g()))
 local notruncate = f(g())
@@ -37,5 +41,7 @@ local callfn = (
 	function()
 	end
 )()
+local calllit = (1)()
+local calltable = ({})()
 local andor = (a or b) and c
 local andor2 = a or b and c
