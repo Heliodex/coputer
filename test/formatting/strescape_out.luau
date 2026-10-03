@@ -1,0 +1,6 @@
+const a = "\128"
+const b = "\128"
+const c = "àôéé"
+const d = "a\128b"
+const e = "é"
+const f = "\255\254"
