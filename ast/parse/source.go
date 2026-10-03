@@ -432,6 +432,20 @@ func sourceParens(s string) string {
 	return "(" + s + ")"
 }
 
+// sourceUnwrapGroup removes any parentheses groups around an expression.
+func sourceUnwrapGroup(expr AstExpr) AstExpr {
+	for {
+		switch e := expr.(type) {
+		case AstExprGroup:
+			expr = e.Expr
+		case *AstExprGroup:
+			expr = e.Expr
+		default:
+			return expr
+		}
+	}
+}
+
 // sourceExpr renders expr in a context requiring at least minPrec. When expand is true the expression sits where a bare call or `...` would expand to multiple values, so parentheses around one are kept. Groups are dropped when they affect neither operator precedence nor the number of values.
 func sourceExpr(expr AstExpr, minPrec int, expand bool) string {
 	var group *AstExprGroup
@@ -463,6 +477,40 @@ func sourceExpr(expr AstExpr, minPrec int, expand bool) string {
 // sourceExprPrec renders expr in a single-value context requiring at least minPrec.
 func sourceExprPrec(expr AstExpr, minPrec int) string {
 	return sourceExpr(expr, minPrec, false)
+}
+
+// sourcePostfixBase reports whether an expression can be indexed or called without parentheses. (on lhs not rhs)
+func sourcePostfixBase(expr AstExpr) bool {
+	switch expr.(type) {
+	case AstExprLocal, *AstExprLocal,
+		AstExprGlobal, *AstExprGlobal,
+		AstExprIndexName, *AstExprIndexName,
+		AstExprIndexExpr, *AstExprIndexExpr,
+		AstExprCall, *AstExprCall,
+		AstExprInstantiate, *AstExprInstantiate:
+		return true
+	}
+	return false
+}
+
+// sourceExprPostfix renders an expression used as the base of a postfix operation. Unlike other primary expressions, literals, tables, functions and `...` can't be indexed or called without parentheses.
+func sourceExprPostfix(expr AstExpr) string {
+	var inner AstExpr
+	switch e := expr.(type) {
+	case AstExprGroup:
+		inner = e.Expr
+	case *AstExprGroup:
+		inner = e.Expr
+	}
+
+	if inner != nil {
+		unwrapped := sourceUnwrapGroup(inner)
+		if !sourcePostfixBase(unwrapped) {
+			return sourceParens(sourceExprPrec(unwrapped, 0))
+		}
+	}
+
+	return sourceExprPrec(expr, precPrimary)
 }
 
 // sourceExprList renders comma-separated expressions, allowing the last one to expand into multiple values.
@@ -507,20 +555,6 @@ func sourceAttrs(attrs []AstAttr) string {
 		b.WriteByte('\n')
 	}
 	return b.String()
-}
-
-// sourceUnwrapGroup removes any parentheses groups around an expression.
-func sourceUnwrapGroup(expr AstExpr) AstExpr {
-	for {
-		switch e := expr.(type) {
-		case AstExprGroup:
-			expr = e.Expr
-		case *AstExprGroup:
-			expr = e.Expr
-		default:
-			return expr
-		}
-	}
 }
 
 // sourceCallSugar reports whether a call argument can be passed without parentheses, i.e. `f "string"` or `f { table }`.
@@ -587,8 +621,139 @@ func sourceHasIfExpr(exprs []AstExpr) bool {
 	return false
 }
 
-// writeIfBranch writes an if-expression branch value, putting a multi-line
-// value on its own indented line.
+// sourceCompoundOp returns the compound assignment operator for a binary operator, if it has one.
+func sourceCompoundOp(op BinaryOp) (BinaryOp, bool) {
+	switch op {
+	case BinaryOp_Add, BinaryOp_Sub, BinaryOp_Mul, BinaryOp_Div,
+		BinaryOp_FloorDiv, BinaryOp_Mod, BinaryOp_Pow, BinaryOp_Concat:
+		return op, true
+	}
+	return 0, false
+}
+
+// sourcePureExpr reports whether evaluating an expression has no observable effects. Only locals and constants qualify: global reads can invoke environment metamethods and indexing can invoke table metamethods.
+func sourcePureExpr(expr AstExpr) bool {
+	switch sourceUnwrapGroup(expr).(type) {
+	case AstExprLocal, *AstExprLocal,
+		AstExprConstantNil, *AstExprConstantNil,
+		AstExprConstantBool, *AstExprConstantBool,
+		AstExprConstantNumber, *AstExprConstantNumber,
+		AstExprConstantInteger, *AstExprConstantInteger,
+		AstExprConstantString, *AstExprConstantString:
+		return true
+	}
+	return false
+}
+
+// sourceSameLocal reports whether two local bindings are the same. Bindings share the NodeLoc of their declaration, so comparing it identifies them without touching the uncomparable Annotation field.
+func sourceSameLocal(a, b AstLocal) bool {
+	if a.NodeLoc == nil || b.NodeLoc == nil {
+		return false
+	}
+	return a.NodeLoc == b.NodeLoc
+}
+
+// sourceSameExpr reports whether two expressions refer to the same value or location. Groups are ignored, so `(x)` and `x` compare equal.
+func sourceSameExpr(a, b AstExpr) bool {
+	a, b = sourceUnwrapGroup(a), sourceUnwrapGroup(b)
+
+	switch av := a.(type) {
+	case AstExprLocal:
+		bv, ok := b.(AstExprLocal)
+		return ok && sourceSameLocal(av.Local, bv.Local)
+	case *AstExprLocal:
+		bv, ok := b.(*AstExprLocal)
+		return ok && sourceSameLocal(av.Local, bv.Local)
+	case AstExprGlobal:
+		bv, ok := b.(AstExprGlobal)
+		return ok && av.Name == bv.Name
+	case *AstExprGlobal:
+		bv, ok := b.(*AstExprGlobal)
+		return ok && av.Name == bv.Name
+	case AstExprConstantNil:
+		_, ok := b.(AstExprConstantNil)
+		return ok
+	case *AstExprConstantNil:
+		_, ok := b.(*AstExprConstantNil)
+		return ok
+	case AstExprConstantBool:
+		bv, ok := b.(AstExprConstantBool)
+		return ok && av.Value == bv.Value
+	case *AstExprConstantBool:
+		bv, ok := b.(*AstExprConstantBool)
+		return ok && av.Value == bv.Value
+	case AstExprConstantNumber:
+		bv, ok := b.(AstExprConstantNumber)
+		return ok && av.Value == bv.Value
+	case *AstExprConstantNumber:
+		bv, ok := b.(*AstExprConstantNumber)
+		return ok && av.Value == bv.Value
+	case AstExprConstantInteger:
+		bv, ok := b.(AstExprConstantInteger)
+		return ok && av.Value == bv.Value
+	case *AstExprConstantInteger:
+		bv, ok := b.(*AstExprConstantInteger)
+		return ok && av.Value == bv.Value
+	case AstExprConstantString:
+		bv, ok := b.(AstExprConstantString)
+		return ok && av.Value == bv.Value
+	case *AstExprConstantString:
+		bv, ok := b.(*AstExprConstantString)
+		return ok && av.Value == bv.Value
+	case AstExprIndexName:
+		bv, ok := b.(AstExprIndexName)
+		return ok && av.Index == bv.Index && av.Op == bv.Op && sourceSameExpr(av.Expr, bv.Expr)
+	case *AstExprIndexName:
+		bv, ok := b.(*AstExprIndexName)
+		return ok && av.Index == bv.Index && av.Op == bv.Op && sourceSameExpr(av.Expr, bv.Expr)
+	case AstExprIndexExpr:
+		bv, ok := b.(AstExprIndexExpr)
+		return ok && sourceSameExpr(av.Expr, bv.Expr) && sourceSameExpr(av.Index, bv.Index)
+	case *AstExprIndexExpr:
+		bv, ok := b.(*AstExprIndexExpr)
+		return ok && sourceSameExpr(av.Expr, bv.Expr) && sourceSameExpr(av.Index, bv.Index)
+	}
+	return false
+}
+
+// sourceSafeCompoundTarget reports whether a target can be used in a compound assignment without changing behaviour. `target = target op value` evaluates the target twice, while `target op= value` evaluates it once, so targets whose evaluation has observable effects must keep the plain form.
+func sourceSafeCompoundTarget(target AstExpr) bool {
+	switch t := sourceUnwrapGroup(target).(type) {
+	case AstExprLocal, *AstExprLocal, AstExprGlobal, *AstExprGlobal:
+		return true
+	case AstExprIndexName:
+		return sourcePureExpr(t.Expr)
+	case *AstExprIndexName:
+		return sourcePureExpr(t.Expr)
+	case AstExprIndexExpr:
+		return sourcePureExpr(t.Expr) && sourcePureExpr(t.Index)
+	case *AstExprIndexExpr:
+		return sourcePureExpr(t.Expr) && sourcePureExpr(t.Index)
+	}
+	return false
+}
+
+// sourceCompoundAssign converts `target = target op value` into a compound assignment when doing so cannot change behaviour.
+func sourceCompoundAssign(target AstExpr, value AstExpr) (AstStatCompoundAssign, bool) {
+	var bin AstExprBinary
+	switch v := sourceUnwrapGroup(value).(type) {
+	case AstExprBinary:
+		bin = v
+	case *AstExprBinary:
+		bin = *v
+	default:
+		return AstStatCompoundAssign{}, false
+	}
+
+	op, ok := sourceCompoundOp(BinaryOp(bin.Op))
+	if !ok || !sourceSameExpr(target, bin.Left) || !sourceSafeCompoundTarget(target) {
+		return AstStatCompoundAssign{}, false
+	}
+
+	return AstStatCompoundAssign{Var: target, Op: op, Value: bin.Right}, true
+}
+
+// writeIfBranch writes an if-expression branch value, putting a multi-line value on its own indented line.
 func writeIfBranch(b *strings.Builder, expr AstExpr) {
 	if expr == nil {
 		b.WriteString(" nil")
@@ -842,7 +1007,7 @@ func (n AstExprBinary) Source() string {
 func (n AstExprCall) Source() string {
 	var b strings.Builder
 
-	b.WriteString(sourceExprPrec(n.Func, precPrimary))
+	b.WriteString(sourceExprPostfix(n.Func))
 
 	if n.TypeArguments != nil && len(*n.TypeArguments) > 0 {
 		b.WriteString("<<")
@@ -992,11 +1157,11 @@ func (n AstExprIfElse) sourceIf(keyword string) string {
 }
 
 func (n AstExprIndexExpr) Source() string {
-	return sourceExprPrec(n.Expr, precPrimary) + "[" + sourceExprPrec(n.Index, 0) + "]"
+	return sourceExprPostfix(n.Expr) + "[" + sourceExprPrec(n.Index, 0) + "]"
 }
 
 func (n AstExprIndexName) Source() string {
-	return sourceExprPrec(n.Expr, precPrimary) + string(n.Op) + n.Index
+	return sourceExprPostfix(n.Expr) + string(n.Op) + n.Index
 }
 
 func (n AstExprInterpString) Source() string {
@@ -1017,7 +1182,7 @@ func (n AstExprInterpString) Source() string {
 }
 
 func (n AstExprInstantiate) Source() string {
-	return sourceExprPrec(n.Expr, precPrimary) + "<<" + sourceTypeOrPackList(n.TypeArguments) + ">>"
+	return sourceExprPostfix(n.Expr) + "<<" + sourceTypeOrPackList(n.TypeArguments) + ">>"
 }
 
 func (n AstExprLocal) Source() string {
@@ -1113,6 +1278,13 @@ func (n AstLocal) Source() string {
 // --------------------------------------------------------------------------------
 
 func (n AstStatAssign) Source() string {
+	// `target = target op value` can be written as `target op= value` when the target is safe to evaluate once
+	if len(n.Vars) == 1 && len(n.Values) == 1 {
+		if compound, ok := sourceCompoundAssign(n.Vars[0], n.Values[0]); ok {
+			return compound.Source()
+		}
+	}
+
 	var b strings.Builder
 	b.WriteString(sourceExprList(n.Vars))
 	writeAssignedValue(&b, n.Values)
