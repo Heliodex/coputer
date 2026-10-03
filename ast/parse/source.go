@@ -657,10 +657,16 @@ func sourceDeclareParams(params AstTypeList, names []AstArgumentName, vararg boo
 	return strings.Join(parts, ", ")
 }
 
+// sourceTypeStartsInline reports whether a multi-line type should stay on the
+// current line, e.g. a table type's opening brace.
+func sourceTypeStartsInline(s string) bool {
+	return strings.HasPrefix(s, "{")
+}
+
 // writeAnnotation writes `: annotation`, putting a multi-line annotation on its
-// own indented lines.
+// own indented lines, unless it opens a block such as a table type.
 func writeAnnotation(b *strings.Builder, annotation string) {
-	if strings.Contains(annotation, "\n") {
+	if strings.Contains(annotation, "\n") && !sourceTypeStartsInline(annotation) {
 		b.WriteString(":\n")
 		b.WriteString(sourceIndent(annotation, 1))
 		return
@@ -1444,10 +1450,11 @@ func (n AstStatTypeAlias) Source() string {
 		b.WriteString(">")
 	}
 
-	// types that span multiple lines start on their own line
+	// multi-line types start on their own line, unless they open a block such
+	// as a table type
 	typeSource := n.Type.Source()
 	b.WriteString(" =")
-	if strings.Contains(typeSource, "\n") {
+	if strings.Contains(typeSource, "\n") && !sourceTypeStartsInline(typeSource) {
 		b.WriteByte('\n')
 		b.WriteString(sourceIndent(typeSource, 1))
 	} else {
@@ -1540,7 +1547,7 @@ func (n AstTypeFunction) Source() string {
 	b.WriteString(params)
 	b.WriteString(")")
 
-	if strings.Contains(ret, "\n") {
+	if strings.Contains(ret, "\n") && !sourceTypeStartsInline(ret) {
 		b.WriteString(" ->\n")
 		b.WriteString(sourceIndent(ret, 1))
 	} else {
@@ -1681,7 +1688,8 @@ func (n AstTypeTable) Source() string {
 		return "{}"
 	}
 
-	return "{ " + strings.Join(parts, ", ") + " }"
+	// tables are always split across multiple lines, one item per line
+	return "{\n" + sourceIndent(strings.Join(parts, ",\n"), 1) + ",\n}"
 }
 
 func (n AstTypeTypeof) Source() string {

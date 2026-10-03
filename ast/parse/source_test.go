@@ -79,7 +79,10 @@ else
 end
 `
 
-	expected := `export type Point = { x: number, y: number }
+	expected := `export type Point = {
+	x: number,
+	y: number,
+}
 type Callback<T> = (T) -> ()
 local function map<T, U>(list: { T }, f: (T) -> U): { U }
 	local out = table.create(#list)
