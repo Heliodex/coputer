@@ -41,10 +41,8 @@ local notcmp = not (a == b)
 local cmpnot = not a == b
 local negpow = (-a) ^ b
 local powneg = -a ^ b
-local callfn = (
-	function()
-	end
-)()
+local callfn = (function()
+end)()
 local calllit = (1)()
 local calltable = ({})()
 local andor = (a or b) and c

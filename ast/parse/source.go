@@ -437,8 +437,21 @@ func sourceExprExpands(expr AstExpr) bool {
 	return false
 }
 
-// sourceParens wraps an expression in parentheses, indenting multi-line contents onto their own lines.
-func sourceParens(s string) string {
+// sourceExprHugsParens reports whether an expression keeps its parentheses on its first and last lines, e.g. `(function() ... end)`.
+func sourceExprHugsParens(expr AstExpr) bool {
+	switch expr.(type) {
+	case AstExprFunction, *AstExprFunction:
+		return true
+	}
+	return false
+}
+
+// sourceParens wraps an expression in parentheses, indenting multi-line contents onto their own lines. Function expressions hug the parentheses instead so IIFEs read as `(function() ... end)()`.
+func sourceParens(expr AstExpr, s string) string {
+	if sourceExprHugsParens(expr) {
+		return "(" + s + ")"
+	}
+
 	if strings.Contains(s, "\n") {
 		return "(\n" + sourceIndent(s, 1) + "\n)"
 	}
@@ -474,7 +487,7 @@ func sourceExpr(expr AstExpr, minPrec int, expand bool) string {
 
 		// a group around a call or `...` truncates it to a single value
 		if expand && sourceExprExpands(inner) {
-			return sourceParens(sourceExpr(inner, 0, false))
+			return sourceParens(inner, sourceExpr(inner, 0, false))
 		}
 
 		return sourceExpr(inner, minPrec, expand)
@@ -482,7 +495,7 @@ func sourceExpr(expr AstExpr, minPrec int, expand bool) string {
 
 	s := expr.Source()
 	if sourceExprPrecedence(expr) < minPrec {
-		return sourceParens(s)
+		return sourceParens(expr, s)
 	}
 	return s
 }
@@ -519,7 +532,7 @@ func sourceExprPostfix(expr AstExpr) string {
 	if inner != nil {
 		unwrapped := sourceUnwrapGroup(inner)
 		if !sourcePostfixBase(unwrapped) {
-			return sourceParens(sourceExprPrec(unwrapped, 0))
+			return sourceParens(unwrapped, sourceExprPrec(unwrapped, 0))
 		}
 	}
 
