@@ -101,6 +101,16 @@ func sourceComment(comment Comment) string {
 	return "--" + comment.Content
 }
 
+// writeByteEscape writes a decimal escape for value[i], padding it to three digits when the next byte is a digit so that it isn't absorbed into the escape.
+func writeByteEscape(b *strings.Builder, value string, i int) {
+	if i+1 < len(value) && value[i+1] >= '0' && value[i+1] <= '9' {
+		fmt.Fprintf(b, "\\%03d", value[i])
+		return
+	}
+
+	fmt.Fprintf(b, "\\%d", value[i])
+}
+
 // sourceString renders a string literal in the requested quote style, falling back to a safer representation when needed.
 func sourceString(value string, style QuoteStyle) string {
 	// long strings are avoided when they contain newlines: a multi-line literal can't be re-indented without changing its value. They can't escape bytes either, so invalid UTF-8 falls back to a quoted string.
@@ -131,7 +141,7 @@ func sourceString(value string, style QuoteStyle) string {
 		if ch >= 0x80 {
 			r, size := utf8.DecodeRuneInString(value[i:])
 			if r == utf8.RuneError && size <= 1 {
-				fmt.Fprintf(&b, "\\%03d", ch)
+				writeByteEscape(&b, value, i)
 				i++
 				continue
 			}
@@ -141,7 +151,6 @@ func sourceString(value string, style QuoteStyle) string {
 			continue
 		}
 
-		i++
 		switch ch {
 		case '\\':
 			b.WriteString(`\\`)
@@ -164,12 +173,13 @@ func sourceString(value string, style QuoteStyle) string {
 			b.WriteString(`\v`)
 		default:
 			if ch < 0x20 || ch == 0x7f {
-				// pad to three digits so a following digit isn't absorbed
-				fmt.Fprintf(&b, "\\%03d", ch)
+				writeByteEscape(&b, value, i)
 			} else {
 				b.WriteByte(ch)
 			}
 		}
+
+		i++
 	}
 	b.WriteByte(quote)
 
@@ -582,7 +592,7 @@ func sourceInterpStringPart(s string) string {
 		if ch >= 0x80 {
 			r, size := utf8.DecodeRuneInString(s[i:])
 			if r == utf8.RuneError && size <= 1 {
-				fmt.Fprintf(&b, "\\%03d", ch)
+				writeByteEscape(&b, s, i)
 				i++
 				continue
 			}
@@ -592,7 +602,6 @@ func sourceInterpStringPart(s string) string {
 			continue
 		}
 
-		i++
 		switch ch {
 		case '\\':
 			b.WriteString(`\\`)
@@ -608,12 +617,13 @@ func sourceInterpStringPart(s string) string {
 			b.WriteString(`\t`)
 		default:
 			if ch < 0x20 || ch == 0x7f {
-				// pad to three digits so a following digit isn't absorbed
-				fmt.Fprintf(&b, "\\%03d", ch)
+				writeByteEscape(&b, s, i)
 			} else {
 				b.WriteByte(ch)
 			}
 		}
+
+		i++
 	}
 
 	return b.String()
