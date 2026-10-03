@@ -781,22 +781,16 @@ func sourceCompoundAssign(target AstExpr, value AstExpr) (AstStatCompoundAssign,
 	return AstStatCompoundAssign{Var: target, Op: op, Value: bin.Right}, true
 }
 
-// writeIfBranch writes an if-expression branch value, putting a multi-line value on its own indented line.
+// writeIfBranch writes an if-expression branch value on its own indented line, like an if statement body.
 func writeIfBranch(b *strings.Builder, expr AstExpr) {
+	b.WriteByte('\n')
+
 	if expr == nil {
-		b.WriteString(" nil")
+		b.WriteString(sourceIndent("nil", 1))
 		return
 	}
 
-	s := sourceExprPrec(expr, 0)
-	if strings.Contains(s, "\n") {
-		b.WriteByte('\n')
-		b.WriteString(sourceIndent(s, 1))
-		return
-	}
-
-	b.WriteByte(' ')
-	b.WriteString(s)
+	b.WriteString(sourceIndent(sourceExprPrec(expr, 0), 1))
 }
 
 // writeAssignedValue writes ` = values`, putting if-expressions on their own indented lines.

@@ -28,11 +28,15 @@ local tablenotlast = {
 local assertion = a :: number + 1
 local assertindex = (a :: number).x
 local ifexpr = (
-	if c then a
-	else b
+	if c then
+		a
+	else
+		b
 ) + 1
-local ifarg = f(if c then a
-else b)
+local ifarg = f(if c then
+	a
+else
+	b)
 local notcmp = not (a == b)
 local cmpnot = not a == b
 local negpow = (-a) ^ b

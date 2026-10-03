@@ -17,8 +17,10 @@ t[i] ..= "b"
 t[1] += 1
 t["k"] += 1
 x +=
-	if c then a
-	else b
+	if c then
+		a
+	else
+		b
 local function upvalue()
 	x += 1
 end
