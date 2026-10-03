@@ -5,6 +5,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/Heliodex/coputer/ast/lex"
 )
@@ -102,9 +103,8 @@ func sourceComment(comment Comment) string {
 
 // sourceString renders a string literal in the requested quote style, falling back to a safer representation when needed.
 func sourceString(value string, style QuoteStyle) string {
-	// long strings are avoided when they contain newlines: a multi-line
-	// literal can't be re-indented without changing its value
-	if style == QuoteStyle_QuotedRaw && !strings.ContainsAny(value, "\r\n") {
+	// long strings are avoided when they contain newlines: a multi-line literal can't be re-indented without changing its value. They can't escape bytes either, so invalid UTF-8 falls back to a quoted string.
+	if style == QuoteStyle_QuotedRaw && !strings.ContainsAny(value, "\r\n") && utf8.ValidString(value) {
 		return sourceLongString(value)
 	}
 
@@ -124,8 +124,24 @@ func sourceString(value string, style QuoteStyle) string {
 
 	var b strings.Builder
 	b.WriteByte(quote)
-	for i := range len(value) {
+	for i := 0; i < len(value); {
 		ch := value[i]
+
+		// valid UTF-8 sequences are kept as-is, invalid bytes are escaped
+		if ch >= 0x80 {
+			r, size := utf8.DecodeRuneInString(value[i:])
+			if r == utf8.RuneError && size <= 1 {
+				fmt.Fprintf(&b, "\\%03d", ch)
+				i++
+				continue
+			}
+
+			b.WriteString(value[i : i+size])
+			i += size
+			continue
+		}
+
+		i++
 		switch ch {
 		case '\\':
 			b.WriteString(`\\`)
@@ -559,8 +575,24 @@ func sourceCallSugar(expr AstExpr) bool {
 func sourceInterpStringPart(s string) string {
 	var b strings.Builder
 
-	for i := range s {
+	for i := 0; i < len(s); {
 		ch := s[i]
+
+		// valid UTF-8 sequences are kept as-is, invalid bytes are escaped
+		if ch >= 0x80 {
+			r, size := utf8.DecodeRuneInString(s[i:])
+			if r == utf8.RuneError && size <= 1 {
+				fmt.Fprintf(&b, "\\%03d", ch)
+				i++
+				continue
+			}
+
+			b.WriteString(s[i : i+size])
+			i += size
+			continue
+		}
+
+		i++
 		switch ch {
 		case '\\':
 			b.WriteString(`\\`)
