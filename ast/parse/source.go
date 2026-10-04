@@ -942,6 +942,62 @@ func sourceTableItem(item AstExprTableItem, expand bool) string {
 	return value
 }
 
+// sourceTableItemStart returns the position where a table item starts, used to place comments. Item locations are empty, so keyed items use their key and list items their value.
+func sourceTableItemStart(item AstExprTableItem) lex.Position {
+	if item.Key != nil {
+		return (*item.Key).GetLocation().Begin
+	}
+	if item.Value != nil {
+		return item.Value.GetLocation().Begin
+	}
+	return lex.Position{}
+}
+
+// sourceTableItemEnd returns the position where a table item ends, used to place trailing comments.
+func sourceTableItemEnd(item AstExprTableItem) lex.Position {
+	if item.Value != nil {
+		return item.Value.GetLocation().End
+	}
+	return lex.Position{}
+}
+
+// sourceTableItems renders a table's items with their comments, one per line, each item followed by a comma.
+func sourceTableItems(items []AstExprTableItem, comments []Comment) string {
+	var lines []string
+	ci := 0
+
+	for i, item := range items {
+		start := sourceTableItemStart(item)
+		end := sourceTableItemEnd(item)
+
+		// comments that start before this item go on their own line
+		for ci < len(comments) && !comments[ci].Location.Begin.After(start) {
+			lines = append(lines, sourceComment(comments[ci]))
+			ci++
+		}
+
+		src := sourceTableItem(item, i == len(items)-1 && item.Kind == List) + ","
+
+		// comments on the same line as the end of the item stay there
+		for ci < len(comments) &&
+			comments[ci].Location.Begin.Line == end.Line &&
+			(i+1 >= len(items) || comments[ci].Location.Begin.Before(sourceTableItemStart(items[i+1]))) {
+			src += " " + sourceComment(comments[ci])
+			ci++
+		}
+
+		lines = append(lines, src)
+	}
+
+	// comments after the last item
+	for ci < len(comments) {
+		lines = append(lines, sourceComment(comments[ci]))
+		ci++
+	}
+
+	return strings.Join(lines, "\n")
+}
+
 // sourceUnionIntersection renders union and intersection types. Types are always split across multiple lines, one per line, each prefixed by op.
 func sourceUnionIntersection(types []AstType, op string) string {
 	var nonOptional []AstType
@@ -1211,18 +1267,13 @@ func (n AstExprLocal) Source() string {
 }
 
 func (n AstExprTable) Source() string {
-	if len(n.Items) == 0 {
+	body := sourceTableItems(n.Items, n.Comments)
+	if body == "" {
 		return "{}"
 	}
 
-	parts := make([]string, len(n.Items))
-	for i, item := range n.Items {
-		expand := i == len(n.Items)-1 && item.Kind == List
-		parts[i] = sourceTableItem(item, expand)
-	}
-
 	// tables are always split across multiple lines, one item per line
-	return "{\n" + sourceIndent(strings.Join(parts, ",\n"), 1) + ",\n}"
+	return "{\n" + sourceIndent(body, 1) + "\n}"
 }
 
 func (n AstExprTableItem) Source() string {

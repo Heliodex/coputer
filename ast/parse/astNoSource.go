@@ -805,6 +805,8 @@ func (n AstExprLocal) String() string {
 type AstExprTable struct {
 	*NodeLoc
 	Items []AstExprTableItem
+	// Comments contains the comments lexed within this table, in source order.
+	Comments []Comment
 }
 
 func (AstExprTable) isAstNode() {}

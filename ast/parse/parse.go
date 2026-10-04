@@ -1022,6 +1022,25 @@ func (p *Parser) attachBlockComments(block *AstStatBlock) {
 	p.pendingComments = remaining
 }
 
+// attachTableComments moves the comments contained in table out of the pending list and onto the table. Nested tables are finalized before their parents, so every comment ends up attached to the deepest table that contains it.
+func (p *Parser) attachTableComments(table *AstExprTable) {
+	if len(p.pendingComments) == 0 {
+		return
+	}
+
+	loc := table.GetLocation()
+
+	remaining := p.pendingComments[:0]
+	for _, comment := range p.pendingComments {
+		if loc.Contains(comment.Location) {
+			table.Comments = append(table.Comments, comment)
+		} else {
+			remaining = append(remaining, comment)
+		}
+	}
+	p.pendingComments = remaining
+}
+
 // if exp then block {elseif exp then block} [else block] end
 func (p *Parser) parseIf() *AstStatIf {
 	start := p.snapshot()
@@ -4382,6 +4401,7 @@ func (p *Parser) parseTableConstructor() AstExprTable {
 		NodeLoc: &NodeLoc{lex.Location{Begin: start.Begin, End: end.End}},
 		Items:   items,
 	}
+	p.attachTableComments(&node)
 
 	if p.storeCstData {
 		p.cstNodes[node] = CstExprTable{Items: cstItems}
