@@ -60,8 +60,8 @@ func sourceLongString(value string) string {
 	}
 }
 
-// normalizeCommentContent removes the common leading indentation from the continuation lines of a block comment. Without this, re-indenting a comment when rendering would keep adding whitespace every time the output is parsed and rendered again.
-func normalizeCommentContent(content string) string {
+// normalizeCommentContent removes the comment's own indentation from the continuation lines of a block comment, so re-indenting the comment when rendering can't keep adding whitespace. The stripped amount is capped at indent, the comment's original column, so indentation inside the comment is preserved.
+func normalizeCommentContent(content string, indent uint32) string {
 	if !strings.Contains(content, "\n") {
 		return content
 	}
@@ -74,14 +74,17 @@ func normalizeCommentContent(content string) string {
 			continue
 		}
 
-		indent := leadingWhitespace(lines[i])
+		lineIndent := leadingWhitespace(lines[i])
 		if common == "" {
-			common = indent
+			common = lineIndent
 			continue
 		}
-		common = commonLeadingWhitespace(common, indent)
+		common = commonLeadingWhitespace(common, lineIndent)
 	}
 
+	if uint32(len(common)) > indent {
+		common = common[:indent]
+	}
 	if common == "" {
 		return content
 	}
@@ -96,7 +99,12 @@ func normalizeCommentContent(content string) string {
 // sourceComment renders a comment.
 func sourceComment(comment Comment) string {
 	if comment.Type == lex.BlockComment || comment.Type == lex.BrokenComment {
-		return "--" + sourceLongString(normalizeCommentContent(comment.Content))
+		var column uint32
+		if comment.NodeLoc != nil {
+			column = comment.Location.Begin.Column
+		}
+
+		return "--" + sourceLongString(normalizeCommentContent(comment.Content, column))
 	}
 	return "--" + comment.Content
 }
