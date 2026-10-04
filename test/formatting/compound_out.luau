@@ -21,9 +21,11 @@ x +=
 		a
 	else
 		b
+
 local function upvalue()
 	x += 1
 end
+
 x = 1 - x
 x = y - 1
 t.a.k = t.a.k + 1

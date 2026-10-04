@@ -382,7 +382,7 @@ func sourceStatList(stats []AstStat, comments []Comment) string {
 func sourceStatListSorted(stats []AstStat, comments []Comment, root bool) string {
 	units := sourceStatUnits(stats, comments)
 	if !root {
-		return renderUnits(units)
+		return renderScopedUnits(units)
 	}
 	return renderRoot(units)
 }
@@ -394,6 +394,41 @@ func renderUnits(units []sourceStatUnit) string {
 		lines = append(lines, unitLines(unit)...)
 	}
 	return strings.Join(lines, "\n")
+}
+
+// renderScopedUnits renders a scope's units, setting each function declaration off from the neighbouring code and function declarations with a single blank line. A comment attached to the top of a declaration stays with it, so the blank line lands above that comment.
+func renderScopedUnits(units []sourceStatUnit) string {
+	var blocks []string
+	var run []sourceStatUnit
+
+	flush := func() {
+		if len(run) > 0 {
+			blocks = append(blocks, renderUnits(run))
+			run = nil
+		}
+	}
+
+	for _, unit := range units {
+		if isFunctionDecl(unit.stat) {
+			flush()
+			blocks = append(blocks, renderUnits([]sourceStatUnit{unit}))
+			continue
+		}
+		run = append(run, unit)
+	}
+
+	flush()
+
+	return strings.Join(blocks, "\n\n")
+}
+
+// isFunctionDecl reports whether stat declares a function outright: `function Name()`, `local function name()` or `const function name()`. Function values assigned to a variable (`local f = function()`) are left alone.
+func isFunctionDecl(stat AstStat) bool {
+	switch stat.(type) {
+	case *AstStatFunction, *AstStatLocalFunction:
+		return true
+	}
+	return false
 }
 
 // unitLines renders a single unit's lines.
@@ -465,7 +500,7 @@ func renderRoot(units []sourceStatUnit) string {
 
 	var blocks []string
 	appendBlock := func(u []sourceStatUnit) {
-		if s := renderUnits(u); s != "" {
+		if s := renderScopedUnits(u); s != "" {
 			blocks = append(blocks, s)
 		}
 	}

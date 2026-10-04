@@ -84,6 +84,7 @@ end
 	y: number,
 }
 type Callback<T> = (T) -> ()
+
 local function map<T, U>(list: { T }, f: (T) -> U): { U }
 	local out = table.create(#list)
 	for i, v in list do
@@ -91,6 +92,7 @@ local function map<T, U>(list: { T }, f: (T) -> U): { U }
 	end
 	return out
 end
+
 local t = {
 	a = 1,
 	[2] = "two",
@@ -356,11 +358,13 @@ func TestSourceComments(t *testing.T) {
 
 	expected := "-- leading comment\n" +
 		"local x = 1 -- trailing comment\n" +
+		"\n" +
 		"--[[ block comment ]]\n" +
 		"local function f()\n" +
 		"\t-- inner comment\n" +
 		"\treturn x -- return comment\n" +
 		"end\n" +
+		"\n" +
 		"do\n" +
 		"\t--[[ multi\n" +
 		"\tline ]]\n" +
@@ -373,6 +377,73 @@ func TestSourceComments(t *testing.T) {
 
 	if got := res.Root.Source(); got != expected {
 		t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", expected, got)
+	}
+}
+
+// TestSourceFunctionSpacing checks that standalone function declarations are set off from the surrounding code in any scope with a single blank line, while a comment attached to the top of a function stays hugging it.
+func TestSourceFunctionSpacing(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+		want string
+	}{
+		{
+			name: "blank lines around a function between statements",
+			src:  "local x = 1\nlocal function f()\n\treturn x\nend\nlocal y = 2\n",
+			want: "local x = 1\n\nlocal function f()\n\treturn x\nend\n\nlocal y = 2",
+		},
+		{
+			name: "a sole function in a scope gets no blank lines",
+			src:  "local function f()\n\treturn 1\nend\n",
+			want: "local function f()\n\treturn 1\nend",
+		},
+		{
+			name: "consecutive functions are separated by one blank line",
+			src:  "local function a() end\nfunction b() end\n",
+			want: "local function a()\nend\n\nfunction b()\nend",
+		},
+		{
+			name: "a comment above a function stays hugging it",
+			src:  "local x = 1\n-- doc\nlocal function f()\n\treturn x\nend\nlocal y = 2\n",
+			want: "local x = 1\n\n-- doc\nlocal function f()\n\treturn x\nend\n\nlocal y = 2",
+		},
+		{
+			name: "a function value assignment is not set off",
+			src:  "local x = 1\nlocal f = function()\n\treturn x\nend\nlocal y = 2\n",
+			want: "local x = 1\nlocal f = function()\n\treturn x\nend\nlocal y = 2",
+		},
+		{
+			name: "function declarations inside a block are set off",
+			src:  "do\n\tlocal x = 1\n\tlocal function f()\n\t\treturn x\n\tend\n\tlocal y = 2\nend\n",
+			want: "do\n\tlocal x = 1\n\n\tlocal function f()\n\t\treturn x\n\tend\n\n\tlocal y = 2\nend",
+		},
+		{
+			name: "an attributed function is set off",
+			src:  "local x = 1\n@native\nfunction f() end\nlocal y = 2\n",
+			want: "local x = 1\n\n@native\nfunction f()\nend\n\nlocal y = 2",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ok, res := Parse(tc.src, Options{})
+			if !ok {
+				t.Fatal("error parsing source:", res.Errors)
+			}
+
+			got := res.Root.Source()
+			if got != tc.want {
+				t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", tc.want, got)
+			}
+
+			ok, res2 := Parse(got, Options{})
+			if !ok {
+				t.Fatal("error parsing generated source:", res2.Errors)
+			}
+			if got2 := res2.Root.Source(); got2 != got {
+				t.Errorf("generated source is not stable:\n-- First\n%s\n-- Second\n%s\n", got, got2)
+			}
+		})
 	}
 }
 
