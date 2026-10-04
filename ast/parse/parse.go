@@ -989,15 +989,13 @@ func (p *Parser) parseBlockNoScope() *AstStatBlock {
 		HasEnd: false,
 	}
 
-	// attach the comments contained in this block; nested blocks are finished
-	// first, so comments end up on the deepest block containing them
+	// attach the comments contained in this block; nested blocks are finished first, so comments end up on the deepest block containing them
 	p.attachBlockComments(block)
 
 	return block
 }
 
-// chunk ::= {stat [`;']} [laststat [`;']]
-// block ::= chunk
+// chunk ::= {stat [`;']} [laststat [`;']] block ::= chunk
 func (p *Parser) parseBlock() *AstStatBlock {
 	localsBegin := len(p.localStack)
 	result := p.parseBlockNoScope()
@@ -1005,9 +1003,7 @@ func (p *Parser) parseBlock() *AstStatBlock {
 	return result
 }
 
-// attachBlockComments moves the comments contained in block out of the pending
-// list and onto the block. Nested blocks are finalized before their parents, so
-// every comment ends up attached to the deepest block that contains it.
+// attachBlockComments moves the comments contained in block out of the pending list and onto the block. Nested blocks are finalized before their parents, so every comment ends up attached to the deepest block that contains it.
 func (p *Parser) attachBlockComments(block *AstStatBlock) {
 	if len(p.pendingComments) == 0 {
 		return
