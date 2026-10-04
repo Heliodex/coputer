@@ -461,9 +461,9 @@ func getServiceCallName(expr AstExpr) (string, bool) {
 	return str.Value, true
 }
 
-// asExprCall returns expr as an *AstExprCall, unwrapping groups and accepting both the value and pointer forms.
+// asExprCall returns expr as an *AstExprCall, unwrapping groups and type assertions and accepting both the value and pointer forms.
 func asExprCall(expr AstExpr) *AstExprCall {
-	switch e := sourceUnwrapGroup(expr).(type) {
+	switch e := sourceUnwrapExpr(expr).(type) {
 	case AstExprCall:
 		return &e
 	case *AstExprCall:
@@ -472,9 +472,9 @@ func asExprCall(expr AstExpr) *AstExprCall {
 	return nil
 }
 
-// asExprIndexName returns expr as an *AstExprIndexName, unwrapping groups and accepting both the value and pointer forms.
+// asExprIndexName returns expr as an *AstExprIndexName, unwrapping groups and type assertions and accepting both the value and pointer forms.
 func asExprIndexName(expr AstExpr) *AstExprIndexName {
-	switch e := sourceUnwrapGroup(expr).(type) {
+	switch e := sourceUnwrapExpr(expr).(type) {
 	case AstExprIndexName:
 		return &e
 	case *AstExprIndexName:
@@ -483,9 +483,9 @@ func asExprIndexName(expr AstExpr) *AstExprIndexName {
 	return nil
 }
 
-// asExprGlobal returns expr as an *AstExprGlobal, unwrapping groups and accepting both the value and pointer forms.
+// asExprGlobal returns expr as an *AstExprGlobal, unwrapping groups and type assertions and accepting both the value and pointer forms.
 func asExprGlobal(expr AstExpr) *AstExprGlobal {
-	switch e := sourceUnwrapGroup(expr).(type) {
+	switch e := sourceUnwrapExpr(expr).(type) {
 	case AstExprGlobal:
 		return &e
 	case *AstExprGlobal:
@@ -494,9 +494,9 @@ func asExprGlobal(expr AstExpr) *AstExprGlobal {
 	return nil
 }
 
-// asExprConstantString returns expr as an *AstExprConstantString, unwrapping groups and accepting both the value and pointer forms.
+// asExprConstantString returns expr as an *AstExprConstantString, unwrapping groups and type assertions and accepting both the value and pointer forms.
 func asExprConstantString(expr AstExpr) *AstExprConstantString {
-	switch e := sourceUnwrapGroup(expr).(type) {
+	switch e := sourceUnwrapExpr(expr).(type) {
 	case AstExprConstantString:
 		return &e
 	case *AstExprConstantString:
@@ -621,7 +621,7 @@ func requireDeclaration(stat AstStat) (key string, isString, ok bool) {
 		return "", false, false
 	}
 
-	arg := sourceUnwrapGroup(call.Args[0])
+	arg := sourceUnwrapExpr(call.Args[0])
 	if str := asExprConstantString(arg); str != nil {
 		return str.Value, true, true
 	}
@@ -779,6 +779,24 @@ func sourceUnwrapGroup(expr AstExpr) AstExpr {
 		case AstExprGroup:
 			expr = e.Expr
 		case *AstExprGroup:
+			expr = e.Expr
+		default:
+			return expr
+		}
+	}
+}
+
+// sourceUnwrapExpr removes any parentheses groups and type assertions around an expression, so `(x :: T)` and `x :: T` both yield x.
+func sourceUnwrapExpr(expr AstExpr) AstExpr {
+	for {
+		switch e := expr.(type) {
+		case AstExprGroup:
+			expr = e.Expr
+		case *AstExprGroup:
+			expr = e.Expr
+		case AstExprTypeAssertion:
+			expr = e.Expr
+		case *AstExprTypeAssertion:
 			expr = e.Expr
 		default:
 			return expr
