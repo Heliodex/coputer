@@ -378,11 +378,12 @@ func sourceStatList(stats []AstStat, comments []Comment) string {
 	return sourceStatListSorted(stats, comments, false)
 }
 
-// sourceStatListSorted renders a statement list, optionally sorting the leading run of `game:GetService` declarations.
-func sourceStatListSorted(stats []AstStat, comments []Comment, sortServices bool) string {
+// sourceStatListSorted renders a statement list. When root is set (the top-level chunk), the comment directives at the top of the file are collected and sorted, and the leading run of `game:GetService` declarations is sorted.
+func sourceStatListSorted(stats []AstStat, comments []Comment, root bool) string {
 	units := sourceStatUnits(stats, comments)
 
-	if sortServices {
+	if root {
+		sortHeaderDirectives(units)
 		units = sortServiceDeclarations(units)
 	}
 
@@ -502,6 +503,90 @@ func asExprConstantString(expr AstExpr) *AstExprConstantString {
 		return e
 	}
 	return nil
+}
+
+// Directive categories, in the order the formatter groups them.
+const (
+	directiveTypeCheck = iota
+	directiveLint
+	directiveNative
+	directiveOptimize
+	directiveUnknown
+)
+
+// directiveCategory returns the sort category of a comment directive (a line comment whose body starts with `!` immediately followed by the directive name), and reports whether comment is one. Unknown directives sort after the known categories.
+func directiveCategory(comment Comment) (int, bool) {
+	if comment.Type != lex.Comment || !strings.HasPrefix(comment.Content, "!") {
+		return 0, false
+	}
+
+	// a space after `!` means Luau's parseMode won't honour it, so it isn't a directive here either
+	name := comment.Content[1:]
+	if name == "" || name[0] == ' ' || name[0] == '\t' {
+		return 0, false
+	}
+	if i := strings.IndexAny(name, " \t"); i >= 0 {
+		name = name[:i]
+	}
+
+	switch name {
+	case "strict", "nonstrict", "nocheck":
+		return directiveTypeCheck, true
+	case "nolint":
+		return directiveLint, true
+	case "native":
+		return directiveNative, true
+	case "optimize":
+		return directiveOptimize, true
+	}
+	return directiveUnknown, true
+}
+
+// sortDirectives collects the directive comments among comments and orders them by category, followed by the non-directive comments in their original order. Only the first type-check directive is kept: Luau's parseMode honours the first header strict/nonstrict/nocheck and ignores the rest.
+func sortDirectives(comments []Comment) []Comment {
+	type rankedDirective struct {
+		comment Comment
+		rank    int
+	}
+
+	directives := make([]rankedDirective, 0, len(comments))
+	others := make([]Comment, 0, len(comments))
+	seenTypeCheck := false
+
+	for _, c := range comments {
+		rank, ok := directiveCategory(c)
+		if !ok {
+			others = append(others, c)
+			continue
+		}
+
+		if rank == directiveTypeCheck {
+			if seenTypeCheck {
+				continue
+			}
+			seenTypeCheck = true
+		}
+
+		directives = append(directives, rankedDirective{comment: c, rank: rank})
+	}
+
+	sort.SliceStable(directives, func(i, j int) bool {
+		return directives[i].rank < directives[j].rank
+	})
+
+	result := make([]Comment, 0, len(comments))
+	for _, d := range directives {
+		result = append(result, d.comment)
+	}
+	return append(result, others...)
+}
+
+// sortHeaderDirectives pulls the comment directives at the top of the file together and sorts them by category, leaving the remaining leading comments after them.
+func sortHeaderDirectives(units []sourceStatUnit) {
+	if len(units) == 0 {
+		return
+	}
+	units[0].leading = sortDirectives(units[0].leading)
 }
 
 // sortServiceDeclarations sorts the leading run of `game:GetService` declarations alphabetically by service name. The run is the maximal prefix of same-kind declarations (all const or all local); a mixed run is truncated at the first kind change. Comments move with the declaration they belong to, except comments at the very top of the file, which stay pinned above the run so a file header or `--!strict` isn't dragged down. Earlier declarations win ties.

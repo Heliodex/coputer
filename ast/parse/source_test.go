@@ -196,6 +196,83 @@ func TestSourceServiceSorting(t *testing.T) {
 	}
 }
 
+// TestSourceDirectiveSorting checks that comment directives at the top of the file are pulled together and sorted by category, that only the first type-check directive survives, and that non-header directives are left alone.
+func TestSourceDirectiveSorting(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+		want string
+	}{
+		{
+			name: "sorts directives by category",
+			src:  "--!strict\n--!nonstrict\n--!nocheck\n--!native\n--!nolint\n--!optimize 2\n\ntable.clear()\n",
+			want: "--!strict\n--!nolint\n--!native\n--!optimize 2\ntable.clear()",
+		},
+		{
+			name: "pulls interleaved directives above a normal comment",
+			src:  "-- normal\n--!native\n--!strict\nlocal x = 1\n",
+			want: "--!strict\n--!native\n-- normal\nlocal x = 1",
+		},
+		{
+			name: "keeps the first type-check directive",
+			src:  "--!nocheck\n--!strict\nlocal x = 1\n",
+			want: "--!nocheck\nlocal x = 1",
+		},
+		{
+			name: "leaves directives after the first statement alone",
+			src:  "local x = 1\n--!native\n--!strict\nlocal y = 2\n",
+			want: "local x = 1\n--!native\n--!strict\nlocal y = 2",
+		},
+		{
+			name: "sorts directives when the file has no statements",
+			src:  "--!native\n--!strict\n--!nolint\n",
+			want: "--!strict\n--!nolint\n--!native",
+		},
+		{
+			name: "keeps unknown directives after the known ones",
+			src:  "--!wat\n--!native\n--!strict\nlocal x = 1\n",
+			want: "--!strict\n--!native\n--!wat\nlocal x = 1",
+		},
+		{
+			name: "keeps repeated lint and native directives",
+			src:  "--!native\n--!native\n--!nolint UnknownGlobal\n--!strict\nlocal x = 1\n",
+			want: "--!strict\n--!nolint UnknownGlobal\n--!native\n--!native\nlocal x = 1",
+		},
+		{
+			name: "a space after the bang is not a directive",
+			src:  "--! strict\n--!nocheck\nlocal x = 1\n",
+			want: "--!nocheck\n--! strict\nlocal x = 1",
+		},
+		{
+			name: "block and trailing comments are not directives",
+			src:  "--[[!strict]]\nlocal x = 1 --!native\n",
+			want: "--[[!strict]]\nlocal x = 1 --!native",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ok, res := Parse(tc.src, Options{})
+			if !ok {
+				t.Fatal("error parsing source:", res.Errors)
+			}
+
+			got := res.Root.Source()
+			if got != tc.want {
+				t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", tc.want, got)
+			}
+
+			ok, res2 := Parse(got, Options{})
+			if !ok {
+				t.Fatal("error parsing generated source:", res2.Errors)
+			}
+			if got2 := res2.Root.Source(); got2 != got {
+				t.Errorf("generated source is not stable:\n-- First\n%s\n-- Second\n%s\n", got, got2)
+			}
+		})
+	}
+}
+
 // TestSourceComments checks that comments are rendered near their original positions: leading comments stay above the statement they precede, trailing comments stay on the same line, and comments inside a block stay inside it.
 func TestSourceComments(t *testing.T) {
 	src := "-- leading comment\n" +

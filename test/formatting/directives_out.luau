@@ -1,3 +1,5 @@
---!optimize 0
+--!strict
+--!nolint
 --!native
+--!optimize 2
 table.clear()
