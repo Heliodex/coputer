@@ -447,6 +447,113 @@ func TestSourceFunctionSpacing(t *testing.T) {
 	}
 }
 
+// TestSourceMethodCalls checks that a dot-notation call repeating its receiver identifier as the first argument is rewritten to the equivalent method call, and that forms which would change behaviour are left alone.
+func TestSourceMethodCalls(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+		want string
+	}{
+		{
+			name: "repeated local receiver becomes a method call",
+			src:  "x.func(x, whatever)",
+			want: "x:func(whatever)",
+		},
+		{
+			name: "a method with no remaining arguments",
+			src:  "x.func(x)",
+			want: "x:func()",
+		},
+		{
+			name: "sugar is preserved for a single string argument",
+			src:  "x.func(x, \"str\")",
+			want: "x:func \"str\"",
+		},
+		{
+			name: "sugar is preserved for a single table argument",
+			src:  "x.func(x, { a = 1 })",
+			want: "x:func {\n\ta = 1,\n}",
+		},
+		{
+			name: "self is treated like any other identifier",
+			src:  "self.method(self, 1, 2)",
+			want: "self:method(1, 2)",
+		},
+		{
+			name: "a global receiver is rewritten too",
+			src:  "instance.func(instance, 1)",
+			want: "instance:func(1)",
+		},
+		{
+			name: "a grouped receiver is unwrapped",
+			src:  "x.func((x), 1)",
+			want: "x:func(1)",
+		},
+		{
+			name: "an explicit type instantiation moves onto the method name",
+			src:  "x.func<<number>>(x, 1)",
+			want: "x:func<<number>>(1)",
+		},
+		{
+			name: "a different first argument is left alone",
+			src:  "x.func(y, whatever)",
+			want: "x.func(y, whatever)",
+		},
+		{
+			name: "an indexed first argument is left alone",
+			src:  "x.func(x.y, whatever)",
+			want: "x.func(x.y, whatever)",
+		},
+		{
+			name: "an indexed receiver is left alone even when the argument repeats it",
+			src:  "x.y.func(x.y, whatever)",
+			want: "x.y.func(x.y, whatever)",
+		},
+		{
+			name: "a call receiver is left alone so it is still evaluated twice",
+			src:  "f().func(f(), whatever)",
+			want: "f().func(f(), whatever)",
+		},
+		{
+			name: "a type-asserted first argument is left alone",
+			src:  "x.func(x :: T, 1)",
+			want: "x.func(x :: T, 1)",
+		},
+		{
+			name: "an existing method call is unchanged",
+			src:  "x:func(1)",
+			want: "x:func(1)",
+		},
+		{
+			name: "an existing method call with type arguments is unchanged",
+			src:  "x:func<<number>>(1)",
+			want: "x:func<<number>>(1)",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ok, res := Parse(tc.src, Options{})
+			if !ok {
+				t.Fatal("error parsing source:", res.Errors)
+			}
+
+			got := res.Root.Source()
+			if got != tc.want {
+				t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", tc.want, got)
+			}
+
+			ok, res2 := Parse(got, Options{})
+			if !ok {
+				t.Fatal("error parsing generated source:", res2.Errors)
+			}
+			if got2 := res2.Root.Source(); got2 != got {
+				t.Errorf("generated source is not stable:\n-- First\n%s\n-- Second\n%s\n", got, got2)
+			}
+		})
+	}
+}
+
 // TestSourceCommentsOption checks that comments are always rendered by Source(), while Result.CommentLocations still respects CaptureComments.
 func TestSourceCommentsOption(t *testing.T) {
 	src := "-- comment\nlocal x = 1\n"

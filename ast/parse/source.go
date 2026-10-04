@@ -601,6 +601,78 @@ func asExprIndexName(expr AstExpr) *AstExprIndexName {
 	return nil
 }
 
+// asExprIndexNameGroup returns expr as an *AstExprIndexName, unwrapping parentheses groups but not type assertions, so an assertion around the indexed function is kept.
+func asExprIndexNameGroup(expr AstExpr) *AstExprIndexName {
+	switch e := sourceUnwrapGroup(expr).(type) {
+	case AstExprIndexName:
+		return &e
+	case *AstExprIndexName:
+		return e
+	}
+	return nil
+}
+
+// sameIdentifier reports whether a and b are the same variable reference: the same local or the same-named global. Because both occurrences sit in the same expression, a matching name and kind always resolve to the same binding.
+func sameIdentifier(a, b AstExpr) bool {
+	switch x := a.(type) {
+	case AstExprLocal:
+		y, ok := b.(AstExprLocal)
+		return ok && x.Local.Name == y.Local.Name
+	case *AstExprLocal:
+		y, ok := b.(*AstExprLocal)
+		return ok && x.Local.Name == y.Local.Name
+	case AstExprGlobal:
+		y, ok := b.(AstExprGlobal)
+		return ok && x.Name == y.Name
+	case *AstExprGlobal:
+		y, ok := b.(*AstExprGlobal)
+		return ok && x.Name == y.Name
+	}
+	return false
+}
+
+// asMethodCall rewrites a dot-notation call whose first argument repeats the receiver identifier, such as `x.func(x, y)`, into the equivalent method call `x:func(y)`, and reports whether the rewrite applies. Only a plain local or global identifier receiver is rewritten: a receiver that is itself an index or a call would be evaluated twice in the dot form but once as a method, so rewriting it could invoke metamethods a different number of times. An explicit type instantiation, such as `x.func<<T>>(x, y)`, moves onto the method name as `x:func<<T>>(y)`.
+func asMethodCall(n AstExprCall) (AstExprCall, bool) {
+	if n.Self || len(n.Args) == 0 {
+		return AstExprCall{}, false
+	}
+
+	var instantiate *AstExprInstantiate
+	switch e := sourceUnwrapGroup(n.Func).(type) {
+	case AstExprInstantiate:
+		inst := e
+		instantiate = &inst
+	case *AstExprInstantiate:
+		instantiate = e
+	}
+
+	funcExpr := n.Func
+	if instantiate != nil {
+		funcExpr = instantiate.Expr
+	}
+
+	index := asExprIndexNameGroup(funcExpr)
+	if index == nil || index.Op != '.' {
+		return AstExprCall{}, false
+	}
+
+	if !sameIdentifier(sourceUnwrapGroup(index.Expr), sourceUnwrapGroup(n.Args[0])) {
+		return AstExprCall{}, false
+	}
+
+	index.Op = ':'
+	if instantiate != nil {
+		instantiate.Expr = *index
+		n.Func = *instantiate
+	} else {
+		n.Func = *index
+	}
+
+	n.Args = n.Args[1:]
+	n.Self = true
+	return n, true
+}
+
 // asExprGlobal returns expr as an *AstExprGlobal, unwrapping groups and type assertions and accepting both the value and pointer forms.
 func asExprGlobal(expr AstExpr) *AstExprGlobal {
 	switch e := sourceUnwrapExpr(expr).(type) {
@@ -1482,6 +1554,10 @@ func (n AstExprBinary) Source() string {
 }
 
 func (n AstExprCall) Source() string {
+	if method, ok := asMethodCall(n); ok {
+		return method.Source()
+	}
+
 	var b strings.Builder
 
 	b.WriteString(sourceExprPostfix(n.Func))
