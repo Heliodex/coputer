@@ -1,0 +1,10 @@
+local ContentProvider = game:GetService "ContentProvider"
+local GuiService = game:GetService "GuiService"
+local PersonalServerService = game:GetService "PersonalServerService" :: PersonalServerService
+local Players = game:GetService "Players"
+local RunService = game:GetService "RunService"
+local StarterGui = game:GetService "StarterGui"
+local Teams = game:GetService "Teams"
+local News = require "../Modules/New"
+local log = require "../Modules/Logger"
+local BaseUrl = require "../Modules/BaseUrl"
