@@ -384,7 +384,7 @@ func sourceStatListSorted(stats []AstStat, comments []Comment, root bool) string
 
 	if root {
 		sortHeaderDirectives(units)
-		units = sortServiceDeclarations(units)
+		units = sortLeadingDeclarations(units)
 	}
 
 	var lines []string
@@ -589,32 +589,62 @@ func sortHeaderDirectives(units []sourceStatUnit) {
 	units[0].leading = sortDirectives(units[0].leading)
 }
 
-// sortServiceDeclarations sorts the leading run of `game:GetService` declarations alphabetically by service name. The run is the maximal prefix of same-kind declarations (all const or all local); a mixed run is truncated at the first kind change. Comments move with the declaration they belong to, except comments at the very top of the file, which stay pinned above the run so a file header or `--!strict` isn't dragged down. Earlier declarations win ties.
-func sortServiceDeclarations(units []sourceStatUnit) []sourceStatUnit {
+// serviceSectionEnd returns the length of the leading run of `game:GetService` declarations, truncated at the first kind change. The run must be all const or all local, so a mixed run stops here.
+func serviceSectionEnd(units []sourceStatUnit) int {
 	end := 0
 	for end < len(units) {
-		if units[end].stat == nil {
+		if _, ok := serviceDeclarationName(units[end].stat); !ok {
 			break
 		}
-		if _, ok := serviceDeclarationName(units[end].stat); !ok {
+		if end > 0 && asStatLocal(units[end].stat).IsConst != asStatLocal(units[0].stat).IsConst {
 			break
 		}
 		end++
 	}
+	return end
+}
 
-	if end < 2 {
-		return units
+// requireDeclaration returns the sort key of a `local X = require "..."` (or instance path) declaration, whether the require is a string, and whether stat is a require declaration at all. String requires sort before instance-path ones; within a group the key is the filename or the rendered instance path.
+func requireDeclaration(stat AstStat) (key string, isString, ok bool) {
+	decl := asStatLocal(stat)
+	if decl == nil || len(decl.Vars) != 1 || len(decl.Values) != 1 {
+		return "", false, false
 	}
 
-	first := asStatLocal(units[0].stat)
-	for i := 1; i < end; i++ {
-		if asStatLocal(units[i].stat).IsConst != first.IsConst {
-			end = i
+	call := asExprCall(decl.Values[0])
+	if call == nil || len(call.Args) != 1 {
+		return "", false, false
+	}
+
+	fn := asExprGlobal(call.Func)
+	if fn == nil || fn.Name != "require" {
+		return "", false, false
+	}
+
+	arg := sourceUnwrapGroup(call.Args[0])
+	if str := asExprConstantString(arg); str != nil {
+		return str.Value, true, true
+	}
+	return arg.Source(), false, true
+}
+
+// sortLeadingDeclarations sorts the sections at the top of a file: first the leading run of `game:GetService` declarations by service name, then the run of `require` declarations that follows by filename (string requires before instance-path ones). Comments move with the declaration they belong to, except comments at the very top of the file, which stay pinned above the sections so a file header or `--!strict` isn't dragged down. Earlier declarations win ties.
+func sortLeadingDeclarations(units []sourceStatUnit) []sourceStatUnit {
+	serviceEnd := serviceSectionEnd(units)
+
+	requireStart := serviceEnd
+	requireEnd := requireStart
+	for requireEnd < len(units) {
+		if _, _, ok := requireDeclaration(units[requireEnd].stat); !ok {
 			break
 		}
+		requireEnd++
 	}
 
-	if end < 2 {
+	serviceSortable := serviceEnd >= 2
+	requireSortable := requireEnd-requireStart >= 2
+
+	if !serviceSortable && !requireSortable {
 		return units
 	}
 
@@ -622,12 +652,26 @@ func sortServiceDeclarations(units []sourceStatUnit) []sourceStatUnit {
 	pinned := units[0].leading
 	units[0].leading = nil
 
-	run := units[:end]
-	sort.SliceStable(run, func(i, j int) bool {
-		a, _ := serviceDeclarationName(run[i].stat)
-		b, _ := serviceDeclarationName(run[j].stat)
-		return a < b
-	})
+	if serviceSortable {
+		run := units[:serviceEnd]
+		sort.SliceStable(run, func(i, j int) bool {
+			a, _ := serviceDeclarationName(run[i].stat)
+			b, _ := serviceDeclarationName(run[j].stat)
+			return a < b
+		})
+	}
+
+	if requireSortable {
+		run := units[requireStart:requireEnd]
+		sort.SliceStable(run, func(i, j int) bool {
+			ak, as, _ := requireDeclaration(run[i].stat)
+			bk, bs, _ := requireDeclaration(run[j].stat)
+			if as != bs {
+				return as
+			}
+			return ak < bk
+		})
+	}
 
 	if len(pinned) == 0 {
 		return units

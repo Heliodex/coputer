@@ -273,6 +273,73 @@ func TestSourceDirectiveSorting(t *testing.T) {
 	}
 }
 
+// TestSourceRequireSorting checks that a leading run of `require` declarations is sorted by filename, with string requires before instance-path ones, and that it composes after the service section.
+func TestSourceRequireSorting(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+		want string
+	}{
+		{
+			name: "sorts string requires by filename",
+			src:  "local Types = require \"../Types\"\nlocal logError = require \"../Logging/logError\"\nlocal isSimilar = require \"../Utility/isSimilar\"\n",
+			want: "local logError = require \"../Logging/logError\"\nlocal Types = require \"../Types\"\nlocal isSimilar = require \"../Utility/isSimilar\"",
+		},
+		{
+			name: "string requires come before instance requires",
+			src:  "local inst = require(script.Parent.Services)\nlocal a = require \"../A\"\nlocal b = require(script.Parent.Alpha)\n",
+			want: "local a = require \"../A\"\nlocal b = require(script.Parent.Alpha)\nlocal inst = require(script.Parent.Services)",
+		},
+		{
+			name: "sorts instance requires by path",
+			src:  "local z = require(script.Parent.Zed)\nlocal a = require(script.Parent.Alpha)\n",
+			want: "local a = require(script.Parent.Alpha)\nlocal z = require(script.Parent.Zed)",
+		},
+		{
+			name: "a single require is left alone",
+			src:  "local A = require \"../A\"\nlocal B = 2\n",
+			want: "local A = require \"../A\"\nlocal B = 2",
+		},
+		{
+			name: "requires after a non-require statement are left alone",
+			src:  "local B = require \"../B\"\nlocal A = require \"../A\"\nlocal x = 1\nlocal D = require \"../D\"\nlocal C = require \"../C\"\n",
+			want: "local A = require \"../A\"\nlocal B = require \"../B\"\nlocal x = 1\nlocal D = require \"../D\"\nlocal C = require \"../C\"",
+		},
+		{
+			name: "composes after the sorted service section",
+			src:  "local Players = game:GetService \"Players\"\nlocal Workspace = game:GetService \"Workspace\"\nlocal B = require \"../B\"\nlocal A = require \"../A\"\nlocal rest = 1\n",
+			want: "local Players = game:GetService \"Players\"\nlocal Workspace = game:GetService \"Workspace\"\nlocal A = require \"../A\"\nlocal B = require \"../B\"\nlocal rest = 1",
+		},
+		{
+			name: "a shadowed require local is not sorted",
+			src:  "local require = function(x)\n\treturn x\nend\nlocal B = require \"../B\"\nlocal A = require \"../A\"\n",
+			want: "local require = function(x)\n\treturn x\nend\nlocal B = require \"../B\"\nlocal A = require \"../A\"",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ok, res := Parse(tc.src, Options{})
+			if !ok {
+				t.Fatal("error parsing source:", res.Errors)
+			}
+
+			got := res.Root.Source()
+			if got != tc.want {
+				t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", tc.want, got)
+			}
+
+			ok, res2 := Parse(got, Options{})
+			if !ok {
+				t.Fatal("error parsing generated source:", res2.Errors)
+			}
+			if got2 := res2.Root.Source(); got2 != got {
+				t.Errorf("generated source is not stable:\n-- First\n%s\n-- Second\n%s\n", got, got2)
+			}
+		})
+	}
+}
+
 // TestSourceComments checks that comments are rendered near their original positions: leading comments stay above the statement they precede, trailing comments stay on the same line, and comments inside a block stay inside it.
 func TestSourceComments(t *testing.T) {
 	src := "-- leading comment\n" +
