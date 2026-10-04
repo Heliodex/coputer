@@ -570,9 +570,22 @@ func TestSourceNumberLiterals(t *testing.T) {
 		{name: "small binary", lit: "0b101", want: "5"},
 		{name: "64-bit binary", lit: "0b1111111111111111111111111111111111111111111111111111111111111111", want: "18446744073709552000"},
 		{name: "65-bit binary saturates to the maximum", lit: "0b11111111111111111111111111111111111111111111111111111111111111111", want: "18446744073709552000"},
-		{name: "decimal beyond double precision rounds", lit: "9007199254740993", want: "9007199254740992"},
 		{name: "exponent overflow becomes infinity", lit: "1e400", want: "math.huge"},
 		{name: "hex integer suffix is kept", lit: "0xFFi", want: "255i"},
+
+		// clean values are re-rendered as hexadecimal regardless of the input format
+		{name: "power of 16", lit: "0x1000", want: "0x1000"},
+		{name: "power of 16 from decimal", lit: "4096", want: "0x1000"},
+		{name: "power of 16 from binary", lit: "0b1000000000000", want: "0x1000"},
+		{name: "one less than a power of 16", lit: "0xfffffff", want: "0xfffffff"},
+		{name: "single digit multiple of a power of 16", lit: "0x4000", want: "0x4000"},
+		{name: "large single digit multiple", lit: "0xe00000", want: "0xe00000"},
+		{name: "multiple of a power of 16 from decimal", lit: "5242880", want: "0x500000"},
+		{name: "small value stays decimal", lit: "0x100", want: "256"},
+		{name: "small all-ones stays decimal", lit: "0xff", want: "255"},
+		{name: "value beyond 2^63 stays decimal", lit: "0xffffffffffffffff", want: "18446744073709552000"},
+		{name: "clean integer suffix", lit: "4096i", want: "0x1000i"},
+		{name: "imprecise decimal rounds to a clean value", lit: "9007199254740993", want: "0x20000000000000"},
 	}
 
 	for _, tc := range cases {
@@ -584,8 +597,17 @@ func TestSourceNumberLiterals(t *testing.T) {
 			}
 
 			want := "local n = " + tc.want
-			if got := res.Root.Source(); got != want {
+			got := res.Root.Source()
+			if got != want {
 				t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", want, got)
+			}
+
+			ok, res2 := Parse(got, Options{})
+			if !ok {
+				t.Fatal("error parsing generated source:", res2.Errors)
+			}
+			if got2 := res2.Root.Source(); got2 != got {
+				t.Errorf("generated source is not stable:\n-- First\n%s\n-- Second\n%s\n", got, got2)
 			}
 		})
 	}

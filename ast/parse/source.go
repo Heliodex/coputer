@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"math/bits"
 	"sort"
 	"strconv"
 	"strings"
@@ -204,6 +205,11 @@ func sourceNumber(value float64) string {
 		return "-math.huge"
 	}
 
+	// a cleanly-shaped value reads better in hexadecimal than in decimal
+	if hex, ok := cleanNumberHex(value); ok {
+		return hex
+	}
+
 	exp := fmt.Sprintf("%g", value)
 	exp = strings.Replace(exp, "e+", "e", 1)
 
@@ -221,6 +227,31 @@ func sourceNumber(value float64) string {
 	}
 
 	return exp
+}
+
+// cleanHex returns the hexadecimal spelling of u when it has a tidy shape: a power of 16 (0x1000), one less than a power of 16 (0xfffffff), or a single hex digit times a power of 16 (0x4000, 0xe00000).
+func cleanHex(u uint64) (string, bool) {
+	// a run of ones ending on a nibble boundary, i.e. one less than a power of 16
+	if u&(u+1) == 0 && bits.TrailingZeros64(u+1)%4 == 0 {
+		return fmt.Sprintf("0x%x", u), true
+	}
+
+	// one hex digit followed only by whole zero nibbles
+	nibbles := bits.TrailingZeros64(u) / 4
+	if u>>(4*nibbles) < 16 {
+		return fmt.Sprintf("0x%x", u), true
+	}
+
+	return "", false
+}
+
+// cleanNumberHex returns the hexadecimal spelling of value when it has a tidy shape and is large enough that hexadecimal reads better than decimal.
+func cleanNumberHex(value float64) (string, bool) {
+	// small values and tiny powers of 16 are clearer in decimal, and the bound keeps the conversion to uint64 exact
+	if value < 0x1000 || value >= 1<<63 || value != math.Trunc(value) {
+		return "", false
+	}
+	return cleanHex(uint64(value))
 }
 
 // sourceBinaryOp renders a binary operator.
@@ -1598,6 +1629,11 @@ func (n AstExprConstantNumber) Source() string {
 }
 
 func (n AstExprConstantInteger) Source() string {
+	if n.Value >= 0x1000 {
+		if hex, ok := cleanHex(uint64(n.Value)); ok {
+			return hex + "i"
+		}
+	}
 	return fmt.Sprintf("%di", n.Value)
 }
 
