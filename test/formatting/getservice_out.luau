@@ -1,0 +1,8 @@
+const HttpService = game:GetService "HttpService"
+const Lighting = game:GetService "Lighting"
+const Players = game:GetService "Players"
+const ReplicatedStorage = game:GetService "ReplicatedStorage"
+const ServerScriptService = game:GetService "ServerScriptService"
+const StarterPack = game:GetService "StarterPack"
+const StarterPlayer = game:GetService "StarterPlayer"
+const Workspace = game:GetService "Workspace"
