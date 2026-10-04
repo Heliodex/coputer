@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -331,37 +332,75 @@ func sourceStat(stat AstStat) string {
 	return s
 }
 
-// sourceStatList renders statements separated by newlines, interleaving the block's comments in their original positions: leading comments stay above the statement they precede and trailing comments stay on the same line.
-func sourceStatList(stats []AstStat, comments []Comment) string {
-	var lines []string
+// sourceStatUnit is a statement together with the comments that belong to it: leading comments render above the statement and trailing comments stay on its last line.
+type sourceStatUnit struct {
+	stat     AstStat
+	leading  []Comment
+	trailing []Comment
+}
+
+// sourceStatUnits splits statements and comments into per-statement units, preserving the existing comment attachment rules: comments before a statement lead it, comments on the statement's end line trail it, and comments after the last statement become a trailing commentless unit.
+func sourceStatUnits(stats []AstStat, comments []Comment) []sourceStatUnit {
+	units := make([]sourceStatUnit, 0, len(stats))
 	ci := 0
 
 	for i, stat := range stats {
 		statLoc := stat.GetLocation()
+		unit := sourceStatUnit{stat: stat}
 
 		// comments that start at or before this statement go on their own line
 		for ci < len(comments) && !comments[ci].Location.Begin.After(statLoc.Begin) {
-			lines = append(lines, sourceComment(comments[ci]))
+			unit.leading = append(unit.leading, comments[ci])
 			ci++
 		}
-
-		src := sourceStat(stat)
 
 		// comments on the same line as the end of the statement stay there
 		for ci < len(comments) &&
 			comments[ci].Location.Begin.Line == statLoc.End.Line &&
 			(i+1 >= len(stats) || comments[ci].Location.Begin.Before(stats[i+1].GetLocation().Begin)) {
-			src += " " + sourceComment(comments[ci])
+			unit.trailing = append(unit.trailing, comments[ci])
 			ci++
 		}
 
-		lines = append(lines, src)
+		units = append(units, unit)
 	}
 
 	// comments after the last statement
-	for ci < len(comments) {
-		lines = append(lines, sourceComment(comments[ci]))
-		ci++
+	if ci < len(comments) {
+		units = append(units, sourceStatUnit{leading: comments[ci:]})
+	}
+
+	return units
+}
+
+// sourceStatList renders statements separated by newlines, interleaving the block's comments in their original positions: leading comments stay above the statement they precede and trailing comments stay on the same line.
+func sourceStatList(stats []AstStat, comments []Comment) string {
+	return sourceStatListSorted(stats, comments, false)
+}
+
+// sourceStatListSorted renders a statement list, optionally sorting the leading run of `game:GetService` declarations.
+func sourceStatListSorted(stats []AstStat, comments []Comment, sortServices bool) string {
+	units := sourceStatUnits(stats, comments)
+
+	if sortServices {
+		units = sortServiceDeclarations(units)
+	}
+
+	var lines []string
+	for _, unit := range units {
+		for _, c := range unit.leading {
+			lines = append(lines, sourceComment(c))
+		}
+
+		if unit.stat == nil {
+			continue
+		}
+
+		src := sourceStat(unit.stat)
+		for _, c := range unit.trailing {
+			src += " " + sourceComment(c)
+		}
+		lines = append(lines, src)
 	}
 
 	return strings.Join(lines, "\n")
@@ -374,6 +413,144 @@ func sourceBlockBody(body AstStatBlock) string {
 		return ""
 	}
 	return "\n" + sourceIndent(s, 1)
+}
+
+// serviceDeclarationName returns the service name of a top-level `local X = game:GetService "Name"` (or `const X = ...`) declaration, and reports whether it is one. Only a single-variable declaration whose sole value is a strict `game:GetService(...)` call with a single string argument qualifies.
+func serviceDeclarationName(stat AstStat) (string, bool) {
+	decl := asStatLocal(stat)
+	if decl == nil || len(decl.Vars) != 1 || len(decl.Values) != 1 {
+		return "", false
+	}
+
+	name, ok := getServiceCallName(decl.Values[0])
+	if !ok {
+		return "", false
+	}
+	return name, true
+}
+
+// asStatLocal returns stat as an AstStatLocal.
+func asStatLocal(stat AstStat) *AstStatLocal {
+	s, _ := stat.(*AstStatLocal)
+	return s
+}
+
+// getServiceCallName returns the argument of a `game:GetService "Name"` call, and reports whether expr is one. Groups are unwrapped so a redundant `(game:GetService "Name")` is recognised.
+func getServiceCallName(expr AstExpr) (string, bool) {
+	call := asExprCall(expr)
+	if call == nil || len(call.Args) != 1 {
+		return "", false
+	}
+
+	index := asExprIndexName(call.Func)
+	if index == nil || index.Op != ':' || index.Index != "GetService" {
+		return "", false
+	}
+
+	base := asExprGlobal(index.Expr)
+	if base == nil || base.Name != "game" {
+		return "", false
+	}
+
+	str := asExprConstantString(call.Args[0])
+	if str == nil {
+		return "", false
+	}
+
+	return str.Value, true
+}
+
+// asExprCall returns expr as an *AstExprCall, unwrapping groups and accepting both the value and pointer forms.
+func asExprCall(expr AstExpr) *AstExprCall {
+	switch e := sourceUnwrapGroup(expr).(type) {
+	case AstExprCall:
+		return &e
+	case *AstExprCall:
+		return e
+	}
+	return nil
+}
+
+// asExprIndexName returns expr as an *AstExprIndexName, unwrapping groups and accepting both the value and pointer forms.
+func asExprIndexName(expr AstExpr) *AstExprIndexName {
+	switch e := sourceUnwrapGroup(expr).(type) {
+	case AstExprIndexName:
+		return &e
+	case *AstExprIndexName:
+		return e
+	}
+	return nil
+}
+
+// asExprGlobal returns expr as an *AstExprGlobal, unwrapping groups and accepting both the value and pointer forms.
+func asExprGlobal(expr AstExpr) *AstExprGlobal {
+	switch e := sourceUnwrapGroup(expr).(type) {
+	case AstExprGlobal:
+		return &e
+	case *AstExprGlobal:
+		return e
+	}
+	return nil
+}
+
+// asExprConstantString returns expr as an *AstExprConstantString, unwrapping groups and accepting both the value and pointer forms.
+func asExprConstantString(expr AstExpr) *AstExprConstantString {
+	switch e := sourceUnwrapGroup(expr).(type) {
+	case AstExprConstantString:
+		return &e
+	case *AstExprConstantString:
+		return e
+	}
+	return nil
+}
+
+// sortServiceDeclarations sorts the leading run of `game:GetService` declarations alphabetically by service name. The run is the maximal prefix of same-kind declarations (all const or all local); a mixed run is truncated at the first kind change. Comments move with the declaration they belong to, except comments at the very top of the file, which stay pinned above the run so a file header or `--!strict` isn't dragged down. Earlier declarations win ties.
+func sortServiceDeclarations(units []sourceStatUnit) []sourceStatUnit {
+	end := 0
+	for end < len(units) {
+		if units[end].stat == nil {
+			break
+		}
+		if _, ok := serviceDeclarationName(units[end].stat); !ok {
+			break
+		}
+		end++
+	}
+
+	if end < 2 {
+		return units
+	}
+
+	first := asStatLocal(units[0].stat)
+	for i := 1; i < end; i++ {
+		if asStatLocal(units[i].stat).IsConst != first.IsConst {
+			end = i
+			break
+		}
+	}
+
+	if end < 2 {
+		return units
+	}
+
+	// comments above the file's first declaration are a header, not part of any single declaration, so they stay put
+	pinned := units[0].leading
+	units[0].leading = nil
+
+	run := units[:end]
+	sort.SliceStable(run, func(i, j int) bool {
+		a, _ := serviceDeclarationName(run[i].stat)
+		b, _ := serviceDeclarationName(run[j].stat)
+		return a < b
+	})
+
+	if len(pinned) == 0 {
+		return units
+	}
+
+	result := make([]sourceStatUnit, 0, len(units)+1)
+	result = append(result, sourceStatUnit{leading: pinned})
+	return append(result, units...)
 }
 
 // sourceEndChain reports whether line consists solely of `end` keywords, e.g.
@@ -1369,7 +1546,8 @@ func (n AstStatAssign) Source() string {
 
 func (n AstStatBlock) Source() string {
 	if !n.HasEnd {
-		return sourceStatList(n.Body, n.Comments)
+		// the root chunk: sort leading game:GetService declarations
+		return sourceStatListSorted(n.Body, n.Comments, true)
 	}
 
 	return "do" + appendEnd(sourceBlockBody(n))

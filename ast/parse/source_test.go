@@ -113,6 +113,89 @@ end`
 	}
 }
 
+// TestSourceServiceSorting checks that a leading run of `game:GetService` declarations is sorted alphabetically by service name, including the guards that keep the rewrite behaviour-preserving.
+func TestSourceServiceSorting(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+		want string
+	}{
+		{
+			name: "sorts locals by service name",
+			src:  "local Workspace = game:GetService \"Workspace\"\nlocal Players = game:GetService \"Players\"\nlocal RunService = game:GetService \"RunService\"\n",
+			want: "local Players = game:GetService \"Players\"\nlocal RunService = game:GetService \"RunService\"\nlocal Workspace = game:GetService \"Workspace\"",
+		},
+		{
+			name: "comments move with their declaration but a file header stays put",
+			src:  "--!strict\n-- header\nlocal Zed = game:GetService \"Zed\"\n-- players\nlocal Players = game:GetService \"Players\" -- the players\n",
+			want: "--!strict\n-- header\n-- players\nlocal Players = game:GetService \"Players\" -- the players\nlocal Zed = game:GetService \"Zed\"",
+		},
+		{
+			name: "parenthesised calls and sugar are both recognised",
+			src:  "local C = game:GetService(\"Camera\")\nlocal A = game:GetService \"Accessory\"\nlocal B = game:GetService(\"Body\")\n",
+			want: "local A = game:GetService \"Accessory\"\nlocal B = game:GetService \"Body\"\nlocal C = game:GetService \"Camera\"",
+		},
+		{
+			name: "type annotations do not disqualify",
+			src:  "local B: Instance = game:GetService \"B\"\nlocal A: Instance = game:GetService \"A\"\n",
+			want: "local A: Instance = game:GetService \"A\"\nlocal B: Instance = game:GetService \"B\"",
+		},
+		{
+			name: "the run stops at the first non-service statement",
+			src:  "local B = game:GetService \"B\"\nlocal A = game:GetService \"A\"\nlocal C = game:GetService \"C\"\n",
+			want: "local A = game:GetService \"A\"\nlocal B = game:GetService \"B\"\nlocal C = game:GetService \"C\"",
+		},
+		{
+			name: "duplicate names still sort by service name",
+			src:  "local A = game:GetService \"Zed\"\nlocal A = game:GetService \"Apple\"\n",
+			want: "local A = game:GetService \"Apple\"\nlocal A = game:GetService \"Zed\"",
+		},
+		{
+			name: "a non-game base is left unsorted",
+			src:  "local B = Client:GetService \"B\"\nlocal A = Client:GetService \"A\"\n",
+			want: "local B = Client:GetService \"B\"\nlocal A = Client:GetService \"A\"",
+		},
+		{
+			name: "a non-string argument is left unsorted",
+			src:  "local B = game:GetService(name)\nlocal A = game:GetService(other)\n",
+			want: "local B = game:GetService(name)\nlocal A = game:GetService(other)",
+		},
+		{
+			name: "multiple declared variables are left unsorted",
+			src:  "local B, C = game:GetService \"B\", 1\nlocal A = game:GetService \"A\"\n",
+			want: "local B, C = game:GetService \"B\", 1\nlocal A = game:GetService \"A\"",
+		},
+		{
+			name: "only the leading same-kind run sorts",
+			src:  "local B = game:GetService \"B\"\nlocal A = game:GetService \"A\"\nconst D = game:GetService \"D\"\nconst C = game:GetService \"C\"\n",
+			want: "local A = game:GetService \"A\"\nlocal B = game:GetService \"B\"\nconst D = game:GetService \"D\"\nconst C = game:GetService \"C\"",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ok, res := Parse(tc.src, Options{})
+			if !ok {
+				t.Fatal("error parsing source:", res.Errors)
+			}
+
+			got := res.Root.Source()
+			if got != tc.want {
+				t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", tc.want, got)
+			}
+
+			// the rewritten source must be stable
+			ok, res2 := Parse(got, Options{})
+			if !ok {
+				t.Fatal("error parsing generated source:", res2.Errors)
+			}
+			if got2 := res2.Root.Source(); got2 != got {
+				t.Errorf("generated source is not stable:\n-- First\n%s\n-- Second\n%s\n", got, got2)
+			}
+		})
+	}
+}
+
 // TestSourceComments checks that comments are rendered near their original positions: leading comments stay above the statement they precede, trailing comments stay on the same line, and comments inside a block stay inside it.
 func TestSourceComments(t *testing.T) {
 	src := "-- leading comment\n" +
