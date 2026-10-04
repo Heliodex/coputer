@@ -378,33 +378,116 @@ func sourceStatList(stats []AstStat, comments []Comment) string {
 	return sourceStatListSorted(stats, comments, false)
 }
 
-// sourceStatListSorted renders a statement list. When root is set (the top-level chunk), the comment directives at the top of the file are collected and sorted, and the leading run of `game:GetService` declarations is sorted.
+// sourceStatListSorted renders a statement list. When root is set (the top-level chunk), the comment directives are collected and sorted, the leading runs of `game:GetService` and `require` declarations are sorted, and the directives, services, requires and remaining code are separated by blank lines.
 func sourceStatListSorted(stats []AstStat, comments []Comment, root bool) string {
 	units := sourceStatUnits(stats, comments)
-
-	if root {
-		sortHeaderDirectives(units)
-		units = sortLeadingDeclarations(units)
+	if !root {
+		return renderUnits(units)
 	}
+	return renderRoot(units)
+}
 
+// renderUnits renders units as newline-separated lines, with each unit's leading comments above its statement and trailing comments on the same line.
+func renderUnits(units []sourceStatUnit) string {
 	var lines []string
 	for _, unit := range units {
-		for _, c := range unit.leading {
-			lines = append(lines, sourceComment(c))
-		}
+		lines = append(lines, unitLines(unit)...)
+	}
+	return strings.Join(lines, "\n")
+}
 
-		if unit.stat == nil {
-			continue
-		}
-
-		src := sourceStat(unit.stat)
-		for _, c := range unit.trailing {
-			src += " " + sourceComment(c)
-		}
-		lines = append(lines, src)
+// unitLines renders a single unit's lines.
+func unitLines(unit sourceStatUnit) []string {
+	lines := make([]string, 0, len(unit.leading)+1)
+	for _, c := range unit.leading {
+		lines = append(lines, sourceComment(c))
 	}
 
-	return strings.Join(lines, "\n")
+	if unit.stat == nil {
+		return lines
+	}
+
+	src := sourceStat(unit.stat)
+	for _, c := range unit.trailing {
+		src += " " + sourceComment(c)
+	}
+	return append(lines, src)
+}
+
+// renderRoot renders the top-level chunk, sorting the directives, services and requires sections and separating each present section (and the remaining code) with a blank line.
+func renderRoot(units []sourceStatUnit) string {
+	sortHeaderDirectives(units)
+
+	serviceEnd := serviceSectionEnd(units)
+
+	requireEnd := serviceEnd
+	for requireEnd < len(units) {
+		if _, _, ok := requireDeclaration(units[requireEnd].stat); !ok {
+			break
+		}
+		requireEnd++
+	}
+
+	// the leading comments form their own section when they hold a directive, or when a sorted section follows them, so they aren't glued to the first declaration
+	var header []Comment
+	if len(units) > 0 && len(units[0].leading) > 0 &&
+		(hasDirective(units[0].leading) || serviceEnd > 0 || requireEnd > 0) {
+		header = units[0].leading
+		units[0].leading = nil
+	}
+
+	if serviceEnd >= 2 {
+		run := units[:serviceEnd]
+		sort.SliceStable(run, func(i, j int) bool {
+			a, _ := serviceDeclarationName(run[i].stat)
+			b, _ := serviceDeclarationName(run[j].stat)
+			return a < b
+		})
+	}
+
+	if requireEnd-serviceEnd >= 2 {
+		run := units[serviceEnd:requireEnd]
+		sort.SliceStable(run, func(i, j int) bool {
+			ak, as, _ := requireDeclaration(run[i].stat)
+			bk, bs, _ := requireDeclaration(run[j].stat)
+			if as != bs {
+				return as
+			}
+			return ak < bk
+		})
+	}
+
+	// the first declaration after sorting may carry its own comments; fold them into the header so reformatting the result doesn't reclassify them
+	if header != nil && len(units) > 0 && len(units[0].leading) > 0 {
+		header = append(header, units[0].leading...)
+		units[0].leading = nil
+	}
+
+	var blocks []string
+	appendBlock := func(u []sourceStatUnit) {
+		if s := renderUnits(u); s != "" {
+			blocks = append(blocks, s)
+		}
+	}
+
+	if header != nil {
+		blocks = append(blocks, renderUnits([]sourceStatUnit{{leading: header}}))
+	}
+	appendBlock(units[:serviceEnd])
+	appendBlock(units[serviceEnd:requireEnd])
+	appendBlock(units[requireEnd:])
+
+	return strings.Join(blocks, "\n\n")
+}
+
+// hasDirective reports whether any of the comments is a comment directive.
+func hasDirective(comments []Comment) bool {
+	for _, c := range comments {
+		if _, ok := directiveCategory(c); ok {
+			return true
+		}
+	}
+	return false
 }
 
 // sourceBlockBody renders a block's statements indented one level, preceded by a newline. Empty blocks render as an empty string.
@@ -626,60 +709,6 @@ func requireDeclaration(stat AstStat) (key string, isString, ok bool) {
 		return str.Value, true, true
 	}
 	return arg.Source(), false, true
-}
-
-// sortLeadingDeclarations sorts the sections at the top of a file: first the leading run of `game:GetService` declarations by service name, then the run of `require` declarations that follows by filename (string requires before instance-path ones). Comments move with the declaration they belong to, except comments at the very top of the file, which stay pinned above the sections so a file header or `--!strict` isn't dragged down. Earlier declarations win ties.
-func sortLeadingDeclarations(units []sourceStatUnit) []sourceStatUnit {
-	serviceEnd := serviceSectionEnd(units)
-
-	requireStart := serviceEnd
-	requireEnd := requireStart
-	for requireEnd < len(units) {
-		if _, _, ok := requireDeclaration(units[requireEnd].stat); !ok {
-			break
-		}
-		requireEnd++
-	}
-
-	serviceSortable := serviceEnd >= 2
-	requireSortable := requireEnd-requireStart >= 2
-
-	if !serviceSortable && !requireSortable {
-		return units
-	}
-
-	// comments above the file's first declaration are a header, not part of any single declaration, so they stay put
-	pinned := units[0].leading
-	units[0].leading = nil
-
-	if serviceSortable {
-		run := units[:serviceEnd]
-		sort.SliceStable(run, func(i, j int) bool {
-			a, _ := serviceDeclarationName(run[i].stat)
-			b, _ := serviceDeclarationName(run[j].stat)
-			return a < b
-		})
-	}
-
-	if requireSortable {
-		run := units[requireStart:requireEnd]
-		sort.SliceStable(run, func(i, j int) bool {
-			ak, as, _ := requireDeclaration(run[i].stat)
-			bk, bs, _ := requireDeclaration(run[j].stat)
-			if as != bs {
-				return as
-			}
-			return ak < bk
-		})
-	}
-
-	if len(pinned) == 0 {
-		return units
-	}
-
-	result := make([]sourceStatUnit, 0, len(units)+1)
-	result = append(result, sourceStatUnit{leading: pinned})
-	return append(result, units...)
 }
 
 // sourceEndChain reports whether line consists solely of `end` keywords, e.g.

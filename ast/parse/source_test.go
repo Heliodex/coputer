@@ -128,7 +128,7 @@ func TestSourceServiceSorting(t *testing.T) {
 		{
 			name: "comments move with their declaration but a file header stays put",
 			src:  "--!strict\n-- header\nlocal Zed = game:GetService \"Zed\"\n-- players\nlocal Players = game:GetService \"Players\" -- the players\n",
-			want: "--!strict\n-- header\n-- players\nlocal Players = game:GetService \"Players\" -- the players\nlocal Zed = game:GetService \"Zed\"",
+			want: "--!strict\n-- header\n-- players\n\nlocal Players = game:GetService \"Players\" -- the players\nlocal Zed = game:GetService \"Zed\"",
 		},
 		{
 			name: "parenthesised calls and sugar are both recognised",
@@ -168,7 +168,7 @@ func TestSourceServiceSorting(t *testing.T) {
 		{
 			name: "only the leading same-kind run sorts",
 			src:  "local B = game:GetService \"B\"\nlocal A = game:GetService \"A\"\nconst D = game:GetService \"D\"\nconst C = game:GetService \"C\"\n",
-			want: "local A = game:GetService \"A\"\nlocal B = game:GetService \"B\"\nconst D = game:GetService \"D\"\nconst C = game:GetService \"C\"",
+			want: "local A = game:GetService \"A\"\nlocal B = game:GetService \"B\"\n\nconst D = game:GetService \"D\"\nconst C = game:GetService \"C\"",
 		},
 	}
 
@@ -206,17 +206,17 @@ func TestSourceDirectiveSorting(t *testing.T) {
 		{
 			name: "sorts directives by category",
 			src:  "--!strict\n--!nonstrict\n--!nocheck\n--!native\n--!nolint\n--!optimize 2\n\ntable.clear()\n",
-			want: "--!strict\n--!nolint\n--!native\n--!optimize 2\ntable.clear()",
+			want: "--!strict\n--!nolint\n--!native\n--!optimize 2\n\ntable.clear()",
 		},
 		{
 			name: "pulls interleaved directives above a normal comment",
 			src:  "-- normal\n--!native\n--!strict\nlocal x = 1\n",
-			want: "--!strict\n--!native\n-- normal\nlocal x = 1",
+			want: "--!strict\n--!native\n-- normal\n\nlocal x = 1",
 		},
 		{
 			name: "keeps the first type-check directive",
 			src:  "--!nocheck\n--!strict\nlocal x = 1\n",
-			want: "--!nocheck\nlocal x = 1",
+			want: "--!nocheck\n\nlocal x = 1",
 		},
 		{
 			name: "leaves directives after the first statement alone",
@@ -231,17 +231,17 @@ func TestSourceDirectiveSorting(t *testing.T) {
 		{
 			name: "keeps unknown directives after the known ones",
 			src:  "--!wat\n--!native\n--!strict\nlocal x = 1\n",
-			want: "--!strict\n--!native\n--!wat\nlocal x = 1",
+			want: "--!strict\n--!native\n--!wat\n\nlocal x = 1",
 		},
 		{
 			name: "keeps repeated lint and native directives",
 			src:  "--!native\n--!native\n--!nolint UnknownGlobal\n--!strict\nlocal x = 1\n",
-			want: "--!strict\n--!nolint UnknownGlobal\n--!native\n--!native\nlocal x = 1",
+			want: "--!strict\n--!nolint UnknownGlobal\n--!native\n--!native\n\nlocal x = 1",
 		},
 		{
 			name: "a space after the bang is not a directive",
 			src:  "--! strict\n--!nocheck\nlocal x = 1\n",
-			want: "--!nocheck\n--! strict\nlocal x = 1",
+			want: "--!nocheck\n--! strict\n\nlocal x = 1",
 		},
 		{
 			name: "block and trailing comments are not directives",
@@ -298,17 +298,17 @@ func TestSourceRequireSorting(t *testing.T) {
 		{
 			name: "a single require is left alone",
 			src:  "local A = require \"../A\"\nlocal B = 2\n",
-			want: "local A = require \"../A\"\nlocal B = 2",
+			want: "local A = require \"../A\"\n\nlocal B = 2",
 		},
 		{
 			name: "requires after a non-require statement are left alone",
 			src:  "local B = require \"../B\"\nlocal A = require \"../A\"\nlocal x = 1\nlocal D = require \"../D\"\nlocal C = require \"../C\"\n",
-			want: "local A = require \"../A\"\nlocal B = require \"../B\"\nlocal x = 1\nlocal D = require \"../D\"\nlocal C = require \"../C\"",
+			want: "local A = require \"../A\"\nlocal B = require \"../B\"\n\nlocal x = 1\nlocal D = require \"../D\"\nlocal C = require \"../C\"",
 		},
 		{
 			name: "composes after the sorted service section",
 			src:  "local Players = game:GetService \"Players\"\nlocal Workspace = game:GetService \"Workspace\"\nlocal B = require \"../B\"\nlocal A = require \"../A\"\nlocal rest = 1\n",
-			want: "local Players = game:GetService \"Players\"\nlocal Workspace = game:GetService \"Workspace\"\nlocal A = require \"../A\"\nlocal B = require \"../B\"\nlocal rest = 1",
+			want: "local Players = game:GetService \"Players\"\nlocal Workspace = game:GetService \"Workspace\"\n\nlocal A = require \"../A\"\nlocal B = require \"../B\"\n\nlocal rest = 1",
 		},
 		{
 			name: "a shadowed require local is not sorted",
