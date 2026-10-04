@@ -4849,8 +4849,9 @@ func (p *Parser) parseNumber() AstExprConstantNumberOrError {
 		}
 
 		if len(significant) > 16 {
+			// the reference lexer saturates an overlong literal to the largest representable value rather than zeroing it
 			parseResult = NumberParseResult_HexOverflow
-			value = 0
+			value = float64(^uint64(0))
 		} else {
 			v, err := strconv.ParseUint(content, 16, 64)
 			if err != nil {
@@ -4881,8 +4882,9 @@ func (p *Parser) parseNumber() AstExprConstantNumberOrError {
 		}
 
 		if len(significant) > 64 {
+			// the reference lexer saturates an overlong literal to the largest representable value rather than zeroing it
 			parseResult = NumberParseResult_BinOverflow
-			value = 0
+			value = float64(^uint64(0))
 		} else {
 			v, err := strconv.ParseUint(content, 2, 64)
 			if err != nil {

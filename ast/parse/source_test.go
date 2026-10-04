@@ -554,6 +554,43 @@ func TestSourceMethodCalls(t *testing.T) {
 	}
 }
 
+// TestSourceNumberLiterals checks that numeric literals are re-rendered to the value the reference implementation assigns, in particular that an overlong hex or binary literal saturates to the largest representable value instead of collapsing to zero.
+func TestSourceNumberLiterals(t *testing.T) {
+	cases := []struct {
+		name string
+		lit  string
+		want string
+	}{
+		{name: "small hex", lit: "0xff", want: "255"},
+		{name: "hex without loss", lit: "0x10", want: "16"},
+		{name: "largest 64-bit hex", lit: "0xffffffffffffffff", want: "18446744073709552000"},
+		{name: "hex exactly 2^64", lit: "0x10000000000000000", want: "18446744073709552000"},
+		{name: "80-bit hex saturates to the maximum", lit: "0xffffffffffffffffffff", want: "18446744073709552000"},
+		{name: "long hex with leading zeros does not overflow", lit: "0x000000000000000000ff", want: "255"},
+		{name: "small binary", lit: "0b101", want: "5"},
+		{name: "64-bit binary", lit: "0b1111111111111111111111111111111111111111111111111111111111111111", want: "18446744073709552000"},
+		{name: "65-bit binary saturates to the maximum", lit: "0b11111111111111111111111111111111111111111111111111111111111111111", want: "18446744073709552000"},
+		{name: "decimal beyond double precision rounds", lit: "9007199254740993", want: "9007199254740992"},
+		{name: "exponent overflow becomes infinity", lit: "1e400", want: "math.huge"},
+		{name: "hex integer suffix is kept", lit: "0xFFi", want: "255i"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			src := "local n = " + tc.lit
+			ok, res := Parse(src, Options{})
+			if !ok {
+				t.Fatal("error parsing source:", res.Errors)
+			}
+
+			want := "local n = " + tc.want
+			if got := res.Root.Source(); got != want {
+				t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", want, got)
+			}
+		})
+	}
+}
+
 // TestSourceCommentsOption checks that comments are always rendered by Source(), while Result.CommentLocations still respects CaptureComments.
 func TestSourceCommentsOption(t *testing.T) {
 	src := "-- comment\nlocal x = 1\n"
