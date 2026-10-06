@@ -57,6 +57,8 @@ type AstNode interface {
 	String() string
 	// Source renders the node as formatted Luau code.
 	Source() string
+	// Minify renders the node as compact Luau code.
+	Minify() string
 }
 
 // --------------------------------------------------------------------------------

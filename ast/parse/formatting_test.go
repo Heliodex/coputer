@@ -46,7 +46,7 @@ func TestFormatting(t *testing.T) {
 
 	for _, f := range files {
 		fn := f.Name()
-		if !strings.HasSuffix(fn, Ext) || strings.HasSuffix(fn, FormattingOutSuffix+Ext) {
+		if !strings.HasSuffix(fn, Ext) || strings.HasSuffix(fn, FormattingOutSuffix+Ext) || strings.HasSuffix(fn, MinifiedOutSuffix+Ext) {
 			continue
 		}
 		name := trimext(fn)
