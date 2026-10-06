@@ -1,0 +1,1 @@
+local x={}x.func(x,whatever)x.func(x)x.func(x,"str")x.func(x,{a=1})self.method(self,1,2)x.func(x,1)x.func<<number>>(x,1)x.func(y,whatever)x.func(x.y,whatever)x.y.func(x.y,whatever)f().func(f(),whatever)x.func(x::T,1)x:func(1)instance.func(instance,1)
