@@ -1756,9 +1756,16 @@ func (n AstExprInterpString) Source() string {
 	for i, str := range n.Strings {
 		b.WriteString(sourceInterpStringPart(str))
 		if i < len(n.Expressions) {
-			b.WriteByte('{')
-			b.WriteString(sourceExprPrec(n.Expressions[i], 0))
-			b.WriteByte('}')
+			expr := sourceExprPrec(n.Expressions[i], 0)
+			if strings.Contains(expr, "\n") {
+				b.WriteString("{\n")
+				b.WriteString(sourceIndent(expr, 1))
+				b.WriteString("\n}")
+			} else {
+				b.WriteByte('{')
+				b.WriteString(expr)
+				b.WriteByte('}')
+			}
 		}
 	}
 	b.WriteByte('`')
