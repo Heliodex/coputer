@@ -99,6 +99,7 @@ local t = {
 	a = 1,
 	[2] = "two",
 }
+
 if local n = #t then
 	print(n, t.a)
 elseif false then

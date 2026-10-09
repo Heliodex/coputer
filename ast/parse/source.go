@@ -427,7 +427,7 @@ func renderUnits(units []sourceStatUnit) string {
 	return strings.Join(lines, "\n")
 }
 
-// renderScopedUnits renders a scope's units, giving each block statement (`if`/`for`/`while`/`repeat`/`do`) its own paragraph: consecutive non-block statements stay grouped, and groups are joined by a single blank line. Function declarations are blocks too, so they are set off as before. A comment attached to the top of a unit stays with it, so the blank line lands above that comment.
+// renderScopedUnits renders a scope's units, giving each block statement (`if`/`for`/`while`/`repeat`/`do`) its own paragraph: consecutive non-block statements stay grouped, and groups are joined by a single blank line. Function declarations are blocks too, so they are set off as before. Top-level sections share this layout. A comment attached to the top of a unit stays with it, so the blank line lands above that comment.
 func renderScopedUnits(units []sourceStatUnit) string {
 	var blocks []string
 	var run []sourceStatUnit
@@ -440,33 +440,17 @@ func renderScopedUnits(units []sourceStatUnit) string {
 	}
 
 	for _, unit := range units {
-		if isFunctionDecl(unit.stat) || sourceIsBlock(unit.stat) {
+		if unit.stat == nil {
+			// A trailing comment with no statement stays glued to the preceding code.
 			flush()
-			blocks = append(blocks, renderUnits([]sourceStatUnit{unit}))
+			if len(blocks) > 0 {
+				blocks[len(blocks)-1] += "\n" + renderUnits([]sourceStatUnit{unit})
+			} else {
+				run = append(run, unit)
+			}
 			continue
 		}
-		run = append(run, unit)
-	}
-
-	flush()
-
-	return strings.Join(blocks, "\n\n")
-}
-
-// renderRootUnits renders a top-level section's units, setting each function declaration off from the neighbouring code and function declarations with a single blank line. Unlike nested scopes, other multi-line statements stay grouped, so the top level stays compact. A comment attached to the top of a declaration stays with it, so the blank line lands above that comment.
-func renderRootUnits(units []sourceStatUnit) string {
-	var blocks []string
-	var run []sourceStatUnit
-
-	flush := func() {
-		if len(run) > 0 {
-			blocks = append(blocks, renderUnits(run))
-			run = nil
-		}
-	}
-
-	for _, unit := range units {
-		if isFunctionDecl(unit.stat) {
+		if isFunctionDecl(unit.stat) || sourceIsBlock(unit.stat) {
 			flush()
 			blocks = append(blocks, renderUnits([]sourceStatUnit{unit}))
 			continue
@@ -571,7 +555,7 @@ func renderRoot(units []sourceStatUnit) string {
 
 	var blocks []string
 	appendBlock := func(u []sourceStatUnit) {
-		if s := renderRootUnits(u); s != "" {
+		if s := renderScopedUnits(u); s != "" {
 			blocks = append(blocks, s)
 		}
 	}
