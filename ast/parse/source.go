@@ -427,8 +427,34 @@ func renderUnits(units []sourceStatUnit) string {
 	return strings.Join(lines, "\n")
 }
 
-// renderScopedUnits renders a scope's units, setting each function declaration off from the neighbouring code and function declarations with a single blank line. A comment attached to the top of a declaration stays with it, so the blank line lands above that comment.
+// renderScopedUnits renders a scope's units, giving each block statement (`if`/`for`/`while`/`repeat`/`do`) its own paragraph: consecutive non-block statements stay grouped, and groups are joined by a single blank line. Function declarations are blocks too, so they are set off as before. A comment attached to the top of a unit stays with it, so the blank line lands above that comment.
 func renderScopedUnits(units []sourceStatUnit) string {
+	var blocks []string
+	var run []sourceStatUnit
+
+	flush := func() {
+		if len(run) > 0 {
+			blocks = append(blocks, renderUnits(run))
+			run = nil
+		}
+	}
+
+	for _, unit := range units {
+		if isFunctionDecl(unit.stat) || sourceIsBlock(unit.stat) {
+			flush()
+			blocks = append(blocks, renderUnits([]sourceStatUnit{unit}))
+			continue
+		}
+		run = append(run, unit)
+	}
+
+	flush()
+
+	return strings.Join(blocks, "\n\n")
+}
+
+// renderRootUnits renders a top-level section's units, setting each function declaration off from the neighbouring code and function declarations with a single blank line. Unlike nested scopes, other multi-line statements stay grouped, so the top level stays compact. A comment attached to the top of a declaration stays with it, so the blank line lands above that comment.
+func renderRootUnits(units []sourceStatUnit) string {
 	var blocks []string
 	var run []sourceStatUnit
 
@@ -451,6 +477,20 @@ func renderScopedUnits(units []sourceStatUnit) string {
 	flush()
 
 	return strings.Join(blocks, "\n\n")
+}
+
+// sourceIsBlock reports whether stat is a block statement (`if`, `for`, `while`, `repeat` or `do`), which gets its own paragraph in a scope. Comment-only units (no statement) never do.
+func sourceIsBlock(stat AstStat) bool {
+	switch stat.(type) {
+	case *AstStatIf,
+		*AstStatFor,
+		*AstStatForIn,
+		*AstStatWhile,
+		*AstStatRepeat,
+		*AstStatBlock:
+		return true
+	}
+	return false
 }
 
 // isFunctionDecl reports whether stat declares a function outright: `function Name()`, `local function name()` or `const function name()`. Function values assigned to a variable (`local f = function()`) are left alone.
@@ -531,7 +571,7 @@ func renderRoot(units []sourceStatUnit) string {
 
 	var blocks []string
 	appendBlock := func(u []sourceStatUnit) {
-		if s := renderScopedUnits(u); s != "" {
+		if s := renderRootUnits(u); s != "" {
 			blocks = append(blocks, s)
 		}
 	}

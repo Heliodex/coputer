@@ -87,9 +87,11 @@ type Callback<T> = (T) -> ()
 
 local function map<T, U>(list: { T }, f: (T) -> U): { U }
 	local out = table.create(#list)
+
 	for i, v in list do
 		out[i] = f(v)
 	end
+
 	return out
 end
 
