@@ -37,7 +37,7 @@ func compareSource(t *testing.T, name, got, expected string) bool {
 	return false
 }
 
-// TestFormatting parses each {name}.luau file in test/formatting and checks that its Source() output matches the expected {name}_out.luau file.
+// TestFormatting parses each {name}.luau file in test/formatting, applies the formatAST transformation, and checks that its Source() output matches the expected {name}_out.luau file.
 func TestFormatting(t *testing.T) {
 	files, err := os.ReadDir("../" + FormattingDir)
 	if err != nil {
@@ -66,7 +66,7 @@ func TestFormatting(t *testing.T) {
 		}
 
 		// formatted files are expected to end with a newline
-		got := res.Root.Source() + "\n"
+		got := formatAST(res).Root.Source() + "\n"
 
 		expectedBytes, err := os.ReadFile(filename + FormattingOutSuffix + Ext)
 		if err != nil {
@@ -115,6 +115,6 @@ func TestFormattingIdempotent(t *testing.T) {
 			continue
 		}
 
-		compareSource(t, name, res.Root.Source()+"\n", expected)
+		compareSource(t, name, formatAST(res).Root.Source()+"\n", expected)
 	}
 }

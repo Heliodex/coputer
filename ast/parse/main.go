@@ -23,5 +23,5 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Println(res.Root.Source())
+	fmt.Println(formatAST(res).Root.Source())
 }

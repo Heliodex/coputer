@@ -184,7 +184,7 @@ func TestSourceServiceSorting(t *testing.T) {
 				t.Fatal("error parsing source:", res.Errors)
 			}
 
-			got := res.Root.Source()
+			got := formatAST(res).Root.Source()
 			if got != tc.want {
 				t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", tc.want, got)
 			}
@@ -194,7 +194,7 @@ func TestSourceServiceSorting(t *testing.T) {
 			if !ok {
 				t.Fatal("error parsing generated source:", res2.Errors)
 			}
-			if got2 := res2.Root.Source(); got2 != got {
+			if got2 := formatAST(res2).Root.Source(); got2 != got {
 				t.Errorf("generated source is not stable:\n-- First\n%s\n-- Second\n%s\n", got, got2)
 			}
 		})
@@ -262,7 +262,7 @@ func TestSourceDirectiveSorting(t *testing.T) {
 				t.Fatal("error parsing source:", res.Errors)
 			}
 
-			got := res.Root.Source()
+			got := formatAST(res).Root.Source()
 			if got != tc.want {
 				t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", tc.want, got)
 			}
@@ -271,7 +271,7 @@ func TestSourceDirectiveSorting(t *testing.T) {
 			if !ok {
 				t.Fatal("error parsing generated source:", res2.Errors)
 			}
-			if got2 := res2.Root.Source(); got2 != got {
+			if got2 := formatAST(res2).Root.Source(); got2 != got {
 				t.Errorf("generated source is not stable:\n-- First\n%s\n-- Second\n%s\n", got, got2)
 			}
 		})
@@ -329,7 +329,7 @@ func TestSourceRequireSorting(t *testing.T) {
 				t.Fatal("error parsing source:", res.Errors)
 			}
 
-			got := res.Root.Source()
+			got := formatAST(res).Root.Source()
 			if got != tc.want {
 				t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", tc.want, got)
 			}
@@ -338,7 +338,7 @@ func TestSourceRequireSorting(t *testing.T) {
 			if !ok {
 				t.Fatal("error parsing generated source:", res2.Errors)
 			}
-			if got2 := res2.Root.Source(); got2 != got {
+			if got2 := formatAST(res2).Root.Source(); got2 != got {
 				t.Errorf("generated source is not stable:\n-- First\n%s\n-- Second\n%s\n", got, got2)
 			}
 		})

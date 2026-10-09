@@ -409,7 +409,7 @@ func sourceStatList(stats []AstStat, comments []Comment) string {
 	return sourceStatListSorted(stats, comments, false)
 }
 
-// sourceStatListSorted renders a statement list. When root is set (the top-level chunk), the comment directives are collected and sorted, the leading runs of `game:GetService` and `require` declarations are sorted, and the directives, services, requires and remaining code are separated by blank lines.
+// sourceStatListSorted renders a statement list. When root is set (the top-level chunk), the directives, services, requires and remaining code sections (ordered beforehand by formatAST) are separated by blank lines.
 func sourceStatListSorted(stats []AstStat, comments []Comment, root bool) string {
 	units := sourceStatUnits(stats, comments)
 	if !root {
@@ -504,10 +504,8 @@ func unitLines(unit sourceStatUnit) []string {
 	return append(lines, src)
 }
 
-// renderRoot renders the top-level chunk, sorting the directives, services and requires sections and separating each present section (and the remaining code) with a blank line.
+// renderRoot renders the top-level chunk, separating each present section (directives, services, requires and the remaining code, ordered beforehand by formatAST) with a blank line.
 func renderRoot(units []sourceStatUnit) string {
-	sortHeaderDirectives(units)
-
 	serviceEnd := serviceSectionEnd(units)
 
 	requireEnd := serviceEnd
@@ -526,28 +524,7 @@ func renderRoot(units []sourceStatUnit) string {
 		units[0].leading = nil
 	}
 
-	if serviceEnd >= 2 {
-		run := units[:serviceEnd]
-		sort.SliceStable(run, func(i, j int) bool {
-			a, _ := serviceDeclarationName(run[i].stat)
-			b, _ := serviceDeclarationName(run[j].stat)
-			return a < b
-		})
-	}
-
-	if requireEnd-serviceEnd >= 2 {
-		run := units[serviceEnd:requireEnd]
-		sort.SliceStable(run, func(i, j int) bool {
-			ak, as, _ := requireDeclaration(run[i].stat)
-			bk, bs, _ := requireDeclaration(run[j].stat)
-			if as != bs {
-				return as
-			}
-			return ak < bk
-		})
-	}
-
-	// the first declaration after sorting may carry its own comments; fold them into the header so reformatting the result doesn't reclassify them
+	// the first declaration may carry its own comments; fold them into the header so reformatting the result doesn't reclassify them
 	if header != nil && len(units) > 0 && len(units[0].leading) > 0 {
 		header = append(header, units[0].leading...)
 		units[0].leading = nil
