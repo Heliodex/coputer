@@ -1,7 +1,5 @@
 --!strict
---!nonstrict
---!nocheck
---!native
 --!nolint
+--!native
 --!optimize 2
 table.clear()

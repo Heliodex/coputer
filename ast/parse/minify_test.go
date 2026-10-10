@@ -42,7 +42,7 @@ func TestMinification(t *testing.T) {
 		}
 
 		// minified files are expected to end with a newline
-		got := res.Root.Minify() + "\n"
+		got := formatAST(res).Root.Minify() + "\n"
 
 		expectedBytes, err := os.ReadFile(filename + MinifiedOutSuffix + Ext)
 		if err != nil {
@@ -90,7 +90,7 @@ func TestMinificationIdempotent(t *testing.T) {
 			continue
 		}
 
-		compareSource(t, name, res.Root.Minify()+"\n", expected)
+		compareSource(t, name, formatAST(res).Root.Minify()+"\n", expected)
 	}
 }
 
@@ -242,7 +242,7 @@ func TestMinifyDirectives(t *testing.T) {
 		t.Fatal("error parsing source:", res.Errors)
 	}
 
-	got := res.Root.Minify()
+	got := formatAST(res).Root.Minify()
 
 	for _, want := range []string{"--!strict\n", "--!native\n", "local x=1", "local function f()"} {
 		if !strings.Contains(got, want) {
@@ -257,7 +257,7 @@ func TestMinifyDirectives(t *testing.T) {
 	if !ok {
 		t.Fatal("error parsing minified output:", res2.Errors)
 	}
-	if got2 := res2.Root.Minify(); got2 != got {
+	if got2 := formatAST(res2).Root.Minify(); got2 != got {
 		t.Errorf("minified output is not stable:\n-- First\n%s\n-- Second\n%s\n", got, got2)
 	}
 }
@@ -287,7 +287,7 @@ func minifyFiles(t *testing.T, dir string) {
 			continue
 		}
 
-		minified := res.Root.Minify()
+		minified := formatAST(res).Root.Minify()
 
 		ok, res2 := Parse(minified, Options{})
 		if !ok {
@@ -295,7 +295,7 @@ func minifyFiles(t *testing.T, dir string) {
 			continue
 		}
 
-		minified2 := res2.Root.Minify()
+		minified2 := formatAST(res2).Root.Minify()
 		if minified != minified2 {
 			t.Errorf("%s/%s: generated minified code is not stable\n--- first\n%s\n--- second\n%s", dir, name, minified, minified2)
 		}

@@ -1,10 +1,10 @@
-local x=function()end
-const y=function()end
-z=function()end
-a.b.c=function()end
+local function x()end
+const function y()end
+function z()end
+function a.b.c()end
 local ann:()->()=function()end
 export const e=function()end
 t[i]=function()end
 local multi,other=function()end,2
-local nested=function()local inner=function()return 1 end
+local function nested()local function inner()return 1 end
 return inner()end
