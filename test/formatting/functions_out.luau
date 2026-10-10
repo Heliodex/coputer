@@ -6,7 +6,7 @@ local function generic<T, U...>(x: T, ...: number): T
 	return x
 end
 
-local anon = function(x)
+local function anon(x)
 	return x
 end
 

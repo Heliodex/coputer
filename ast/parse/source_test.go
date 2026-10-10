@@ -318,7 +318,7 @@ func TestSourceRequireSorting(t *testing.T) {
 		{
 			name: "a shadowed require local is not sorted",
 			src:  "local require = function(x)\n\treturn x\nend\nlocal B = require \"../B\"\nlocal A = require \"../A\"\n",
-			want: "local require = function(x)\n\treturn x\nend\nlocal B = require \"../B\"\nlocal A = require \"../A\"",
+			want: "local function require(x)\n\treturn x\nend\n\nlocal B = require \"../B\"\nlocal A = require \"../A\"",
 		},
 	}
 
