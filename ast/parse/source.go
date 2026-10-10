@@ -2258,8 +2258,15 @@ func (n AstTableIndexer) Source() string {
 	}
 
 	b.WriteString("[")
-	b.WriteString(n.IndexType.Source())
-	b.WriteString("]")
+	index := n.IndexType.Source()
+	if strings.Contains(index, "\n") {
+		b.WriteString("\n")
+		b.WriteString(sourceIndent(index, 1))
+		b.WriteString("\n]")
+	} else {
+		b.WriteString(index)
+		b.WriteString("]")
+	}
 	writeTypeAnnotation(&b, n.ResultType)
 
 	return b.String()
