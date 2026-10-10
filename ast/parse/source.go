@@ -471,6 +471,7 @@ func sourceIsBlock(stat AstStat) bool {
 		*AstStatForIn,
 		*AstStatWhile,
 		*AstStatRepeat,
+		*AstStatReturn, // also return because it's final
 		*AstStatBlock:
 		return true
 	}
