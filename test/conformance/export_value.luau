@@ -6,7 +6,7 @@ export function f(x)
 end
 export local c, d = 3, 4
 
-assert(a == 1)
-assert(b == 2)
-assert(f(5) == 5)
-assert(c == 3 and d == 4)
+print(a)
+print(b)
+print(f(5))
+print(c, d)

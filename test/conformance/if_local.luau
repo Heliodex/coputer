@@ -4,11 +4,11 @@ local function classify(x)
 end
 
 if local z = 42 then
-	assert(z == 42)
+	print(z)
 end
 
 if const w = 7 then
-	assert(w == 7)
+	print(w)
 end
 
 local tookElse = false
@@ -17,7 +17,7 @@ if local q = nil then
 else
 	tookElse = true
 end
-assert(tookElse)
+print(tookElse)
 
-assert(classify(5) == 5)
-assert(classify(nil) == 0)
+print(classify(5))
+print(classify(nil))

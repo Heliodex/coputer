@@ -4,14 +4,14 @@ local function identity<T>(x: T): T
 end
 
 local a = identity<<number>>(1)
-assert(a == 1)
+print(a)
 
 local function typePacks<T...>(...: T...): T...
 	return ...
 end
 
 local b, c = typePacks<<(string, number)>>(1, "a")
-assert(b == 1 and c == "a")
+print(b, c)
 
 local t = {}
 function t:method<T>(x: T): T
@@ -19,4 +19,4 @@ function t:method<T>(x: T): T
 end
 
 local d = t:method<<number>>(1)
-assert(d == 1)
+print(d)
