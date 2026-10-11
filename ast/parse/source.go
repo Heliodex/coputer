@@ -1586,6 +1586,18 @@ func (n AstExprBinary) Source() string {
 	return left + " " + sourceBinaryOp(op) + " " + right
 }
 
+// sourceHugsCallArg reports whether a call's parentheses hug its sole argument instead of breaking around it: a lone function literal stays glued like an IIFE callee.
+func sourceHugsCallArg(args []AstExpr) bool {
+	if len(args) != 1 {
+		return false
+	}
+	switch sourceUnwrapGroup(args[0]).(type) {
+	case AstExprFunction, *AstExprFunction:
+		return true
+	}
+	return false
+}
+
 func (n AstExprCall) Source() string {
 	if method, ok := asMethodCall(n); ok {
 		return method.Source()
@@ -1610,7 +1622,7 @@ func (n AstExprCall) Source() string {
 
 	b.WriteString("(")
 	args := sourceExprList(n.Args)
-	if strings.Contains(args, "\n") {
+	if strings.Contains(args, "\n") && !sourceHugsCallArg(n.Args) {
 		b.WriteString("\n")
 		b.WriteString(sourceIndent(args, 1))
 		b.WriteString("\n)")
