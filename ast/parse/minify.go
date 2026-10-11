@@ -421,6 +421,10 @@ func minifyUnionIntersection(types []AstType, op string) string {
 
 	if len(nonOptional) == 1 {
 		if seenOptional {
+			// `(A | B)?` is the same type as `A | B?`; unwrap parenthesised unions like the formatter does, subject to the same atomicity rule in the multi-member branch
+			if inner, innerOp, ok := unwrapOptionalGroup(nonOptional[0]); ok {
+				return minifyUnionIntersection(append(inner, AstTypeOptional{}), innerOp)
+			}
 			return parts[0] + "?"
 		}
 		return parts[0]
