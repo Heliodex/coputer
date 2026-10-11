@@ -1609,8 +1609,15 @@ func (n AstExprCall) Source() string {
 	}
 
 	b.WriteString("(")
-	b.WriteString(sourceExprList(n.Args))
-	b.WriteString(")")
+	args := sourceExprList(n.Args)
+	if strings.Contains(args, "\n") {
+		b.WriteString("\n")
+		b.WriteString(sourceIndent(args, 1))
+		b.WriteString("\n)")
+	} else {
+		b.WriteString(args)
+		b.WriteString(")")
+	}
 
 	return b.String()
 }
