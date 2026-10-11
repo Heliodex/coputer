@@ -435,9 +435,27 @@ func minifyUnionIntersection(types []AstType, op string) string {
 	}
 
 	if seenOptional {
+		// A trailing `?` stands for `| nil`, so in a union it binds like another member when the last member is atomic; anything else (and all intersections) keeps the parentheses so the marker can't be captured.
+		if op == "|" && minifyAtomicType(nonOptional[len(nonOptional)-1]) {
+			return b.String() + "?"
+		}
 		return "(" + b.String() + ")?"
 	}
 	return b.String()
+}
+
+// minifyAtomicType reports whether appending `?` to the minified type still denotes the optional of that same type. Postfix binds tighter than `|`, so function, nested union and intersection members would capture the marker instead.
+func minifyAtomicType(typ AstType) bool {
+	switch typ.(type) {
+	case AstTypeReference, *AstTypeReference,
+		AstTypeSingletonBool, *AstTypeSingletonBool,
+		AstTypeSingletonString, *AstTypeSingletonString,
+		AstTypeTypeof, *AstTypeTypeof,
+		AstTypeTable, *AstTypeTable,
+		AstTypeGroup, *AstTypeGroup:
+		return true
+	}
+	return false
 }
 
 // -------------------------------------------------------------------------------- -- EXPRESSIONS --------------------------------------------------------------------------------
