@@ -1523,6 +1523,10 @@ func sourceUnionIntersection(types []AstType, op string) string {
 
 	if len(nonOptional) == 1 {
 		if seenOptional {
+			// `(A | B)?` is the same type as `A | B?`, so a parenthesised union formats without the parentheses and converges with the bare form. Intersections keep theirs: `&` mixed with the `nil` the marker stands for would be rejected.
+			if inner, innerOp, ok := unwrapOptionalGroup(nonOptional[0]); ok && innerOp == "|" {
+				return sourceUnionIntersection(append(inner, AstTypeOptional{}), innerOp)
+			}
 			return parts[0] + "?"
 		}
 		return parts[0]
@@ -1539,9 +1543,40 @@ func sourceUnionIntersection(types []AstType, op string) string {
 	}
 
 	if seenOptional {
+		// A trailing `?` stands for `| nil`, so it can only stand alone in a union; intersections keep their parentheses.
+		if op == "|" {
+			return b.String() + "\n?"
+		}
 		return "(\n" + sourceIndent(b.String(), 1) + "\n)?"
 	}
 	return b.String()
+}
+
+// unwrapOptionalGroup unwraps parentheses around typ, reporting the members and operator when they reveal a union or intersection.
+func unwrapOptionalGroup(typ AstType) ([]AstType, string, bool) {
+	for {
+		switch t := typ.(type) {
+		case AstTypeGroup:
+			typ = t.Type
+			continue
+		case *AstTypeGroup:
+			typ = t.Type
+			continue
+		}
+		break
+	}
+
+	switch t := typ.(type) {
+	case AstTypeUnion:
+		return t.Types, "|", true
+	case *AstTypeUnion:
+		return t.Types, "|", true
+	case AstTypeIntersection:
+		return t.Types, "&", true
+	case *AstTypeIntersection:
+		return t.Types, "&", true
+	}
+	return nil, "", false
 }
 
 func asIfStat(stat AstStat) (*AstStatIf, bool) {

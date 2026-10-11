@@ -10,10 +10,9 @@ type Union =
 	| string
 	| boolean
 type Both =
-	(
-		| number
-		| string
-	)?
+	| number
+	| string
+	?
 type Intersection =
 	& {
 		a: number,
