@@ -2,6 +2,7 @@ package std
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	. "github.com/Heliodex/coputer/litecode/types"
@@ -30,6 +31,8 @@ func ToString(a Val) string {
 		return "false"
 	case float64:
 		return num2str(v)
+	case int64:
+		return strconv.Itoa(int(v))
 	case Vector:
 		// just 3-wide 4-now
 		return fmt.Sprintf("%s, %s, %s", num2str(float64(v[0])), num2str(float64(v[1])), num2str(float64(v[2])))
