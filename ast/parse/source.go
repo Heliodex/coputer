@@ -1756,7 +1756,11 @@ func (n AstExprIfElse) sourceIf(keyword string) string {
 }
 
 func (n AstExprIndexExpr) Source() string {
-	return sourceExprPostfix(n.Expr) + "[" + sourceExprPrec(n.Index, 0) + "]"
+	index := sourceExprPrec(n.Index, 0)
+	if strings.Contains(index, "\n") {
+		return sourceExprPostfix(n.Expr) + "[\n" + sourceIndent(index, 1) + "\n]"
+	}
+	return sourceExprPostfix(n.Expr) + "[" + index + "]"
 }
 
 func (n AstExprIndexName) Source() string {
