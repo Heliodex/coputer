@@ -85,7 +85,10 @@ end
 }
 type Callback<T> = (T) -> ()
 
-local function map<T, U>(list: { T }, f: (T) -> U): { U }
+local function map<T, U>(
+	list: { T },
+	f: (T) -> U
+): { U }
 	local out = table.create(#list)
 
 	for i, v in list do
@@ -318,7 +321,7 @@ func TestSourceRequireSorting(t *testing.T) {
 		{
 			name: "a shadowed require local is not sorted",
 			src:  "local require = function(x)\n\treturn x\nend\nlocal B = require \"../B\"\nlocal A = require \"../A\"\n",
-			want: "local function require(x)\n\treturn x\nend\n\nlocal B = require \"../B\"\nlocal A = require \"../A\"",
+			want: "local function require(\n\tx\n)\n\treturn x\nend\n\nlocal B = require \"../B\"\nlocal A = require \"../A\"",
 		},
 	}
 

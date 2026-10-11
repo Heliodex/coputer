@@ -1693,8 +1693,13 @@ func (n AstExprFunction) sourceRest() string {
 			args = append(args, "...")
 		}
 	}
-	b.WriteString(strings.Join(args, ", "))
-	b.WriteString(")")
+	if len(args) == 0 {
+		b.WriteString(")")
+	} else {
+		b.WriteString("\n")
+		b.WriteString(sourceIndent(strings.Join(args, ",\n"), 1))
+		b.WriteString("\n)")
+	}
 
 	if n.ReturnAnnotation != nil {
 		writeAnnotation(&b, (*n.ReturnAnnotation).Source())

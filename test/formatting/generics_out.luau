@@ -1,8 +1,14 @@
-local function generic<T, U...>(x: T, ...: number): T
+local function generic<T, U...>(
+	x: T,
+	...: number
+): T
 	return x
 end
 
-local function generic2<T, U>(x: T, ...: U): T
+local function generic2<T, U>(
+	x: T,
+	...: U
+): T
 	return x
 end
 

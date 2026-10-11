@@ -1,19 +1,32 @@
-local function add(a, b)
+local function add(
+	a,
+	b
+)
 	return a + b
 end
 
-local function generic<T, U...>(x: T, ...: number): T
+local function generic<T, U...>(
+	x: T,
+	...: number
+): T
 	return x
 end
 
-local function anon(x)
+local function anon(
+	x
+)
 	return x
 end
 
-function obj.method(a, b)
+function obj.method(
+	a,
+	b
+)
 end
 
-function obj:method2(a)
+function obj:method2(
+	a
+)
 end
 
 @native
