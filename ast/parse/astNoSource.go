@@ -2172,6 +2172,8 @@ type AstTypeTable struct {
 	*NodeLoc
 	Props   []AstTableProp
 	Indexer *AstTableIndexer
+	// Comments contains the comments lexed within this table, in source order.
+	Comments []Comment
 }
 
 func (AstTypeTable) isAstNode() {}

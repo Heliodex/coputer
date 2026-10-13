@@ -2493,26 +2493,113 @@ func (n AstTypeSingletonString) Source() string {
 
 func (n AstTypeTable) Source() string {
 	// array-style tables, e.g. { number }
-	if len(n.Props) == 0 && n.Indexer != nil {
+	if len(n.Props) == 0 && n.Indexer != nil && len(n.Comments) == 0 {
 		if ref, ok := n.Indexer.IndexType.(AstTypeReference); ok && ref.Prefix == nil && ref.Name == "number" && len(ref.Parameters) == 0 {
 			return "{ " + n.Indexer.ResultType.Source() + " }"
 		}
 	}
 
-	parts := make([]string, 0, len(n.Props)+1)
-	if n.Indexer != nil {
-		parts = append(parts, n.Indexer.Source())
-	}
-	for _, prop := range n.Props {
-		parts = append(parts, prop.Source())
-	}
-
-	if len(parts) == 0 {
+	body := sourceTypeTableItems(n.Indexer, n.Props, n.Comments)
+	if body == "" {
 		return "{}"
 	}
 
 	// tables are always split across multiple lines, one item per line
-	return "{\n" + sourceIndent(strings.Join(parts, ",\n"), 1) + ",\n}"
+	return "{\n" + sourceIndent(body, 1) + "\n}"
+}
+
+// sourceTypeTableEntry is a member of a type table (the indexer or a prop) together with the comments attributed to it.
+type sourceTypeTableEntry struct {
+	start    lex.Position
+	end      lex.Position
+	src      string
+	indexer  bool
+	leading  []Comment
+	trailing []Comment
+}
+
+// sourceTypeTableStart returns the position where a prop starts, used to place comments.
+func sourceTypeTableStart(prop AstTableProp) lex.Position {
+	if prop.NodeLoc != nil {
+		return prop.GetLocation().Begin
+	}
+	return lex.Position{}
+}
+
+// sourceTypeTableEnd returns the position where a prop ends, used to place trailing comments.
+func sourceTypeTableEnd(prop AstTableProp) lex.Position {
+	if prop.Type != nil {
+		return prop.Type.GetLocation().End
+	}
+	return sourceTypeTableStart(prop)
+}
+
+// sourceTypeTableItems renders a type table's indexer and props with their comments, one per line, each followed by a comma. Comments are attributed to entries in source order (leading comments above the entry, trailing comments on its last line) while the indexer always renders first, matching the commentless layout.
+func sourceTypeTableItems(indexer *AstTableIndexer, props []AstTableProp, comments []Comment) string {
+	entries := make([]sourceTypeTableEntry, 0, len(props)+1)
+	if indexer != nil {
+		entries = append(entries, sourceTypeTableEntry{
+			start:   indexer.Location.Begin,
+			end:     indexer.Location.End,
+			src:     indexer.Source(),
+			indexer: true,
+		})
+	}
+	for i := range props {
+		entries = append(entries, sourceTypeTableEntry{
+			start: sourceTypeTableStart(props[i]),
+			end:   sourceTypeTableEnd(props[i]),
+			src:   props[i].Source(),
+		})
+	}
+
+	// attribute comments in source order
+	sort.SliceStable(entries, func(i, j int) bool {
+		return entries[i].start.Before(entries[j].start)
+	})
+
+	ci := 0
+	for i := range entries {
+		// comments that start before this entry go on their own line
+		for ci < len(comments) && !comments[ci].Location.Begin.After(entries[i].start) {
+			entries[i].leading = append(entries[i].leading, comments[ci])
+			ci++
+		}
+
+		// comments on the same line as the end of the entry stay there
+		for ci < len(comments) &&
+			comments[ci].Location.Begin.Line == entries[i].end.Line &&
+			(i+1 >= len(entries) || comments[ci].Location.Begin.Before(entries[i+1].start)) {
+			entries[i].trailing = append(entries[i].trailing, comments[ci])
+			ci++
+		}
+	}
+
+	// render with the indexer first
+	sort.SliceStable(entries, func(i, j int) bool {
+		return entries[i].indexer && !entries[j].indexer
+	})
+
+	var lines []string
+	for _, entry := range entries {
+		for _, c := range entry.leading {
+			lines = append(lines, sourceComment(c))
+		}
+
+		src := entry.src + ","
+		for _, c := range entry.trailing {
+			src += " " + sourceComment(c)
+		}
+		lines = append(lines, src)
+	}
+
+	// comments after the last entry
+	for ci < len(comments) {
+		lines = append(lines, sourceComment(comments[ci]))
+		ci++
+	}
+
+	return strings.Join(lines, "\n")
 }
 
 func (n AstTypeTypeof) Source() string {
