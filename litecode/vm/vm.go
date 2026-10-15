@@ -162,10 +162,10 @@ func moveStack(stack *[]Val, src []Val, b, t int32) {
 	}
 }
 
-func getImport(A, count uint8, K0, K1, K2 string, towrap toWrap, stack *[]Val) (err error) {
-	imp := exts[K0]
+func getImport(A, count uint8, ki *[3]string, towrap toWrap, stack *[]Val) (err error) {
+	imp := exts[ki[0]]
 	if imp == nil {
-		imp = towrap.env[K0]
+		imp = towrap.env[ki[0]]
 	}
 
 	if count < 2 {
@@ -175,10 +175,10 @@ func getImport(A, count uint8, K0, K1, K2 string, towrap toWrap, stack *[]Val) (
 
 	t1, ok := imp.(*Table)
 	if !ok {
-		return invalidIndex("nil", K1)
+		return invalidIndex("nil", ki[1])
 	}
 
-	imp = t1.GetHash(K1)
+	imp = t1.GetHash(ki[1])
 	// fmt.Println("GETIMPORT2", i.A, (*stack)[i.A])
 
 	if count < 3 {
@@ -188,17 +188,17 @@ func getImport(A, count uint8, K0, K1, K2 string, towrap toWrap, stack *[]Val) (
 
 	t2, ok := imp.(*Table)
 	if !ok {
-		return invalidIndex(std.TypeOf(imp), K2)
+		return invalidIndex(std.TypeOf(imp), ki[2])
 	}
 
-	(*stack)[A] = t2.GetHash(K2)
+	(*stack)[A] = t2.GetHash(ki[2])
 	// fmt.Println("GETIMPORT3", i.A, (*stack)[i.A])
 
 	return
 }
 
 // enclose wraps and sets upvalues for a closure, and places it on the stack at A
-func enclose(pc *int32, A uint8, towrap toWrap, code []*internal.Inst, stack *[]Val, co *Coroutine, openUpvals *[]*upval, upvals []*upval) {
+func enclose(pc *int32, A uint8, towrap toWrap, code []internal.Inst, stack *[]Val, co *Coroutine, openUpvals *[]*upval, upvals []*upval) {
 	nups := towrap.proto.Nups
 	towrap.upvals = make([]*upval, nups)
 
@@ -244,7 +244,7 @@ func enclose(pc *int32, A uint8, towrap toWrap, code []*internal.Inst, stack *[]
 	}
 }
 
-func namecall(pc, top *int32, i *internal.Inst, code []*internal.Inst, lineInfo []uint32, stack *[]Val, co *Coroutine, op *uint8) (err error) {
+func namecall(pc, top *int32, i *internal.Inst, code []internal.Inst, lineInfo []uint32, stack *[]Val, co *Coroutine, op *uint8) (err error) {
 	kv := i.K.(string)
 	// fmt.Println("kv", kv)
 
@@ -285,7 +285,7 @@ func namecall(pc, top *int32, i *internal.Inst, code []*internal.Inst, lineInfo 
 		return
 	}
 
-	*i = *callInst
+	*i = callInst
 	*op = i.Opcode
 
 	var retCount int32
@@ -476,7 +476,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 		// 	fmt.Println("upval", upvals[0])
 		// }
 
-		i := *code[pc]
+		i := code[pc]
 		// fmt.Println("OP", i.Opcode, "at pc", pc)
 		switch op := i.Opcode; op {
 		case 0: // NOP
@@ -553,7 +553,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			}
 			pc++
 		case 12: // GETIMPORT
-			if err = getImport(uint8(i.A), i.KC, i.K0, i.K1, i.K2, towrap, &stack); err != nil {
+			if err = getImport(uint8(i.A), i.KC, i.KI, towrap, &stack); err != nil {
 				return
 			}
 			pc += 2 // -- adjust for aux
@@ -956,7 +956,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			// Skipped
 			pc += 2 // adjust for aux
 		case 76: // FORGPREP
-			loopInst := *code[pc+i.D+1]
+			loopInst := code[pc+i.D+1]
 			delete(genIters, loopInst) // REST IN PIECES A 2HR BUG, IF A LOOP IS BROKEN OUT OF THEN THE GENITER IS STILL LEFT BEHIND
 
 			pc += i.D + 1
