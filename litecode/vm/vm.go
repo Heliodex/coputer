@@ -476,7 +476,8 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 		// 	fmt.Println("upval", upvals[0])
 		// }
 
-		i := code[pc]
+		// Take a pointer rather than copying the whole 48-byte instruction on every dispatch; the code slice is immutable during execution.
+		i := &code[pc]
 		// fmt.Println("OP", i.Opcode, "at pc", pc)
 		switch op := i.Opcode; op {
 		case 0: // NOP
@@ -629,7 +630,9 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			pc++
 		case 20: // NAMECALL
 			pc++
-			if err = namecall(&pc, &top, &i, code, lineInfo, &stack, co, &op); err != nil {
+			// namecall rewrites the instruction it is given, so hand it a copy rather than the (immutable) code slice itself.
+			ii := *i
+			if err = namecall(&pc, &top, &ii, code, lineInfo, &stack, co, &op); err != nil {
 				return
 			}
 		case 21: // CALL
@@ -912,7 +915,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 				pc++
 			}
 		case 58: // forgloop
-			if err = forgloop(&pc, &top, i, &stack, co, genIters); err != nil {
+			if err = forgloop(&pc, &top, *i, &stack, co, genIters); err != nil {
 				return
 			}
 		case 59, 61: // FORGPREP_INEXT, FORGPREP_NEXT
