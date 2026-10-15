@@ -4,6 +4,7 @@ package vm
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 
 	// unsafe code paths removed... for now
@@ -80,6 +81,14 @@ type upval struct {
 func falsy(v Val) bool {
 	return v == nil || v == false
 }
+
+// Small float helpers for the interpreter's arithmetic fast paths. Every one is trivially inlinable, so the common number-on-number case skips the std call, its interface argument/return plumbing, and the error result.
+func fadd(a, b float64) float64  { return a + b }
+func fsub(a, b float64) float64  { return a - b }
+func fmul(a, b float64) float64  { return a * b }
+func fdiv(a, b float64) float64  { return a / b }
+func fmod(a, b float64) float64  { return a - b*math.Floor(a/b) }
+func fidiv(a, b float64) float64 { return math.Floor(a / b) }
 
 func uncallableType(v string) error {
 	return fmt.Errorf("attempt to call a %s value", v)
@@ -665,6 +674,16 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 				pc++
 			}
 		case 27: // jump
+			if fa, ok := stack[i.A].(float64); ok {
+				if fb, ok := stack[i.Aux].(float64); ok {
+					if fa == fb {
+						pc += i.D + 1
+					} else {
+						pc += 2
+					}
+					continue
+				}
+			}
 			if stack[i.A] == stack[i.Aux] {
 				pc += i.D + 1
 			} else {
@@ -687,6 +706,16 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 				pc += 2
 			}
 		case 30:
+			if fa, ok := stack[i.A].(float64); ok {
+				if fb, ok := stack[i.Aux].(float64); ok {
+					if fa != fb {
+						pc += i.D + 1
+					} else {
+						pc += 2
+					}
+					continue
+				}
+			}
 			if stack[i.A] != stack[i.Aux] {
 				pc += i.D + 1
 			} else {
@@ -710,26 +739,61 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			}
 		case 33: // arithmetic
 			// fmt.Println("adding", stack[i.B], stack[i.C])
+			if fa, ok := stack[i.B].(float64); ok {
+				if fb, ok := stack[i.C].(float64); ok {
+					stack[i.A] = fadd(fa, fb)
+					pc++
+					continue
+				}
+			}
 			if stack[i.A], err = std.Add(stack[i.B], stack[i.C]); err != nil {
 				return
 			}
 			pc++
 		case 34:
+			if fa, ok := stack[i.B].(float64); ok {
+				if fb, ok := stack[i.C].(float64); ok {
+					stack[i.A] = fsub(fa, fb)
+					pc++
+					continue
+				}
+			}
 			if stack[i.A], err = std.Sub(stack[i.B], stack[i.C]); err != nil {
 				return
 			}
 			pc++
 		case 35:
+			if fa, ok := stack[i.B].(float64); ok {
+				if fb, ok := stack[i.C].(float64); ok {
+					stack[i.A] = fmul(fa, fb)
+					pc++
+					continue
+				}
+			}
 			if stack[i.A], err = std.Mul(stack[i.B], stack[i.C]); err != nil {
 				return
 			}
 			pc++
 		case 36:
+			if fa, ok := stack[i.B].(float64); ok {
+				if fb, ok := stack[i.C].(float64); ok {
+					stack[i.A] = fdiv(fa, fb)
+					pc++
+					continue
+				}
+			}
 			if stack[i.A], err = std.Div(stack[i.B], stack[i.C]); err != nil {
 				return
 			}
 			pc++
 		case 37:
+			if fa, ok := stack[i.B].(float64); ok {
+				if fb, ok := stack[i.C].(float64); ok {
+					stack[i.A] = fmod(fa, fb)
+					pc++
+					continue
+				}
+			}
 			if stack[i.A], err = std.Mod(stack[i.B], stack[i.C]); err != nil {
 				return
 			}
@@ -740,31 +804,73 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			}
 			pc++
 		case 81:
+			if fa, ok := stack[i.B].(float64); ok {
+				if fb, ok := stack[i.C].(float64); ok {
+					stack[i.A] = fidiv(fa, fb)
+					pc++
+					continue
+				}
+			}
 			if stack[i.A], err = std.Idiv(stack[i.B], stack[i.C]); err != nil {
 				return
 			}
 			pc++
 		case 39: // arithmetik
+			if fa, ok := stack[i.B].(float64); ok {
+				if fb, ok := i.K.(float64); ok {
+					stack[i.A] = fadd(fa, fb)
+					pc++
+					continue
+				}
+			}
 			if stack[i.A], err = std.Add(stack[i.B], i.K); err != nil {
 				return
 			}
 			pc++
 		case 40:
+			if fa, ok := stack[i.B].(float64); ok {
+				if fb, ok := i.K.(float64); ok {
+					stack[i.A] = fsub(fa, fb)
+					pc++
+					continue
+				}
+			}
 			if stack[i.A], err = std.Sub(stack[i.B], i.K); err != nil {
 				return
 			}
 			pc++
 		case 41:
+			if fa, ok := stack[i.B].(float64); ok {
+				if fb, ok := i.K.(float64); ok {
+					stack[i.A] = fmul(fa, fb)
+					pc++
+					continue
+				}
+			}
 			if stack[i.A], err = std.Mul(stack[i.B], i.K); err != nil {
 				return
 			}
 			pc++
 		case 42:
+			if fa, ok := stack[i.B].(float64); ok {
+				if fb, ok := i.K.(float64); ok {
+					stack[i.A] = fdiv(fa, fb)
+					pc++
+					continue
+				}
+			}
 			if stack[i.A], err = std.Div(stack[i.B], i.K); err != nil {
 				return
 			}
 			pc++
 		case 43:
+			if fa, ok := stack[i.B].(float64); ok {
+				if fb, ok := i.K.(float64); ok {
+					stack[i.A] = fmod(fa, fb)
+					pc++
+					continue
+				}
+			}
 			if stack[i.A], err = std.Mod(stack[i.B], i.K); err != nil {
 				return
 			}
@@ -775,16 +881,37 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			}
 			pc++
 		case 82:
+			if fa, ok := stack[i.B].(float64); ok {
+				if fb, ok := i.K.(float64); ok {
+					stack[i.A] = fidiv(fa, fb)
+					pc++
+					continue
+				}
+			}
 			if stack[i.A], err = std.Idiv(stack[i.B], i.K); err != nil {
 				return
 			}
 			pc++
 		case 71: // SUBRK
+			if fa, ok := i.K.(float64); ok {
+				if fb, ok := stack[i.C].(float64); ok {
+					stack[i.A] = fsub(fa, fb)
+					pc++
+					continue
+				}
+			}
 			if stack[i.A], err = std.Sub(i.K, stack[i.C]); err != nil {
 				return
 			}
 			pc++
 		case 72: // DIVRK
+			if fa, ok := i.K.(float64); ok {
+				if fb, ok := stack[i.C].(float64); ok {
+					stack[i.A] = fdiv(fa, fb)
+					pc++
+					continue
+				}
+			}
 			if stack[i.A], err = std.Div(i.K, stack[i.C]); err != nil {
 				return
 			}
