@@ -7,10 +7,7 @@ local x = 1
 local function f()
 	return x --[[return]]
 end
-
 --[[fn]]
-do
-	--[[ multi
-	line ]]
-end
+--[[ multi
+line ]]
 -- final comment

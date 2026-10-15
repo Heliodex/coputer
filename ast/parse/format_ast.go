@@ -6,12 +6,12 @@ import (
 
 // This file implements formatAST, the AST-to-AST transformation step of formatting. Parsing produces statements and comments in source order; formatAST reorders the top-level chunk (comment directives, `game:GetService` declarations and `require` declarations are each sorted) so that rendering only lays out already-ordered code. Run it between Parse and Source; Minify intentionally skips it and keeps source order.
 
-// formatAST returns result with its top-level block transformed, mirroring what renderRoot used to do while rendering: the header directives are pulled together and sorted, the leading runs of `game:GetService` and `require` declarations are sorted, and the header section is split off. Plain function assignments anywhere in the tree are rewritten as function declarations first. The statements and comments keep travelling together as units, so every comment stays attached to its statement.
+// formatAST returns result with its top-level block transformed, mirroring what renderRoot used to do while rendering: the header directives are pulled together and sorted, the leading runs of `game:GetService` and `require` declarations are sorted, and the header section is split off. Plain function assignments anywhere in the tree are rewritten as function declarations first, and empty `do end` blocks are dropped entirely. The statements and comments keep travelling together as units, so every comment stays attached to its statement.
 //
 // The transformation mutates the result's statements in place, so treat the input as consumed. The reordered statements and comments are given fresh line numbers (columns are preserved) so comment attachment re-derives identically when rendering. Statement locations are retargeted in place; comment locations are replaced, leaving Result.CommentLocations reporting the original positions.
 func formatAST(result Result) Result {
 	root := result.Root
-	formatBlockFunctionDecls(&root)
+	formatBlock(&root)
 
 	units := sourceStatUnits(root.Body, root.Comments)
 	sortHeaderDirectives(units)
@@ -186,17 +186,40 @@ func asStatFunction(n *AstStatAssign) (*AstStatFunction, bool) {
 	}, true
 }
 
-// formatBlockFunctionDecls rewrites plain function assignments as function declarations throughout block, recursing into nested blocks and function bodies. Converted statements reuse their old locations so comments stay attached.
-func formatBlockFunctionDecls(block *AstStatBlock) {
+// formatBlock applies the statement transformations throughout block, recursing into nested blocks and function bodies: plain function assignments become function declarations, and empty `do end` blocks are dropped. Converted statements reuse their old locations so comments stay attached. Nested blocks are transformed bottom-up, so a block left empty by the transformation is itself dropped.
+
+// isEmptyDoBlock reports whether stat is a `do ... end` block with no statements, and so can be dropped without changing the program. Inner comments don't keep the block: formatBlock moves them out to the parent block and drops the block itself.
+func isEmptyDoBlock(stat AstStat) bool {
+	block, ok := stat.(*AstStatBlock)
+	if !ok || block == nil || !block.HasEnd {
+		return false
+	}
+	return len(block.Body) == 0
+}
+
+func formatBlock(block *AstStatBlock) {
 	if block == nil {
 		return
 	}
-	for i, stat := range block.Body {
-		block.Body[i] = formatStatFunctionDecl(stat)
+	kept := 0
+	for _, stat := range block.Body {
+		stat = formatStatFunctionDecl(stat)
+		if dropped, ok := stat.(*AstStatBlock); ok && isEmptyDoBlock(dropped) {
+			// the block is removed entirely, but its inner comments move out to the parent block so formatting never deletes comments
+			block.Comments = append(block.Comments, dropped.Comments...)
+			continue
+		}
+		block.Body[kept] = stat
+		kept++
 	}
+	block.Body = block.Body[:kept]
+	// hoisted comments arrive at the end; restore source order so comment attachment re-derives identically when rendering
+	sort.SliceStable(block.Comments, func(i, j int) bool {
+		return block.Comments[i].Location.Begin.Before(block.Comments[j].Location.Begin)
+	})
 }
 
-// formatStatFunctionDecl rewrites a single statement, returning the replacement. Nested blocks and function bodies are transformed first, so a moved function value arrives already transformed.
+// formatStatFunctionDecl rewrites a single statement, returning the replacement. Nested blocks and function bodies are transformed first, so a moved function value arrives already transformed and an emptied block is dropped by its parent.
 func formatStatFunctionDecl(stat AstStat) AstStat {
 	if stat == nil {
 		return nil
@@ -204,173 +227,211 @@ func formatStatFunctionDecl(stat AstStat) AstStat {
 
 	switch n := stat.(type) {
 	case *AstStatLocal:
-		for _, value := range n.Values {
-			formatExprFunctionDecls(value)
+		for i := range n.Values {
+			n.Values[i] = formatExprFunctionDecls(n.Values[i])
 		}
 		if conv, ok := asLocalFunction(n); ok {
+			formatBlock(&conv.Func.Body)
 			return conv
 		}
 	case *AstStatAssign:
-		for _, target := range n.Vars {
-			formatExprFunctionDecls(target)
+		for i := range n.Vars {
+			n.Vars[i] = formatExprFunctionDecls(n.Vars[i])
 		}
-		for _, value := range n.Values {
-			formatExprFunctionDecls(value)
+		for i := range n.Values {
+			n.Values[i] = formatExprFunctionDecls(n.Values[i])
 		}
 		if conv, ok := asStatFunction(n); ok {
+			formatBlock(&conv.Func.Body)
 			return conv
 		}
 	case *AstStatBlock:
-		formatBlockFunctionDecls(n)
+		formatBlock(n)
 	case *AstStatIf:
-		formatExprFunctionDecls(n.Condition)
-		formatBlockFunctionDecls(&n.ThenBody)
+		n.Condition = formatExprFunctionDecls(n.Condition)
+		formatBlock(&n.ThenBody)
 		n.ElseBody = formatStatFunctionDecl(n.ElseBody)
 	case *AstStatFor:
-		formatExprFunctionDecls(n.From)
-		formatExprFunctionDecls(n.To)
-		formatExprFunctionDecls(n.Step)
-		formatBlockFunctionDecls(n.Body)
-	case *AstStatForIn:
-		for _, value := range n.Values {
-			formatExprFunctionDecls(value)
+		n.From = formatExprFunctionDecls(n.From)
+		n.To = formatExprFunctionDecls(n.To)
+		if n.Step != nil {
+			n.Step = formatExprFunctionDecls(n.Step)
 		}
-		formatBlockFunctionDecls(n.Body)
+		formatBlock(n.Body)
+	case *AstStatForIn:
+		for i := range n.Values {
+			n.Values[i] = formatExprFunctionDecls(n.Values[i])
+		}
+		formatBlock(n.Body)
 	case *AstStatWhile:
-		formatExprFunctionDecls(n.Condition)
-		formatBlockFunctionDecls(n.Body)
+		n.Condition = formatExprFunctionDecls(n.Condition)
+		formatBlock(n.Body)
 	case *AstStatRepeat:
-		formatExprFunctionDecls(n.Condition)
-		formatBlockFunctionDecls(n.Body)
+		n.Condition = formatExprFunctionDecls(n.Condition)
+		formatBlock(n.Body)
 	case *AstStatFunction:
-		formatExprFunctionDecls(n.Name)
-		formatBlockFunctionDecls(&n.Func.Body)
+		n.Name = formatExprFunctionDecls(n.Name)
+		formatBlock(&n.Func.Body)
 	case *AstStatLocalFunction:
-		formatBlockFunctionDecls(&n.Func.Body)
+		formatBlock(&n.Func.Body)
 	case *AstStatExpr:
-		formatExprFunctionDecls(n.Expr)
+		n.Expr = formatExprFunctionDecls(n.Expr)
 	case *AstStatReturn:
-		for _, value := range n.List {
-			formatExprFunctionDecls(value)
+		for i := range n.List {
+			n.List[i] = formatExprFunctionDecls(n.List[i])
 		}
 	case *AstStatCompoundAssign:
-		formatExprFunctionDecls(n.Var)
-		formatExprFunctionDecls(n.Value)
+		n.Var = formatExprFunctionDecls(n.Var)
+		n.Value = formatExprFunctionDecls(n.Value)
 	case *AstStatError:
-		for _, value := range n.Expressions {
-			formatExprFunctionDecls(value)
+		for i := range n.Expressions {
+			n.Expressions[i] = formatExprFunctionDecls(n.Expressions[i])
 		}
-		for i, s := range n.Statements {
-			n.Statements[i] = formatStatFunctionDecl(s)
+		kept := 0
+		for _, s := range n.Statements {
+			s = formatStatFunctionDecl(s)
+			if isEmptyDoBlock(s) {
+				continue
+			}
+			n.Statements[kept] = s
+			kept++
 		}
+		n.Statements = n.Statements[:kept]
 	case *AstStatTypeFunction:
-		formatBlockFunctionDecls(&n.Body.Body)
+		formatBlock(&n.Body.Body)
 	}
 
 	return stat
 }
 
-// formatExprFunctionDecls walks expr looking for nested function bodies to transform. Expressions themselves are never replaced, only the statement lists inside function bodies.
-func formatExprFunctionDecls(expr AstExpr) {
+// formatExprFunctionDecls walks expr looking for nested function bodies to transform, returning the updated expression. Expressions themselves are never replaced, only the statement lists inside function bodies – but value-form nodes are copied on write, so every caller must take the return value. A nil expression stays nil.
+func formatExprFunctionDecls(expr AstExpr) AstExpr {
 	if expr == nil {
-		return
+		return nil
 	}
 
 	switch n := expr.(type) {
 	case *AstExprFunction:
 		formatFuncValueBodies(&n.Attributes, &n.Body)
+		return n
 	case AstExprFunction:
-		fn := n
-		formatFuncValueBodies(&fn.Attributes, &fn.Body)
+		formatFuncValueBodies(&n.Attributes, &n.Body)
+		return n
 	case *AstExprCall:
-		formatExprFunctionDecls(n.Func)
-		for _, arg := range n.Args {
-			formatExprFunctionDecls(arg)
+		n.Func = formatExprFunctionDecls(n.Func)
+		for i := range n.Args {
+			n.Args[i] = formatExprFunctionDecls(n.Args[i])
 		}
+		return n
 	case AstExprCall:
-		formatExprFunctionDecls(n.Func)
-		for _, arg := range n.Args {
-			formatExprFunctionDecls(arg)
+		n.Func = formatExprFunctionDecls(n.Func)
+		for i := range n.Args {
+			n.Args[i] = formatExprFunctionDecls(n.Args[i])
 		}
+		return n
 	case *AstExprBinary:
-		formatExprFunctionDecls(n.Left)
-		formatExprFunctionDecls(n.Right)
+		n.Left = formatExprFunctionDecls(n.Left)
+		n.Right = formatExprFunctionDecls(n.Right)
+		return n
 	case AstExprBinary:
-		formatExprFunctionDecls(n.Left)
-		formatExprFunctionDecls(n.Right)
+		n.Left = formatExprFunctionDecls(n.Left)
+		n.Right = formatExprFunctionDecls(n.Right)
+		return n
 	case *AstExprUnary:
-		formatExprFunctionDecls(n.Expr)
+		n.Expr = formatExprFunctionDecls(n.Expr)
+		return n
 	case AstExprUnary:
-		formatExprFunctionDecls(n.Expr)
+		n.Expr = formatExprFunctionDecls(n.Expr)
+		return n
 	case *AstExprGroup:
-		formatExprFunctionDecls(n.Expr)
+		n.Expr = formatExprFunctionDecls(n.Expr)
+		return n
 	case AstExprGroup:
-		formatExprFunctionDecls(n.Expr)
+		n.Expr = formatExprFunctionDecls(n.Expr)
+		return n
 	case *AstExprTypeAssertion:
-		formatExprFunctionDecls(n.Expr)
+		n.Expr = formatExprFunctionDecls(n.Expr)
+		return n
 	case AstExprTypeAssertion:
-		formatExprFunctionDecls(n.Expr)
+		n.Expr = formatExprFunctionDecls(n.Expr)
+		return n
 	case *AstExprIndexExpr:
-		formatExprFunctionDecls(n.Expr)
-		formatExprFunctionDecls(n.Index)
+		n.Expr = formatExprFunctionDecls(n.Expr)
+		n.Index = formatExprFunctionDecls(n.Index)
+		return n
 	case AstExprIndexExpr:
-		formatExprFunctionDecls(n.Expr)
-		formatExprFunctionDecls(n.Index)
+		n.Expr = formatExprFunctionDecls(n.Expr)
+		n.Index = formatExprFunctionDecls(n.Index)
+		return n
 	case *AstExprIndexName:
-		formatExprFunctionDecls(n.Expr)
+		n.Expr = formatExprFunctionDecls(n.Expr)
+		return n
 	case AstExprIndexName:
-		formatExprFunctionDecls(n.Expr)
+		n.Expr = formatExprFunctionDecls(n.Expr)
+		return n
 	case *AstExprInterpString:
-		for _, value := range n.Expressions {
-			formatExprFunctionDecls(value)
+		for i := range n.Expressions {
+			n.Expressions[i] = formatExprFunctionDecls(n.Expressions[i])
 		}
+		return n
 	case AstExprInterpString:
-		for _, value := range n.Expressions {
-			formatExprFunctionDecls(value)
+		for i := range n.Expressions {
+			n.Expressions[i] = formatExprFunctionDecls(n.Expressions[i])
 		}
+		return n
 	case *AstExprIfElse:
-		formatExprFunctionDecls(n.Condition)
-		formatExprFunctionDecls(n.TrueExpr)
-		formatExprFunctionDecls(n.FalseExpr)
+		n.Condition = formatExprFunctionDecls(n.Condition)
+		n.TrueExpr = formatExprFunctionDecls(n.TrueExpr)
+		n.FalseExpr = formatExprFunctionDecls(n.FalseExpr)
+		return n
 	case AstExprIfElse:
-		formatExprFunctionDecls(n.Condition)
-		formatExprFunctionDecls(n.TrueExpr)
-		formatExprFunctionDecls(n.FalseExpr)
+		n.Condition = formatExprFunctionDecls(n.Condition)
+		n.TrueExpr = formatExprFunctionDecls(n.TrueExpr)
+		n.FalseExpr = formatExprFunctionDecls(n.FalseExpr)
+		return n
 	case *AstExprInstantiate:
-		formatExprFunctionDecls(n.Expr)
+		n.Expr = formatExprFunctionDecls(n.Expr)
+		return n
 	case AstExprInstantiate:
-		formatExprFunctionDecls(n.Expr)
+		n.Expr = formatExprFunctionDecls(n.Expr)
+		return n
 	case *AstExprTable:
 		for i := range n.Items {
 			if n.Items[i].Key != nil {
-				formatExprFunctionDecls(*n.Items[i].Key)
+				*n.Items[i].Key = formatExprFunctionDecls(*n.Items[i].Key)
 			}
-			formatExprFunctionDecls(n.Items[i].Value)
+			n.Items[i].Value = formatExprFunctionDecls(n.Items[i].Value)
 		}
+		return n
 	case AstExprTable:
 		for i := range n.Items {
 			if n.Items[i].Key != nil {
-				formatExprFunctionDecls(*n.Items[i].Key)
+				*n.Items[i].Key = formatExprFunctionDecls(*n.Items[i].Key)
 			}
-			formatExprFunctionDecls(n.Items[i].Value)
+			n.Items[i].Value = formatExprFunctionDecls(n.Items[i].Value)
 		}
+		return n
 	case *AstExprError:
-		for _, value := range n.Expressions {
-			formatExprFunctionDecls(value)
+		for i := range n.Expressions {
+			n.Expressions[i] = formatExprFunctionDecls(n.Expressions[i])
 		}
+		return n
 	case AstExprError:
-		for _, value := range n.Expressions {
-			formatExprFunctionDecls(value)
+		for i := range n.Expressions {
+			n.Expressions[i] = formatExprFunctionDecls(n.Expressions[i])
 		}
+		return n
 	}
+
+	return expr
 }
 
 // formatFuncValueBodies transforms the bodies nested in a function value: attribute arguments (which can hold functions) and the function body itself.
 func formatFuncValueBodies(attrs *[]AstAttr, body *AstStatBlock) {
-	for _, attr := range *attrs {
-		for _, arg := range attr.Args {
-			formatExprFunctionDecls(arg)
+	for i := range *attrs {
+		for j := range (*attrs)[i].Args {
+			(*attrs)[i].Args[j] = formatExprFunctionDecls((*attrs)[i].Args[j])
 		}
 	}
-	formatBlockFunctionDecls(body)
+	formatBlock(body)
 }

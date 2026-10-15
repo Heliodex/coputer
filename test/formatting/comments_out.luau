@@ -17,10 +17,7 @@ local function f()
 	-- inner comment
 	return x -- return comment
 end
-
-do
-	--[[ multi
-	line ]]
-end
+--[[ multi
+line ]]
 -- final comment
 --

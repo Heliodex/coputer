@@ -711,3 +711,73 @@ func TestSourceDeclareNodes(t *testing.T) {
 		}
 	})
 }
+
+// TestSourceEmptyDoBlocks checks that empty `do end` blocks are dropped by the formatAST transformation, that inner comments move out to the parent block instead of being deleted, and that non-empty blocks are kept.
+func TestSourceEmptyDoBlocks(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+		want string
+	}{
+		{
+			name: "a standalone empty do block is removed",
+			src:  "do end\n",
+			want: "",
+		},
+		{
+			name: "an empty do block between statements is removed",
+			src:  "local x = 1\ndo end\nprint(x)\n",
+			want: "local x = 1\nprint(x)",
+		},
+		{
+			name: "nested empty do blocks are removed",
+			src:  "do\ndo end\nend\nprint(1)\n",
+			want: "print(1)",
+		},
+		{
+			name: "inner comments move out to the parent block",
+			src:  "local x = 1\ndo\n\t-- kept\nend\nprint(x)\n",
+			want: "local x = 1\n-- kept\nprint(x)",
+		},
+		{
+			name: "a non-empty do block is kept",
+			src:  "do\n\tprint(1)\nend\n",
+			want: "do\n\tprint(1)\nend",
+		},
+		{
+			name: "an empty do block inside a function is removed",
+			src:  "local function f()\n\tdo end\n\treturn 1\nend\n",
+			want: "local function f()\n\treturn 1\nend",
+		},
+		{
+			name: "an empty do block inside a function value is removed once",
+			src:  "local f = function() do end return 1 end\n",
+			want: "local function f()\n\treturn 1\nend",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ok, res := Parse(tc.src, Options{})
+			if !ok {
+				t.Fatal("error parsing source:", res.Errors)
+			}
+
+			got := formatAST(res).Root.Source()
+			if got != tc.want {
+				t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", tc.want, got)
+			}
+
+			if tc.want == "" {
+				return
+			}
+			ok, res2 := Parse(got, Options{})
+			if !ok {
+				t.Fatal("error parsing generated source:", res2.Errors)
+			}
+			if got2 := formatAST(res2).Root.Source(); got2 != got {
+				t.Errorf("generated source is not stable:\n-- First\n%s\n-- Second\n%s\n", got, got2)
+			}
+		})
+	}
+}

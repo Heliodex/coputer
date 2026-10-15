@@ -309,3 +309,73 @@ func TestMinifyRoundTrip(t *testing.T) {
 	minifyFiles(t, BenchmarkDir)
 	minifyFiles(t, FormattingDir)
 }
+
+// TestMinifyRemovesEmptyDoBlocks checks that empty `do end` blocks are dropped entirely by the formatAST transformation, in both separated and compact forms.
+func TestMinifyRemovesEmptyDoBlocks(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+		want string
+	}{
+		{
+			name: "a standalone empty do block is removed",
+			src:  "do end\n",
+			want: "",
+		},
+		{
+			name: "an empty do block between statements is removed",
+			src:  "local x = 1\ndo end\nprint(x)\n",
+			want: "local x=1\nprint(x)",
+		},
+		{
+			name: "an indented empty do block is removed",
+			src:  "local function f()\n\tdo\n\tend\n\treturn 1\nend\n",
+			want: "local function f()return 1 end",
+		},
+		{
+			name: "nested empty do blocks are removed",
+			src:  "do\ndo end\nend\nprint(1)\n",
+			want: "print(1)",
+		},
+		{
+			name: "an empty do block inside a function value is removed once",
+			src:  "local f = function() do end return 1 end\n",
+			want: "local function f()return 1 end",
+		},
+		{
+			name: "a non-empty do block is kept",
+			src:  "do\n\tprint(1)\nend\n",
+			want: "do print(1)end",
+		},
+		{
+			name: "a comment-only do block is dropped with its comments",
+			src:  "local x = 1\ndo\n\t-- note\nend\nprint(x)\n",
+			want: "local x=1\nprint(x)",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ok, res := Parse(tc.src, Options{})
+			if !ok {
+				t.Fatal("error parsing source:", res.Errors)
+			}
+
+			got := formatAST(res).Root.Minify()
+			if got != tc.want {
+				t.Errorf("unexpected minified output:\n-- Expected\n%s\n-- Got\n%s\n", tc.want, got)
+			}
+
+			if tc.want == "" {
+				return
+			}
+			ok, res2 := Parse(tc.want+"\n", Options{})
+			if !ok {
+				t.Fatal("error parsing expected output:", res2.Errors)
+			}
+			if got2 := formatAST(res2).Root.Minify(); got2 != tc.want {
+				t.Errorf("minified output is not stable:\n-- First\n%s\n-- Second\n%s\n", tc.want, got2)
+			}
+		})
+	}
+}
