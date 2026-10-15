@@ -246,10 +246,23 @@ func nospecials(p string) bool {
 	return true // no special characters found
 }
 
+// literalItem returns the byte a pattern item matches verbatim, and whether the item is a plain literal rather than '.', an escape, or a bracket class.
+func literalItem(p string, pi int) (byte, bool) {
+	c := p[pi]
+	return c, c != '.' && c != l_esc && c != '['
+}
+
 func maxExpand(s, p string, si, pi, epi int, caps *captures) (res int, err error) {
 	var i int // counts maximum expand for item
-	for singlematch(s, p, si+i, pi, epi) {
-		i++
+	if c, lit := literalItem(p, pi); lit {
+		// plain literal item: count the run of matching bytes directly, which avoids a singlematch call per byte
+		for si+i < len(s) && s[si+i] == c {
+			i++
+		}
+	} else {
+		for singlematch(s, p, si+i, pi, epi) {
+			i++
+		}
 	}
 
 	// keeps trying to match with the maximum repetitions
@@ -267,11 +280,18 @@ func maxExpand(s, p string, si, pi, epi int, caps *captures) (res int, err error
 }
 
 func minExpand(s, p string, si, pi, epi int, caps *captures) (res int, err error) {
+	c, lit := literalItem(p, pi)
+
 	for ; ; si++ {
 		if res, err = matchPos(s, p, si, epi+1, caps); err != nil || res != -1 {
 			return
 		}
-		if !singlematch(s, p, si, pi, epi) {
+
+		if lit {
+			if si >= len(s) || s[si] != c {
+				return -1, nil
+			}
+		} else if !singlematch(s, p, si, pi, epi) {
 			return -1, nil
 		}
 		// try with one more repetition
