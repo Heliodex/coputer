@@ -422,6 +422,21 @@ func optSuffix(s, p string, si, pi, epi int, caps *captures) (cont bool, si2, pi
 func defaultCase(s, p string, si, pi int, caps *captures) (cont bool, si2, pi2 int, err error) {
 	// dlog("default", s, "[", si, pi, "]")
 
+	// A literal byte or '.' needs neither classend nor singlematch: compare inline, which is the bulk of a byte-at-a-time scan.
+	if c := p[pi]; c != l_esc && c != '[' {
+		epi := pi + 1
+		if si >= len(s) || (c != '.' && s[si] != c) {
+			if epi < len(p) && (p[epi] == '*' || p[epi] == '?' || p[epi] == '-') {
+				return true, si, epi, nil
+			}
+			return false, -1, pi, nil
+		}
+		if epi >= len(p) {
+			return true, si + 1, epi - 1, nil
+		}
+		return optSuffix(s, p, si, pi, epi, caps)
+	}
+
 	// pattern class plus optional suffix
 	epi, err := classend(p, pi) // points to optional suffix
 	if err != nil {
