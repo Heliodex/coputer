@@ -147,9 +147,16 @@ func (t *Table) SetInt(i int, v Val) {
 
 // Set sets a table value at a key. Make sure to check if the table is readonly beforehand.
 func (t *Table) Set(k Val, v Val) {
-	if ak, ok := listKey(k); ok {
-		t.SetInt(ak, v)
-		return
+	if fk, ok := AsNum(k); ok {
+		if ik := int(fk); 1 <= ik && float64(ik) == fk {
+			if l := len(t.List); ik <= l && !IsNil(v) {
+				// fast path: overwrite an existing list element in place
+				t.List[ik-1] = v
+				return
+			}
+			t.SetInt(ik, v)
+			return
+		}
 	}
 	t.setHash(k, v)
 }
@@ -179,8 +186,14 @@ func (t *Table) GetHash(k Val) (v Val) {
 
 // Get returns a value at a key in the table.
 func (t *Table) Get(k Val) Val {
-	if ak, ok := listKey(k); ok && ak <= t.Len() {
-		return t.List[ak-1]
+	if fk, ok := AsNum(k); ok {
+		if ik := int(fk); 1 <= ik && float64(ik) == fk {
+			if ik <= len(t.List) {
+				// fast path: list element
+				return t.List[ik-1]
+			}
+			return t.GetHash(k)
+		}
 	}
 	return t.GetHash(k)
 }
