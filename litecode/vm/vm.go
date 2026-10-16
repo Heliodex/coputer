@@ -480,7 +480,15 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 	// stayin' alive
 	// fmt.Println("starting with upvals", upvals)
 	code, lineInfo, protos := p.Code, p.InstLineInfo, p.Protos
-	for co.Dbg.Name = p.Dbgname; *towrap.alive; co.Dbg.Line = lineInfo[pc] {
+
+	// Recording the line on every instruction is measurable, so only write it when an error escapes. Errors raised by std functions go through co.Error and never return, so those call sites set the line explicitly before calling.
+	defer func() {
+		if err != nil {
+			co.Dbg.Line = lineInfo[pc]
+		}
+	}()
+
+	for co.Dbg.Name = p.Dbgname; *towrap.alive; {
 		// fmt.Println(top)
 
 		// if len(upvals) > 0 {
@@ -640,6 +648,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			enclose(&pc, uint8(i.A), towrap, code, &stack, co, &openUpvals, upvals)
 			pc++
 		case 20: // NAMECALL
+			co.Dbg.Line = lineInfo[pc]
 			pc++
 			// namecall rewrites the instruction it is given, so hand it a copy rather than the (immutable) code slice itself.
 			ii := *i
@@ -647,6 +656,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 				return
 			}
 		case 21: // CALL
+			co.Dbg.Line = lineInfo[pc]
 			if err = call(&top, i.A, i.B, i.C, towrap, &stack, co); err != nil {
 				return
 			}
@@ -1043,6 +1053,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 				pc++
 			}
 		case 58: // forgloop
+			co.Dbg.Line = lineInfo[pc]
 			if err = forgloop(&pc, &top, *i, &stack, co, genIters); err != nil {
 				return
 			}
@@ -1109,6 +1120,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 		// case 85: // NAMECALLUDATA
 		// case 86: // NEWCLASSMEMBER
 		case 87: // CALLFB
+			co.Dbg.Line = lineInfo[pc]
 			if err = call(&top, i.A, i.B, i.C, towrap, &stack, co); err != nil {
 				return
 			}
