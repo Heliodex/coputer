@@ -192,7 +192,6 @@ func (t *Table) Get(k Val) Val {
 				// fast path: list element
 				return t.List[ik-1]
 			}
-			return t.GetHash(k)
 		}
 	}
 	return t.GetHash(k)
