@@ -3,7 +3,6 @@ package std
 import (
 	"errors"
 	"fmt"
-	"iter"
 	"math"
 	"path/filepath"
 	"slices"
@@ -54,31 +53,28 @@ func global_next(args Args) (r []Val, err error) {
 	t := args.GetTable()
 	fk := args.GetAny(NilVal)
 
-	if IsNil(fk) {
-		next, stop := iter.Pull2(t.Iter())
-		defer stop()
+	// Walk the table's deterministic order directly; iter.Pull2 used to run the iterator in a goroutine on every call.
+	found := IsNil(fk) // nil key means "start from the first pair"
+	var got bool
+	var rk, rv Val
 
-		if k, v, ok := next(); ok {
-			return []Val{k, v}, nil
+	for k, v := range t.Iter() {
+		if found {
+			rk, rv, got = k, v, true
+			break
+		}
+		if k == fk {
+			found = true
 		}
 	}
 
-	next, stop := iter.Pull2(t.Iter())
-	defer stop()
-
-	var k Val
-	var ok bool
-	for k != fk {
-		if k, _, ok = next(); !ok {
-			return nil, errors.New("invalid key to 'next'") // erroring probably not great here but whatever, given it's rarely used
-		}
+	if !found {
+		return nil, errors.New("invalid key to 'next'") // erroring probably not great here but whatever, given it's rarely used
 	}
-
-	k, v, ok := next()
-	if !ok {
-		return []Val{NilVal}, nil
+	if !got {
+		return []Val{NilVal}, nil // reached the end
 	}
-	return []Val{k, v}, nil
+	return []Val{rk, rv}, nil
 }
 
 func global_pairs(args Args) (r []Val, err error) {

@@ -28,15 +28,16 @@ func mapKeySort(a, b Val) int {
 	return strings.Compare(fmt.Sprint(a), fmt.Sprint(b))
 }
 
-func iterList(l []Val, y func(Val, Val) bool) {
+func iterList(l []Val, y func(Val, Val) bool) (completed bool) {
 	for i, v := range l {
 		if !IsNil(v) && !y(Num(float64(i+1)), v) {
-			return
+			return false
 		}
 	}
+	return true
 }
 
-func iterHash(m map[Val]Val, y func(Val, Val) bool) {
+func iterHash(m map[Val]Val, y func(Val, Val) bool) (completed bool) {
 	// order keys in map
 	keys := make([]Val, 0, len(m))
 	for k := range m {
@@ -45,9 +46,10 @@ func iterHash(m map[Val]Val, y func(Val, Val) bool) {
 	slices.SortFunc(keys, mapKeySort)
 	for _, k := range keys {
 		if !y(k, m[k]) {
-			return
+			return false
 		}
 	}
+	return true
 }
 
 // Q why are tables like this
@@ -216,8 +218,8 @@ func (t *Table) GetInt(k int) Val {
 // Iter returns an iterator over the table, yielding key-value pairs in a deterministic order.
 func (t *Table) Iter() iter.Seq2[Val, Val] {
 	return func(y func(Val, Val) bool) {
-		if t.List != nil {
-			iterList(t.List, y)
+		if t.List != nil && !iterList(t.List, y) {
+			return
 		}
 		if t.Hash != nil {
 			iterHash(t.Hash, y)
