@@ -35,38 +35,38 @@ const luau_multret = -1
 func namecallHandler(co *Coroutine, kv string, stack *[]Val, c1, c2 int32) (ok bool, retList []Val, err error) {
 	switch kv {
 	case "format":
-		str := (*stack)[c1].(string)
+		str := MustString((*stack)[c1])
 		args := (*stack)[1:][c1:c2]
 
 		f, err := std.Fmtstring(str, std.Args{Co: co, List: args, Name: "format"})
 		if err != nil {
 			return false, nil, err
 		}
-		return true, []Val{f}, nil
+		return true, []Val{Str(f)}, nil
 	}
 	return
 }
 
 // The only global environment, never mutated (yes, it only stores string keys)
 var exts = map[string]Val{
-	"args":      std.Libargs, // custom
-	"bit32":     std.Libbit32,
-	"buffer":    std.Libbuffer,
-	"coroutine": std.Libcoroutine,
-	"math":      std.Libmath,
-	"string":    std.Libstring,
-	"table":     std.Libtable,
-	"utf8":      std.Libutf8,
-	"vector":    std.Libvector,
+	"args":      TableVal(std.Libargs), // custom
+	"bit32":     TableVal(std.Libbit32),
+	"buffer":    TableVal(std.Libbuffer),
+	"coroutine": TableVal(std.Libcoroutine),
+	"math":      TableVal(std.Libmath),
+	"string":    TableVal(std.Libstring),
+	"table":     TableVal(std.Libtable),
+	"utf8":      TableVal(std.Libutf8),
+	"vector":    TableVal(std.Libvector),
 	// fuck os
 	// and debug
 
-	"_VERSION": "Luau", // todo: custom
+	"_VERSION": Str("Luau"), // todo: custom
 }
 
 func init() {
 	for _, g := range std.Globals {
-		exts[g.Name] = g
+		exts[g.Name] = FnVal(g)
 	}
 }
 
@@ -79,7 +79,7 @@ type upval struct {
 }
 
 func falsy(v Val) bool {
-	return v == nil || v == false
+	return IsNil(v) || v == false
 }
 
 // Small float helpers for the interpreter's arithmetic fast paths. Every one is trivially inlinable, so the common number-on-number case skips the std call, its interface argument/return plumbing, and the error result.
@@ -129,23 +129,23 @@ func missingMethod(ta string, v Val) error {
 }
 
 func gettable(k, v Val) (Val, error) {
-	switch t := v.(type) {
-	case *Table:
+	if t, ok := AsTable(v); ok {
 		return t.Get(k), nil
-	case Vector: // direction,,, and mmmagnitude!! oh yeah!!11!!
+	}
+	if t, ok := AsVector(v); ok { // direction,,, and mmmagnitude!! oh yeah!!11!!
 		switch k {
 		case "x", "X": // yes, we'll allow the capitalised versions anyway
-			return float64(t[0]), nil // alright, who's the wise guy whose idea it was to put a float32 on the stack
+			return Num(float64(t[0])), nil // alright, who's the wise guy whose idea it was to put a float32 on the stack
 		case "y", "Y":
-			return float64(t[1]), nil
+			return Num(float64(t[1])), nil
 		case "z", "Z":
-			return float64(t[2]), nil
+			return Num(float64(t[2])), nil
 			// case "w", "W":
-			// 	return float64(t[3]), nil
+			// 	return Num(float64(t[3])), nil
 		}
 	}
 
-	return nil, invalidIndex(std.TypeOf(v), k)
+	return NilVal, invalidIndex(std.TypeOf(v), k)
 }
 
 type toWrap struct {
@@ -164,7 +164,7 @@ func moveStack(stack *[]Val, src []Val, b, t int32) {
 
 	for i := range b {
 		if i >= int32(len(src)) {
-			(*stack)[t+i] = nil
+			(*stack)[t+i] = NilVal
 			continue
 		}
 		(*stack)[t+i] = src[i]
@@ -173,7 +173,7 @@ func moveStack(stack *[]Val, src []Val, b, t int32) {
 
 func getImport(A, count uint8, ki *[3]string, towrap toWrap, stack *[]Val) (err error) {
 	imp := exts[ki[0]]
-	if imp == nil {
+	if IsNil(imp) {
 		imp = towrap.env[ki[0]]
 	}
 
@@ -182,12 +182,12 @@ func getImport(A, count uint8, ki *[3]string, towrap toWrap, stack *[]Val) (err 
 		return
 	}
 
-	t1, ok := imp.(*Table)
+	t1, ok := AsTable(imp)
 	if !ok {
-		return invalidIndex("nil", ki[1])
+		return invalidIndex("nil", Str(ki[1]))
 	}
 
-	imp = t1.GetHash(ki[1])
+	imp = t1.GetHash(Str(ki[1]))
 	// fmt.Println("GETIMPORT2", i.A, (*stack)[i.A])
 
 	if count < 3 {
@@ -195,12 +195,12 @@ func getImport(A, count uint8, ki *[3]string, towrap toWrap, stack *[]Val) (err 
 		return
 	}
 
-	t2, ok := imp.(*Table)
+	t2, ok := AsTable(imp)
 	if !ok {
-		return invalidIndex(std.TypeOf(imp), ki[2])
+		return invalidIndex(std.TypeOf(imp), Str(ki[2]))
 	}
 
-	(*stack)[A] = t2.GetHash(ki[2])
+	(*stack)[A] = t2.GetHash(Str(ki[2]))
 	// fmt.Println("GETIMPORT3", i.A, (*stack)[i.A])
 
 	return
@@ -211,7 +211,7 @@ func enclose(pc *int32, A uint8, towrap toWrap, code []internal.Inst, stack *[]V
 	nups := towrap.proto.Nups
 	towrap.upvals = make([]*upval, nups)
 
-	(*stack)[A] = wrapclosure(towrap, co)
+	(*stack)[A] = FnVal(wrapclosure(towrap, co))
 	// fmt.Println("WRAPPING WITH", uvs)
 
 	// fmt.Println("nups", nups)
@@ -254,7 +254,7 @@ func enclose(pc *int32, A uint8, towrap toWrap, code []internal.Inst, stack *[]V
 }
 
 func namecall(pc, top *int32, i *internal.Inst, code []internal.Inst, lineInfo []uint32, stack *[]Val, co *Coroutine, op *uint8) (err error) {
-	kv := i.K.(string)
+	kv := MustString(i.K)
 	// fmt.Println("kv", kv)
 
 	(*stack)[i.A+1] = (*stack)[i.B]
@@ -278,18 +278,18 @@ func namecall(pc, top *int32, i *internal.Inst, code []internal.Inst, lineInfo [
 	}
 	if !ok {
 		// fmt.Println("namecall", kv, "not found")
-		switch t := (*stack)[i.B].(type) {
-		case *Table:
-			call := t.GetHash(kv)
-			if call == nil {
-				return missingMethod(std.TypeOf(t), kv)
+		v := (*stack)[i.B]
+		if t, ok := AsTable(v); ok {
+			call := t.GetHash(Str(kv))
+			if IsNil(call) {
+				return missingMethod(std.TypeOf(v), Str(kv))
 			}
 
 			(*stack)[i.A] = call
-		case string:
-			return missingMethod(std.TypeOf(t), kv)
-		default:
-			return invalidIndex(std.TypeOf(t), kv)
+		} else if IsString(v) {
+			return missingMethod(std.TypeOf(v), Str(kv))
+		} else {
+			return invalidIndex(std.TypeOf(v), Str(kv))
 		}
 		return
 	}
@@ -328,9 +328,7 @@ func handleRequire(towrap toWrap, p compile.Program, co *Coroutine) (rets []Val,
 
 	// finally, weird reference implementation behaviour fixed
 	ret := reqrets[0]
-	switch ret.(type) {
-	case *Table, Function:
-	default:
+	if !IsTable(ret) && !IsFunction(ret) {
 		return nil, errors.New("module must return a table or function")
 	}
 
@@ -345,7 +343,7 @@ func call(top *int32, A int32, B, C uint8, towrap toWrap, stack *[]Val, co *Coro
 	}
 	f := (*stack)[A]
 
-	fn, ok := f.(Function)
+	fn, ok := AsFunction(f)
 	if !ok {
 		return uncallableType(std.TypeOf(f))
 	}
@@ -395,7 +393,7 @@ func call(top *int32, A int32, B, C uint8, towrap toWrap, stack *[]Val, co *Coro
 		// by which I mean that compile.Program is the value type returned by the require() implementation. The script has been compiled and packaged as this value.
 		// This never goes on the stack; it's intercepted here to run the coroutine of the require()'d script and get its returns.
 		// Internally, require() therefore looks like it returns just one value. The required script itself, when run, could return more than one value, though if this happens it'll get smited in handleRequire().
-		if p, ok := retList[0].(compile.Program); ok {
+		if p, ok := AsObject(retList[0]).(compile.Program); ok {
 			// it's a require
 			// fmt.Println("REQUIRE", lc.filepath)
 
@@ -418,10 +416,10 @@ func call(top *int32, A int32, B, C uint8, towrap toWrap, stack *[]Val, co *Coro
 
 // for gloop lel
 func forgloop(pc, top *int32, i internal.Inst, stack *[]Val, co *Coroutine, genIters map[internal.Inst][]Val) (err error) {
-	res := int32(i.K.(uint8)) // aux number low 16 bits
+	res := int32(MustNum(i.K)) // aux number low 16 bits
 
-	switch s := (*stack)[i.A].(type) {
-	case Function:
+	v := (*stack)[i.A]
+	if s, ok := AsFunction(v); ok {
 		// fmt.Println("IT func", fn, (*stack)[A+1], (*stack)[A+2])
 		vals, err := (*s.Run)(co, (*stack)[i.A+1], (*stack)[i.A+2])
 		if err != nil {
@@ -429,13 +427,13 @@ func forgloop(pc, top *int32, i internal.Inst, stack *[]Val, co *Coroutine, genI
 		}
 
 		moveStack(stack, vals, res, i.A+3)
-		// fmt.Println(A+3, (*stack)[A+3])
+		// fmt.Println(A+3, (*stack)[i.A+3])
 
-		if (*stack)[i.A+3] == nil {
+		if IsNil((*stack)[i.A+3]) {
 			*pc += 2
 			return nil
 		}
-	case *Table:
+	} else if s, ok := AsTable(v); ok {
 		// fmt.Println("GETTING GENITER", genIters)
 		it := genIters[i]
 
@@ -457,8 +455,8 @@ func forgloop(pc, top *int32, i internal.Inst, stack *[]Val, co *Coroutine, genI
 
 		moveStack(stack, it[:2], res, i.A+3)
 		genIters[i] = it[2:]
-	default:
-		return invalidIter(std.TypeOf(s))
+	} else {
+		return invalidIter(std.TypeOf(v))
 	}
 
 	*top = i.A + 7
@@ -493,13 +491,13 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			// -- Do nothing
 			pc++
 		case 2: // LOADNIL
-			stack[i.A] = nil
+			stack[i.A] = NilVal
 			pc++
 		case 3: // LOADB
-			stack[i.A] = i.B == 1
+			stack[i.A] = Bool(i.B == 1)
 			pc += int32(i.C + 1)
 		case 4: // LOADN
-			stack[i.A] = float64(i.D) // never put an int on the stack
+			stack[i.A] = Num(float64(i.D)) // never put an int on the stack
 			pc++
 		case 5: // LOADK
 			// fmt.Println("LOADK", i.A, i.K)
@@ -510,7 +508,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			stack[i.A] = stack[i.B]
 			pc++
 		case 7: // GETGLOBAL
-			kv, ok := i.K.(string)
+			kv, ok := AsString(i.K)
 			if !ok {
 				return nil, fmt.Errorf("invalid constant type for GETGLOBAL: %T", i.K)
 			}
@@ -524,7 +522,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			pc += 2 // -- adjust for aux
 		case 8: // SETGLOBAL
 			// LOL
-			kv, ok := i.K.(string)
+			kv, ok := AsString(i.K)
 			if !ok {
 				return nil, fmt.Errorf("invalid constant type for SETGLOBAL: %T", i.K)
 			}
@@ -574,14 +572,14 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			pc++
 		case 14: // SETTABLE
 			idx := stack[i.C]
-			t, ok := stack[i.B].(*Table) // SETTABLE or SETTABLEKS on a Vector actually does return "attempt to index vector with 'whatever'"
+			t, ok := AsTable(stack[i.B]) // SETTABLE or SETTABLEKS on a Vector actually does return "attempt to index vector with 'whatever'"
 			if !ok {
 				return nil, invalidIndex(std.TypeOf(stack[i.B]), idx)
 			}
 			if t.Readonly {
 				return nil, errReadonly
 			}
-			if idx == nil {
+			if IsNil(idx) {
 				return nil, errNilIndex
 			}
 
@@ -595,7 +593,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			pc += 2 // -- adjust for aux
 		case 16: // SETTABLEKS
 			idx := i.K
-			t, ok := stack[i.B].(*Table)
+			t, ok := AsTable(stack[i.B])
 			if !ok {
 				// fmt.Println("indexing", std.TypeOf(stack[i.B]), "with", idx)
 				return nil, invalidIndex(std.TypeOf(stack[i.B]), idx)
@@ -603,7 +601,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			if t.Readonly {
 				return nil, errReadonly
 			}
-			if idx == nil {
+			if IsNil(idx) {
 				return nil, errNilIndex
 			}
 
@@ -611,20 +609,20 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			pc += 2 // -- adjust for aux
 		case 17: // GETTABLEN
 			idx := i.C + 1
-			t, ok := stack[i.B].(*Table)
+			t, ok := AsTable(stack[i.B])
 			if !ok {
 				// fmt.Println("gettableninvalidindex")
-				return nil, invalidIndex(std.TypeOf(stack[i.B]), float64(idx))
+				return nil, invalidIndex(std.TypeOf(stack[i.B]), Num(float64(idx)))
 			}
 
 			stack[i.A] = t.GetInt(int(idx))
 			pc++
 		case 18: // SETTABLEN
 			idx := i.C + 1
-			t, ok := stack[i.B].(*Table)
+			t, ok := AsTable(stack[i.B])
 			if !ok {
 				// fmt.Println("gettableninvalidindex")
-				return nil, invalidIndex(std.TypeOf(stack[i.B]), float64(idx))
+				return nil, invalidIndex(std.TypeOf(stack[i.B]), Num(float64(idx)))
 			}
 			if t.Readonly {
 				return nil, errReadonly
@@ -674,8 +672,8 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 				pc++
 			}
 		case 27: // jump
-			if fa, ok := stack[i.A].(float64); ok {
-				if fb, ok := stack[i.Aux].(float64); ok {
+			if fa, ok := AsNum(stack[i.A]); ok {
+				if fb, ok := AsNum(stack[i.Aux]); ok {
 					if fa == fb {
 						pc += i.D + 1
 					} else {
@@ -706,8 +704,8 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 				pc += 2
 			}
 		case 30:
-			if fa, ok := stack[i.A].(float64); ok {
-				if fb, ok := stack[i.Aux].(float64); ok {
+			if fa, ok := AsNum(stack[i.A]); ok {
+				if fb, ok := AsNum(stack[i.Aux]); ok {
 					if fa != fb {
 						pc += i.D + 1
 					} else {
@@ -739,9 +737,9 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			}
 		case 33: // arithmetic
 			// fmt.Println("adding", stack[i.B], stack[i.C])
-			if fa, ok := stack[i.B].(float64); ok {
-				if fb, ok := stack[i.C].(float64); ok {
-					stack[i.A] = fadd(fa, fb)
+			if fa, ok := AsNum(stack[i.B]); ok {
+				if fb, ok := AsNum(stack[i.C]); ok {
+					stack[i.A] = Num(fadd(fa, fb))
 					pc++
 					continue
 				}
@@ -751,9 +749,9 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			}
 			pc++
 		case 34:
-			if fa, ok := stack[i.B].(float64); ok {
-				if fb, ok := stack[i.C].(float64); ok {
-					stack[i.A] = fsub(fa, fb)
+			if fa, ok := AsNum(stack[i.B]); ok {
+				if fb, ok := AsNum(stack[i.C]); ok {
+					stack[i.A] = Num(fsub(fa, fb))
 					pc++
 					continue
 				}
@@ -763,9 +761,9 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			}
 			pc++
 		case 35:
-			if fa, ok := stack[i.B].(float64); ok {
-				if fb, ok := stack[i.C].(float64); ok {
-					stack[i.A] = fmul(fa, fb)
+			if fa, ok := AsNum(stack[i.B]); ok {
+				if fb, ok := AsNum(stack[i.C]); ok {
+					stack[i.A] = Num(fmul(fa, fb))
 					pc++
 					continue
 				}
@@ -775,9 +773,9 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			}
 			pc++
 		case 36:
-			if fa, ok := stack[i.B].(float64); ok {
-				if fb, ok := stack[i.C].(float64); ok {
-					stack[i.A] = fdiv(fa, fb)
+			if fa, ok := AsNum(stack[i.B]); ok {
+				if fb, ok := AsNum(stack[i.C]); ok {
+					stack[i.A] = Num(fdiv(fa, fb))
 					pc++
 					continue
 				}
@@ -787,9 +785,9 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			}
 			pc++
 		case 37:
-			if fa, ok := stack[i.B].(float64); ok {
-				if fb, ok := stack[i.C].(float64); ok {
-					stack[i.A] = fmod(fa, fb)
+			if fa, ok := AsNum(stack[i.B]); ok {
+				if fb, ok := AsNum(stack[i.C]); ok {
+					stack[i.A] = Num(fmod(fa, fb))
 					pc++
 					continue
 				}
@@ -804,9 +802,9 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			}
 			pc++
 		case 81:
-			if fa, ok := stack[i.B].(float64); ok {
-				if fb, ok := stack[i.C].(float64); ok {
-					stack[i.A] = fidiv(fa, fb)
+			if fa, ok := AsNum(stack[i.B]); ok {
+				if fb, ok := AsNum(stack[i.C]); ok {
+					stack[i.A] = Num(fidiv(fa, fb))
 					pc++
 					continue
 				}
@@ -816,9 +814,9 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			}
 			pc++
 		case 39: // arithmetik
-			if fa, ok := stack[i.B].(float64); ok {
-				if fb, ok := i.K.(float64); ok {
-					stack[i.A] = fadd(fa, fb)
+			if fa, ok := AsNum(stack[i.B]); ok {
+				if fb, ok := AsNum(i.K); ok {
+					stack[i.A] = Num(fadd(fa, fb))
 					pc++
 					continue
 				}
@@ -828,9 +826,9 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			}
 			pc++
 		case 40:
-			if fa, ok := stack[i.B].(float64); ok {
-				if fb, ok := i.K.(float64); ok {
-					stack[i.A] = fsub(fa, fb)
+			if fa, ok := AsNum(stack[i.B]); ok {
+				if fb, ok := AsNum(i.K); ok {
+					stack[i.A] = Num(fsub(fa, fb))
 					pc++
 					continue
 				}
@@ -840,9 +838,9 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			}
 			pc++
 		case 41:
-			if fa, ok := stack[i.B].(float64); ok {
-				if fb, ok := i.K.(float64); ok {
-					stack[i.A] = fmul(fa, fb)
+			if fa, ok := AsNum(stack[i.B]); ok {
+				if fb, ok := AsNum(i.K); ok {
+					stack[i.A] = Num(fmul(fa, fb))
 					pc++
 					continue
 				}
@@ -852,9 +850,9 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			}
 			pc++
 		case 42:
-			if fa, ok := stack[i.B].(float64); ok {
-				if fb, ok := i.K.(float64); ok {
-					stack[i.A] = fdiv(fa, fb)
+			if fa, ok := AsNum(stack[i.B]); ok {
+				if fb, ok := AsNum(i.K); ok {
+					stack[i.A] = Num(fdiv(fa, fb))
 					pc++
 					continue
 				}
@@ -864,9 +862,9 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			}
 			pc++
 		case 43:
-			if fa, ok := stack[i.B].(float64); ok {
-				if fb, ok := i.K.(float64); ok {
-					stack[i.A] = fmod(fa, fb)
+			if fa, ok := AsNum(stack[i.B]); ok {
+				if fb, ok := AsNum(i.K); ok {
+					stack[i.A] = Num(fmod(fa, fb))
 					pc++
 					continue
 				}
@@ -881,9 +879,9 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			}
 			pc++
 		case 82:
-			if fa, ok := stack[i.B].(float64); ok {
-				if fb, ok := i.K.(float64); ok {
-					stack[i.A] = fidiv(fa, fb)
+			if fa, ok := AsNum(stack[i.B]); ok {
+				if fb, ok := AsNum(i.K); ok {
+					stack[i.A] = Num(fidiv(fa, fb))
 					pc++
 					continue
 				}
@@ -893,9 +891,9 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			}
 			pc++
 		case 71: // SUBRK
-			if fa, ok := i.K.(float64); ok {
-				if fb, ok := stack[i.C].(float64); ok {
-					stack[i.A] = fsub(fa, fb)
+			if fa, ok := AsNum(i.K); ok {
+				if fb, ok := AsNum(stack[i.C]); ok {
+					stack[i.A] = Num(fsub(fa, fb))
 					pc++
 					continue
 				}
@@ -905,9 +903,9 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			}
 			pc++
 		case 72: // DIVRK
-			if fa, ok := i.K.(float64); ok {
-				if fb, ok := stack[i.C].(float64); ok {
-					stack[i.A] = fdiv(fa, fb)
+			if fa, ok := AsNum(i.K); ok {
+				if fb, ok := AsNum(stack[i.C]); ok {
+					stack[i.A] = Num(fdiv(fa, fb))
 					pc++
 					continue
 				}
@@ -949,17 +947,17 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 		case 49: // CONCAT
 			var b strings.Builder
 			for first, n := uint8(0), i.B; n <= i.C; n, first = n+1, 1 {
-				toWrite, ok := stack[n].(string)
+				toWrite, ok := AsString(stack[n])
 				if !ok {
 					// ensure correct order of operands in error message
 					return nil, invalidConcat(std.TypeOf(stack[n-first]), std.TypeOf(stack[n+1-first]))
 				}
 				b.WriteString(toWrite)
 			}
-			stack[i.A] = b.String()
+			stack[i.A] = Str(b.String())
 			pc++
 		case 50: // NOT
-			stack[i.A] = falsy(stack[i.B])
+			stack[i.A] = Bool(falsy(stack[i.B]))
 			pc++
 		case 51: // MINUS
 			if stack[i.A], err = std.Unm(stack[i.B]); err != nil {
@@ -967,23 +965,22 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			}
 			pc++
 		case 52: // LENGTH
-			switch t := stack[i.B].(type) {
-			case *Table:
-				stack[i.A] = float64(t.Len())
-			case string:
-				stack[i.A] = float64(len(t))
-			default:
-				return nil, invalidLength(std.TypeOf(t))
+			if t, ok := AsTable(stack[i.B]); ok {
+				stack[i.A] = Num(float64(t.Len()))
+			} else if s, ok := AsString(stack[i.B]); ok {
+				stack[i.A] = Num(float64(len(s)))
+			} else {
+				return nil, invalidLength(std.TypeOf(stack[i.B]))
 			}
 			pc++
 		case 53: // NEWTABLE
-			stack[i.A] = &Table{}
+			stack[i.A] = TableVal(&Table{})
 			pc += 2 // -- adjust for aux
 		case 54: // DUPTABLE
-			if tmpl, ok := i.K.(*Table); ok {
-				stack[i.A] = tmpl.Clone()
+			if tmpl, ok := AsTable(i.K); ok {
+				stack[i.A] = TableVal(tmpl.Clone())
 			} else {
-				stack[i.A] = &Table{} // doesn't really apply here...
+				stack[i.A] = TableVal(&Table{}) // doesn't really apply here...
 			}
 			pc++
 		case 55: // SETLIST
@@ -994,7 +991,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 				c = top - B
 			}
 
-			s := stack[i.A].(*Table)
+			s := MustTable(stack[i.A])
 			if s.Readonly {
 				return nil, errReadonly
 			}
@@ -1007,17 +1004,17 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 
 			pc += 2 // -- adjust for aux
 		case 56: // FORNPREP
-			init, ok := stack[i.A+2].(float64)
+			init, ok := AsNum(stack[i.A+2])
 			if !ok {
 				return nil, invalidFor("initial value", std.TypeOf(stack[i.A+2]))
 			}
 
-			limit, ok := stack[i.A].(float64)
+			limit, ok := AsNum(stack[i.A])
 			if !ok {
 				return nil, invalidFor("limit", std.TypeOf(stack[i.A]))
 			}
 
-			step, ok := stack[i.A+1].(float64)
+			step, ok := AsNum(stack[i.A+1])
 			if !ok {
 				return nil, invalidFor("step", std.TypeOf(stack[i.A+1]))
 			}
@@ -1029,12 +1026,12 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			}
 		case 57: // FORNLOOP
 			// all checked in FORNPREP
-			init := stack[i.A+2].(float64)
-			limit := stack[i.A].(float64)
-			step := stack[i.A+1].(float64)
+			init := MustNum(stack[i.A+2])
+			limit := MustNum(stack[i.A])
+			step := MustNum(stack[i.A+1])
 
 			init += step
-			stack[i.A+2] = init
+			stack[i.A+2] = Num(init)
 
 			if s := step > 0; s && init <= limit || !s && init >= limit {
 				pc += i.D + 1
@@ -1046,7 +1043,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 				return
 			}
 		case 59, 61: // FORGPREP_INEXT, FORGPREP_NEXT
-			if _, ok := stack[i.A].(Function); !ok {
+			if _, ok := AsFunction(stack[i.A]); !ok {
 				return nil, invalidIter(std.TypeOf(stack[i.A])) // -- encountered non-function value
 			}
 			pc += i.D + 1
@@ -1068,7 +1065,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			pc++
 		case 64: // DUPCLOSURE
 			// wrap is reused for closures
-			towrap.proto = towrap.protoList[i.K.(uint32)] // 6 closure
+			towrap.proto = towrap.protoList[uint32(MustNum(i.K))] // 6 closure
 			enclose(&pc, uint8(i.A), towrap, code, &stack, co, nil, upvals)
 			pc++
 		case 65: // PREPVARARGS
@@ -1091,7 +1088,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 
 			pc += i.D + 1
 		case 77: // JUMPXEQKNIL
-			if ra := stack[i.A]; ra == nil != i.KN {
+			if ra := stack[i.A]; IsNil(ra) != i.KN {
 				pc += i.D + 1
 			} else {
 				pc += 2

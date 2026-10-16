@@ -30,21 +30,13 @@ type Args struct {
 	pos  int
 }
 
-func getArg[T Val](a *Args, optV []T, tx string) (g T) {
+// nextArg advances to the next argument, reporting whether one exists.
+func (a *Args) nextArg() (Val, bool) {
 	a.pos++
 	if a.pos > len(a.List) {
-		if len(optV) == 0 {
-			a.Co.Error(invalidNumArgsExpected(a.Name, a.pos, tx))
-		}
-		return optV[0]
+		return NilVal, false
 	}
-
-	possibleArg := a.List[a.pos-1]
-	arg, ok := possibleArg.(T)
-	if !ok {
-		a.Co.Error(invalidArgType(a.pos, a.Name, TypeOf(arg), TypeOf(possibleArg)))
-	}
-	return arg
+	return a.List[a.pos-1], true
 }
 
 // CheckNextArg ensures that there is at least one more argument to be read. If there isn't, the coroutine yields a missing argument error.
@@ -56,42 +48,138 @@ func (a *Args) CheckNextArg() {
 
 // GetNumber returns the next argument as a float64 number value. An optional value can be passed if the argument is not required.
 func (a *Args) GetNumber(optV ...float64) float64 {
-	return getArg(a, optV, "number")
+	v, ok := a.nextArg()
+	if !ok {
+		if len(optV) == 0 {
+			a.Co.Error(invalidNumArgsExpected(a.Name, a.pos, "number"))
+		}
+		return optV[0]
+	}
+
+	f, ok := AsNum(v)
+	if !ok {
+		a.Co.Error(invalidArgType(a.pos, a.Name, "number", TypeOf(v)))
+	}
+	return f
 }
 
 // GetString returns the next argument as a string value. An optional value can be passed if the argument is not required.
 func (a *Args) GetString(optV ...string) string {
-	return getArg(a, optV, "string")
+	v, ok := a.nextArg()
+	if !ok {
+		if len(optV) == 0 {
+			a.Co.Error(invalidNumArgsExpected(a.Name, a.pos, "string"))
+		}
+		return optV[0]
+	}
+
+	s, ok := AsString(v)
+	if !ok {
+		a.Co.Error(invalidArgType(a.pos, a.Name, "string", TypeOf(v)))
+	}
+	return s
 }
 
 // GetBool returns the next argument as a boolean value. An optional value can be passed if the argument is not required.
 func (a *Args) GetBool(optV ...bool) bool {
-	return getArg(a, optV, "boolean")
+	v, ok := a.nextArg()
+	if !ok {
+		if len(optV) == 0 {
+			a.Co.Error(invalidNumArgsExpected(a.Name, a.pos, "boolean"))
+		}
+		return optV[0]
+	}
+
+	b, ok := AsBool(v)
+	if !ok {
+		a.Co.Error(invalidArgType(a.pos, a.Name, "boolean", TypeOf(v)))
+	}
+	return b
 }
 
 // GetTable returns the next argument as a table value. An optional value can be passed if the argument is not required.
 func (a *Args) GetTable(optV ...*Table) *Table {
-	return getArg(a, optV, "table")
+	v, ok := a.nextArg()
+	if !ok {
+		if len(optV) == 0 {
+			a.Co.Error(invalidNumArgsExpected(a.Name, a.pos, "table"))
+		}
+		return optV[0]
+	}
+
+	t, ok := AsTable(v)
+	if !ok {
+		a.Co.Error(invalidArgType(a.pos, a.Name, "table", TypeOf(v)))
+	}
+	return t
 }
 
 // GetFunction returns the next argument as a function value. An optional value can be passed if the argument is not required.
 func (a *Args) GetFunction(optV ...Function) Function {
-	return getArg(a, optV, "function")
+	v, ok := a.nextArg()
+	if !ok {
+		if len(optV) == 0 {
+			a.Co.Error(invalidNumArgsExpected(a.Name, a.pos, "function"))
+		}
+		return optV[0]
+	}
+
+	f, ok := AsFunction(v)
+	if !ok {
+		a.Co.Error(invalidArgType(a.pos, a.Name, "function", TypeOf(v)))
+	}
+	return f
 }
 
 // GetCoroutine returns the next argument as a coroutine value. An optional value can be passed if the argument is not required.
 func (a *Args) GetCoroutine(optV ...*Coroutine) *Coroutine {
-	return getArg(a, optV, "thread")
+	v, ok := a.nextArg()
+	if !ok {
+		if len(optV) == 0 {
+			a.Co.Error(invalidNumArgsExpected(a.Name, a.pos, "thread"))
+		}
+		return optV[0]
+	}
+
+	c, ok := AsCoroutine(v)
+	if !ok {
+		a.Co.Error(invalidArgType(a.pos, a.Name, "thread", TypeOf(v)))
+	}
+	return c
 }
 
 // GetBuffer returns the next argument as a buffer value. An optional value can be passed if the argument is not required.
 func (a *Args) GetBuffer(optV ...*Buffer) *Buffer {
-	return getArg(a, optV, "buffer")
+	v, ok := a.nextArg()
+	if !ok {
+		if len(optV) == 0 {
+			a.Co.Error(invalidNumArgsExpected(a.Name, a.pos, "buffer"))
+		}
+		return optV[0]
+	}
+
+	b, ok := AsBuffer(v)
+	if !ok {
+		a.Co.Error(invalidArgType(a.pos, a.Name, "buffer", TypeOf(v)))
+	}
+	return b
 }
 
 // GetVector returns the next argument as a vector value. An optional value can be passed if the argument is not required.
 func (a *Args) GetVector(optV ...Vector) Vector {
-	return getArg(a, optV, "vector")
+	v, ok := a.nextArg()
+	if !ok {
+		if len(optV) == 0 {
+			a.Co.Error(invalidNumArgsExpected(a.Name, a.pos, "vector"))
+		}
+		return optV[0]
+	}
+
+	x, ok := AsVector(v)
+	if !ok {
+		a.Co.Error(invalidArgType(a.pos, a.Name, "vector", TypeOf(v)))
+	}
+	return x
 }
 
 // GetAny returns the next argument.
@@ -112,11 +200,11 @@ func NewLib(functions []Function, other ...map[string]Val) *Table {
 	// remember, no duplicates
 	hash := make(map[Val]Val, len(functions)+len(other))
 	for _, f := range functions {
-		hash[f.Name] = f
+		hash[Str(f.Name)] = FnVal(f)
 	}
 	if len(other) > 0 {
 		for k, v := range other[0] {
-			hash[k] = v
+			hash[Str(k)] = v
 		}
 	}
 

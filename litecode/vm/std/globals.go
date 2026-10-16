@@ -35,8 +35,8 @@ func ipairs_iter(args Args) (r []Val, err error) {
 	if a.List == nil || int(i) > len(a.List) {
 		return
 	}
-	if v := a.List[int(i)-1]; v != nil {
-		return []Val{i, v}, nil
+	if v := a.List[int(i)-1]; !IsNil(v) {
+		return []Val{Num(i), v}, nil
 	}
 	return // would prefer nil, nil but whateverrrrr
 }
@@ -46,15 +46,15 @@ var ipairs = MakeFn("ipairs", ipairs_iter)
 func global_ipairs(args Args) (r []Val, err error) {
 	a := args.GetTable()
 
-	return []Val{ipairs, a, float64(0)}, nil
+	return []Val{FnVal(ipairs), TableVal(a), Num(float64(0))}, nil
 }
 
 // The call next(t, k), where k is a key of the table t, returns a next key in the table, in an arbitrary order. (It returns also the value associated with that key, as a second return value.) The call next(t, nil) returns a first pair. When there are no more pairs, next returns nil.
 func global_next(args Args) (r []Val, err error) {
 	t := args.GetTable()
-	fk := args.GetAny(nil)
+	fk := args.GetAny(NilVal)
 
-	if fk == nil {
+	if IsNil(fk) {
 		next, stop := iter.Pull2(t.Iter())
 		defer stop()
 
@@ -76,7 +76,7 @@ func global_next(args Args) (r []Val, err error) {
 
 	k, v, ok := next()
 	if !ok {
-		return []Val{nil}, nil
+		return []Val{NilVal}, nil
 	}
 	return []Val{k, v}, nil
 }
@@ -84,7 +84,7 @@ func global_next(args Args) (r []Val, err error) {
 func global_pairs(args Args) (r []Val, err error) {
 	t := args.GetTable()
 
-	return []Val{MakeFn("next", global_next), t}, nil
+	return []Val{FnVal(MakeFn("next", global_next)), TableVal(t)}, nil
 }
 
 const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -93,15 +93,15 @@ func global_tonumber(args Args) (r []Val, err error) {
 	value := args.GetAny()
 	radix := uint64(args.GetNumber(10))
 
-	str, ok := value.(string)
+	str, ok := AsString(value)
 	if !ok || radix < 2 || radix > 36 {
-		return []Val{nil}, nil
+		return []Val{NilVal}, nil
 		// panic("base out of range") // invalid argument #2
 	}
 
 	if radix == 10 {
 		if f, err := strconv.ParseFloat(str, 64); err == nil {
-			return []Val{f}, nil
+			return []Val{Num(f)}, nil
 		}
 	}
 
@@ -133,20 +133,20 @@ func global_tonumber(args Args) (r []Val, err error) {
 		n *= radix
 		index := strings.IndexRune(radixChars, c)
 		if index == -1 {
-			return []Val{nil}, nil
+			return []Val{NilVal}, nil
 		}
 		n += uint64(index)
 	}
 
 	if !negative {
-		return []Val{float64(n)}, nil
+		return []Val{Num(float64(n))}, nil
 	}
 
 	if ogRadix == 10 {
 		// this is wild Luau, fix yo shit
-		return []Val{-float64(n)}, nil
+		return []Val{Num(-float64(n))}, nil
 	}
-	return []Val{float64(-n)}, nil
+	return []Val{Num(float64(-n))}, nil
 }
 
 const kPow10TableMin = -292
@@ -517,13 +517,13 @@ func num2str(n float64) string {
 func global_tostring(args Args) (r []Val, err error) {
 	value := args.GetAny()
 
-	return []Val{ToString(value)}, nil
+	return []Val{Str(ToString(value))}, nil
 }
 
 func global_type(args Args) (r []Val, err error) {
 	obj := args.GetAny()
 
-	return []Val{TypeOf(obj)}, nil
+	return []Val{Str(TypeOf(obj))}, nil
 }
 
 func hasValidPrefix(path string) bool {
@@ -564,7 +564,7 @@ func global_require(args Args) (r []Val, err error) {
 	p.RequireHistory = append(rh, fp)
 
 	// this is where we take it to the top babbyyyyy (with the same as parent global env)
-	return []Val{p}, nil
+	return []Val{ObjVal(p)}, nil
 }
 
 var Globals = []Function{

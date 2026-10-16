@@ -30,7 +30,7 @@ func utf8_char(args Args) (r []Val, err error) {
 		a := args.GetNumber()
 		b.WriteRune(rune(a))
 	}
-	return []Val{b.String()}, nil
+	return []Val{Str(b.String())}, nil
 }
 
 func iter_aux(args Args) (cps []Val, err error) {
@@ -54,13 +54,13 @@ func iter_aux(args Args) (cps []Val, err error) {
 	if r == utf8.RuneError {
 		return nil, errors.New("invalid UTF-8 code")
 	}
-	return []Val{float64(n + 1), float64(r)}, nil
+	return []Val{Num(float64(n + 1)), Num(float64(r))}, nil
 }
 
 func utf8_codes(args Args) (r []Val, err error) {
 	str := args.GetString()
 
-	return []Val{MakeFn("codes", iter_aux), str, float64(0)}, nil
+	return []Val{FnVal(MakeFn("codes", iter_aux)), Str(str), Num(float64(0))}, nil
 }
 
 const int_max = int(^uint(0) >> 1)
@@ -90,7 +90,7 @@ func utf8_codepoint(args Args) (cps []Val, err error) {
 			return nil, errors.New("invalid UTF-8 code")
 		}
 		si += size
-		cps = append(cps, float64(s))
+		cps = append(cps, Num(float64(s)))
 	}
 	return
 }
@@ -106,7 +106,7 @@ func utf8_len(args Args) (r []Val, err error) {
 	sl := s[max(posi-1, 0):min(pose, len(s))]
 	n := utf8.RuneCountInString(sl)
 
-	return []Val{float64(n)}, nil
+	return []Val{Num(float64(n))}, nil
 }
 
 func utf8_offset(args Args) (r []Val, err error) {
@@ -127,7 +127,7 @@ func utf8_offset(args Args) (r []Val, err error) {
 		for posi > 0 && iscont(s[posi]) {
 			posi--
 		}
-		return []Val{float64(posi + 1)}, nil
+		return []Val{Num(float64(posi + 1))}, nil
 	}
 	if iscont(s[posi]) {
 		return nil, errors.New("initial position is a continuation byte")
@@ -155,7 +155,7 @@ func utf8_offset(args Args) (r []Val, err error) {
 		// no such character
 		return
 	}
-	return []Val{float64(posi + 1)}, nil
+	return []Val{Num(float64(posi + 1))}, nil
 }
 
 // func utf8_graphemes(args Args) (r Rets, err error) {
@@ -165,13 +165,13 @@ func utf8_offset(args Args) (r []Val, err error) {
 func utf8_nfcnormalize(args Args) (r []Val, err error) {
 	s := args.GetString()
 
-	return []Val{norm.NFC.String(s)}, nil
+	return []Val{Str(norm.NFC.String(s))}, nil
 }
 
 func utf8_nfdnormalize(args Args) (r []Val, err error) {
 	s := args.GetString()
 
-	return []Val{norm.NFD.String(s)}, nil
+	return []Val{Str(norm.NFD.String(s))}, nil
 }
 
 var Libutf8 = NewLib([]Function{
@@ -184,5 +184,5 @@ var Libutf8 = NewLib([]Function{
 	MakeFn("nfcnormalize", utf8_nfcnormalize), // these are also untestable but they're so trivial here
 	MakeFn("nfdnormalize", utf8_nfdnormalize),
 }, map[string]Val{
-	"charpattern": "[\x00-\x7F\xC2-\xF4][\x80-\xBF]*",
+	"charpattern": Str("[\x00-\x7F\xC2-\xF4][\x80-\xBF]*"),
 })

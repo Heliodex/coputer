@@ -186,27 +186,27 @@ func pushCapture(caps *captures, s string, start, end, i int) (Val, error) {
 
 	if i >= caps.level {
 		if i != 0 {
-			return nil, errors.New("invalid capture index")
+			return NilVal, errors.New("invalid capture index")
 		}
 		if start == -1 {
 			// caps.level == 0, too
 			// fmt.Println("    adding whole match")
-			return s, nil // add whole string
+			return Str(s), nil // add whole string
 		}
-		return s[start:end], nil // add whole match
+		return Str(s[start:end]), nil // add whole match
 	}
 
 	c := caps.captures[i]
 	l, i := c.len, c.init
 	if l == cap_unfinished {
-		return nil, errors.New("unfinished capture")
+		return NilVal, errors.New("unfinished capture")
 	}
 	if l == cap_position {
 		// fmt.Println("    adding cap position")
-		return float64(i + 1), nil
+		return Num(float64(i + 1)), nil
 	}
 	// fmt.Println("    adding normal")
-	return s[i:][:l], nil
+	return Str(s[i:][:l]), nil
 }
 
 func pushCaptures(caps *captures, s string, start, end int, find bool) (r []Val, err error) {
@@ -596,7 +596,7 @@ func stringFindAux(s, p string, i int, plain, find bool) (r []Val, err error) {
 
 	init := max(1, string_posrelat(i, ls))
 	if init > ls+1 { // start after string's end?
-		return []Val{nil}, nil // cannot find anything
+		return []Val{NilVal}, nil // cannot find anything
 	}
 
 	// explicit request or no special characters?
@@ -605,11 +605,11 @@ func stringFindAux(s, p string, i int, plain, find bool) (r []Val, err error) {
 		// do a plain search, good-style
 		pos := strings.Index(is, p)
 		if pos == -1 {
-			return []Val{nil}, nil // one nil
+			return []Val{NilVal}, nil // one nil
 		}
 		return []Val{
-			float64(pos + init),
-			float64(pos + init + len(p) - 1),
+			Num(float64(pos + init)),
+			Num(float64(pos + init + len(p) - 1)),
 		}, nil
 	}
 
@@ -621,7 +621,7 @@ func stringFindAux(s, p string, i int, plain, find bool) (r []Val, err error) {
 		return
 	}
 	if start == -1 {
-		return []Val{nil}, nil // not found
+		return []Val{NilVal}, nil // not found
 	}
 
 	// fmt.Println("DONE!", caps)
@@ -632,7 +632,7 @@ func stringFindAux(s, p string, i int, plain, find bool) (r []Val, err error) {
 	// fmt.Println("pushed", rs)
 
 	return append([]Val{
-		float64(start + init),
-		float64(end + init - 1),
+		Num(float64(start + init)),
+		Num(float64(end + init - 1)),
 	}, r...), nil
 }

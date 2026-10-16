@@ -13,7 +13,7 @@ func listKeyFloat(fk float64) (int, bool) {
 }
 
 func listKey(k Val) (ik int, ok bool) {
-	fk, ok := k.(float64)
+	fk, ok := AsNum(k)
 	if !ok {
 		return
 	}
@@ -30,7 +30,7 @@ func mapKeySort(a, b Val) int {
 
 func iterList(l []Val, y func(Val, Val) bool) {
 	for i, v := range l {
-		if v != nil && !y(float64(i+1), v) {
+		if !IsNil(v) && !y(Num(float64(i+1)), v) {
 			return
 		}
 	}
@@ -79,11 +79,11 @@ func (t *Table) Len() int {
 // setHash updates or deletes a key-value pair in the hash part of the table.
 func (t *Table) setHash(k Val, v Val) {
 	if t.Hash == nil {
-		if v == nil {
+		if IsNil(v) {
 			return
 		}
 		t.Hash = map[Val]Val{k: v}
-	} else if v == nil {
+	} else if IsNil(v) {
 		delete(t.Hash, k)
 	} else {
 		t.Hash[k] = v
@@ -102,7 +102,7 @@ func (t *Table) moveToList(l int) {
 			break
 		}
 		t.List = append(t.List, v2)
-		delete(t.Hash, f2)
+		delete(t.Hash, Num(f2))
 	}
 }
 
@@ -118,7 +118,7 @@ func (t *Table) SetInt(i int, v Val) {
 			return
 		}
 	} else if l := len(t.List); 0 < i && i < l+1 {
-		if v != nil {
+		if !IsNil(v) {
 			// set in the list portion
 			t.List[i-1] = v
 			return
@@ -130,7 +130,7 @@ func (t *Table) SetInt(i int, v Val) {
 
 		// move the rest to the hash part
 		for i2, v2 := range after {
-			t.setHash(float64(i+i2), v2)
+			t.setHash(Num(float64(i+i2)), v2)
 		}
 		return
 	} else if i == l+1 {
@@ -142,7 +142,7 @@ func (t *Table) SetInt(i int, v Val) {
 	}
 
 	// add to the hash part instead
-	t.setHash(float64(i), v)
+	t.setHash(Num(float64(i)), v)
 }
 
 // Set sets a table value at a key. Make sure to check if the table is readonly beforehand.
@@ -190,7 +190,7 @@ func (t *Table) GetFloat(k float64) Val {
 	if ak, ok := listKeyFloat(k); ok && ak <= t.Len() {
 		return t.List[ak-1]
 	}
-	return t.GetHash(k)
+	return t.GetHash(Num(k))
 }
 
 // GetFloat returns a value at a float key in the table.
@@ -198,7 +198,7 @@ func (t *Table) GetInt(k int) Val {
 	if ok := 1 <= k; ok && k <= t.Len() {
 		return t.List[k-1]
 	}
-	return t.GetHash(float64(k))
+	return t.GetHash(Num(float64(k)))
 }
 
 // Iter returns an iterator over the table, yielding key-value pairs in a deterministic order.

@@ -33,7 +33,7 @@ func clone(t *Table) *Table {
 func table_clone(args Args) (r []Val, err error) {
 	t := args.GetTable()
 
-	return []Val{clone(t)}, nil
+	return []Val{TableVal(clone(t))}, nil
 }
 
 func table_concat(args Args) (r []Val, err error) {
@@ -43,13 +43,13 @@ func table_concat(args Args) (r []Val, err error) {
 	j := args.GetNumber(float64(t.Len()))
 
 	if i > j {
-		return []Val{""}, nil
+		return []Val{Str("")}, nil
 	}
 
 	var b strings.Builder
 	for ; i <= j; i++ {
 		v := t.GetFloat(i)
-		sv, ok := v.(string)
+		sv, ok := AsString(v)
 		if !ok {
 			// return nil, errors.New("attempt to concatenate non-string value")
 			return nil, fmt.Errorf("invalid value (%s) at index %d in table for 'concat'", TypeOf(v), int(i))
@@ -61,7 +61,7 @@ func table_concat(args Args) (r []Val, err error) {
 		}
 	}
 
-	return []Val{b.String()}, nil
+	return []Val{Str(b.String())}, nil
 }
 
 func table_create(args Args) (r []Val, err error) {
@@ -75,10 +75,10 @@ func table_create(args Args) (r []Val, err error) {
 		val = args.GetAny()
 	}
 
-	if val == nil {
+	if IsNil(val) {
 		// no value fill or fill with nil (tests/niltable.luau)
 		a := make([]Val, 0, s)
-		return []Val{&Table{List: a}}, nil
+		return []Val{TableVal(&Table{List: a})}, nil
 	}
 
 	a := make([]Val, s)
@@ -86,7 +86,7 @@ func table_create(args Args) (r []Val, err error) {
 		a[i] = val
 	}
 
-	return []Val{&Table{List: a}}, nil
+	return []Val{TableVal(&Table{List: a})}, nil
 }
 
 func table_find(args Args) (r []Val, err error) {
@@ -98,23 +98,23 @@ func table_find(args Args) (r []Val, err error) {
 	}
 
 	if haystack.List == nil { // it doesn't even search the hash? Lame
-		return []Val{nil}, nil
+		return []Val{NilVal}, nil
 	}
 
 	for i := int(init) - 1; i < len(haystack.List); i++ {
 		if needle == haystack.List[i] {
-			return []Val{float64(i + 1)}, nil
+			return []Val{Num(float64(i + 1))}, nil
 		}
 	}
 
-	return []Val{nil}, nil
+	return []Val{NilVal}, nil
 }
 
 func table_freeze(args Args) (r []Val, err error) {
 	t := args.GetTable()
 
 	t.Readonly = true
-	return []Val{t}, nil
+	return []Val{TableVal(t)}, nil
 }
 
 func bumpelements(t *Table, start int) {
@@ -125,7 +125,7 @@ func bumpelements(t *Table, start int) {
 	var keys int
 	for i := start; ; i++ {
 		// fmt.Println("starting with", i)
-		if t.GetInt(i) == nil {
+		if IsNil(t.GetInt(i)) {
 			keys = i - 1
 			break
 		}
@@ -175,12 +175,12 @@ func table_insert(args Args) (r []Val, err error) {
 func table_isfrozen(args Args) (r []Val, err error) {
 	t := args.GetTable()
 
-	return []Val{t.Readonly}, nil
+	return []Val{Bool(t.Readonly)}, nil
 }
 
 func maxArray(list []Val) (maxn float64) {
 	for i, v := range list {
-		if v == nil {
+		if IsNil(v) {
 			continue
 		}
 		if fi := float64(i + 1); fi > maxn {
@@ -192,10 +192,10 @@ func maxArray(list []Val) (maxn float64) {
 
 func maxHash(hash map[Val]Val) (maxn float64) {
 	for k, v := range hash {
-		if v == nil {
+		if IsNil(v) {
 			continue
 		}
-		if fk, ok := k.(float64); ok && fk > maxn {
+		if fk, ok := AsNum(k); ok && fk > maxn {
 			maxn = fk
 		}
 	}
@@ -217,7 +217,7 @@ func table_maxn(args Args) (r []Val, err error) {
 		maxh = maxHash(t.Hash)
 	}
 
-	return []Val{max(maxa, maxh)}, nil
+	return []Val{Num(max(maxa, maxh))}, nil
 }
 
 func table_move(args Args) (r []Val, err error) {
@@ -232,14 +232,14 @@ func table_move(args Args) (r []Val, err error) {
 		dst.SetInt(t+i, src.GetInt(i+a))
 	}
 
-	return []Val{dst}, nil
+	return []Val{TableVal(dst)}, nil
 }
 
 func table_pack(args Args) (r []Val, err error) {
-	return []Val{&Table{
-		Hash: map[Val]Val{"n": float64(len(args.List))},
+	return []Val{TableVal(&Table{
+		Hash: map[Val]Val{Str("n"): Num(float64(len(args.List)))},
 		List: slices.Clone(args.List),
-	}}, nil
+	})}, nil
 }
 
 func table_remove(args Args) (r []Val, err error) {
@@ -253,12 +253,12 @@ func table_remove(args Args) (r []Val, err error) {
 
 	p := t.GetFloat(pos)
 	if ipos := int(pos); ipos == l {
-		t.SetInt(ipos, nil)
+		t.SetInt(ipos, NilVal)
 	} else if 0 < ipos && ipos < l {
 		for i := ipos; i < l; i++ {
 			t.SetInt(i, t.GetInt(i+1))
 		}
-		t.SetInt(l, nil)
+		t.SetInt(l, NilVal)
 	}
 	return []Val{p}, nil
 }
@@ -458,11 +458,11 @@ func table_sort(args Args) (r []Val, err error) {
 		f := args.GetFunction()
 		c = func(a, b Val) (r bool, err error) {
 			res, err := (*f.Run)(args.Co, a, b)
-			if err != nil || len(res) == 0 || res[0] == nil {
+			if err != nil || len(res) == 0 || IsNil(res[0]) {
 				return
 			}
 
-			r, ok := res[0].(bool)
+			r, ok := AsBool(res[0])
 			if !ok {
 				return false, invalidOrderFunc
 			}

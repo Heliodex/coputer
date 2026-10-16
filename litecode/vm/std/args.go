@@ -16,47 +16,47 @@ func args_web(args Args) (r []Val, err error) {
 	for k, vs := range pargs.Url.Query {
 		params := make([]Val, len(vs))
 		for i, v := range vs {
-			params[i] = v
+			params[i] = Str(v)
 		}
 
-		query[k] = &Table{
+		query[Str(k)] = TableVal(&Table{
 			List:     params,
 			Readonly: true,
-		}
+		})
 	}
 
 	headers := make(map[Val]Val, len(pargs.Headers))
 	for k, v := range pargs.Headers {
-		headers[k] = v
+		headers[Str(k)] = Str(v)
 	}
 
 	bb := Buffer(pargs.Body)
 
 	webargs := &Table{
 		Hash: map[Val]Val{
-			"url": &Table{
+			Str("url"): TableVal(&Table{
 				Hash: map[Val]Val{
-					"rawpath":  pargs.Url.Rawpath,
-					"path":     pargs.Url.Path,
-					"rawquery": pargs.Url.Rawquery,
-					"query": &Table{
+					Str("rawpath"):  Str(pargs.Url.Rawpath),
+					Str("path"):     Str(pargs.Url.Path),
+					Str("rawquery"): Str(pargs.Url.Rawquery),
+					Str("query"): TableVal(&Table{
 						Hash:     query,
 						Readonly: true,
-					},
+					}),
 				},
 				Readonly: true,
-			},
-			"method": pargs.Method,
-			"headers": &Table{
+			}),
+			Str("method"): Str(pargs.Method),
+			Str("headers"): TableVal(&Table{
 				Hash:     headers,
 				Readonly: true,
-			},
-			"body": &bb,
+			}),
+			Str("body"): BufVal(&bb),
 		},
 		Readonly: true,
 	}
 
-	return []Val{webargs}, nil
+	return []Val{TableVal(webargs)}, nil
 }
 
 var Libargs = NewLib([]Function{
