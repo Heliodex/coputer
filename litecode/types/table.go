@@ -97,7 +97,7 @@ func (t *Table) moveToList(l int) {
 	}
 
 	for f2 := float64(l + 2); ; f2++ {
-		v2, ok := t.Hash[f2]
+		v2, ok := t.Hash[Num(f2)]
 		if !ok {
 			break
 		}

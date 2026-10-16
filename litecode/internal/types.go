@@ -4,7 +4,12 @@ package internal
 import "fmt"
 
 // Val represents any possible VM stack/register value.
-type Val any
+//
+// It is a tagged union: Num carries a number inline (no boxing), and Ref is the discriminant plus payload for every other kind. Ref is nil for nil, a marker for numbers and booleans, and the boxed payload otherwise. The zero value is Luau nil. Use the constructors and accessors in the types package rather than the fields directly.
+type Val struct {
+	Num float64
+	Ref any
+}
 
 // VM internals types
 

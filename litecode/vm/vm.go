@@ -79,7 +79,11 @@ type upval struct {
 }
 
 func falsy(v Val) bool {
-	return IsNil(v) || v == false
+	if IsNil(v) {
+		return true
+	}
+	b, ok := AsBool(v)
+	return ok && !b
 }
 
 // Small float helpers for the interpreter's arithmetic fast paths. Every one is trivially inlinable, so the common number-on-number case skips the std call, its interface argument/return plumbing, and the error result.
@@ -108,8 +112,8 @@ func invalidConcat(t1, t2 string) error {
 
 func invalidIndex(ta string, v Val) error {
 	tb := std.TypeOf(v)
-	if tb == "string" {
-		tb = fmt.Sprintf("'%v'", v)
+	if s, ok := AsString(v); ok {
+		tb = fmt.Sprintf("'%v'", s)
 	}
 
 	return fmt.Errorf("attempt to index %v with %v", ta, tb)
@@ -121,8 +125,8 @@ func invalidIter(t string) error {
 
 func missingMethod(ta string, v Val) error {
 	tb := std.TypeOf(v)
-	if tb == "string" {
-		tb = fmt.Sprintf("'%v'", v)
+	if s, ok := AsString(v); ok {
+		tb = fmt.Sprintf("'%v'", s)
 	}
 
 	return fmt.Errorf("attempt to call missing method %v of %v", tb, ta)
@@ -133,7 +137,7 @@ func gettable(k, v Val) (Val, error) {
 		return t.Get(k), nil
 	}
 	if t, ok := AsVector(v); ok { // direction,,, and mmmagnitude!! oh yeah!!11!!
-		switch k {
+		switch ks, _ := AsString(k); ks {
 		case "x", "X": // yes, we'll allow the capitalised versions anyway
 			return Num(float64(t[0])), nil // alright, who's the wise guy whose idea it was to put a float32 on the stack
 		case "y", "Y":

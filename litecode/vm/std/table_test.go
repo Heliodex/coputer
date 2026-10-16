@@ -17,7 +17,7 @@ func BenchmarkEmptyTableClone(b *testing.B) {
 
 func BenchmarkTableCloneList(b *testing.B) {
 	t := &Table{}
-	t.SetInt(1, "a")
+	t.SetInt(1, Str("a"))
 
 	for b.Loop() {
 		clone(t)
@@ -27,7 +27,7 @@ func BenchmarkTableCloneList(b *testing.B) {
 func BenchmarkTableCloneListBig(b *testing.B) {
 	t := &Table{}
 	for i := range 100 {
-		t.SetInt(i+1, i)
+		t.SetInt(i+1, Num(float64(i)))
 	}
 
 	for b.Loop() {
@@ -37,7 +37,7 @@ func BenchmarkTableCloneListBig(b *testing.B) {
 
 func BenchmarkTableCloneHash(b *testing.B) {
 	t := &Table{}
-	t.Set("key", "value")
+	t.Set(Str("key"), Str("value"))
 
 	for b.Loop() {
 		clone(t)
@@ -47,7 +47,7 @@ func BenchmarkTableCloneHash(b *testing.B) {
 func BenchmarkTableCloneHashBig(b *testing.B) {
 	t := &Table{}
 	for i := range 100 {
-		t.Set(fmt.Sprintf("key%d", i), i)
+		t.Set(Str(fmt.Sprintf("key%d", i)), Num(float64(i)))
 	}
 
 	for b.Loop() {
@@ -58,10 +58,10 @@ func BenchmarkTableCloneHashBig(b *testing.B) {
 func BenchmarkTableCloneMixed(b *testing.B) {
 	t := &Table{}
 	for i := range 100 {
-		t.SetInt(i+1, i)
+		t.SetInt(i+1, Num(float64(i)))
 	}
 	for i := range 100 {
-		t.Set(fmt.Sprintf("key%d", i), i)
+		t.Set(Str(fmt.Sprintf("key%d", i)), Num(float64(i)))
 	}
 
 	for b.Loop() {
