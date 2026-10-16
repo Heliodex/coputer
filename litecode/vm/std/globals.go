@@ -55,13 +55,10 @@ func global_next(args Args) (r []Val, err error) {
 
 	// Walk the table's deterministic order directly; iter.Pull2 used to run the iterator in a goroutine on every call.
 	found := IsNil(fk) // nil key means "start from the first pair"
-	var got bool
-	var rk, rv Val
 
 	for k, v := range t.Iter() {
 		if found {
-			rk, rv, got = k, v, true
-			break
+			return []Val{k, v}, nil
 		}
 		if k == fk {
 			found = true
@@ -71,10 +68,7 @@ func global_next(args Args) (r []Val, err error) {
 	if !found {
 		return nil, errors.New("invalid key to 'next'") // erroring probably not great here but whatever, given it's rarely used
 	}
-	if !got {
-		return []Val{NilVal}, nil // reached the end
-	}
-	return []Val{rk, rv}, nil
+	return []Val{NilVal}, nil // reached the end
 }
 
 func global_pairs(args Args) (r []Val, err error) {
