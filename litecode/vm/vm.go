@@ -16,8 +16,9 @@ import (
 )
 
 var (
-	errReadonly = errors.New("attempt to modify a readonly table")
-	errNilIndex = errors.New("table index is nil")
+	errReadonly  = errors.New("attempt to modify a readonly table")
+	errNilIndex  = errors.New("table index is nil")
+	errCancelled = errors.New("program execution cancelled")
 )
 
 // Functions and Tables are used as pointers normally, as they need to be hashed
@@ -475,6 +476,8 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 	var pc, top int32
 	var openUpvals []*upval
 	genIters := map[internal.Inst][]Val{}
+	// Numeric for loops keep their limit and step in registers the body cannot touch, so FORNPREP caches them here and FORNLOOP stops re-reading two stack slots per iteration. Indexed by the loop's register base.
+	var forLimits, forSteps [256]float64
 
 	// a a a a
 	// stayin' alive
@@ -488,7 +491,8 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 		}
 	}()
 
-	for co.Dbg.Name = p.Dbgname; *towrap.alive; {
+	// Cancellation is checked only at loop back-edges and calls rather than on every instruction. Every loop reaches one of JUMPBACK/FORNLOOP/FORGLOOP (JUMPX for very large bodies), and recursion goes through a call, so a runaway program still stops promptly while the hot path stops loading the flag.
+	for co.Dbg.Name = p.Dbgname; ; {
 		// fmt.Println(top)
 
 		// if len(upvals) > 0 {
@@ -648,6 +652,9 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			enclose(&pc, uint8(i.A), towrap, code, &stack, co, &openUpvals, upvals)
 			pc++
 		case 20: // NAMECALL
+			if !*towrap.alive {
+				return nil, errCancelled
+			}
 			co.Dbg.Line = lineInfo[pc]
 			pc++
 			// namecall rewrites the instruction it is given, so hand it a copy rather than the (immutable) code slice itself.
@@ -656,6 +663,9 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 				return
 			}
 		case 21: // CALL
+			if !*towrap.alive {
+				return nil, errCancelled
+			}
 			co.Dbg.Line = lineInfo[pc]
 			if err = call(&top, i.A, i.B, i.C, towrap, &stack, co); err != nil {
 				return
@@ -673,6 +683,9 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			return stack[i.A:max(i.A+b, 0)], nil
 		case 23, 24: // JUMP, JUMPBACK
 			pc += i.D + 1
+			if !*towrap.alive {
+				return nil, errCancelled
+			}
 		case 25: // JUMPIF
 			if falsy(stack[i.A]) {
 				pc++
@@ -1033,16 +1046,22 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 				return nil, invalidFor("step", std.TypeOf(stack[i.A+1]))
 			}
 
+			forLimits[uint8(i.A)] = limit
+			forSteps[uint8(i.A)] = step
+
 			if s := step > 0; s && init > limit || !s && init < limit {
 				pc += i.D + 1
 			} else {
 				pc++
 			}
 		case 57: // FORNLOOP
+			if !*towrap.alive {
+				return nil, errCancelled
+			}
 			// all checked in FORNPREP
 			init := MustNum(stack[i.A+2])
-			limit := MustNum(stack[i.A])
-			step := MustNum(stack[i.A+1])
+			limit := forLimits[uint8(i.A)]
+			step := forSteps[uint8(i.A)]
 
 			init += step
 			stack[i.A+2] = Num(init)
@@ -1053,6 +1072,9 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 				pc++
 			}
 		case 58: // forgloop
+			if !*towrap.alive {
+				return nil, errCancelled
+			}
 			co.Dbg.Line = lineInfo[pc]
 			if err = forgloop(&pc, &top, *i, &stack, co, genIters); err != nil {
 				return
@@ -1091,6 +1113,9 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			pc += 2 // -- adjust for aux
 		case 67: // JUMPX
 			pc += i.A + 1 // lmfao
+			if !*towrap.alive {
+				return nil, errCancelled
+			}
 		case 68, 73: // FASTCALL, FASTCALL1
 			// Skipped
 			pc++
@@ -1120,6 +1145,9 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 		// case 85: // NAMECALLUDATA
 		// case 86: // NEWCLASSMEMBER
 		case 87: // CALLFB
+			if !*towrap.alive {
+				return nil, errCancelled
+			}
 			co.Dbg.Line = lineInfo[pc]
 			if err = call(&top, i.A, i.B, i.C, towrap, &stack, co); err != nil {
 				return
@@ -1133,8 +1161,6 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			return nil, fmt.Errorf("unsupported opcode: %d", op)
 		}
 	}
-
-	return nil, errors.New("program execution cancelled")
 }
 
 func wrapclosure(towrap toWrap, existingCo *Coroutine) Function {
