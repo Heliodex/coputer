@@ -68,11 +68,13 @@ func TestPatternFindUnit(t *testing.T) {
 		{"ac", "^a?b?c$", "1 2"},
 		{"bc", "^a?b?c$", "1 2"},
 		{"xbc", "^a?b?c$", "nil"},
-		// '$' as a literal rather than an anchor
-		{"a$b", "a$", "1 1"},
-		{"a$a", ".$", "1 2"},
-		{"a$a", ".%$", "2 3"},
-		{"a$a", "$$", "3 3"},
+		// '$' as a literal rather than an anchor, and as the end anchor
+		{"a$b", "a$", "nil"},
+		{"a$a", "$", "4 3"},
+		{"a$a", ".$", "3 3"},
+		{"a$a", ".%$", "1 2"},
+		{"a$a", ".$.", "1 3"},
+		{"a$a", "$$", "nil"},
 		// balanced match against an empty subject, which used to index out of range
 		{"", "a*%b()", "nil"},
 		{"()", "%b()", "1 2"},
