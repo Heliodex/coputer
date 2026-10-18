@@ -9,107 +9,107 @@ import (
 func math_abs(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []Val{Num(math.Abs(x))}, nil
+	return args.Rets(Num(math.Abs(x))), nil
 }
 
 func math_acos(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []Val{Num(math.Acos(x))}, nil
+	return args.Rets(Num(math.Acos(x))), nil
 }
 
 func math_asin(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []Val{Num(math.Asin(x))}, nil
+	return args.Rets(Num(math.Asin(x))), nil
 }
 
 func math_atan(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []Val{Num(math.Atan(x))}, nil
+	return args.Rets(Num(math.Atan(x))), nil
 }
 
 func math_atan2(args Args) (r []Val, err error) {
 	y, x := args.GetNumber(), args.GetNumber()
 
-	return []Val{Num(math.Atan2(y, x))}, nil
+	return args.Rets(Num(math.Atan2(y, x))), nil
 }
 
 func math_ceil(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []Val{Num(math.Ceil(x))}, nil
+	return args.Rets(Num(math.Ceil(x))), nil
 }
 
 func math_clamp(args Args) (r []Val, err error) {
 	x, min, max := args.GetNumber(), args.GetNumber(), args.GetNumber()
 
 	if x < min {
-		return []Val{Num(min)}, nil
+		return args.Rets(Num(min)), nil
 	}
 	if x > max {
-		return []Val{Num(max)}, nil
+		return args.Rets(Num(max)), nil
 	}
-	return []Val{Num(x)}, nil
+	return args.Rets(Num(x)), nil
 }
 
 func math_cos(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []Val{Num(math.Cos(x))}, nil
+	return args.Rets(Num(math.Cos(x))), nil
 }
 
 func math_cosh(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []Val{Num(math.Cosh(x))}, nil
+	return args.Rets(Num(math.Cosh(x))), nil
 }
 
 func math_deg(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []Val{Num(x * 180 / math.Pi)}, nil
+	return args.Rets(Num(x * 180 / math.Pi)), nil
 }
 
 func math_exp(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []Val{Num(math.Exp(x))}, nil
+	return args.Rets(Num(math.Exp(x))), nil
 }
 
 func math_floor(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []Val{Num(math.Floor(x))}, nil
+	return args.Rets(Num(math.Floor(x))), nil
 }
 
 func math_fmod(args Args) (r []Val, err error) {
 	x, y := args.GetNumber(), args.GetNumber()
 
-	return []Val{Num(math.Mod(x, y))}, nil
+	return args.Rets(Num(math.Mod(x, y))), nil
 }
 
 func math_frexp(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
 	frac, exp := math.Frexp(x)
-	return []Val{Num(frac), Num(float64(exp))}, nil
+	return args.Rets(Num(frac), Num(float64(exp))), nil
 }
 
 func math_ldexp(args Args) (r []Val, err error) {
 	x, e := args.GetNumber(), args.GetNumber()
 
-	return []Val{Num(math.Ldexp(x, int(e)))}, nil
+	return args.Rets(Num(math.Ldexp(x, int(e)))), nil
 }
 
 func math_lerp(args Args) (r []Val, err error) {
 	a, b, t := args.GetNumber(), args.GetNumber(), args.GetNumber()
 
 	if t == 1 {
-		return []Val{Num(b)}, nil
+		return args.Rets(Num(b)), nil
 	}
-	return []Val{Num(a + (b-a)*t)}, nil
+	return args.Rets(Num(a + (b-a)*t)), nil
 }
 
 func math_log(args Args) (r []Val, err error) {
@@ -117,9 +117,9 @@ func math_log(args Args) (r []Val, err error) {
 
 	if len(args.List) > 1 {
 		base := args.GetNumber()
-		return []Val{Num(math.Log(x) / math.Log(base))}, nil
+		return args.Rets(Num(math.Log(x) / math.Log(base))), nil
 	}
-	return []Val{Num(math.Log(x))}, nil
+	return args.Rets(Num(math.Log(x))), nil
 }
 
 // Deprecated
@@ -132,7 +132,7 @@ func math_log(args Args) (r []Val, err error) {
 func math_map(args Args) (r []Val, err error) {
 	x, inmin, inmax, outmin, outmax := args.GetNumber(), args.GetNumber(), args.GetNumber(), args.GetNumber(), args.GetNumber()
 
-	return []Val{Num(outmin + (x-inmin)*(outmax-outmin)/(inmax-inmin))}, nil
+	return args.Rets(Num(outmin + (x-inmin)*(outmax-outmin)/(inmax-inmin))), nil
 }
 
 // Go builtin math.Min and math.Max funciions don't handle nans and infs the same way
@@ -144,7 +144,7 @@ func math_max(args Args) (r []Val, err error) {
 			first = n
 		}
 	}
-	return []Val{Num(first)}, nil
+	return args.Rets(Num(first)), nil
 }
 
 func math_min(args Args) (r []Val, err error) {
@@ -155,14 +155,14 @@ func math_min(args Args) (r []Val, err error) {
 			first = n
 		}
 	}
-	return []Val{Num(first)}, nil
+	return args.Rets(Num(first)), nil
 }
 
 func math_modf(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
 	i, frac := math.Modf(x)
-	return []Val{Num(i), Num(frac)}, nil
+	return args.Rets(Num(i), Num(frac)), nil
 }
 
 // lmathlib.cpp
@@ -225,67 +225,67 @@ func perlin(x, y, z float32) float64 {
 func math_noise(args Args) (r []Val, err error) {
 	x, y, z := args.GetNumber(), args.GetNumber(0), args.GetNumber(0)
 
-	return []Val{Num(perlin(float32(x), float32(y), float32(z)))}, nil
+	return args.Rets(Num(perlin(float32(x), float32(y), float32(z)))), nil
 }
 
 func math_pow(args Args) (r []Val, err error) {
 	x, y := args.GetNumber(), args.GetNumber()
 
-	return []Val{Num(math.Pow(x, y))}, nil
+	return args.Rets(Num(math.Pow(x, y))), nil
 }
 
 func math_rad(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []Val{Num(x * math.Pi / 180)}, nil
+	return args.Rets(Num(x * math.Pi / 180)), nil
 }
 
 func math_round(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []Val{Num(math.Round(x))}, nil
+	return args.Rets(Num(math.Round(x))), nil
 }
 
 func math_sign(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
 	if x > 0 {
-		return []Val{Num(float64(1))}, nil
+		return args.Rets(Num(float64(1))), nil
 	}
 	if x < 0 {
-		return []Val{Num(float64(-1))}, nil
+		return args.Rets(Num(float64(-1))), nil
 	}
-	return []Val{Num(float64(0))}, nil
+	return args.Rets(Num(float64(0))), nil
 }
 
 func math_sin(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []Val{Num(math.Sin(x))}, nil
+	return args.Rets(Num(math.Sin(x))), nil
 }
 
 func math_sinh(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []Val{Num(math.Sinh(x))}, nil
+	return args.Rets(Num(math.Sinh(x))), nil
 }
 
 func math_sqrt(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []Val{Num(math.Sqrt(x))}, nil
+	return args.Rets(Num(math.Sqrt(x))), nil
 }
 
 func math_tan(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []Val{Num(math.Tan(x))}, nil
+	return args.Rets(Num(math.Tan(x))), nil
 }
 
 func math_tanh(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
-	return []Val{Num(math.Tanh(x))}, nil
+	return args.Rets(Num(math.Tanh(x))), nil
 }
 
 var Libmath = NewLib([]Function{

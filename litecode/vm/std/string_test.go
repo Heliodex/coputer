@@ -13,7 +13,7 @@ var stringSink []Val
 
 func BenchmarkStringByte(b *testing.B) {
 	s := strings.Repeat("abcdefghij", 100)
-	args := Args{Name: "byte", List: []Val{Str(s), Num(1), Num(10)}}
+	args := Args{Co: &Coroutine{}, Name: "byte", List: []Val{Str(s), Num(1), Num(10)}}
 
 	for b.Loop() {
 		args.pos = 0
@@ -26,7 +26,7 @@ func BenchmarkStringByte(b *testing.B) {
 }
 
 func BenchmarkStringChar(b *testing.B) {
-	args := Args{Name: "char", List: []Val{Num(104), Num(105), Num(33)}}
+	args := Args{Co: &Coroutine{}, Name: "char", List: []Val{Num(104), Num(105), Num(33)}}
 
 	for b.Loop() {
 		args.pos = 0
@@ -39,7 +39,7 @@ func BenchmarkStringChar(b *testing.B) {
 }
 
 func BenchmarkStringFormat(b *testing.B) {
-	args := Args{Name: "format", List: []Val{Str("%d:%s:%.3f"), Num(42), Str("x"), Num(1.5)}}
+	args := Args{Co: &Coroutine{}, Name: "format", List: []Val{Str("%d:%s:%.3f"), Num(42), Str("x"), Num(1.5)}}
 
 	for b.Loop() {
 		args.pos = 0
@@ -53,7 +53,7 @@ func BenchmarkStringFormat(b *testing.B) {
 
 func BenchmarkStringSub(b *testing.B) {
 	s := strings.Repeat("abcdefghij", 100)
-	args := Args{Name: "sub", List: []Val{Str(s), Num(10), Num(20)}}
+	args := Args{Co: &Coroutine{}, Name: "sub", List: []Val{Str(s), Num(10), Num(20)}}
 
 	for b.Loop() {
 		args.pos = 0

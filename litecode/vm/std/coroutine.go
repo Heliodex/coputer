@@ -30,21 +30,21 @@ func coroutine_close(args Args) (r []Val, err error) {
 func coroutine_create(args Args) (r []Val, err error) {
 	f := args.GetFunction()
 
-	return []Val{CoVal(newCoroutine(f, args.Co))}, nil
+	return args.Rets(CoVal(newCoroutine(f, args.Co))), nil
 }
 
 func coroutine_isyieldable(args Args) (r []Val, err error) {
-	return []Val{Bool(true)}, nil // phuck yo metamethod/C-call boundary
+	return args.Rets(Bool(true)), nil // phuck yo metamethod/C-call boundary
 }
 
 func coroutine_resume(args Args) (r []Val, err error) {
 	co := args.GetCoroutine()
 
 	if co.Status == internal.CoDead {
-		return []Val{Bool(false), Str("cannot resume dead coroutine")}, nil
+		return args.Rets(Bool(false), Str("cannot resume dead coroutine")), nil
 	}
 	if co.Status == internal.CoRunning {
-		return []Val{Bool(false), Str("cannot resume running coroutine")}, nil
+		return args.Rets(Bool(false), Str("cannot resume running coroutine")), nil
 	}
 
 	a := args.List[1:]
@@ -61,19 +61,19 @@ func coroutine_resume(args Args) (r []Val, err error) {
 
 func coroutine_running(args Args) (r []Val, err error) {
 	// fmt.Println("RUNNING")
-	return []Val{CoVal(args.Co)}, nil
+	return args.Rets(CoVal(args.Co)), nil
 }
 
 func coroutine_status(args Args) (r []Val, err error) {
 	switch co := args.GetCoroutine(); co.Status {
 	case internal.CoNotStarted, internal.CoSuspended:
-		return []Val{Str("suspended")}, nil
+		return args.Rets(Str("suspended")), nil
 	case internal.CoRunning:
-		return []Val{Str("running")}, nil
+		return args.Rets(Str("running")), nil
 	case internal.CoNormal:
-		return []Val{Str("normal")}, nil
+		return args.Rets(Str("normal")), nil
 	}
-	return []Val{Str("dead")}, nil
+	return args.Rets(Str("dead")), nil
 }
 
 func coroutine_wrap(args Args) (r []Val, err error) {
@@ -81,7 +81,7 @@ func coroutine_wrap(args Args) (r []Val, err error) {
 
 	co := newCoroutine(f, args.Co)
 
-	return []Val{FnVal(fn("wrap", func(_ *Coroutine, args ...Val) (r []Val, err error) {
+	return args.Rets(FnVal(fn("wrap", func(_ *Coroutine, args ...Val) (r []Val, err error) {
 		if co.Status == internal.CoDead {
 			return nil, errors.New("cannot resume dead coroutine") // ought to be better (return false, error message) if we can figure out how
 		}
@@ -89,7 +89,7 @@ func coroutine_wrap(args Args) (r []Val, err error) {
 			return nil, errors.New("cannot resume running coroutine")
 		}
 		return co.Resume(args...)
-	}))}, nil
+	}))), nil
 }
 
 func coroutine_yield(args Args) (r []Val, err error) {

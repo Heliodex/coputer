@@ -97,7 +97,7 @@ func TestPatternFindUnit(t *testing.T) {
 }
 
 func gsubResults(s, p, repl string) (string, error) {
-	r, err := string_gsub(Args{Name: "gsub", List: []Val{Str(s), Str(p), Str(repl)}})
+	r, err := string_gsub(Args{Co: &Coroutine{}, Name: "gsub", List: []Val{Str(s), Str(p), Str(repl)}})
 	if err != nil {
 		return "", err
 	}

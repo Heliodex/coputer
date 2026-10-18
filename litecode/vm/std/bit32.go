@@ -46,23 +46,23 @@ func bit32_arshift(args Args) (r []Val, err error) {
 	i := int(args.GetNumber())
 
 	if i < 0 || x&(1<<(nbits-1)) == 0 {
-		return []Val{Num(float64(b_shift(x, -i)))}, nil
+		return args.Rets(Num(float64(b_shift(x, -i)))), nil
 	}
 	if i >= nbits {
 		// arithmetic shift for 'negative' number
-		return []Val{Num(float64(allones))}, nil
+		return args.Rets(Num(float64(allones))), nil
 	}
-	return []Val{Num(float64(x>>i | ^(allones >> i)))}, nil
+	return args.Rets(Num(float64(x>>i | ^(allones >> i)))), nil
 }
 
 func bit32_band(args Args) (r []Val, err error) {
-	return []Val{Num(float64(andaux(args)))}, nil
+	return args.Rets(Num(float64(andaux(args)))), nil
 }
 
 func bit32_bnot(args Args) (r []Val, err error) {
 	x := ^uint32(args.GetNumber())
 
-	return []Val{Num(float64(x))}, nil
+	return args.Rets(Num(float64(x))), nil
 }
 
 func bit32_bor(args Args) (r []Val, err error) {
@@ -70,11 +70,11 @@ func bit32_bor(args Args) (r []Val, err error) {
 	for range args.List {
 		x |= uint32(args.GetNumber())
 	}
-	return []Val{Num(float64(x))}, nil
+	return args.Rets(Num(float64(x))), nil
 }
 
 func bit32_btest(args Args) (r []Val, err error) {
-	return []Val{Bool(andaux(args) != 0)}, nil
+	return args.Rets(Bool(andaux(args) != 0)), nil
 }
 
 func bit32_bxor(args Args) (r []Val, err error) {
@@ -82,25 +82,25 @@ func bit32_bxor(args Args) (r []Val, err error) {
 	for range args.List {
 		x ^= uint32(args.GetNumber())
 	}
-	return []Val{Num(float64(x))}, nil
+	return args.Rets(Num(float64(x))), nil
 }
 
 func bit32_byteswap(args Args) (r []Val, err error) {
 	n := uint32(args.GetNumber())
 
-	return []Val{Num(float64(bits.ReverseBytes32(n)))}, nil
+	return args.Rets(Num(float64(bits.ReverseBytes32(n)))), nil
 }
 
 func bit32_countlz(args Args) (r []Val, err error) {
 	v := uint32(args.GetNumber())
 
-	return []Val{Num(float64(bits.LeadingZeros32(v)))}, nil
+	return args.Rets(Num(float64(bits.LeadingZeros32(v)))), nil
 }
 
 func bit32_countrz(args Args) (r []Val, err error) {
 	v := uint32(args.GetNumber())
 
-	return []Val{Num(float64(bits.TrailingZeros32(v)))}, nil
+	return args.Rets(Num(float64(bits.TrailingZeros32(v)))), nil
 }
 
 // get field and width arguments for field-manipulation functions, checking whether they are valid.
@@ -125,9 +125,9 @@ func bit32_extract(args Args) (r []Val, err error) {
 
 	f, w, err := fieldargs(args)
 	if err != nil {
-		return []Val{Str(err.Error()), Bool(false)}, nil
+		return args.Rets(Str(err.Error()), Bool(false)), nil
 	}
-	return []Val{Num(float64(x >> f & bitmask(w))), Bool(true)}, nil
+	return args.Rets(Num(float64(x>>f&bitmask(w))), Bool(true)), nil
 }
 
 func bit32_replace(args Args) (r []Val, err error) {
@@ -136,39 +136,39 @@ func bit32_replace(args Args) (r []Val, err error) {
 
 	f, w, err := fieldargs(args)
 	if err != nil {
-		return []Val{Str(err.Error()), Bool(false)}, nil
+		return args.Rets(Str(err.Error()), Bool(false)), nil
 	}
 	m := bitmask(w)
 	v &= m // erase bits outside given width
-	return []Val{Num(float64(x & ^(m<<f) | v<<f)), Bool(true)}, nil
+	return args.Rets(Num(float64(x & ^(m<<f) | v<<f)), Bool(true)), nil
 }
 
 func bit32_lrotate(args Args) (r []Val, err error) {
 	x := uint32(args.GetNumber())
 	i := int(args.GetNumber())
 
-	return []Val{Num(float64(bits.RotateLeft32(x, i)))}, nil
+	return args.Rets(Num(float64(bits.RotateLeft32(x, i)))), nil
 }
 
 func bit32_lshift(args Args) (r []Val, err error) {
 	x := uint32(args.GetNumber())
 	disp := int(args.GetNumber())
 
-	return []Val{Num(float64(b_shift(x, disp)))}, nil
+	return args.Rets(Num(float64(b_shift(x, disp)))), nil
 }
 
 func bit32_rrotate(args Args) (r []Val, err error) {
 	x := uint32(args.GetNumber())
 	i := int(args.GetNumber())
 
-	return []Val{Num(float64(bits.RotateLeft32(x, -i)))}, nil
+	return args.Rets(Num(float64(bits.RotateLeft32(x, -i)))), nil
 }
 
 func bit32_rshift(args Args) (r []Val, err error) {
 	x := uint32(args.GetNumber())
 	disp := int(args.GetNumber())
 
-	return []Val{Num(float64(b_shift(x, -disp)))}, nil
+	return args.Rets(Num(float64(b_shift(x, -disp)))), nil
 }
 
 var Libbit32 = NewLib([]Function{

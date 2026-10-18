@@ -91,7 +91,7 @@ func BenchmarkNextFirst(b *testing.B) {
 	for i := range t.List {
 		t.List[i] = Num(float64(i + 1))
 	}
-	args := Args{Name: "next", List: []Val{TableVal(t), NilVal}}
+	args := Args{Co: &Coroutine{}, Name: "next", List: []Val{TableVal(t), NilVal}}
 
 	for b.Loop() {
 		args.pos = 0
@@ -109,7 +109,7 @@ func BenchmarkNextLast(b *testing.B) {
 	for i := range t.List {
 		t.List[i] = Num(float64(i + 1))
 	}
-	args := Args{Name: "next", List: []Val{TableVal(t), Num(256)}}
+	args := Args{Co: &Coroutine{}, Name: "next", List: []Val{TableVal(t), Num(256)}}
 
 	for b.Loop() {
 		args.pos = 0
@@ -127,7 +127,7 @@ func BenchmarkNextHash(b *testing.B) {
 	for i := range 256 {
 		t.Set(Str(strconv.Itoa(i)), Num(float64(i)))
 	}
-	args := Args{Name: "next", List: []Val{TableVal(t), Str("128")}}
+	args := Args{Co: &Coroutine{}, Name: "next", List: []Val{TableVal(t), Str("128")}}
 
 	for b.Loop() {
 		args.pos = 0

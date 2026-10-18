@@ -30,6 +30,9 @@ type Args struct {
 	pos  int
 }
 
+// Rets returns a reusable buffer containing vals, so a native function can return a small result list without allocating. The caller must consume it before the next native call.
+func (a *Args) Rets(vals ...Val) []Val { return a.Co.Rets(vals...) }
+
 // nextArg advances to the next argument, reporting whether one exists.
 func (a *Args) nextArg() (Val, bool) {
 	a.pos++

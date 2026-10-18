@@ -148,7 +148,7 @@ func BenchmarkTableGetHash(b *testing.B) {
 // BenchmarkTableCreate fills a fresh table the way table.create(size, value) does.
 func BenchmarkTableCreate(b *testing.B) {
 	const n = 1 << 20
-	args := Args{List: []Val{Num(n), Num(0)}}
+	args := Args{Co: &Coroutine{}, List: []Val{Num(n), Num(0)}}
 	for b.Loop() {
 		args.pos = 0
 		r, err := table_create(args)

@@ -56,7 +56,7 @@ func args_web(args Args) (r []Val, err error) {
 		Readonly: true,
 	}
 
-	return []Val{TableVal(webargs)}, nil
+	return args.Rets(TableVal(webargs)), nil
 }
 
 var Libargs = NewLib([]Function{

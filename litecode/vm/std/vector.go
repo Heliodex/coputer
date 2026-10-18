@@ -21,20 +21,20 @@ func vector_create(args Args) (r []Val, err error) {
 		w = float32(args.GetNumber())
 	}
 
-	return []Val{VecVal(Vector{x, y, z, w})}, nil
+	return args.Rets(VecVal(Vector{x, y, z, w})), nil
 }
 
 func vector_magnitude(args Args) (r []Val, err error) {
 	v := args.GetVector()
 
-	return []Val{Num(float64(mag(v)))}, nil
+	return args.Rets(Num(float64(mag(v)))), nil
 }
 
 func vector_normalize(args Args) (r []Val, err error) {
 	v := args.GetVector()
 
 	invSqrt := 1 / mag(v)
-	return []Val{VecVal(Vector{v[0] * invSqrt, v[1] * invSqrt, v[2] * invSqrt, v[3] * invSqrt})}, nil
+	return args.Rets(VecVal(Vector{v[0] * invSqrt, v[1] * invSqrt, v[2] * invSqrt, v[3] * invSqrt})), nil
 }
 
 func cross(a, b Vector) Vector {
@@ -48,7 +48,7 @@ func cross(a, b Vector) Vector {
 func vector_cross(args Args) (r []Val, err error) {
 	a, b := args.GetVector(), args.GetVector()
 
-	return []Val{VecVal(cross(a, b))}, nil
+	return args.Rets(VecVal(cross(a, b))), nil
 }
 
 func dot(a, b Vector) float32 {
@@ -58,7 +58,7 @@ func dot(a, b Vector) float32 {
 func vector_dot(args Args) (r []Val, err error) {
 	a, b := args.GetVector(), args.GetVector()
 
-	return []Val{Num(float64(dot(a, b)))}, nil
+	return args.Rets(Num(float64(dot(a, b)))), nil
 }
 
 func angle(a, b, axis Vector) float64 {
@@ -85,25 +85,25 @@ func vector_angle(args Args) (r []Val, err error) {
 	a, b := args.GetVector(), args.GetVector()
 	axis := args.GetVector(Vector{})
 
-	return []Val{Num(angle(a, b, axis))}, nil
+	return args.Rets(Num(angle(a, b, axis))), nil
 }
 
 func vector_floor(args Args) (r []Val, err error) {
 	v := args.GetVector()
 
-	return []Val{VecVal(Vector{f32Floor(v[0]), f32Floor(v[1]), f32Floor(v[2]), f32Floor(v[3])})}, nil
+	return args.Rets(VecVal(Vector{f32Floor(v[0]), f32Floor(v[1]), f32Floor(v[2]), f32Floor(v[3])})), nil
 }
 
 func vector_ceil(args Args) (r []Val, err error) {
 	v := args.GetVector()
 
-	return []Val{VecVal(Vector{f32Ceil(v[0]), f32Ceil(v[1]), f32Ceil(v[2]), f32Ceil(v[3])})}, nil
+	return args.Rets(VecVal(Vector{f32Ceil(v[0]), f32Ceil(v[1]), f32Ceil(v[2]), f32Ceil(v[3])})), nil
 }
 
 func vector_abs(args Args) (r []Val, err error) {
 	v := args.GetVector()
 
-	return []Val{VecVal(Vector{f32Abs(v[0]), f32Abs(v[1]), f32Abs(v[2]), f32Abs(v[3])})}, nil
+	return args.Rets(VecVal(Vector{f32Abs(v[0]), f32Abs(v[1]), f32Abs(v[2]), f32Abs(v[3])})), nil
 }
 
 func sign(v float32) float32 {
@@ -119,7 +119,7 @@ func sign(v float32) float32 {
 func vector_sign(args Args) (r []Val, err error) {
 	v := args.GetVector()
 
-	return []Val{VecVal(Vector{sign(v[0]), sign(v[1]), sign(v[2]), sign(v[3])})}, nil
+	return args.Rets(VecVal(Vector{sign(v[0]), sign(v[1]), sign(v[2]), sign(v[3])})), nil
 }
 
 func clamp(v, minv, maxv float32) float32 {
@@ -147,12 +147,12 @@ func vector_clamp(args Args) (r []Val, err error) {
 		vmin[2], vmax[2] = vmax[2], vmin[2]
 	}
 
-	return []Val{VecVal(Vector{
+	return args.Rets(VecVal(Vector{
 		clamp(v[0], vmin[0], vmax[0]),
 		clamp(v[1], vmin[1], vmax[1]),
 		clamp(v[2], vmin[2], vmax[2]),
 		clamp(v[3], vmin[3], vmax[3]),
-	})}, nil
+	})), nil
 }
 
 func vector_max(args Args) (r []Val, err error) {
@@ -168,7 +168,7 @@ func vector_max(args Args) (r []Val, err error) {
 		}
 	}
 
-	return []Val{VecVal(result)}, nil
+	return args.Rets(VecVal(result)), nil
 }
 
 func vector_min(args Args) (r []Val, err error) {
@@ -184,7 +184,7 @@ func vector_min(args Args) (r []Val, err error) {
 		}
 	}
 
-	return []Val{VecVal(result)}, nil
+	return args.Rets(VecVal(result)), nil
 }
 
 var Libvector = NewLib([]Function{
