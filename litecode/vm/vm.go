@@ -420,7 +420,7 @@ func call(top *int32, A int32, B, C uint8, towrap toWrap, stack *[]Val, co *Coro
 }
 
 // for gloop lel
-func forgloop(pc, top *int32, i internal.Inst, stack *[]Val, co *Coroutine, genIters map[internal.Inst][]Val) (err error) {
+func forgloop(pc, top *int32, i internal.Inst, stack *[]Val, co *Coroutine, genIters map[internal.Inst]Val) (err error) {
 	res := int32(MustNum(i.K)) // aux number low 16 bits
 
 	v := (*stack)[i.A]
@@ -439,27 +439,18 @@ func forgloop(pc, top *int32, i internal.Inst, stack *[]Val, co *Coroutine, genI
 			return nil
 		}
 	} else if s, ok := AsTable(v); ok {
-		// fmt.Println("GETTING GENITER", genIters)
-		it := genIters[i]
-
-		if it == nil {
-			// fmt.Println((*stack)[A+1], (*stack)[A+2]) // <nil> <nil>
-			for i, v := range s.Iter() {
-				// fmt.Println("yielding", i, v)
-				it = append(it, i, v) // always in pairs
-			}
-		}
-
-		// fmt.Println("it's", it, it == nil)
-
-		if len(it) == 0 {
+		// Resume from the last key; the zero Val means start from the first pair.
+		nk, nv, _, hasNext := s.Next(genIters[i])
+		if !hasNext {
 			delete(genIters, i) // don't touch my geniters
 			*pc += 2
 			return
 		}
+		genIters[i] = nk
 
-		moveStack(stack, it[:2], res, i.A+3)
-		genIters[i] = it[2:]
+		var pair [2]Val
+		pair[0], pair[1] = nk, nv
+		moveStack(stack, pair[:], res, i.A+3)
 	} else {
 		return invalidIter(std.TypeOf(v))
 	}
@@ -475,7 +466,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 	// int32 > uint32 lel
 	var pc, top int32
 	var openUpvals []*upval
-	genIters := map[internal.Inst][]Val{}
+	genIters := map[internal.Inst]Val{}
 	// Numeric for loops keep their limit and step in registers the body cannot touch, so FORNPREP caches them here and FORNLOOP stops re-reading two stack slots per iteration. Indexed by the loop's register base.
 	var forLimits, forSteps [256]float64
 
