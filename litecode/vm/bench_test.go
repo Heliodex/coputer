@@ -40,6 +40,12 @@ func benchmarkScript(b *testing.B, name string, o uint8) {
 	}
 }
 
+func BenchmarkScriptStrings(b *testing.B)  { benchmarkScript(b, "strings", 1) }
+func BenchmarkScriptHash(b *testing.B)     { benchmarkScript(b, "hash", 1) }
+func BenchmarkScriptPairs(b *testing.B)    { benchmarkScript(b, "pairs", 1) }
+func BenchmarkScriptClosures(b *testing.B) { benchmarkScript(b, "closures", 1) }
+func BenchmarkScriptMethods(b *testing.B)  { benchmarkScript(b, "methods", 1) }
+
 func BenchmarkScript3(b *testing.B)          { benchmarkScript(b, "3", 1) }
 func BenchmarkScript4(b *testing.B)          { benchmarkScript(b, "4", 1) }
 func BenchmarkScript5(b *testing.B)          { benchmarkScript(b, "5", 1) }
