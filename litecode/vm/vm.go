@@ -43,7 +43,7 @@ func namecallHandler(co *Coroutine, kv string, stack *[]Val, c1, c2 int32) (ok b
 		if err != nil {
 			return false, nil, err
 		}
-		return true, []Val{Str(f)}, nil
+		return true, co.Rets(Str(f)), nil
 	}
 	return
 }
@@ -318,7 +318,7 @@ func namecall(pc, top *int32, i *internal.Inst, code []internal.Inst, lineInfo [
 
 func handleRequire(towrap toWrap, p compile.Program, co *Coroutine) (rets []Val, err error) {
 	if c, ok := towrap.requireCache[p.Filepath]; ok {
-		return []Val{c}, nil
+		return co.Rets(c), nil
 	}
 
 	// since environments only store global libraries etc, using the same env here should be fine??
@@ -338,7 +338,7 @@ func handleRequire(towrap toWrap, p compile.Program, co *Coroutine) (rets []Val,
 	}
 
 	towrap.requireCache[p.Filepath] = ret
-	return []Val{ret}, nil
+	return co.Rets(ret), nil
 }
 
 func call(top *int32, A int32, B, C uint8, towrap toWrap, stack *[]Val, co *Coroutine) (err error) {
@@ -448,7 +448,7 @@ func forgloop(pc, top *int32, i internal.Inst, stack *[]Val, co *Coroutine, genI
 		}
 		genIters[i] = nk
 
-		// The slice literal's backing array stays on the stack (moveStack does not retain it), so this does not allocate.
+		// The slice literal's backing array stays on the stack (moveStack does not retain it), so this does not allocate or escape
 		moveStack(stack, []Val{nk, nv}, res, i.A+3)
 	} else {
 		return invalidIter(std.TypeOf(v))
