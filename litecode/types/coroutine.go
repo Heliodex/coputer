@@ -23,6 +23,15 @@ type Coroutine struct {
 	Compiler          // for require()
 	internal.Status
 	ProgramArgs // idk how
+
+	// rets is a reusable buffer for native function results, so returning a small list does not allocate. The caller must consume the returned slice before the next native call on this coroutine.
+	rets []Val
+}
+
+// Rets returns a shared result buffer containing vals, for native functions to return without allocating. Only valid until the next native call on this coroutine.
+func (co *Coroutine) Rets(vals ...Val) []Val {
+	co.rets = append(co.rets[:0], vals...)
+	return co.rets
 }
 
 // Error yields an error to the coroutine, killing it shortly after.

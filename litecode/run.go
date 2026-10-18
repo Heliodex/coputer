@@ -13,8 +13,8 @@ import (
 	"github.com/Heliodex/coputer/litecode/vm/compile"
 )
 
-func startWeb(v any) (rets WebRets, err error) {
-	t, ok := v.(*Table)
+func startWeb(v Val) (rets WebRets, err error) {
+	t, ok := AsTable(v)
 	if !ok {
 		return WebRets{}, errors.New("web program did not return a table")
 	}
@@ -22,9 +22,9 @@ func startWeb(v any) (rets WebRets, err error) {
 	// ahh, error checking beauty
 
 	var tstatuscode float64
-	if statuscode := t.GetHash("statuscode"); statuscode == nil {
+	if statuscode := t.GetHash(Str("statuscode")); IsNil(statuscode) {
 		tstatuscode = 200
-	} else if tstatuscode, ok = statuscode.(float64); !ok {
+	} else if tstatuscode, ok = AsNum(statuscode); !ok {
 		return WebRets{}, errors.New("return statuscode, if provided, must be a number")
 	}
 	rets.StatusCode = int(tstatuscode)
@@ -32,8 +32,8 @@ func startWeb(v any) (rets WebRets, err error) {
 		return WebRets{}, errors.New("return statuscode, if provided, must be between 100 and 599")
 	}
 
-	if headers := t.GetHash("headers"); headers != nil {
-		theaders, ok := headers.(*Table)
+	if headers := t.GetHash(Str("headers")); !IsNil(headers) {
+		theaders, ok := AsTable(headers)
 		if !ok {
 			return WebRets{}, errors.New("return headers, if provided, must be a table")
 		}
@@ -41,9 +41,9 @@ func startWeb(v any) (rets WebRets, err error) {
 
 		// we don't have to care about the list content, but we will here
 		for k, v := range theaders.Iter() {
-			if tk, ok := k.(string); !ok {
+			if tk, ok := AsString(k); !ok {
 				return WebRets{}, errors.New("header keys must be strings")
-			} else if tv, ok := v.(string); !ok {
+			} else if tv, ok := AsString(v); !ok {
 				return WebRets{}, errors.New("header values must be strings")
 			} else {
 				rets.Headers[tk] = tv
@@ -51,8 +51,8 @@ func startWeb(v any) (rets WebRets, err error) {
 		}
 	}
 
-	if body := t.GetHash("body"); body != nil {
-		tbody, ok := body.(*Buffer)
+	if body := t.GetHash(Str("body")); !IsNil(body) {
+		tbody, ok := AsBuffer(body)
 		if !ok {
 			return WebRets{}, errors.New("return body, if provided, must be a buffer")
 		}

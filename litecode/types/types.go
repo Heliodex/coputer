@@ -36,8 +36,8 @@ type Env map[string]Val
 // AddFn adds a function to the environment.
 func (e *Env) AddFn(f Function) {
 	if *e != nil {
-		(*e)[f.Name] = f
+		(*e)[f.Name] = FnVal(f)
 		return
 	}
-	*e = Env{f.Name: f}
+	*e = Env{f.Name: FnVal(f)}
 }

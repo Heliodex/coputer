@@ -21,48 +21,48 @@ func BenchmarkF32Sqrt(b *testing.B) {
 }
 
 func BenchmarkAddFF(b *testing.B) {
-	v1 := float64(1)
-	v2 := float64(2)
+	v1 := Num(float64(1))
+	v2 := Num(float64(2))
 	for b.Loop() {
 		Add(v1, v2)
 	}
 }
 
 func BenchmarkAddVV(b *testing.B) {
-	v1 := Vector{1, 2, 3, 0}
-	v2 := Vector{5, 6, 7, 0}
+	v1 := VecVal(Vector{1, 2, 3, 0})
+	v2 := VecVal(Vector{5, 6, 7, 0})
 	for b.Loop() {
 		Add(v1, v2)
 	}
 }
 
 func BenchmarkIdivFF(b *testing.B) {
-	v1 := float64(1)
-	v2 := float64(2)
+	v1 := Num(float64(1))
+	v2 := Num(float64(2))
 	for b.Loop() {
 		Idiv(v1, v2)
 	}
 }
 
 func BenchmarkIdivVV(b *testing.B) {
-	v1 := Vector{1, 2, 3}
-	v2 := Vector{5, 6, 7}
+	v1 := VecVal(Vector{1, 2, 3})
+	v2 := VecVal(Vector{5, 6, 7})
 	for b.Loop() {
 		Idiv(v1, v2)
 	}
 }
 
 func BenchmarkIdivFV(b *testing.B) {
-	v1 := float64(1)
-	v2 := Vector{5, 6, 7}
+	v1 := Num(float64(1))
+	v2 := VecVal(Vector{5, 6, 7})
 	for b.Loop() {
 		Idiv(v1, v2)
 	}
 }
 
 func BenchmarkIdivVF(b *testing.B) {
-	v1 := Vector{1, 2, 3}
-	v2 := float64(2)
+	v1 := VecVal(Vector{1, 2, 3})
+	v2 := Num(float64(2))
 	for b.Loop() {
 		Idiv(v1, v2)
 	}

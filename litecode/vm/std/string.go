@@ -37,7 +37,7 @@ func string_byte(args Args) (bytes []Val, err error) {
 
 	bytes = make([]Val, n)
 	for b := range bytes {
-		bytes[b] = float64(s[posi+b-1])
+		bytes[b] = Num(float64(s[posi+b-1]))
 	}
 	return
 }
@@ -52,7 +52,7 @@ func string_char(args Args) (r []Val, err error) {
 		bytes[i] = byte(a)
 	}
 
-	return []Val{string(bytes)}, nil
+	return args.Rets(Str(string(bytes))), nil
 }
 
 // matching yeyyy
@@ -245,7 +245,7 @@ func string_format(args Args) (r []Val, err error) {
 	if err != nil {
 		return
 	}
-	return []Val{res}, nil
+	return args.Rets(Str(res)), nil
 }
 
 func string_gmatch(args Args) (r []Val, err error) {
@@ -274,7 +274,7 @@ func string_gmatch(args Args) (r []Val, err error) {
 		return
 	}
 
-	return []Val{MakeFn("gmatch", gmatch)}, nil
+	return args.Rets(FnVal(MakeFn("gmatch", gmatch))), nil
 }
 
 func add_s(caps *captures, b *strings.Builder, s string, si, ei int, news string) error {
@@ -308,18 +308,17 @@ func add_s(caps *captures, b *strings.Builder, s string, si, ei int, news string
 func add_value(caps *captures, b *strings.Builder, co *Coroutine, s string, si, ei int, next Val) (err error) {
 	var val Val
 
-	switch n := next.(type) {
-	case string:
+	if n, ok := AsString(next); ok {
 		return add_s(caps, b, s, si, ei, n)
-	case Function:
-		rets, err := (*n.Run)(co, s[si:ei])
+	} else if n, ok := AsFunction(next); ok {
+		rets, err := (*n.Run)(co, Str(s[si:ei]))
 		if err != nil {
 			return err
 		}
 		if len(rets) != 0 {
 			val = rets[0]
 		}
-	case *Table:
+	} else if n, ok := AsTable(next); ok {
 		r, err := pushCapture(caps, s, si, ei, 0) // at least pretty sure this'll always return a string
 		if err != nil {
 			return err
@@ -327,14 +326,14 @@ func add_value(caps *captures, b *strings.Builder, co *Coroutine, s string, si, 
 
 		// fmt.Println("typeofr", TypeOf(r))
 
-		val = n.GetHash(ToString(r)) // we'll tostring here to be safe
+		val = n.GetHash(Str(ToString(r))) // we'll tostring here to be safe
 	}
 
 	if falsy(val) { // nil or false?
 		b.WriteString(s[si:ei]) // keep original text
 		return
 	}
-	if _, ok := val.(string); !ok {
+	if _, ok := AsString(val); !ok {
 		return fmt.Errorf("invalid replacement value (a %s)", TypeOf(val))
 	}
 
@@ -348,9 +347,7 @@ func string_gsub(args Args) (r []Val, err error) {
 	p := args.GetString()
 	next := args.GetAny()
 
-	switch next.(type) {
-	case string, Function, *Table:
-	default:
+	if !IsString(next) && !IsFunction(next) && !IsTable(next) {
 		return nil, fmt.Errorf("invalid argument #3 to 'gsub' (string/function/table expected, got %s)", TypeOf(next))
 	}
 
@@ -397,19 +394,19 @@ func string_gsub(args Args) (r []Val, err error) {
 		b.WriteString(src[sis:])
 	}
 
-	return []Val{b.String(), float64(n)}, nil
+	return args.Rets(Str(b.String()), Num(float64(n))), nil
 }
 
 func string_len(args Args) (r []Val, err error) {
 	s := args.GetString()
 
-	return []Val{float64(len(s))}, nil
+	return args.Rets(Num(float64(len(s)))), nil
 }
 
 func string_lower(args Args) (r []Val, err error) {
 	s := args.GetString()
 
-	return []Val{strings.ToLower(s)}, nil
+	return args.Rets(Str(strings.ToLower(s))), nil
 }
 
 func string_match(args Args) (r []Val, err error) {
@@ -423,7 +420,7 @@ func string_rep(args Args) (r []Val, err error) {
 	s := args.GetString()
 	n := args.GetNumber()
 
-	return []Val{strings.Repeat(s, max(int(n), 0))}, nil
+	return args.Rets(Str(strings.Repeat(s, max(int(n), 0)))), nil
 }
 
 func string_reverse(args Args) (r []Val, err error) {
@@ -433,7 +430,7 @@ func string_reverse(args Args) (r []Val, err error) {
 	for i, j := 0, len(rs)-1; i < j; i, j = i+1, j-1 {
 		rs[i], rs[j] = rs[j], rs[i]
 	}
-	return []Val{string(rs)}, nil
+	return args.Rets(Str(string(rs))), nil
 }
 
 func string_split(args Args) (r []Val, err error) {
@@ -445,10 +442,10 @@ func string_split(args Args) (r []Val, err error) {
 	// can't copy (or copy()) []string to []types.Val
 	a := make([]Val, len(split))
 	for i, v := range split {
-		a[i] = v
+		a[i] = Str(v)
 	}
 
-	return []Val{&Table{List: a}}, nil
+	return args.Rets(TableVal(&Table{List: a})), nil
 }
 
 func string_sub(args Args) (r []Val, err error) {
@@ -460,15 +457,15 @@ func string_sub(args Args) (r []Val, err error) {
 	start, end = max(start, 1), min(end, l)
 
 	if end < start {
-		return []Val{""}, nil
+		return args.Rets(Str("")), nil
 	}
-	return []Val{s[start-1 : end]}, nil
+	return args.Rets(Str(s[start-1 : end])), nil
 }
 
 func string_upper(args Args) (r []Val, err error) {
 	s := args.GetString()
 
-	return []Val{strings.ToUpper(s)}, nil
+	return args.Rets(Str(strings.ToUpper(s))), nil
 }
 
 var Libstring = NewLib([]Function{

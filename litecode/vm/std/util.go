@@ -9,7 +9,11 @@ import (
 )
 
 func falsy(v Val) bool {
-	return v == nil || v == false
+	if IsNil(v) {
+		return true
+	}
+	b, ok := AsBool(v)
+	return ok && !b
 }
 
 func fn(name string, f func(*Coroutine, ...Val) ([]Val, error)) Function {
@@ -21,31 +25,39 @@ func fn(name string, f func(*Coroutine, ...Val) ([]Val, error)) Function {
 
 // ToString returns a string representation of any value.
 func ToString(a Val) string {
-	switch v := a.(type) {
-	case nil:
+	if f, ok := AsNum(a); ok {
+		return num2str(f)
+	}
+	if i, ok := AsInt(a); ok {
+		return strconv.Itoa(int(i))
+	}
+	if s, ok := AsString(a); ok {
+		return strings.ReplaceAll(s, "\n", "\r\n") // bruh
+	}
+	if IsNil(a) {
 		return "nil"
-	case bool:
-		if v {
+	}
+	if b, ok := AsBool(a); ok {
+		if b {
 			return "true"
 		}
 		return "false"
-	case float64:
-		return num2str(v)
-	case int64:
-		return strconv.Itoa(int(v))
-	case Vector:
+	}
+	if v, ok := AsVector(a); ok {
 		// just 3-wide 4-now
 		return fmt.Sprintf("%s, %s, %s", num2str(float64(v[0])), num2str(float64(v[1])), num2str(float64(v[2])))
-	case string:
-		return strings.ReplaceAll(v, "\n", "\r\n") // bruh
-	case *Table:
-		return fmt.Sprintf("table: %v", *v)
-	case Function:
-		return fmt.Sprintf("function: %v", v)
-	case *Coroutine:
-		return fmt.Sprintf("thread: %v", *v)
-	case *Buffer:
-		return fmt.Sprintf("buffer: %v", *v)
+	}
+	if t, ok := AsTable(a); ok {
+		return fmt.Sprintf("table: %v", *t)
+	}
+	if f, ok := AsFunction(a); ok {
+		return fmt.Sprintf("function: %v", f)
+	}
+	if c, ok := AsCoroutine(a); ok {
+		return fmt.Sprintf("thread: %v", *c)
+	}
+	if b, ok := AsBuffer(a); ok {
+		return fmt.Sprintf("buffer: %v", *b)
 	}
 	// panic("tostring bad type")
 	return "userdata"
@@ -54,26 +66,31 @@ func ToString(a Val) string {
 // TypeOf returns the underlying VM datatype of a value as a string.
 // This does not return the Luau type, as type() does.
 func TypeOf(v Val) string {
-	if v == nil {
+	if IsNum(v) {
+		return "number"
+	}
+	if IsString(v) {
+		return "string"
+	}
+	if IsBool(v) {
+		return "boolean"
+	}
+	if IsNil(v) {
 		return "nil"
 	}
-
-	switch v.(type) {
-	case float64:
-		return "number"
-	case string:
-		return "string"
-	case bool:
-		return "boolean"
-	case *Table:
+	if IsTable(v) {
 		return "table"
-	case Function:
+	}
+	if IsFunction(v) {
 		return "function"
-	case *Coroutine:
+	}
+	if IsCoroutine(v) {
 		return "thread"
-	case *Buffer:
+	}
+	if IsBuffer(v) {
 		return "buffer"
-	case Vector:
+	}
+	if IsVector(v) {
 		return "vector"
 	}
 	// panic("typeof bad type")

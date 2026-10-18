@@ -13,7 +13,7 @@ func listKeyFloat(fk float64) (int, bool) {
 }
 
 func listKey(k Val) (ik int, ok bool) {
-	fk, ok := k.(float64)
+	fk, ok := AsNum(k)
 	if !ok {
 		return
 	}
@@ -21,33 +21,69 @@ func listKey(k Val) (ik int, ok bool) {
 	return listKeyFloat(fk)
 }
 
-func mapKeySort(a, b Val) int {
+// orderedKey is a hash key paired with its printed form, so sorting compares strings rather than formatting on every comparison.
+type orderedKey struct {
+	k Val
+	s string
+}
+
+func newOrderedKey(k Val) orderedKey {
+	return orderedKey{k: k, s: fmt.Sprint(k)}
+}
+
+func keyKind(v Val) int {
+	switch {
+	case IsNil(v):
+		return 0
+	case IsBool(v):
+		return 1
+	case IsNum(v):
+		return 2
+	case IsInt(v):
+		return 3
+	case IsString(v):
+		return 4
+	}
+	return 5
+}
+
+func compareOrderedKeys(a, b orderedKey) int {
 	// It doesn't have to be pretty for map keys
 	// (in fact, the reference implementation of Luau has a rather insane sort order)
 	// It just has to be DETERMINISTIC
-	return strings.Compare(fmt.Sprint(a), fmt.Sprint(b))
+	if c := strings.Compare(a.s, b.s); c != 0 {
+		return c
+	}
+	// Printed forms can collide (the number 1 and the string "1"), so break ties by kind to keep the order total for binary search.
+	return keyKind(a.k) - keyKind(b.k)
 }
 
-func iterList(l []Val, y func(Val, Val) bool) {
+// orderedKeys returns the hash part's deterministic key order, rebuilding it only after the hash changes.
+func (t *Table) orderedKeys() []orderedKey {
+	if t.Hash == nil {
+		return nil
+	}
+	if t.orderedHash != nil {
+		return t.orderedHash
+	}
+
+	keys := make([]orderedKey, 0, len(t.Hash))
+	for k := range t.Hash {
+		keys = append(keys, newOrderedKey(k))
+	}
+	slices.SortFunc(keys, compareOrderedKeys)
+
+	t.orderedHash = keys
+	return keys
+}
+
+func iterList(l []Val, y func(Val, Val) bool) (completed bool) {
 	for i, v := range l {
-		if v != nil && !y(float64(i+1), v) {
-			return
+		if !IsNil(v) && !y(Num(float64(i+1)), v) {
+			return false
 		}
 	}
-}
-
-func iterHash(m map[Val]Val, y func(Val, Val) bool) {
-	// order keys in map
-	keys := make([]Val, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	slices.SortFunc(keys, mapKeySort)
-	for _, k := range keys {
-		if !y(k, m[k]) {
-			return
-		}
-	}
+	return true
 }
 
 // Q why are tables like this
@@ -66,6 +102,8 @@ type Table struct {
 	List     []Val
 	Hash     map[Val]Val
 	Readonly bool
+	// orderedHash caches the hash part's deterministic key order. It is nil when it must be rebuilt.
+	orderedHash []orderedKey
 }
 
 // Len returns the length of the list part of the table (the length of the list up until the first nil).
@@ -78,12 +116,13 @@ func (t *Table) Len() int {
 
 // setHash updates or deletes a key-value pair in the hash part of the table.
 func (t *Table) setHash(k Val, v Val) {
+	t.orderedHash = nil
 	if t.Hash == nil {
-		if v == nil {
+		if IsNil(v) {
 			return
 		}
 		t.Hash = map[Val]Val{k: v}
-	} else if v == nil {
+	} else if IsNil(v) {
 		delete(t.Hash, k)
 	} else {
 		t.Hash[k] = v
@@ -95,14 +134,15 @@ func (t *Table) moveToList(l int) {
 	if t.Hash == nil {
 		return
 	}
+	t.orderedHash = nil
 
 	for f2 := float64(l + 2); ; f2++ {
-		v2, ok := t.Hash[f2]
+		v2, ok := t.Hash[Num(f2)]
 		if !ok {
 			break
 		}
 		t.List = append(t.List, v2)
-		delete(t.Hash, f2)
+		delete(t.Hash, Num(f2))
 	}
 }
 
@@ -118,7 +158,7 @@ func (t *Table) SetInt(i int, v Val) {
 			return
 		}
 	} else if l := len(t.List); 0 < i && i < l+1 {
-		if v != nil {
+		if !IsNil(v) {
 			// set in the list portion
 			t.List[i-1] = v
 			return
@@ -130,7 +170,7 @@ func (t *Table) SetInt(i int, v Val) {
 
 		// move the rest to the hash part
 		for i2, v2 := range after {
-			t.setHash(float64(i+i2), v2)
+			t.setHash(Num(float64(i+i2)), v2)
 		}
 		return
 	} else if i == l+1 {
@@ -142,14 +182,21 @@ func (t *Table) SetInt(i int, v Val) {
 	}
 
 	// add to the hash part instead
-	t.setHash(float64(i), v)
+	t.setHash(Num(float64(i)), v)
 }
 
 // Set sets a table value at a key. Make sure to check if the table is readonly beforehand.
 func (t *Table) Set(k Val, v Val) {
-	if ak, ok := listKey(k); ok {
-		t.SetInt(ak, v)
-		return
+	if fk, ok := AsNum(k); ok {
+		if ik := int(fk); 1 <= ik && float64(ik) == fk {
+			if l := len(t.List); ik <= l && !IsNil(v) {
+				// fast path: overwrite an existing list element in place
+				t.List[ik-1] = v
+				return
+			}
+			t.SetInt(ik, v)
+			return
+		}
 	}
 	t.setHash(k, v)
 }
@@ -179,8 +226,13 @@ func (t *Table) GetHash(k Val) (v Val) {
 
 // Get returns a value at a key in the table.
 func (t *Table) Get(k Val) Val {
-	if ak, ok := listKey(k); ok && ak <= t.Len() {
-		return t.List[ak-1]
+	if fk, ok := AsNum(k); ok {
+		if ik := int(fk); 1 <= ik && float64(ik) == fk {
+			if ik <= len(t.List) {
+				// fast path: list element
+				return t.List[ik-1]
+			}
+		}
 	}
 	return t.GetHash(k)
 }
@@ -190,7 +242,7 @@ func (t *Table) GetFloat(k float64) Val {
 	if ak, ok := listKeyFloat(k); ok && ak <= t.Len() {
 		return t.List[ak-1]
 	}
-	return t.GetHash(k)
+	return t.GetHash(Num(k))
 }
 
 // GetFloat returns a value at a float key in the table.
@@ -198,17 +250,64 @@ func (t *Table) GetInt(k int) Val {
 	if ok := 1 <= k; ok && k <= t.Len() {
 		return t.List[k-1]
 	}
-	return t.GetHash(float64(k))
+	return t.GetHash(Num(float64(k)))
 }
 
 // Iter returns an iterator over the table, yielding key-value pairs in a deterministic order.
 func (t *Table) Iter() iter.Seq2[Val, Val] {
 	return func(y func(Val, Val) bool) {
-		if t.List != nil {
-			iterList(t.List, y)
+		if t.List != nil && !iterList(t.List, y) {
+			return
 		}
 		if t.Hash != nil {
-			iterHash(t.Hash, y)
+			for _, hk := range t.orderedKeys() {
+				if !y(hk.k, t.Hash[hk.k]) {
+					return
+				}
+			}
 		}
 	}
+}
+
+// Next returns the pair after fk in the table's iteration order, starting from the first pair when fk is nil. found reports whether fk was nil or an actual key, and ok whether a pair was returned.
+func (t *Table) Next(fk Val) (k, v Val, found, ok bool) {
+	from := 0
+	found = IsNil(fk)
+	if !found {
+		if i, isList := listKey(fk); isList && i <= len(t.List) && !IsNil(t.List[i-1]) {
+			found = true
+			from = i // 0-based index i is the element after the key at i-1
+		} else {
+			return t.nextHash(fk)
+		}
+	}
+
+	for j := from; j < len(t.List); j++ {
+		if !IsNil(t.List[j]) {
+			return Num(float64(j + 1)), t.List[j], true, true
+		}
+	}
+	return t.nextHash(NilVal)
+}
+
+// nextHash returns the pair after fk in the sorted hash part, or the first pair when fk is nil.
+func (t *Table) nextHash(fk Val) (k, v Val, found, ok bool) {
+	keys := t.orderedKeys()
+	if IsNil(fk) {
+		if len(keys) == 0 {
+			return NilVal, NilVal, true, false
+		}
+		k = keys[0].k
+		return k, t.Hash[k], true, true
+	}
+
+	idx, exact := slices.BinarySearchFunc(keys, newOrderedKey(fk), compareOrderedKeys)
+	if !exact {
+		return NilVal, NilVal, false, false
+	}
+	if idx+1 == len(keys) {
+		return NilVal, NilVal, true, false
+	}
+	k = keys[idx+1].k
+	return k, t.Hash[k], true, true
 }

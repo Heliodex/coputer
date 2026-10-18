@@ -146,15 +146,18 @@ func checkkmode(i *internal.Inst, k []Val) error {
 		count := uint8(aux >> 30)
 		i.KC = count
 
+		var ki [3]string
+		i.KI = &ki
+
 		id0 := aux >> 20 & 0x3ff
 
 		var ok bool
 		// don't lmk if this panics
 		kid0 := k[id0]
-		if i.K0, ok = kid0.(string); !ok {
+		if ki[0], ok = AsString(kid0); !ok {
 			return fmt.Errorf("invalid constant type for K0: %T", kid0)
 		}
-		// fmt.Println("AUX", i.K0)
+		// fmt.Println("AUX", ki[0])
 
 		if count < 2 {
 			break
@@ -162,7 +165,7 @@ func checkkmode(i *internal.Inst, k []Val) error {
 		id1 := aux >> 10 & 0x3ff
 
 		kid1 := k[id1]
-		if i.K1, ok = kid1.(string); !ok {
+		if ki[1], ok = AsString(kid1); !ok {
 			return fmt.Errorf("invalid constant type for K1: %T", kid1)
 		}
 
@@ -172,11 +175,11 @@ func checkkmode(i *internal.Inst, k []Val) error {
 		id2 := aux & 0x3ff
 
 		kid2 := k[id2]
-		if i.K2, ok = kid2.(string); !ok {
+		if ki[2], ok = AsString(kid2); !ok {
 			return fmt.Errorf("invalid constant type for K2: %T", kid2)
 		}
 	case 5: // AUX boolean low 1 bit
-		i.K = aux&1 == 1
+		i.K = Bool(aux&1 == 1)
 		i.KN = aux>>31 == 1
 	case 6: // AUX number low 24 bits
 		i.K = k[aux&(1<<24-1)]
@@ -184,7 +187,7 @@ func checkkmode(i *internal.Inst, k []Val) error {
 	case 7: // B
 		i.K = k[i.B]
 	case 8: // AUX number low 16 bits ig
-		i.K = uint8(aux & 0xf) // forgloop
+		i.K = Num(float64(uint8(aux & 0xf))) // forgloop aux, not a Luau value
 	default:
 		return fmt.Errorf("unknown KMode %d", i.KMode)
 	}
@@ -281,7 +284,7 @@ func (s *stream) checkEnd() error {
 }
 
 // reads either 1 or 2 words
-func (s *stream) readInst(code *[]*internal.Inst) (bool, error) {
+func (s *stream) readInst(code *[]internal.Inst) (bool, error) {
 	value := s.rUint32()
 	// fmt.Println(": ", value)
 
@@ -319,14 +322,15 @@ func (s *stream) readInst(code *[]*internal.Inst) (bool, error) {
 	}
 	// fmt.Println("Opcode:", opcode, "A:", i.A, "B:", i.B, "C:", i.C, "D:", i.D)
 
-	*code = append(*code, &i)
 	if !opinfo.HasAux {
+		*code = append(*code, i)
 		return false, nil
 	}
 
 	i.Aux = s.rUint32()
 
-	*code = append(*code, &internal.Inst{})
+	// the following slot is the instruction's auxiliary word placeholder
+	*code = append(*code, i, internal.Inst{})
 	return true, nil
 }
 
@@ -434,11 +438,11 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 		case 0: // Nil
 			// yeah
 		case 1: // Bool
-			K[i] = s.rBool()
+			K[i] = Bool(s.rBool())
 		case 2: // Number
-			K[i] = s.rFloat64()
+			K[i] = Num(s.rFloat64())
 		case 3: // String
-			K[i] = stringList[s.rVarInt()-1]
+			K[i] = Str(stringList[s.rVarInt()-1])
 		case 4: // Import
 			// only used with useImportConstants
 			s.skipUint32()
@@ -447,15 +451,15 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 			t := &Table{}
 			for range s.rVarInt() {
 				key := s.rVarInt()
-				t.Set(K[key], 0.0)
+				t.Set(K[key], Num(0.0))
 			}
-			K[i] = t
+			K[i] = TableVal(t)
 		case 6: // Closure
 			// pain in the cranium
-			K[i] = s.rVarInt() // ⚠️ not a val ⚠️
+			K[i] = Num(float64(s.rVarInt())) // a closure index, not a Luau value
 			// fmt.Println("case 6", p.K[i])
 		case 7: // Vector
-			K[i] = s.rVector()
+			K[i] = VecVal(s.rVector())
 		case 8: // Table with constants
 			t := &Table{}
 			for range s.rVarInt() {
@@ -464,18 +468,18 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 				if cidx < 0 {
 					continue
 				}
-				if v := K[cidx]; v != nil {
+				if v := K[cidx]; !IsNil(v) {
 					t.Set(K[key], v)
 				}
 			}
-			K[i] = t
+			K[i] = TableVal(t)
 		case 9: // Integer
 			isNegative := s.rBool()
 			magnitude := s.rVarInt64()
 			if isNegative {
-				K[i] = int64(^magnitude + 1)
+				K[i] = IntVal(int64(^magnitude + 1))
 			} else {
-				K[i] = int64(magnitude)
+				K[i] = IntVal(int64(magnitude))
 			}
 		case 10: // Class shape
 			// cnid := s.rVarInt()
@@ -492,7 +496,7 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 			for i := range 4 {
 				v[i] = float32(s.rFloat64())
 			}
-			K[i] = v
+			K[i] = VecVal(v)
 		default:
 			return nil, fmt.Errorf("unknown constant kind %d", kt)
 		}
@@ -503,7 +507,7 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 	// -- 2nd pass to replace constant references in the instruction
 	for i := range sizecode {
 		// fmt.Println("Checking inst - aux:", p.Code[i].Aux, "kmode:", p.Code[i].KMode)
-		if err := checkkmode(p.Code[i], K); err != nil {
+		if err := checkkmode(&p.Code[i], K); err != nil {
 			return nil, fmt.Errorf("checkkmode %d: %w", i, err)
 		}
 	}

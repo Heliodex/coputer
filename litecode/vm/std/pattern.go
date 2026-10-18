@@ -157,7 +157,7 @@ func matchbalance(s, p string, si, pi int) (int, error) {
 	}
 
 	b := p[pi]
-	if s[si] != b {
+	if si >= len(s) || s[si] != b {
 		return -1, nil
 	}
 
@@ -186,27 +186,27 @@ func pushCapture(caps *captures, s string, start, end, i int) (Val, error) {
 
 	if i >= caps.level {
 		if i != 0 {
-			return nil, errors.New("invalid capture index")
+			return NilVal, errors.New("invalid capture index")
 		}
 		if start == -1 {
 			// caps.level == 0, too
 			// fmt.Println("    adding whole match")
-			return s, nil // add whole string
+			return Str(s), nil // add whole string
 		}
-		return s[start:end], nil // add whole match
+		return Str(s[start:end]), nil // add whole match
 	}
 
 	c := caps.captures[i]
 	l, i := c.len, c.init
 	if l == cap_unfinished {
-		return nil, errors.New("unfinished capture")
+		return NilVal, errors.New("unfinished capture")
 	}
 	if l == cap_position {
 		// fmt.Println("    adding cap position")
-		return float64(i + 1), nil
+		return Num(float64(i + 1)), nil
 	}
 	// fmt.Println("    adding normal")
-	return s[i:][:l], nil
+	return Str(s[i:][:l]), nil
 }
 
 func pushCaptures(caps *captures, s string, start, end int, find bool) (r []Val, err error) {
@@ -246,10 +246,23 @@ func nospecials(p string) bool {
 	return true // no special characters found
 }
 
+// literalItem returns the byte a pattern item matches verbatim, and whether the item is a plain literal rather than '.', an escape, or a bracket class.
+func literalItem(p string, pi int) (byte, bool) {
+	c := p[pi]
+	return c, c != '.' && c != l_esc && c != '['
+}
+
 func maxExpand(s, p string, si, pi, epi int, caps *captures) (res int, err error) {
 	var i int // counts maximum expand for item
-	for singlematch(s, p, si+i, pi, epi) {
-		i++
+	if c, lit := literalItem(p, pi); lit {
+		// plain literal item: count the run of matching bytes directly, which avoids a singlematch call per byte
+		for si+i < len(s) && s[si+i] == c {
+			i++
+		}
+	} else {
+		for singlematch(s, p, si+i, pi, epi) {
+			i++
+		}
 	}
 
 	// keeps trying to match with the maximum repetitions
@@ -267,11 +280,18 @@ func maxExpand(s, p string, si, pi, epi int, caps *captures) (res int, err error
 }
 
 func minExpand(s, p string, si, pi, epi int, caps *captures) (res int, err error) {
+	c, lit := literalItem(p, pi)
+
 	for ; ; si++ {
 		if res, err = matchPos(s, p, si, epi+1, caps); err != nil || res != -1 {
 			return
 		}
-		if !singlematch(s, p, si, pi, epi) {
+
+		if lit {
+			if si >= len(s) || s[si] != c {
+				return -1, nil
+			}
+		} else if !singlematch(s, p, si, pi, epi) {
 			return -1, nil
 		}
 		// try with one more repetition
@@ -402,7 +422,7 @@ func optSuffix(s, p string, si, pi, epi int, caps *captures) (cont bool, si2, pi
 func defaultCase(s, p string, si, pi int, caps *captures) (cont bool, si2, pi2 int, err error) {
 	// dlog("default", s, "[", si, pi, "]")
 
-	// pattern class plus optional suffix
+	// Only pattern classes reach here; matchPos handles literal and '.' items, and '$' as a literal, inline.
 	epi, err := classend(p, pi) // points to optional suffix
 	if err != nil {
 		return
@@ -455,17 +475,6 @@ func matchPos(s, p string, si, pi int, caps *captures) (si2 int, err error) {
 		case ')': // end capture
 			// dlog("end", s, p, si, pi, caps.captures)
 			return endCapture(s, p, si, pi+1, caps)
-		case '$':
-			if pi+1 != len(p) { // s the '$' the last char in pattern?
-				// no; go to default
-				var cont bool
-				if cont, si, pi, err = defaultCase(s, p, si, pi, caps); !cont {
-					return si, err
-				}
-			} else if si != len(s) { // check end of string
-				// dlog("not end of string", len(s)-si)
-				return -1, nil
-			}
 		case l_esc: // escaped sequences not in the format class[*+?-]?
 			if pi+1 == len(p) {
 				return 0, errMalformedEsc
@@ -535,6 +544,48 @@ func matchPos(s, p string, si, pi int, caps *captures) (si2 int, err error) {
 			// go to default (escaped character)
 			fallthrough
 		default:
+			// Inline defaultCase's literal/'.' fast path so the common item does not pay a call for it; class items still hand off to defaultCase.
+			c := p[pi]
+			if c == '$' && pi+1 == len(p) { // end-of-string anchor
+				if si != len(s) {
+					// dlog("not end of string", len(s)-si)
+					return -1, nil
+				}
+				continue
+			}
+			if c != l_esc && c != '[' {
+				epi := pi + 1
+				if si < len(s) && (c == '.' || s[si] == c) {
+					if epi >= len(p) {
+						si++
+						pi = epi - 1
+						continue
+					}
+					// Also inline optSuffix's '?' case, which is what a per-position optional costs.
+					if p[epi] == '?' {
+						ns, e := matchPos(s, p, si+1, epi+1, caps)
+						if e != nil {
+							return 0, e
+						}
+						if ns != -1 {
+							return ns, nil
+						}
+						pi = epi
+						continue
+					}
+					var cont bool
+					if cont, si, pi, err = optSuffix(s, p, si, pi, epi, caps); !cont {
+						return si, err
+					}
+					continue
+				}
+				if epi < len(p) && (p[epi] == '*' || p[epi] == '?' || p[epi] == '-') {
+					pi = epi
+					continue
+				}
+				return -1, nil
+			}
+
 			// go to default; do not pass go, do not collect £200
 			var cont bool
 			if cont, si, pi, err = defaultCase(s, p, si, pi, caps); !cont {
@@ -576,7 +627,7 @@ func stringFindAux(s, p string, i int, plain, find bool) (r []Val, err error) {
 
 	init := max(1, string_posrelat(i, ls))
 	if init > ls+1 { // start after string's end?
-		return []Val{nil}, nil // cannot find anything
+		return []Val{NilVal}, nil // cannot find anything
 	}
 
 	// explicit request or no special characters?
@@ -585,11 +636,11 @@ func stringFindAux(s, p string, i int, plain, find bool) (r []Val, err error) {
 		// do a plain search, good-style
 		pos := strings.Index(is, p)
 		if pos == -1 {
-			return []Val{nil}, nil // one nil
+			return []Val{NilVal}, nil // one nil
 		}
 		return []Val{
-			float64(pos + init),
-			float64(pos + init + len(p) - 1),
+			Num(float64(pos + init)),
+			Num(float64(pos + init + len(p) - 1)),
 		}, nil
 	}
 
@@ -601,7 +652,7 @@ func stringFindAux(s, p string, i int, plain, find bool) (r []Val, err error) {
 		return
 	}
 	if start == -1 {
-		return []Val{nil}, nil // not found
+		return []Val{NilVal}, nil // not found
 	}
 
 	// fmt.Println("DONE!", caps)
@@ -612,7 +663,7 @@ func stringFindAux(s, p string, i int, plain, find bool) (r []Val, err error) {
 	// fmt.Println("pushed", rs)
 
 	return append([]Val{
-		float64(start + init),
-		float64(end + init - 1),
+		Num(float64(start + init)),
+		Num(float64(end + init - 1)),
 	}, r...), nil
 }
