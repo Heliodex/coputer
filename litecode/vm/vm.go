@@ -465,9 +465,8 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 	// int32 > uint32 lel
 	var pc, top int32
 	var openUpvals []*upval
-	genIters := map[internal.Inst]Val{}
-	// Numeric for loops keep their limit and step in registers the body cannot touch, so FORNPREP caches them here and FORNLOOP stops re-reading two stack slots per iteration. Indexed by the loop's register base.
-	var forLimits, forSteps [256]float64
+	// genIters holds the generic-for cursor, keyed by the loop instruction. It is allocated only when a for loop iterates a table directly, which most calls never do.
+	var genIters map[internal.Inst]Val
 
 	// a a a a
 	// stayin' alive
@@ -1036,9 +1035,6 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 				return nil, invalidFor("step", std.TypeOf(stack[i.A+1]))
 			}
 
-			forLimits[uint8(i.A)] = limit
-			forSteps[uint8(i.A)] = step
-
 			if s := step > 0; s && init > limit || !s && init < limit {
 				pc += i.D + 1
 			} else {
@@ -1050,8 +1046,8 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			}
 			// all checked in FORNPREP
 			init := MustNum(stack[i.A+2])
-			limit := forLimits[uint8(i.A)]
-			step := forSteps[uint8(i.A)]
+			limit := MustNum(stack[i.A])
+			step := MustNum(stack[i.A+1])
 
 			init += step
 			stack[i.A+2] = Num(init)
@@ -1113,6 +1109,9 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			// Skipped
 			pc += 2 // adjust for aux
 		case 76: // FORGPREP
+			if genIters == nil {
+				genIters = map[internal.Inst]Val{}
+			}
 			loopInst := code[pc+i.D+1]
 			delete(genIters, loopInst) // REST IN PIECES A 2HR BUG, IF A LOOP IS BROKEN OUT OF THEN THE GENITER IS STILL LEFT BEHIND
 
