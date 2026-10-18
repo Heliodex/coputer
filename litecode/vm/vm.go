@@ -448,9 +448,8 @@ func forgloop(pc, top *int32, i internal.Inst, stack *[]Val, co *Coroutine, genI
 		}
 		genIters[i] = nk
 
-		var pair [2]Val
-		pair[0], pair[1] = nk, nv
-		moveStack(stack, pair[:], res, i.A+3)
+		// The slice literal's backing array stays on the stack (moveStack does not retain it), so this does not allocate.
+		moveStack(stack, []Val{nk, nv}, res, i.A+3)
 	} else {
 		return invalidIter(std.TypeOf(v))
 	}
