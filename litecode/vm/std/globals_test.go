@@ -3,6 +3,8 @@ package std
 import (
 	"math"
 	"testing"
+
+	. "github.com/Heliodex/coputer/litecode/types"
 )
 
 func TestMul128(t *testing.T) {
@@ -77,5 +79,43 @@ func BenchmarkNum2Str2(b *testing.B) {
 func BenchmarkNum2Str3(b *testing.B) {
 	for n := math.Inf(1); b.Loop(); {
 		num2str(n)
+	}
+}
+
+var nextSink []Val
+
+// BenchmarkNextFirst measures next(t, nil): one step to the first pair.
+func BenchmarkNextFirst(b *testing.B) {
+	t := &Table{List: make([]Val, 256)}
+	for i := range t.List {
+		t.List[i] = Num(float64(i + 1))
+	}
+	args := Args{Name: "next", List: []Val{TableVal(t), NilVal}}
+
+	for b.Loop() {
+		args.pos = 0
+		r, err := global_next(args)
+		if err != nil {
+			b.Fatal(err)
+		}
+		nextSink = r
+	}
+}
+
+// BenchmarkNextLast measures next(t, last): the call walks the whole table to find the key, so it shows the per-call scan that pairs iteration multiplies.
+func BenchmarkNextLast(b *testing.B) {
+	t := &Table{List: make([]Val, 256)}
+	for i := range t.List {
+		t.List[i] = Num(float64(i + 1))
+	}
+	args := Args{Name: "next", List: []Val{TableVal(t), Num(256)}}
+
+	for b.Loop() {
+		args.pos = 0
+		r, err := global_next(args)
+		if err != nil {
+			b.Fatal(err)
+		}
+		nextSink = r
 	}
 }
