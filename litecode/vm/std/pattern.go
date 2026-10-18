@@ -157,7 +157,7 @@ func matchbalance(s, p string, si, pi int) (int, error) {
 	}
 
 	b := p[pi]
-	if s[si] != b {
+	if si >= len(s) || s[si] != b {
 		return -1, nil
 	}
 
@@ -422,22 +422,7 @@ func optSuffix(s, p string, si, pi, epi int, caps *captures) (cont bool, si2, pi
 func defaultCase(s, p string, si, pi int, caps *captures) (cont bool, si2, pi2 int, err error) {
 	// dlog("default", s, "[", si, pi, "]")
 
-	// A literal byte or '.' needs neither classend nor singlematch: compare inline, which is the bulk of a byte-at-a-time scan.
-	if c := p[pi]; c != l_esc && c != '[' {
-		epi := pi + 1
-		if si >= len(s) || (c != '.' && s[si] != c) {
-			if epi < len(p) && (p[epi] == '*' || p[epi] == '?' || p[epi] == '-') {
-				return true, si, epi, nil
-			}
-			return false, -1, pi, nil
-		}
-		if epi >= len(p) {
-			return true, si + 1, epi - 1, nil
-		}
-		return optSuffix(s, p, si, pi, epi, caps)
-	}
-
-	// pattern class plus optional suffix
+	// Only pattern classes reach here; matchPos handles literal and '.' items, and '$' as a literal, inline.
 	epi, err := classend(p, pi) // points to optional suffix
 	if err != nil {
 		return
@@ -490,17 +475,6 @@ func matchPos(s, p string, si, pi int, caps *captures) (si2 int, err error) {
 		case ')': // end capture
 			// dlog("end", s, p, si, pi, caps.captures)
 			return endCapture(s, p, si, pi+1, caps)
-		case '$':
-			if pi+1 != len(p) { // s the '$' the last char in pattern?
-				// no; go to default
-				var cont bool
-				if cont, si, pi, err = defaultCase(s, p, si, pi, caps); !cont {
-					return si, err
-				}
-			} else if si != len(s) { // check end of string
-				// dlog("not end of string", len(s)-si)
-				return -1, nil
-			}
 		case l_esc: // escaped sequences not in the format class[*+?-]?
 			if pi+1 == len(p) {
 				return 0, errMalformedEsc
@@ -570,6 +544,48 @@ func matchPos(s, p string, si, pi int, caps *captures) (si2 int, err error) {
 			// go to default (escaped character)
 			fallthrough
 		default:
+			// Inline defaultCase's literal/'.' fast path so the common item does not pay a call for it; class items still hand off to defaultCase.
+			c := p[pi]
+			if c == '$' && pi+1 == len(p) { // end-of-string anchor
+				if si != len(s) {
+					// dlog("not end of string", len(s)-si)
+					return -1, nil
+				}
+				continue
+			}
+			if c != l_esc && c != '[' {
+				epi := pi + 1
+				if si < len(s) && (c == '.' || s[si] == c) {
+					if epi >= len(p) {
+						si++
+						pi = epi - 1
+						continue
+					}
+					// Also inline optSuffix's '?' case, which is what a per-position optional costs.
+					if p[epi] == '?' {
+						ns, e := matchPos(s, p, si+1, epi+1, caps)
+						if e != nil {
+							return 0, e
+						}
+						if ns != -1 {
+							return ns, nil
+						}
+						pi = epi
+						continue
+					}
+					var cont bool
+					if cont, si, pi, err = optSuffix(s, p, si, pi, epi, caps); !cont {
+						return si, err
+					}
+					continue
+				}
+				if epi < len(p) && (p[epi] == '*' || p[epi] == '?' || p[epi] == '-') {
+					pi = epi
+					continue
+				}
+				return -1, nil
+			}
+
 			// go to default; do not pass go, do not collect £200
 			var cont bool
 			if cont, si, pi, err = defaultCase(s, p, si, pi, caps); !cont {
