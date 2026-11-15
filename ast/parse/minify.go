@@ -169,15 +169,7 @@ func minifyWordByte(c byte) bool {
 // minifyNeedsSpace reports whether a space must separate two adjacent bytes so that they don't lex as a different token.
 func minifyNeedsSpace(prev, next byte) bool {
 	switch {
-	case minifyWordByte(prev) && minifyWordByte(next):
-		return true
-	case '0' <= prev && prev <= '9' && next == '.':
-		return true
-	case prev == '-' && next == '-':
-		return true
-	case prev == '[' && next == '[':
-		return true
-	case prev == '>' && next == '=':
+	case minifyWordByte(prev) && minifyWordByte(next), '0' <= prev && prev <= '9' && next == '.', prev == '-' && next == '-', prev == '[' && next == '[', prev == '>' && next == '=':
 		return true
 	}
 

@@ -587,8 +587,7 @@ func sourceIsIdentifier(s string) bool {
 		ch := s[i]
 
 		switch {
-		case ch == '_' || ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z':
-		case i > 0 && ch >= '0' && ch <= '9':
+		case ch == '_' || ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z', i > 0 && ch >= '0' && ch <= '9':
 		default:
 			return false
 		}
@@ -989,9 +988,7 @@ func asMethodCall(n AstExprCall) (AstExprCall, bool) {
 // sourceCallSugar reports whether a call argument can be passed without parentheses, i.e. `f "string"` or `f { table }`.
 func sourceCallSugar(expr AstExpr) bool {
 	switch sourceUnwrapGroup(expr).(type) {
-	case *AstExprConstantString, AstExprConstantString:
-		return true
-	case *AstExprTable, AstExprTable:
+	case *AstExprConstantString, *AstExprTable, AstExprConstantString, AstExprTable:
 		return true
 	}
 
