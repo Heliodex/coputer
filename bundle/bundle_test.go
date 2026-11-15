@@ -19,19 +19,17 @@ func TestBundle(t *testing.T) {
 		}
 
 		path := testpath + "/" + f.Name()
-
 		b, err := Bundle(path)
 		if err != nil {
 			t.Fatal(err)
 		}
-
 		t.Log("Bundle:", len(b))
+
 		ub, err := Unbundle(b)
 		if err != nil {
 			t.Fatal(err)
 			t.FailNow()
 		}
-
 		t.Log("Unbundle:")
 		for _, f := range ub {
 			t.Log("  ", f.path, len(f.data))

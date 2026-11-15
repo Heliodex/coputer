@@ -2,30 +2,39 @@ package lex
 
 import "fmt"
 
-type LexemeType uint16
+type (
+	BraceType uint8
+	LexemeType uint16
+
+	Lexeme struct {
+		Type LexemeType
+		Location Location
+		Data, rest []byte
+		name *string
+		Codepoint *uint32
+		Aux *int // bruh (equivalent to next_aux)
+	}
+
+	QuoteStyle uint8
+)
 
 const (
 	Eof LexemeType = 0
 	Char_END LexemeType = iota + 255
 	Equal
-
 	LessEqual
 	GreaterEqual
 	NotEqual
-
 	Dot2
 	Dot3
-
 	SkinnyArrow
 	DoubleColon
 	FloorDiv
-
 	InterpStringBegin
 	InterpStringMid
 	InterpStringEnd
 	// An interpolated string with no expressions (like `x`)
 	InterpStringSimple
-
 	AddAssign
 	SubAssign
 	MulAssign
@@ -34,24 +43,19 @@ const (
 	ModAssign
 	PowAssign
 	ConcatAssign
-
 	RawString
 	QuotedString
 	Number
 	Name
-
 	Comment
 	BlockComment
-
 	Attribute
 	AttributeOpen
-
 	BrokenString
 	BrokenComment
 	BrokenUnicode
 	BrokenInterpDoubleBrace
 	Error
-
 	Reserved_BEGIN
 )
 
@@ -80,177 +84,181 @@ const (
 	Reserved_END
 )
 
-type Lexeme struct {
-	Type LexemeType
-	Location Location
-
-	Data, rest []byte
-	name *string
-	Codepoint *uint32
-	Aux *int // bruh (equivalent to next_aux)
-}
-
-func (l Lexeme) String() string {
-	switch l.Type {
-	case Eof:
-		return "<eof>"
-
-	case Equal:
-		return "'=='"
-
-	case LessEqual:
-		return "'<='"
-
-	case GreaterEqual:
-		return "'>='"
-
-	case NotEqual:
-		return "'~='"
-
-	case Dot2:
-		return "'..'"
-
-	case Dot3:
-		return "'...'"
-
-	case SkinnyArrow:
-		return "'->'"
-
-	case DoubleColon:
-		return "'::'"
-
-	case FloorDiv:
-		return "'//'"
-
-	case AddAssign:
-		return "'+='"
-
-	case SubAssign:
-		return "'-='"
-
-	case MulAssign:
-		return "'*='"
-
-	case DivAssign:
-		return "'/='"
-
-	case FloorDivAssign:
-		return "'//='"
-
-	case ModAssign:
-		return "'%='"
-
-	case PowAssign:
-		return "'^='"
-
-	case ConcatAssign:
-		return "'..='"
-
-	case RawString, QuotedString: // oof, this was quite the bug
-		if l.Data != nil {
-			return fmt.Sprintf("\"%s\"", string(l.Data))
-		}
-		return "string"
-
-	case InterpStringBegin:
-		if l.Data != nil {
-			return fmt.Sprintf("`%s{", string(l.Data))
-		}
-		return "the beginning of an interpolated string"
-
-	case InterpStringMid:
-		if l.Data != nil {
-			return fmt.Sprintf("}%s{", string(l.Data))
-		}
-		return "the middle of an interpolated string"
-
-	case InterpStringEnd:
-		if l.Data != nil {
-			return fmt.Sprintf("}%s`", string(l.Data))
-		}
-		return "the end of an interpolated string"
-
-	case InterpStringSimple:
-		if l.Data != nil {
-			return fmt.Sprintf("`%s`", string(l.Data))
-		}
-		return "interpolated string"
-
-	case Number:
-		if l.Data != nil {
-			return fmt.Sprintf("'%s'", string(l.Data))
-		}
-		return "number"
-
-	case Name:
-		if l.name != nil {
-			return fmt.Sprintf("'%s'", *l.name)
-		}
-		return "identifier"
-
-	case Comment:
-		return "comment"
-
-	case Attribute:
-		if l.name != nil {
-			return fmt.Sprintf("'%s'", *l.name)
-		}
-		return "attribute"
-
-	case AttributeOpen:
-		return "'@["
-
-	case BrokenString:
-		return "malformed string"
-
-	case BrokenComment:
-		return "unfinished comment"
-
-	case BrokenInterpDoubleBrace:
-		return "'{{', which is invalid (did you mean '\\{'?)"
-
-	case BrokenUnicode:
-		if l.Codepoint != nil {
-			confusable := findConfusable(*l.Codepoint)
-			if confusable != nil {
-				return fmt.Sprintf("Unicode character U+%x (did you mean '%s'?)", *l.Codepoint, *confusable)
-			}
-			return fmt.Sprintf("Unicode character U+%x", *l.Codepoint)
-		}
-		return "invalid UTF-8 sequence"
-	}
-
-	if l.Type < Char_END {
-		return fmt.Sprintf("'%c'", l.Type)
-	}
-	if l.Type >= Reserved_BEGIN && l.Type < Reserved_END {
-		return fmt.Sprintf("'%s'", kReserved[l.Type-Reserved_BEGIN])
-	}
-	return "<unknown>"
-}
-
-type QuoteStyle uint8
-
 const (
 	Single QuoteStyle = iota
 	Double
 )
-
-type BraceType uint8
 
 const (
 	InterpolatedString BraceType = iota
 	Normal
 )
 
+var kReserved = [...]string{
+	"and",
+	"break",
+	"do",
+	"else",
+	"elseif",
+	"end",
+	"false",
+	"for",
+	"function",
+	"if",
+	"in",
+	"local",
+	"nil",
+	"not",
+	"or",
+	"repeat",
+	"return",
+	"then",
+	"true",
+	"until",
+	"while",
+}
+
+// IsReserved reports whether word is a Luau reserved keyword.
+func IsReserved(word string) bool {
+	for i := range Reserved_END - Reserved_BEGIN {
+		if word == kReserved[i] {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (l Lexeme) String() string {
+	switch l.Type {
+	case Eof:
+		return "<eof>"
+	case Equal:
+		return "'=='"
+	case LessEqual:
+		return "'<='"
+	case GreaterEqual:
+		return "'>='"
+	case NotEqual:
+		return "'~='"
+	case Dot2:
+		return "'..'"
+	case Dot3:
+		return "'...'"
+	case SkinnyArrow:
+		return "'->'"
+	case DoubleColon:
+		return "'::'"
+	case FloorDiv:
+		return "'//'"
+	case AddAssign:
+		return "'+='"
+	case SubAssign:
+		return "'-='"
+	case MulAssign:
+		return "'*='"
+	case DivAssign:
+		return "'/='"
+	case FloorDivAssign:
+		return "'//='"
+	case ModAssign:
+		return "'%='"
+	case PowAssign:
+		return "'^='"
+	case ConcatAssign:
+		return "'..='"
+	case QuotedString, RawString: // oof, this was quite the bug
+		if l.Data != nil {
+			return fmt.Sprintf("\"%s\"", string(l.Data))
+		}
+
+		return "string"
+	case InterpStringBegin:
+		if l.Data != nil {
+			return fmt.Sprintf("`%s{", string(l.Data))
+		}
+
+		return "the beginning of an interpolated string"
+	case InterpStringMid:
+		if l.Data != nil {
+			return fmt.Sprintf("}%s{", string(l.Data))
+		}
+
+		return "the middle of an interpolated string"
+	case InterpStringEnd:
+		if l.Data != nil {
+			return fmt.Sprintf("}%s`", string(l.Data))
+		}
+
+		return "the end of an interpolated string"
+	case InterpStringSimple:
+		if l.Data != nil {
+			return fmt.Sprintf("`%s`", string(l.Data))
+		}
+
+		return "interpolated string"
+	case Number:
+		if l.Data != nil {
+			return fmt.Sprintf("'%s'", string(l.Data))
+		}
+
+		return "number"
+	case Name:
+		if l.name != nil {
+			return fmt.Sprintf("'%s'", *l.name)
+		}
+
+		return "identifier"
+	case Comment:
+		return "comment"
+	case Attribute:
+		if l.name != nil {
+			return fmt.Sprintf("'%s'", *l.name)
+		}
+
+		return "attribute"
+	case AttributeOpen:
+		return "'@["
+	case BrokenString:
+		return "malformed string"
+	case BrokenComment:
+		return "unfinished comment"
+	case BrokenInterpDoubleBrace:
+		return "'{{', which is invalid (did you mean '\\{'?)"
+	case BrokenUnicode:
+		if l.Codepoint != nil {
+			if confusable := findConfusable(*l.Codepoint); confusable != nil {
+				return fmt.Sprintf("Unicode character U+%x (did you mean '%s'?)", *l.Codepoint, *confusable)
+			}
+
+			return fmt.Sprintf("Unicode character U+%x", *l.Codepoint)
+		}
+
+		return "invalid UTF-8 sequence"
+	}
+
+	if l.Type < Char_END {
+		return fmt.Sprintf("'%c'", l.Type)
+	}
+
+	if l.Type >= Reserved_BEGIN && l.Type < Reserved_END {
+		return fmt.Sprintf("'%s'", kReserved[l.Type-Reserved_BEGIN])
+	}
+
+	return "<unknown>"
+}
+
 func (l Lexeme) getBlockDepth() uint32 {
 	LUAU_ASSERT(l.Type == RawString || l.Type == BlockComment)
 
 	// If we have a well-formed string, we are guaranteed to see 2 `]` characters after the end of the string contents
 	LUAU_ASSERT(l.rest[0] == ']')
+
 	var depth uint32
+
 	for {
 		depth++
+
 		if l.rest[depth] == ']' {
 			break
 		}
@@ -266,36 +274,19 @@ func (l Lexeme) getQuoteStyle() QuoteStyle {
 	LUAU_ASSERT(len(l.Data) > 0)
 
 	quote := l.rest[0]
+
 	switch quote {
 	case '\'':
 		return Single
 	case '"':
 		return Double
 	}
-
 	panic("unknown quote style")
-}
-
-func isSpace(ch byte) bool {
-	return ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n' || ch == '\v' || ch == '\f'
-}
-
-var kReserved = [...]string{"and", "break", "do", "else", "elseif", "end", "false", "for", "function", "if", "in", "local", "nil", "not", "or", "repeat", "return", "then", "true", "until", "while"}
-
-// IsReserved reports whether word is a Luau reserved keyword.
-func IsReserved(word string) bool {
-	for i := range Reserved_END - Reserved_BEGIN {
-		if word == kReserved[i] {
-			return true
-		}
-	}
-
-	return false
 }
 
 func isAlpha(ch byte) bool {
 	// use or trick to convert to lower case and unsigned comparison to do range check
-	return uint8((ch|' ')-'a') < 26
+	return uint8(ch|' '-'a') < 26
 }
 
 func isDigit(ch byte) bool {
@@ -304,11 +295,15 @@ func isDigit(ch byte) bool {
 
 func isHexDigit(ch byte) bool {
 	// use or trick to convert to lower case and unsigned comparison to do range check
-	return (uint8(ch-'0') < 10) || (uint8((ch|' ')-'a') < 6)
+	return uint8(ch-'0') < 10 || uint8(ch|' '-'a') < 6
 }
 
 func isNewline(ch byte) bool {
 	return ch == '\n'
+}
+
+func isSpace(ch byte) bool {
+	return ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n' || ch == '\v' || ch == '\f'
 }
 
 func unescape(ch byte) byte {

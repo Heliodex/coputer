@@ -3,14 +3,15 @@ package types
 
 import "github.com/Heliodex/coputer/litecode/internal"
 
-// Compiler allows programs to be compiled and deserialised with a cache and given optimisation level.
-type Compiler struct {
-	Cache map[[32]byte]internal.Deserpath
-	O uint8
-}
-
-// Luau types
 type (
+	// Compiler allows programs to be compiled and deserialised with a cache and given optimisation level.
+	Compiler struct {
+		Cache map[[32]byte]internal.Deserpath
+		O uint8
+	}
+
+	// Luau types
+
 	// Val represents any possible Luau value. Luau type `any`
 	Val = internal.Val
 
@@ -28,16 +29,20 @@ type (
 
 	// Vector represents a 3-wide or 4-wide vector value. Luau type `vector`
 	Vector [4]float32
-)
 
-// Env represents a global Luau environment.
-type Env map[string]Val
+	// Env represents a global Luau environment.
+	Env map[string]Val
+)
 
 // AddFn adds a function to the environment.
 func (e *Env) AddFn(f Function) {
 	if *e != nil {
 		(*e)[f.Name] = FnVal(f)
+
 		return
 	}
-	*e = Env{f.Name: FnVal(f)}
+
+	*e = Env{
+		f.Name: FnVal(f),
+	}
 }

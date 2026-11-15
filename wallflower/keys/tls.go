@@ -42,25 +42,30 @@ func (sk SK) TLS() (cert tls.Certificate, err error) {
 		KeyUsage: x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
-
 		IPAddresses: []net.IP{net.IPv6loopback},
 	}
-
 	der, err := x509.CreateCertificate(rand.Reader, template, template, &esk.PublicKey, esk)
 	if err != nil {
 		return tls.Certificate{}, fmt.Errorf("create X.509 certificate: %v", err)
 	}
 
-	certPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
-
+	certPem := pem.EncodeToMemory(&pem.Block{
+		Type: "CERTIFICATE",
+		Bytes: der,
+	})
 	skBytes, err := x509.MarshalECPrivateKey(esk)
 	if err != nil {
 		return tls.Certificate{}, fmt.Errorf("marshal ECDSA private key: %v", err)
 	}
-	keyPem := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: skBytes})
+
+	keyPem := pem.EncodeToMemory(&pem.Block{
+		Type: "EC PRIVATE KEY",
+		Bytes: skBytes,
+	})
 
 	if cert, err = tls.X509KeyPair(certPem, keyPem); err != nil {
 		return tls.Certificate{}, fmt.Errorf("create TLS certificate: %v", err)
 	}
+
 	return
 }

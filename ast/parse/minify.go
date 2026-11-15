@@ -17,6 +17,151 @@ type minifyBuilder struct {
 	last byte
 }
 
+func (n AstArgumentName) Minify() string {
+	return n.Name
+}
+
+func (n AstExprConstantBool) Minify() string {
+	if n.Value {
+		return "true"
+	}
+
+	return "false"
+}
+
+func (n AstExprConstantInteger) Minify() string {
+	if n.Value >= 0x1000 {
+		if hex, ok := cleanHex(uint64(n.Value)); ok {
+			return hex + "i"
+		}
+	}
+
+	return fmt.Sprintf("%di", n.Value)
+}
+
+func (n AstExprConstantNil) Minify() string {
+	return "nil"
+}
+
+func (n AstExprConstantNumber) Minify() string {
+	return sourceNumber(n.Value)
+}
+
+func (n AstExprConstantString) Minify() string {
+	return sourceString(n.Value, n.QuoteStyle)
+}
+
+func (n AstExprGlobal) Minify() string {
+	return n.Name
+}
+
+func (n AstExprLocal) Minify() string {
+	return n.Local.Name
+}
+
+func (n AstExprVarargs) Minify() string {
+	return "..."
+}
+
+func (n AstStatBreak) Minify() string {
+	return "break"
+}
+
+func (n AstStatContinue) Minify() string {
+	return "continue"
+}
+
+func (n AstTypeOptional) Minify() string {
+	return "?"
+}
+
+func (n AstTypePackGeneric) Minify() string {
+	return n.GenericName + "..."
+}
+
+func (n AstTypeSingletonBool) Minify() string {
+	if n.Value {
+		return "true"
+	}
+
+	return "false"
+}
+
+func (n AstTypeSingletonString) Minify() string {
+	return sourceString(n.Value, QuoteStyle_QuotedSimple)
+}
+
+// minifyAtomicType reports whether appending `?` to the minified type still denotes the optional of that same type. Postfix binds tighter than `|`, so function, nested union and intersection members would capture the marker instead.
+func minifyAtomicType(typ AstType) bool {
+	switch typ.(type) {
+	case *AstTypeGroup, *AstTypeReference, *AstTypeSingletonBool, *AstTypeSingletonString, *AstTypeTable, *AstTypeTypeof, AstTypeGroup, AstTypeReference, AstTypeSingletonBool, AstTypeSingletonString, AstTypeTable, AstTypeTypeof:
+		return true
+	}
+
+	return false
+}
+
+func (m *minifyBuilder) String() string {
+	return m.b.String()
+}
+
+// minifyDirectives renders the directive comments among comments, preserving their original order, each on its own line.
+func minifyDirectives(comments []Comment) string {
+	var lines []string
+
+	for _, c := range comments {
+		if _, ok := directiveCategory(c); ok {
+			lines = append(lines, "--"+c.Content)
+		}
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+// minifyLastTokenCallable reports whether the final token of a rendered statement is a prefix expression that a following `(` would be parsed as calling.
+func minifyLastTokenCallable(s string) bool {
+	l := lex.NewLexer(s)
+
+	var last lex.Lexeme
+
+	for {
+		tok := l.Next0()
+		if tok.Type == lex.Eof {
+			break
+		}
+
+		if tok.Type != lex.Comment && tok.Type != lex.BlockComment {
+			last = tok
+		}
+	}
+
+	switch last.Type {
+	case ')', ']', lex.Name:
+		return true
+	}
+
+	return false
+}
+
+// minifyParens wraps an expression in parentheses.
+func minifyParens(s string) string {
+	return "(" + s + ")"
+}
+
+// minifyUnaryOp renders a unary operator without a trailing space, which the builder inserts when needed.
+func minifyUnaryOp(op UnaryOp) string {
+	switch op {
+	case UnaryOp_Not:
+		return "not"
+	case UnaryOp_Minus:
+		return "-"
+	case UnaryOp_Len:
+		return "#"
+	}
+
+	return "?"
+}
+
 func minifyWordByte(c byte) bool {
 	return c == '_' || 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || '0' <= c && c <= '9'
 }
@@ -35,6 +180,7 @@ func minifyNeedsSpace(prev, next byte) bool {
 	case prev == '>' && next == '=':
 		return true
 	}
+
 	return false
 }
 
@@ -42,10 +188,12 @@ func (m *minifyBuilder) write(s string) {
 	if s == "" {
 		return
 	}
+
 	if m.b.Len() > 0 && minifyNeedsSpace(m.last, s[0]) {
 		m.b.WriteByte(' ')
 	}
 	m.b.WriteString(s)
+
 	m.last = s[len(s)-1]
 }
 
@@ -54,44 +202,8 @@ func (m *minifyBuilder) writeByte(c byte) {
 		m.b.WriteByte(' ')
 	}
 	m.b.WriteByte(c)
+
 	m.last = c
-}
-
-func (m *minifyBuilder) String() string {
-	return m.b.String()
-}
-
-// minifyDirectives renders the directive comments among comments, preserving their original order, each on its own line.
-func minifyDirectives(comments []Comment) string {
-	var lines []string
-	for _, c := range comments {
-		if _, ok := directiveCategory(c); ok {
-			lines = append(lines, "--"+c.Content)
-		}
-	}
-	return strings.Join(lines, "\n")
-}
-
-// minifyLastTokenCallable reports whether the final token of a rendered statement is a prefix expression that a following `(` would be parsed as calling.
-func minifyLastTokenCallable(s string) bool {
-	l := lex.NewLexer(s)
-	var last lex.Lexeme
-
-	for {
-		tok := l.Next0()
-		if tok.Type == lex.Eof {
-			break
-		}
-		if tok.Type != lex.Comment && tok.Type != lex.BlockComment {
-			last = tok
-		}
-	}
-
-	switch last.Type {
-	case ')', ']', lex.Name:
-		return true
-	}
-	return false
 }
 
 // minifyStatementSeparator returns the separator to place between two rendered statements: none when they concatenate safely, a newline when the tokens would merge, and a semicolon when a newline still wouldn't split them.
@@ -128,13 +240,16 @@ func minifyStatList(stats []AstStat) string {
 	}
 
 	var b strings.Builder
-	prev := stats[0].Minify()
-	b.WriteString(prev)
 
+	prev := stats[0].Minify()
+
+	b.WriteString(prev)
 	for _, stat := range stats[1:] {
 		next := stat.Minify()
+
 		b.WriteString(minifyStatementSeparator(prev, next))
 		b.WriteString(next)
+
 		prev = next
 	}
 
@@ -148,6 +263,7 @@ func minifyBlockBody(block AstStatBlock) string {
 	if directives == "" {
 		return body
 	}
+
 	return "\n" + directives + "\n" + body
 }
 
@@ -166,24 +282,19 @@ func minifyRoot(block AstStatBlock) string {
 	}
 }
 
-// minifyParens wraps an expression in parentheses.
-func minifyParens(s string) string {
-	return "(" + s + ")"
-}
-
 // minifyExpr renders expr in a context requiring at least minPrec, mirroring sourceExpr.
 func minifyExpr(expr AstExpr, minPrec int, expand bool) string {
 	var group *AstExprGroup
+
 	switch e := expr.(type) {
-	case AstExprGroup:
-		group = &e
 	case *AstExprGroup:
 		group = e
+	case AstExprGroup:
+		group = &e
 	}
 
 	if group != nil {
 		inner := group.Expr
-
 		if expand && sourceExprExpands(inner) {
 			return minifyParens(minifyExpr(inner, 0, false))
 		}
@@ -192,9 +303,11 @@ func minifyExpr(expr AstExpr, minPrec int, expand bool) string {
 	}
 
 	s := expr.Minify()
+
 	if sourceExprPrecedence(expr) < minPrec {
 		return minifyParens(s)
 	}
+
 	return s
 }
 
@@ -206,16 +319,16 @@ func minifyExprPrec(expr AstExpr, minPrec int) string {
 // minifyExprPostfix renders an expression used as the base of a postfix operation, mirroring sourceExprPostfix.
 func minifyExprPostfix(expr AstExpr) string {
 	var inner AstExpr
+
 	switch e := expr.(type) {
-	case AstExprGroup:
-		inner = e.Expr
 	case *AstExprGroup:
+		inner = e.Expr
+	case AstExprGroup:
 		inner = e.Expr
 	}
 
 	if inner != nil {
-		unwrapped := sourceUnwrapGroup(inner)
-		if !sourcePostfixBase(unwrapped) {
+		if unwrapped := sourceUnwrapGroup(inner); !sourcePostfixBase(unwrapped) {
 			return minifyParens(minifyExprPrec(unwrapped, 0))
 		}
 	}
@@ -226,50 +339,60 @@ func minifyExprPostfix(expr AstExpr) string {
 // minifyExprList renders comma-separated expressions, allowing the last one to expand.
 func minifyExprList(exprs []AstExpr) string {
 	parts := make([]string, len(exprs))
+
 	for i, expr := range exprs {
 		parts[i] = minifyExpr(expr, 0, i == len(exprs)-1)
 	}
+
 	return strings.Join(parts, ",")
 }
 
 // minifyTypeOrPackList renders comma-separated types/type packs.
 func minifyTypeOrPackList(items []AstTypeOrPack) string {
 	parts := make([]string, len(items))
+
 	for i, item := range items {
 		parts[i] = item.Minify()
 	}
+
 	return strings.Join(parts, ",")
 }
 
 // minifyGenerics renders a generic list, e.g. `T,U...=string`.
 func minifyGenerics(generics []AstGenericType, packs []AstGenericTypePack) string {
 	parts := make([]string, 0, len(generics)+len(packs))
+
 	for _, generic := range generics {
 		parts = append(parts, generic.Minify())
 	}
+
 	for _, pack := range packs {
 		parts = append(parts, pack.Minify())
 	}
+
 	return strings.Join(parts, ",")
 }
 
 // minifyAttrs renders attributes separated by spaces, or "" when there are none.
 func minifyAttrs(attrs []AstAttr) string {
 	parts := make([]string, len(attrs))
+
 	for i, attr := range attrs {
 		parts[i] = attr.Minify()
 	}
+
 	return strings.Join(parts, " ")
 }
 
 // minifyVarargAnnotation renders a vararg annotation without the leading `...`, which the parameter list already writes.
 func minifyVarargAnnotation(pack AstTypePack) string {
 	switch p := pack.(type) {
-	case AstTypePackVariadic:
-		return p.VariadicType.Minify()
 	case *AstTypePackVariadic:
 		return p.VariadicType.Minify()
+	case AstTypePackVariadic:
+		return p.VariadicType.Minify()
 	}
+
 	return pack.Minify()
 }
 
@@ -279,17 +402,21 @@ func minifyDeclareParams(params AstTypeList, names []AstArgumentName, vararg boo
 
 	for i, param := range params.Types {
 		p := param.Minify()
+
 		if i < len(names) && names[i].Name != "" {
 			p = names[i].Name + ":" + p
 		}
+
 		parts = append(parts, p)
 	}
 
 	if vararg {
 		p := "..."
+
 		if params.TailType != nil {
 			p += ":" + minifyVarargAnnotation(*params.TailType)
 		}
+
 		parts = append(parts, p)
 	} else if params.TailType != nil {
 		parts = append(parts, (*params.TailType).Minify())
@@ -307,12 +434,14 @@ func minifyFunctionRest(n AstExprFunction) string {
 		b.write(generics)
 		b.writeByte('>')
 	}
-
 	b.writeByte('(')
+
 	args := make([]string, 0, len(n.Args)+1)
+
 	for i := range n.Args {
 		args = append(args, n.Args[i].Minify())
 	}
+
 	if n.Vararg {
 		if n.VarargAnnotation != nil {
 			args = append(args, "...:"+minifyVarargAnnotation(*n.VarargAnnotation))
@@ -322,27 +451,26 @@ func minifyFunctionRest(n AstExprFunction) string {
 	}
 	b.write(strings.Join(args, ","))
 	b.writeByte(')')
-
 	if n.ReturnAnnotation != nil {
 		b.writeByte(':')
 		b.write((*n.ReturnAnnotation).Minify())
 	}
-
 	b.write(minifyBlockBody(n.Body))
 	b.write("end")
-
 	return b.String()
 }
 
 // minifyParamsAndReturn renders the parameter list and return type of a function type, so callers (e.g. declared methods) can splice a name in.
-func minifyParamsAndReturn(n AstTypeFunction) (params string, ret string) {
+func minifyParamsAndReturn(n AstTypeFunction) (params, ret string) {
 	parts := make([]string, 0, len(n.ArgTypes.Types)+1)
 
 	for i, argType := range n.ArgTypes.Types {
 		p := argType.Minify()
+
 		if i < len(n.ArgNames) && n.ArgNames[i] != nil && n.ArgNames[i].Name != "" {
 			p = n.ArgNames[i].Name + ":" + p
 		}
+
 		parts = append(parts, p)
 	}
 
@@ -362,23 +490,10 @@ func minifyTableItem(item AstExprTableItem, expand bool) string {
 	value := minifyExpr(item.Value, 0, expand)
 
 	switch item.Kind {
-	case Record:
-		key := ""
-		switch k := (*item.Key).(type) {
-		case AstExprConstantString:
-			key = k.Value
-		case *AstExprConstantString:
-			key = k.Value
-		}
-
-		var b minifyBuilder
-		b.write(key)
-		b.writeByte('=')
-		b.write(value)
-		return b.String()
 	case General:
 		if key, ok := sourceRecordKey(*item.Key); ok {
 			var b minifyBuilder
+
 			b.write(key)
 			b.writeByte('=')
 			b.write(value)
@@ -386,9 +501,26 @@ func minifyTableItem(item AstExprTableItem, expand bool) string {
 		}
 
 		var b minifyBuilder
+
 		b.writeByte('[')
 		b.write(minifyExprPrec(*item.Key, 0))
 		b.writeByte(']')
+		b.writeByte('=')
+		b.write(value)
+		return b.String()
+	case Record:
+		var key string
+
+		switch k := (*item.Key).(type) {
+		case *AstExprConstantString:
+			key = k.Value
+		case AstExprConstantString:
+			key = k.Value
+		}
+
+		var b minifyBuilder
+
+		b.write(key)
 		b.writeByte('=')
 		b.write(value)
 		return b.String()
@@ -399,14 +531,17 @@ func minifyTableItem(item AstExprTableItem, expand bool) string {
 
 // minifyUnionIntersection renders union and intersection types, dropping the marker types and collapsing the optional marker.
 func minifyUnionIntersection(types []AstType, op string) string {
-	var nonOptional []AstType
-	seenOptional := false
+	var (
+		nonOptional []AstType
+		seenOptional bool
+	)
 
 	for _, typ := range types {
 		if _, ok := typ.(AstTypeOptional); ok {
 			seenOptional = true
 			continue
 		}
+
 		nonOptional = append(nonOptional, typ)
 	}
 
@@ -415,6 +550,7 @@ func minifyUnionIntersection(types []AstType, op string) string {
 	}
 
 	parts := make([]string, len(nonOptional))
+
 	for i, typ := range nonOptional {
 		parts[i] = typ.Minify()
 	}
@@ -425,12 +561,15 @@ func minifyUnionIntersection(types []AstType, op string) string {
 			if inner, innerOp, ok := unwrapOptionalGroup(nonOptional[0]); ok {
 				return minifyUnionIntersection(append(inner, AstTypeOptional{}), innerOp)
 			}
+
 			return parts[0] + "?"
 		}
+
 		return parts[0]
 	}
 
 	var b minifyBuilder
+
 	for i, part := range parts {
 		if i > 0 {
 			b.write(op)
@@ -443,23 +582,11 @@ func minifyUnionIntersection(types []AstType, op string) string {
 		if op == "|" && minifyAtomicType(nonOptional[len(nonOptional)-1]) {
 			return b.String() + "?"
 		}
+
 		return "(" + b.String() + ")?"
 	}
-	return b.String()
-}
 
-// minifyAtomicType reports whether appending `?` to the minified type still denotes the optional of that same type. Postfix binds tighter than `|`, so function, nested union and intersection members would capture the marker instead.
-func minifyAtomicType(typ AstType) bool {
-	switch typ.(type) {
-	case AstTypeReference, *AstTypeReference,
-		AstTypeSingletonBool, *AstTypeSingletonBool,
-		AstTypeSingletonString, *AstTypeSingletonString,
-		AstTypeTypeof, *AstTypeTypeof,
-		AstTypeTable, *AstTypeTable,
-		AstTypeGroup, *AstTypeGroup:
-		return true
-	}
-	return false
+	return b.String()
 }
 
 // -------------------------------------------------------------------------------- -- EXPRESSIONS --------------------------------------------------------------------------------
@@ -467,7 +594,6 @@ func minifyAtomicType(typ AstType) bool {
 func (n AstExprBinary) Minify() string {
 	op := BinaryOp(n.Op)
 	priorities := BinaryPriority[op]
-
 	leftMin := priorities[0]
 	rightMin := priorities[1]
 
@@ -478,10 +604,10 @@ func (n AstExprBinary) Minify() string {
 	}
 
 	var b minifyBuilder
+
 	b.write(minifyExpr(n.Left, leftMin, false))
 	b.write(sourceBinaryOp(op))
 	b.write(minifyExpr(n.Right, rightMin, false))
-
 	return b.String()
 }
 
@@ -489,7 +615,6 @@ func (n AstExprCall) Minify() string {
 	var b minifyBuilder
 
 	b.write(minifyExprPostfix(n.Func))
-
 	if n.TypeArguments != nil && len(*n.TypeArguments) > 0 {
 		b.write("<<")
 		b.write(minifyTypeOrPackList(*n.TypeArguments))
@@ -500,46 +625,17 @@ func (n AstExprCall) Minify() string {
 		b.write(minifyExpr(n.Args[0], 0, true))
 		return b.String()
 	}
-
 	b.writeByte('(')
 	b.write(minifyExprList(n.Args))
 	b.writeByte(')')
-
 	return b.String()
-}
-
-func (n AstExprConstantBool) Minify() string {
-	if n.Value {
-		return "true"
-	}
-	return "false"
-}
-
-func (n AstExprConstantNil) Minify() string {
-	return "nil"
-}
-
-func (n AstExprConstantNumber) Minify() string {
-	return sourceNumber(n.Value)
-}
-
-func (n AstExprConstantInteger) Minify() string {
-	if n.Value >= 0x1000 {
-		if hex, ok := cleanHex(uint64(n.Value)); ok {
-			return hex + "i"
-		}
-	}
-	return fmt.Sprintf("%di", n.Value)
-}
-
-func (n AstExprConstantString) Minify() string {
-	return sourceString(n.Value, n.QuoteStyle)
 }
 
 func (n AstExprError) Minify() string {
 	if len(n.Expressions) > 0 {
 		return minifyExprPrec(n.Expressions[0], 0)
 	}
+
 	return "nil"
 }
 
@@ -551,12 +647,7 @@ func (n AstExprFunction) Minify() string {
 	}
 	b.write("function")
 	b.write(minifyFunctionRest(n))
-
 	return b.String()
-}
-
-func (n AstExprGlobal) Minify() string {
-	return n.Name
 }
 
 func (n AstExprGroup) Minify() string {
@@ -584,7 +675,6 @@ func (n AstExprIfElse) minifyIf(keyword string) string {
 	b.write(minifyExprPrec(n.Condition, 0))
 	b.write("then")
 	b.write(minifyExprOrNil(n.TrueExpr))
-
 	if falseExpr, ok := asIfElseExpr(sourceUnwrapGroup(n.FalseExpr)); ok {
 		b.write(falseExpr.minifyIf("elseif"))
 	} else {
@@ -597,6 +687,7 @@ func (n AstExprIfElse) minifyIf(keyword string) string {
 
 func (n AstExprIndexExpr) Minify() string {
 	var b minifyBuilder
+
 	b.write(minifyExprPostfix(n.Expr))
 	b.writeByte('[')
 	b.write(minifyExprPrec(n.Index, 0))
@@ -606,6 +697,7 @@ func (n AstExprIndexExpr) Minify() string {
 
 func (n AstExprIndexName) Minify() string {
 	var b minifyBuilder
+
 	b.write(minifyExprPostfix(n.Expr))
 	b.writeByte(byte(n.Op))
 	b.write(n.Index)
@@ -625,21 +717,17 @@ func (n AstExprInterpString) Minify() string {
 		}
 	}
 	b.writeByte('`')
-
 	return b.String()
 }
 
 func (n AstExprInstantiate) Minify() string {
 	var b minifyBuilder
+
 	b.write(minifyExprPostfix(n.Expr))
 	b.write("<<")
 	b.write(minifyTypeOrPackList(n.TypeArguments))
 	b.write(">>")
 	return b.String()
-}
-
-func (n AstExprLocal) Minify() string {
-	return n.Local.Name
 }
 
 func (n AstExprTable) Minify() string {
@@ -648,15 +736,16 @@ func (n AstExprTable) Minify() string {
 	}
 
 	parts := make([]string, len(n.Items))
+
 	for i, item := range n.Items {
 		parts[i] = minifyTableItem(item, i == len(n.Items)-1 && item.Kind == List)
 	}
 
 	var b minifyBuilder
+
 	b.writeByte('{')
 	b.write(strings.Join(parts, ","))
 	b.writeByte('}')
-
 	return b.String()
 }
 
@@ -666,34 +755,19 @@ func (n AstExprTableItem) Minify() string {
 
 func (n AstExprTypeAssertion) Minify() string {
 	var b minifyBuilder
+
 	b.write(minifyExpr(n.Expr, precPrimary, false))
 	b.write("::")
 	b.write(n.Annotation.Minify())
 	return b.String()
 }
 
-func (n AstExprVarargs) Minify() string {
-	return "..."
-}
-
 func (n AstExprUnary) Minify() string {
 	var b minifyBuilder
+
 	b.write(minifyUnaryOp(n.Op))
 	b.write(minifyExpr(n.Expr, precUnaryOperand, false))
 	return b.String()
-}
-
-// minifyUnaryOp renders a unary operator without a trailing space, which the builder inserts when needed.
-func minifyUnaryOp(op UnaryOp) string {
-	switch op {
-	case UnaryOp_Not:
-		return "not"
-	case UnaryOp_Minus:
-		return "-"
-	case UnaryOp_Len:
-		return "#"
-	}
-	return "?"
 }
 
 // minifyExprOrNil renders expr, or nil when it is missing.
@@ -701,6 +775,7 @@ func minifyExprOrNil(expr AstExpr) string {
 	if expr == nil {
 		return "nil"
 	}
+
 	return minifyExprPrec(expr, 0)
 }
 
@@ -708,12 +783,14 @@ func minifyExprOrNil(expr AstExpr) string {
 
 func (n AstAttr) Minify() string {
 	name := n.Type
+
 	if n.Name != nil {
 		name = *n.Name
 	}
 
 	if len(n.Args) > 0 {
 		var b minifyBuilder
+
 		b.write("@[")
 		b.write(name)
 		b.writeByte('(')
@@ -726,22 +803,21 @@ func (n AstAttr) Minify() string {
 	return "@" + name
 }
 
-func (n AstArgumentName) Minify() string {
-	return n.Name
-}
-
 func (n AstGenericType) Minify() string {
 	if n.DefaultValue == nil {
 		return n.Name
 	}
+
 	return n.Name + "=" + (*n.DefaultValue).Minify()
 }
 
 func (n AstGenericTypePack) Minify() string {
 	s := n.Name + "..."
+
 	if n.DefaultValue != nil {
 		s += "=" + (*n.DefaultValue).Minify()
 	}
+
 	return s
 }
 
@@ -751,6 +827,7 @@ func (n AstLocal) Minify() string {
 	}
 
 	var b minifyBuilder
+
 	b.write(n.Name)
 	b.writeByte(':')
 	b.write(n.Annotation.Minify())
@@ -761,6 +838,7 @@ func (n AstLocal) Minify() string {
 
 func (n AstStatAssign) Minify() string {
 	var b minifyBuilder
+
 	b.write(minifyExprList(n.Vars))
 	b.writeByte('=')
 	b.write(minifyExprList(n.Values))
@@ -773,27 +851,21 @@ func (n AstStatBlock) Minify() string {
 	}
 
 	var b minifyBuilder
+
 	b.write("do")
 	b.write(minifyBlockBody(n))
 	b.write("end")
 	return b.String()
 }
 
-func (n AstStatBreak) Minify() string {
-	return "break"
-}
-
 func (n AstStatCompoundAssign) Minify() string {
 	var b minifyBuilder
+
 	b.write(minifyExprPrec(n.Var, 0))
 	b.write(sourceBinaryOp(n.Op))
 	b.writeByte('=')
 	b.write(minifyExprPrec(n.Value, 0))
 	return b.String()
-}
-
-func (n AstStatContinue) Minify() string {
-	return "continue"
 }
 
 func (n AstStatDeclareFunction) Minify() string {
@@ -805,17 +877,14 @@ func (n AstStatDeclareFunction) Minify() string {
 	b.write("declare")
 	b.write("function")
 	b.write(n.Name)
-
 	if generics := minifyGenerics(n.Generics, n.GenericPacks); generics != "" {
 		b.writeByte('<')
 		b.write(generics)
 		b.writeByte('>')
 	}
-
 	b.writeByte('(')
 	b.write(minifyDeclareParams(n.Params, n.ParamNames, n.Vararg))
 	b.writeByte(')')
-
 	if n.RetTypes != nil {
 		b.writeByte(':')
 		b.write(n.RetTypes.Minify())
@@ -826,6 +895,7 @@ func (n AstStatDeclareFunction) Minify() string {
 
 func (n AstStatDeclareGlobal) Minify() string {
 	var b minifyBuilder
+
 	b.write("declare")
 	b.write(n.Name)
 	b.writeByte(':')
@@ -847,18 +917,19 @@ func (n AstStatDeclareExternType) Minify() string {
 	b.write("with")
 
 	parts := make([]string, 0, len(n.Props)+1)
+
 	for _, prop := range n.Props {
 		parts = append(parts, prop.Minify())
 	}
+
 	if n.Indexer != nil {
 		parts = append(parts, n.Indexer.Minify())
 	}
+
 	if props := strings.Join(parts, " "); props != "" {
 		b.write(props)
 	}
-
 	b.write("end")
-
 	return b.String()
 }
 
@@ -867,6 +938,7 @@ func (n AstDeclaredExternTypeProperty) Minify() string {
 
 	if !n.IsMethod {
 		var b minifyBuilder
+
 		b.write(name)
 		b.writeByte(':')
 		b.write(n.Ty.Minify())
@@ -882,6 +954,7 @@ func (n AstDeclaredExternTypeProperty) Minify() string {
 		}
 
 		var b minifyBuilder
+
 		b.write("function")
 		b.write(name)
 		b.writeByte('(')
@@ -893,6 +966,7 @@ func (n AstDeclaredExternTypeProperty) Minify() string {
 	}
 
 	var b minifyBuilder
+
 	b.write("function")
 	b.write(name)
 	b.writeByte(':')
@@ -904,9 +978,11 @@ func (n AstStatError) Minify() string {
 	if len(n.Statements) > 0 {
 		return minifyStatList(n.Statements)
 	}
+
 	if len(n.Expressions) > 0 {
 		return minifyExprList(n.Expressions)
 	}
+
 	return "nil"
 }
 
@@ -934,7 +1010,6 @@ func (n AstStatFor) Minify() string {
 		b.write(minifyBlockBody(*n.Body))
 	}
 	b.write("end")
-
 	return b.String()
 }
 
@@ -942,7 +1017,9 @@ func (n AstStatForIn) Minify() string {
 	var b minifyBuilder
 
 	b.write("for")
+
 	vars := make([]string, len(n.Vars))
+
 	for i, v := range n.Vars {
 		if v != nil {
 			vars[i] = v.Minify()
@@ -956,7 +1033,6 @@ func (n AstStatForIn) Minify() string {
 		b.write(minifyBlockBody(*n.Body))
 	}
 	b.write("end")
-
 	return b.String()
 }
 
@@ -969,7 +1045,6 @@ func (n AstStatFunction) Minify() string {
 	b.write("function")
 	b.write(minifyExprPrec(n.Name, precPrimary))
 	b.write(minifyFunctionRest(n.Func))
-
 	return b.String()
 }
 
@@ -994,13 +1069,13 @@ func (n AstStatIf) minifyIf(keyword string) string {
 	b.write(minifyExprPrec(n.Condition, 0))
 	b.write("then")
 	b.write(minifyBlockBody(n.ThenBody))
-
 	switch {
 	case n.ElseBody == nil:
 		b.write("end")
 	case isIfStat(n.ElseBody):
 		// the nested else-if writes its own `end`
 		elseIf, _ := asIfStat(n.ElseBody)
+
 		b.write(elseIf.minifyIf("elseif"))
 	default:
 		b.write("else")
@@ -1032,11 +1107,11 @@ func (n AstStatLocal) Minify() string {
 	}
 
 	vars := make([]string, len(n.Vars))
+
 	for i := range n.Vars {
 		vars[i] = n.Vars[i].Minify()
 	}
 	b.write(strings.Join(vars, ","))
-
 	if len(n.Values) > 0 {
 		b.writeByte('=')
 		b.write(minifyExprList(n.Values))
@@ -1063,10 +1138,8 @@ func (n AstStatLocalFunction) Minify() string {
 		b.write("local")
 		b.write("function")
 	}
-
 	b.write(n.Name.Name)
 	b.write(minifyFunctionRest(n.Func))
-
 	return b.String()
 }
 
@@ -1079,7 +1152,6 @@ func (n AstStatRepeat) Minify() string {
 	}
 	b.write("until")
 	b.write(minifyExprPrec(n.Condition, 0))
-
 	return b.String()
 }
 
@@ -1089,6 +1161,7 @@ func (n AstStatReturn) Minify() string {
 	}
 
 	var b minifyBuilder
+
 	b.write("return")
 	b.write(minifyExprList(n.List))
 	return b.String()
@@ -1102,16 +1175,13 @@ func (n AstStatTypeAlias) Minify() string {
 	}
 	b.write("type")
 	b.write(n.Name)
-
 	if generics := minifyGenerics(n.Generics, n.GenericPacks); generics != "" {
 		b.writeByte('<')
 		b.write(generics)
 		b.writeByte('>')
 	}
-
 	b.writeByte('=')
 	b.write(n.Type.Minify())
-
 	return b.String()
 }
 
@@ -1125,7 +1195,6 @@ func (n AstStatTypeFunction) Minify() string {
 	b.write("function")
 	b.write(n.Name)
 	b.write(minifyFunctionRest(n.Body))
-
 	return b.String()
 }
 
@@ -1139,7 +1208,6 @@ func (n AstStatWhile) Minify() string {
 		b.write(minifyBlockBody(*n.Body))
 	}
 	b.write("end")
-
 	return b.String()
 }
 
@@ -1154,13 +1222,11 @@ func (n AstTableIndexer) Minify() string {
 	case "Write":
 		b.write("write")
 	}
-
 	b.writeByte('[')
 	b.write(n.IndexType.Minify())
 	b.writeByte(']')
 	b.writeByte(':')
 	b.write(n.ResultType.Minify())
-
 	return b.String()
 }
 
@@ -1173,11 +1239,9 @@ func (n AstTableProp) Minify() string {
 	case "Write":
 		b.write("write")
 	}
-
 	b.write(n.Name.Value)
 	b.writeByte(':')
 	b.write(n.Type.Minify())
-
 	return b.String()
 }
 
@@ -1185,6 +1249,7 @@ func (n AstTypeError) Minify() string {
 	if len(n.Types) > 0 {
 		return n.Types[0].Minify()
 	}
+
 	return "any"
 }
 
@@ -1192,6 +1257,7 @@ func (n AstTypeFunction) Minify() string {
 	params, ret := minifyParamsAndReturn(n)
 
 	var b minifyBuilder
+
 	if generics := minifyGenerics(n.Generics, n.GenericPacks); generics != "" {
 		b.writeByte('<')
 		b.write(generics)
@@ -1202,7 +1268,6 @@ func (n AstTypeFunction) Minify() string {
 	b.writeByte(')')
 	b.write("->")
 	b.write(ret)
-
 	return b.String()
 }
 
@@ -1216,47 +1281,46 @@ func (n AstTypeIntersection) Minify() string {
 
 func (n AstTypeList) Minify() string {
 	parts := make([]string, 0, len(n.Types)+1)
+
 	for _, typ := range n.Types {
 		parts = append(parts, typ.Minify())
 	}
+
 	if n.TailType != nil {
 		parts = append(parts, (*n.TailType).Minify())
 	}
-	return strings.Join(parts, ",")
-}
 
-func (n AstTypeOptional) Minify() string {
-	return "?"
+	return strings.Join(parts, ",")
 }
 
 func (n AstTypeOrPack) Minify() string {
 	if n.Type != nil {
 		return (*n.Type).Minify()
 	}
+
 	if n.Pack != nil {
 		return (*n.Pack).Minify()
 	}
+
 	return ""
 }
 
 func (n AstTypePackExplicit) Minify() string {
 	list := n.Types.Minify()
+
 	if n.TailType != nil {
 		if list != "" {
 			list += ","
 		}
+
 		list += (*n.TailType).Minify()
 	}
 
-	single := len(n.Types.Types) == 1 && n.Types.TailType == nil && n.TailType == nil
-	if single {
+	if single := len(n.Types.Types) == 1 && n.Types.TailType == nil && n.TailType == nil; single {
 		return list
 	}
-	return "(" + list + ")"
-}
 
-func (n AstTypePackGeneric) Minify() string {
-	return n.GenericName + "..."
+	return "(" + list + ")"
 }
 
 func (n AstTypePackVariadic) Minify() string {
@@ -1271,7 +1335,6 @@ func (n AstTypeReference) Minify() string {
 		b.writeByte('.')
 	}
 	b.write(n.Name)
-
 	if n.HasParameterList || len(n.Parameters) > 0 {
 		b.writeByte('<')
 		b.write(minifyTypeOrPackList(n.Parameters))
@@ -1281,21 +1344,11 @@ func (n AstTypeReference) Minify() string {
 	return b.String()
 }
 
-func (n AstTypeSingletonBool) Minify() string {
-	if n.Value {
-		return "true"
-	}
-	return "false"
-}
-
-func (n AstTypeSingletonString) Minify() string {
-	return sourceString(n.Value, QuoteStyle_QuotedSimple)
-}
-
 func (n AstTypeTable) Minify() string {
 	if len(n.Props) == 0 && n.Indexer != nil {
 		if ref, ok := n.Indexer.IndexType.(AstTypeReference); ok && ref.Prefix == nil && ref.Name == "number" && len(ref.Parameters) == 0 {
 			var b minifyBuilder
+
 			b.writeByte('{')
 			b.write(n.Indexer.ResultType.Minify())
 			b.writeByte('}')
@@ -1304,9 +1357,11 @@ func (n AstTypeTable) Minify() string {
 	}
 
 	parts := make([]string, 0, len(n.Props)+1)
+
 	if n.Indexer != nil {
 		parts = append(parts, n.Indexer.Minify())
 	}
+
 	for _, prop := range n.Props {
 		parts = append(parts, prop.Minify())
 	}
@@ -1316,6 +1371,7 @@ func (n AstTypeTable) Minify() string {
 	}
 
 	var b minifyBuilder
+
 	b.writeByte('{')
 	b.write(strings.Join(parts, ","))
 	b.writeByte('}')
@@ -1324,6 +1380,7 @@ func (n AstTypeTable) Minify() string {
 
 func (n AstTypeTypeof) Minify() string {
 	var b minifyBuilder
+
 	b.write("typeof")
 	b.writeByte('(')
 	b.write(minifyExprPrec(n.Expr, 0))

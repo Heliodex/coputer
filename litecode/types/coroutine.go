@@ -2,37 +2,33 @@ package types
 
 import "github.com/Heliodex/coputer/litecode/internal"
 
-// debugging stores debugging information for a coroutine.
-type debugging struct {
-	Line uint32
-	// enabled bool
-	// opcode  uint8
-	Name string
-}
+type (
+	// debugging stores debugging information for a coroutine.
+	debugging struct {
+		Line uint32
+		// enabled bool
+		// opcode  uint8
+		Name string
+	}
 
-// Coroutine represents a Luau coroutine, including the main coroutine. Luau type `thread`
-// As coroutines are compared by reference, this type must always be used as a pointer.
-type Coroutine struct {
-	Function
-	Env
-	Filepath, Dbgpath string // actually does well here
-	RequireHistory []string // prevents cyclic module dependencies
-	YieldChan chan internal.Yield
-	ResumeChan chan []Val
-	Dbg debugging
-	Compiler // for require()
-	internal.Status
-	ProgramArgs // idk how
+	// Coroutine represents a Luau coroutine, including the main coroutine. Luau type `thread`
+	// As coroutines are compared by reference, this type must always be used as a pointer.
+	Coroutine struct {
+		Function
+		Env
+		Filepath, Dbgpath string // actually does well here
+		RequireHistory []string // prevents cyclic module dependencies
+		YieldChan chan internal.Yield
+		ResumeChan chan []Val
+		Dbg debugging
+		Compiler // for require()
+		internal.Status
+		ProgramArgs // idk how
 
-	// rets is a reusable buffer for native function results, so returning a small list does not allocate. The caller must consume the returned slice before the next native call on this coroutine.
-	rets []Val
-}
-
-// Rets returns a shared result buffer containing vals, for native functions to return without allocating. Only valid until the next native call on this coroutine.
-func (co *Coroutine) Rets(vals ...Val) []Val {
-	co.rets = append(co.rets[:0], vals...)
-	return co.rets
-}
+		// rets is a reusable buffer for native function results, so returning a small list does not allocate. The caller must consume the returned slice before the next native call on this coroutine.
+		rets []Val
+	}
+)
 
 // Error yields an error to the coroutine, killing it shortly after.
 func (co *Coroutine) Error(err error) {
@@ -49,10 +45,16 @@ func (co *Coroutine) Error(err error) {
 	select {} // yeah, we still need this because async things
 }
 
+// Rets returns a shared result buffer containing vals, for native functions to return without allocating. Only valid until the next native call on this coroutine.
+func (co *Coroutine) Rets(vals ...Val) []Val {
+	co.rets = append(co.rets[:0], vals...)
+
+	return co.rets
+}
+
 func startCoroutine(co *Coroutine, args []Val) {
 	// fmt.Println(" RG calling coroutine body with", args)
 	r, err := (*co.Run)(co, args...)
-
 	co.Status = internal.CoDead
 	// fmt.Println("RG  yielding", r)
 	co.YieldChan <- internal.Yield{

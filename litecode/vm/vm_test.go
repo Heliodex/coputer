@@ -15,14 +15,10 @@ import (
 )
 
 const (
+	benchDir = "../../test/benchmark"
 	conformanceDir = "../../test/conformance"
 	errorsDir = "../../test/error"
-	benchDir = "../../test/benchmark"
 )
-
-func trimext(s string) string {
-	return strings.TrimSuffix(s, compile.Ext)
-}
 
 func litecode(t *testing.T, f string, c Compiler) (string, time.Duration) {
 	p, err := compile.Compile(c, f)
@@ -31,11 +27,11 @@ func litecode(t *testing.T, f string, c Compiler) (string, time.Duration) {
 	}
 
 	var b strings.Builder
+
 	luau_print := std.MakeFn("print", func(args std.Args) (r []Val, err error) {
 		// b.WriteString(fmt.Sprint(args...))
 		for i, arg := range args.List {
 			b.WriteString(std.ToString(arg))
-
 			if i < len(args.List)-1 {
 				b.WriteString("\t")
 			}
@@ -45,15 +41,17 @@ func litecode(t *testing.T, f string, c Compiler) (string, time.Duration) {
 	})
 
 	var env Env
+
 	env.AddFn(luau_print)
 
 	co, _ := Load(p, env, TestArgs{})
-
 	startTime := time.Now()
 	_, err = co.Resume()
+
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	endTime := time.Now()
 
 	return strings.ReplaceAll(b.String(), "\r\n", "\n"), endTime.Sub(startTime)
@@ -66,11 +64,11 @@ func litecodeE(t *testing.T, f string, c Compiler) (string, error) {
 	}
 
 	var b strings.Builder
+
 	luau_print := std.MakeFn("print", func(args std.Args) (r []Val, err error) {
 		// b.WriteString(fmt.Sprint(args...))
 		for i, arg := range args.List {
 			b.WriteString(std.ToString(arg))
-
 			if i < len(args.List)-1 {
 				b.WriteString("\t")
 			}
@@ -80,10 +78,10 @@ func litecodeE(t *testing.T, f string, c Compiler) (string, error) {
 	})
 
 	var env Env
+
 	env.AddFn(luau_print)
 
 	co, _ := Load(p, env, TestArgs{})
-
 	_, err = co.Resume()
 
 	return strings.ReplaceAll(b.String(), "\r\n", "\n"), err
@@ -97,6 +95,49 @@ func luau(f string) (string, error) {
 	}
 
 	return string(o), nil
+}
+
+func trimext(s string) string {
+	return strings.TrimSuffix(s, compile.Ext)
+}
+
+// not using benchmark because i can do what i want
+func TestBenchmark(t *testing.T) {
+	files, err := os.ReadDir(benchDir)
+	if err != nil {
+		t.Fatal("error reading benchmark tests directory:", err)
+	}
+
+	f, err := os.Create("cpu.prof")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pprof.StartCPUProfile(f)
+
+	defer pprof.StopCPUProfile()
+
+	// const onlyBench = "luauception"
+
+	compilers := []Compiler{compile.MakeCompiler(0), compile.MakeCompiler(1), compile.MakeCompiler(2)}
+
+	for _, f := range files {
+		name := trimext(f.Name())
+		// if name != onlyBench {
+		// 	continue
+		// }
+
+		fmt.Println()
+		t.Log("-- Benchmarking", name, "--")
+
+		filename := fmt.Sprintf("%s/%s", benchDir, name)
+
+		for o, compiler := range compilers {
+			output, time := litecode(t, filename, compiler)
+
+			t.Log("  --", o, "Time:", time, "--\n")
+			fmt.Println(output)
+		}
+	}
 }
 
 func TestConformance(t *testing.T) {
@@ -120,8 +161,8 @@ func TestConformance(t *testing.T) {
 		// }
 
 		t.Log(" -- Testing", name, "--")
-		filename := fmt.Sprintf("%s/%s", conformanceDir, name)
 
+		filename := fmt.Sprintf("%s/%s", conformanceDir, name)
 		og, err := luau(filename)
 		if err != nil {
 			fmt.Println("failed on filename", filename)
@@ -133,8 +174,8 @@ func TestConformance(t *testing.T) {
 
 		for i, c := range compilers {
 			fmt.Println("\no", i)
-			o, _ := litecode(t, filename, c)
 
+			o, _ := litecode(t, filename, c)
 			if o != og {
 				t.Errorf("%d output mismatch:\n-- Expected\n%s\n-- Got\n%s\n", i, og, o)
 				fmt.Println()
@@ -142,16 +183,15 @@ func TestConformance(t *testing.T) {
 				// print mismatch
 				oLines := strings.Split(o, "\n")
 				ogLines := strings.Split(og, "\n")
+
 				for i, line := range ogLines {
 					if line != oLines[i] {
 						t.Errorf("mismatched line: \n%s\n%v\n%s\n%v\n", line, []byte(line), oLines[i], []byte(oLines[i]))
 					}
 				}
-
 				os.Exit(1)
 			}
 		}
-
 		fmt.Println(og)
 	}
 }
@@ -171,6 +211,7 @@ func TestErrors(t *testing.T) {
 		if !strings.HasSuffix(fn, compile.Ext) {
 			continue
 		}
+
 		name := trimext(fn)
 
 		// if name != onlyTest {
@@ -178,10 +219,9 @@ func TestErrors(t *testing.T) {
 		// }
 
 		t.Log(" -- Testing", name, "--\n")
+
 		filename := fmt.Sprintf("%s/%s", errorsDir, name)
-
 		_, lerr := litecodeE(t, filename, c1)
-
 		if lerr == nil {
 			t.Fatal("expected error, got nil")
 		}
@@ -199,43 +239,6 @@ func TestErrors(t *testing.T) {
 		fmt.Println()
 		if lerr.Error() != strog {
 			t.Fatalf("error mismatch:\n-- Expected\n%s\n-- Got\n%s", strog, lerr)
-		}
-	}
-}
-
-// not using benchmark because i can do what i want
-func TestBenchmark(t *testing.T) {
-	files, err := os.ReadDir(benchDir)
-	if err != nil {
-		t.Fatal("error reading benchmark tests directory:", err)
-	}
-
-	f, err := os.Create("cpu.prof")
-	if err != nil {
-		t.Fatal(err)
-	}
-	pprof.StartCPUProfile(f)
-	defer pprof.StopCPUProfile()
-
-	// const onlyBench = "luauception"
-
-	compilers := []Compiler{compile.MakeCompiler(0), compile.MakeCompiler(1), compile.MakeCompiler(2)}
-
-	for _, f := range files {
-		name := trimext(f.Name())
-		// if name != onlyBench {
-		// 	continue
-		// }
-
-		fmt.Println()
-		t.Log("-- Benchmarking", name, "--")
-		filename := fmt.Sprintf("%s/%s", benchDir, name)
-
-		for o, compiler := range compilers {
-			output, time := litecode(t, filename, compiler)
-
-			t.Log("  --", o, "Time:", time, "--\n")
-			fmt.Println(output)
 		}
 	}
 }

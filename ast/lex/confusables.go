@@ -1793,5 +1793,6 @@ func findConfusable(codepoint uint32) *string {
 	if confusable, ok := kConfusables[codepoint]; ok {
 		return &confusable
 	}
+
 	return nil
 }

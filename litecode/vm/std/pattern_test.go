@@ -9,12 +9,86 @@ import (
 
 var findSink []Val
 
+// A capture forces the pattern engine and pushCaptures.
+func BenchmarkFindCaptures(b *testing.B) {
+	s := strings.Repeat("ab", 1<<16)
+
+	for b.Loop() {
+		r, err := stringFindAux(s, "a(b)a", 1, false, true)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		findSink = r
+	}
+}
+
+func TestPatternErrors(t *testing.T) {
+	cases := []struct {
+		s, p, want string
+	}{
+		{"abc", "[", "malformed pattern (missing ']')"},
+		{"abc", "%", "malformed pattern (ends with '%')"},
+		{"abc", "(a", "unfinished capture"},
+		{"abc", "%2", "invalid capture index %2"},
+	}
+
+	for _, c := range cases {
+		_, err := stringFindAux(c.s, c.p, 1, false, true)
+		if err == nil {
+			t.Errorf("find(%q, %q): expected error, got nil", c.s, c.p)
+			continue
+		}
+
+		if err.Error() != c.want {
+			t.Errorf("find(%q, %q) error = %q, want %q", c.s, c.p, err, c.want)
+		}
+	}
+}
+
+// benchFind runs stringFindAux (the engine behind string.find) over a 1 MiB string of 'a's, which is what the bigstring script stresses.
+func benchFind(b *testing.B, p string) {
+	s := strings.Repeat("a", 1<<20)
+
+	b.SetBytes(int64(len(s)))
+	for b.Loop() {
+		r, err := stringFindAux(s, p, 1, false, true)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		findSink = r
+	}
+}
+
+// Anchored lazy star: expands one byte at a time from the start.
+func BenchmarkFindAnchoredLazy(b *testing.B) {
+	benchFind(b, "^a-.?$")
+}
+
+// Anchored greedy star that succeeds: expands to the whole run, then backs off once.
+func BenchmarkFindAnchoredStar(b *testing.B) {
+	benchFind(b, "^a*.?$")
+}
+
+// Anchored greedy star that fails: expands to the whole run, then backs off over every position.
+func BenchmarkFindAnchoredStarMiss(b *testing.B) {
+	benchFind(b, "^a*.?b$")
+}
+
+// No special characters, so it takes the plain search path.
+func BenchmarkFindPlain(b *testing.B) {
+	benchFind(b, "b")
+}
+
 // renderResults formats a result list the way a Luau caller would see it, for compact assertions.
 func renderResults(r []Val) string {
 	parts := make([]string, len(r))
+
 	for i, v := range r {
 		parts[i] = ToString(v)
 	}
+
 	return strings.Join(parts, " ")
 }
 
@@ -23,12 +97,15 @@ func findResults(s, p string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return renderResults(r), nil
 }
 
 // TestPatternFindUnit pins the matcher's behaviour without needing to compile and diff against reference Luau, so regressions surface in a plain go test.
 func TestPatternFindUnit(t *testing.T) {
-	cases := []struct{ s, p, want string }{
+	cases := []struct {
+		s, p, want string
+	}{
 		{"hello world", "o w", "5 7"},
 		{"hello", "l+", "3 4"},
 		{"hello", "(l+)", "3 4 ll"},
@@ -90,6 +167,7 @@ func TestPatternFindUnit(t *testing.T) {
 			t.Errorf("find(%q, %q): unexpected error %v", c.s, c.p, err)
 			continue
 		}
+
 		if got != c.want {
 			t.Errorf("find(%q, %q) = %q, want %q", c.s, c.p, got, c.want)
 		}
@@ -97,15 +175,22 @@ func TestPatternFindUnit(t *testing.T) {
 }
 
 func gsubResults(s, p, repl string) (string, error) {
-	r, err := string_gsub(Args{Co: &Coroutine{}, Name: "gsub", List: []Val{Str(s), Str(p), Str(repl)}})
+	r, err := string_gsub(Args{
+		Co: &Coroutine{},
+		Name: "gsub",
+		List: []Val{Str(s), Str(p), Str(repl)},
+	})
 	if err != nil {
 		return "", err
 	}
+
 	return renderResults(r), nil
 }
 
 func TestPatternGsubUnit(t *testing.T) {
-	cases := []struct{ s, p, repl, want string }{
+	cases := []struct {
+		s, p, repl, want string
+	}{
 		{"hello", "l+", "L", "heLo 1"},
 		{"hello", "l", "L", "heLLo 2"},
 		{"abc", "%a", "x", "xxx 3"},
@@ -119,73 +204,9 @@ func TestPatternGsubUnit(t *testing.T) {
 			t.Errorf("gsub(%q, %q, %q): unexpected error %v", c.s, c.p, c.repl, err)
 			continue
 		}
+
 		if got != c.want {
 			t.Errorf("gsub(%q, %q, %q) = %q, want %q", c.s, c.p, c.repl, got, c.want)
 		}
-	}
-}
-
-func TestPatternErrors(t *testing.T) {
-	cases := []struct{ s, p, want string }{
-		{"abc", "[", "malformed pattern (missing ']')"},
-		{"abc", "%", "malformed pattern (ends with '%')"},
-		{"abc", "(a", "unfinished capture"},
-		{"abc", "%2", "invalid capture index %2"},
-	}
-
-	for _, c := range cases {
-		_, err := stringFindAux(c.s, c.p, 1, false, true)
-		if err == nil {
-			t.Errorf("find(%q, %q): expected error, got nil", c.s, c.p)
-			continue
-		}
-		if err.Error() != c.want {
-			t.Errorf("find(%q, %q) error = %q, want %q", c.s, c.p, err, c.want)
-		}
-	}
-}
-
-// benchFind runs stringFindAux (the engine behind string.find) over a 1 MiB string of 'a's, which is what the bigstring script stresses.
-func benchFind(b *testing.B, p string) {
-	s := strings.Repeat("a", 1<<20)
-	b.SetBytes(int64(len(s)))
-	for b.Loop() {
-		r, err := stringFindAux(s, p, 1, false, true)
-		if err != nil {
-			b.Fatal(err)
-		}
-		findSink = r
-	}
-}
-
-// Anchored greedy star that succeeds: expands to the whole run, then backs off once.
-func BenchmarkFindAnchoredStar(b *testing.B) {
-	benchFind(b, "^a*.?$")
-}
-
-// Anchored greedy star that fails: expands to the whole run, then backs off over every position.
-func BenchmarkFindAnchoredStarMiss(b *testing.B) {
-	benchFind(b, "^a*.?b$")
-}
-
-// Anchored lazy star: expands one byte at a time from the start.
-func BenchmarkFindAnchoredLazy(b *testing.B) {
-	benchFind(b, "^a-.?$")
-}
-
-// No special characters, so it takes the plain search path.
-func BenchmarkFindPlain(b *testing.B) {
-	benchFind(b, "b")
-}
-
-// A capture forces the pattern engine and pushCaptures.
-func BenchmarkFindCaptures(b *testing.B) {
-	s := strings.Repeat("ab", 1<<16)
-	for b.Loop() {
-		r, err := stringFindAux(s, "a(b)a", 1, false, true)
-		if err != nil {
-			b.Fatal(err)
-		}
-		findSink = r
 	}
 }

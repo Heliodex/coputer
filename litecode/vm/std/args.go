@@ -13,8 +13,10 @@ func args_web(args Args) (r []Val, err error) {
 	}
 
 	query := make(map[Val]Val, len(pargs.Url.Query))
+
 	for k, vs := range pargs.Url.Query {
 		params := make([]Val, len(vs))
+
 		for i, v := range vs {
 			params[i] = Str(v)
 		}
@@ -26,12 +28,12 @@ func args_web(args Args) (r []Val, err error) {
 	}
 
 	headers := make(map[Val]Val, len(pargs.Headers))
+
 	for k, v := range pargs.Headers {
 		headers[Str(k)] = Str(v)
 	}
 
 	bb := Buffer(pargs.Body)
-
 	webargs := &Table{
 		Hash: map[Val]Val{
 			Str("url"): TableVal(&Table{
@@ -59,6 +61,4 @@ func args_web(args Args) (r []Val, err error) {
 	return args.Rets(TableVal(webargs)), nil
 }
 
-var Libargs = NewLib([]Function{
-	MakeFn("web", args_web),
-})
+var Libargs = NewLib([]Function{MakeFn("web", args_web)})

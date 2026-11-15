@@ -9,6 +9,8 @@ import (
 	"strings"
 )
 
+type KeyType uint8
+
 const (
 	PKSize = 29
 	SKSize = 32
@@ -17,6 +19,19 @@ const (
 type (
 	PK [PKSize]byte
 	SK [SKSize]byte
+)
+
+const (
+	base = uint(len(alphabet))
+	PubStart = "copub:"
+	SecStart = "cosec:" // lel
+	pkStringLength = 5 * 9
+	skStringLength = 5 * 10
+)
+
+const (
+	Public KeyType = iota
+	Secret
 )
 
 var (
@@ -30,77 +45,26 @@ func init() {
 	}
 }
 
-const (
-	base = uint(len(alphabet))
-	PubStart = "copub:"
-	SecStart = "cosec:" // lel
-	pkStringLength = 5 * 9
-	skStringLength = 5 * 10
-)
-
-type KeyType uint8
-
-const (
-	Public KeyType = iota
-	Secret
-)
-
 func digitEncoding[T [pkStringLength]uint | [skStringLength]uint, K PK | SK](k K) (digits T) {
 	var di int
 
 	for i := range len(k) {
 		carry := uint(k[i])
+
 		for j := range di {
 			carry += digits[j] << 8
 			digits[j] = carry % base
 			carry /= base
 		}
+
 		for ; carry > 0; di++ {
 			digits[di] = carry % base
 			carry /= base
 		}
 	}
+
 	return
 }
-
-func section(res []byte, size int) string {
-	var b strings.Builder
-	for i := range 5 {
-		b.Write(res[i*size:][:size])
-		if i < 4 {
-			b.WriteByte('-')
-		}
-	}
-	return b.String()
-}
-
-func (pk PK) EncodeNoPrefix() string {
-	var res [pkStringLength]byte
-	for i, v := range digitEncoding[[pkStringLength]uint](pk) {
-		res[len(res)-i-1] = alphabet[v]
-	}
-
-	// 5 sections of 9 characters each
-	return section(res[:], 9)
-}
-
-// Takes a public key and returns a string representation of it using a custom alphabet
-func (pk PK) Encode() string {
-	return PubStart + pk.EncodeNoPrefix()
-}
-
-// Takes a secret key and returns a string representation of it using a custom alphabet
-func (sk SK) Encode() string {
-	var res [skStringLength]byte
-	for i, v := range digitEncoding[[skStringLength]uint](sk) {
-		res[len(res)-i-1] = alphabet[v]
-	}
-
-	// 5 sections of 10 characters each
-	return SecStart + section(res[:], 10)
-}
-
-var errInvalidKeyType = errors.New("invalid key type")
 
 func parseKey[T PK | SK](bs []byte) (bf T, err error) {
 	var bp int
@@ -116,11 +80,13 @@ func parseKey[T PK | SK](bs []byte) (bf T, err error) {
 			bf[j] = byte(carry)
 			carry >>= 8
 		}
+
 		for ; carry > 0; bp++ {
 			bf[bp] = byte(carry)
 			carry >>= 8
 		}
 	}
+
 	return
 }
 
@@ -158,10 +124,53 @@ func DecodeSKNoPrefix(key string) (bf SK, err error) {
 	return
 }
 
+var errInvalidKeyType = errors.New("invalid key type")
+
 func DecodeSK(key string) (SK, error) {
 	if key[:len(SecStart)] != SecStart {
 		return SK{}, errInvalidKeyType
 	}
 
 	return DecodeSKNoPrefix(key[len(SecStart):])
+}
+
+func section(res []byte, size int) string {
+	var b strings.Builder
+
+	for i := range 5 {
+		b.Write(res[i*size:][:size])
+		if i < 4 {
+			b.WriteByte('-')
+		}
+	}
+
+	return b.String()
+}
+
+func (pk PK) EncodeNoPrefix() string {
+	var res [pkStringLength]byte
+
+	for i, v := range digitEncoding[[pkStringLength]uint](pk) {
+		res[len(res)-i-1] = alphabet[v]
+	}
+
+	// 5 sections of 9 characters each
+	return section(res[:], 9)
+}
+
+// Takes a public key and returns a string representation of it using a custom alphabet
+func (pk PK) Encode() string {
+	return PubStart + pk.EncodeNoPrefix()
+}
+
+// Takes a secret key and returns a string representation of it using a custom alphabet
+func (sk SK) Encode() string {
+	var res [skStringLength]byte
+
+	for i, v := range digitEncoding[[skStringLength]uint](sk) {
+		res[len(res)-i-1] = alphabet[v]
+	}
+
+	// 5 sections of 10 characters each
+	return SecStart + section(res[:], 10)
 }

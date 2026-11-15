@@ -1,8 +1,6 @@
 package std
 
-import (
-	"testing"
-)
+import "testing"
 
 func BenchmarkBitmask(b *testing.B) {
 	for b.Loop() {
@@ -13,7 +11,8 @@ func BenchmarkBitmask(b *testing.B) {
 }
 
 func BenchmarkBshift(b *testing.B) {
-	r := uint32(0)
+	var r uint32
+
 	for b.Loop() {
 		b_shift(r, -5)
 		b_shift(r, -50)

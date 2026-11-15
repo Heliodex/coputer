@@ -17,11 +17,12 @@ func TestConcurrentParse(t *testing.T) {
 	}
 
 	var wg sync.WaitGroup
+
 	for i := range 32 {
 		src := sources[i%len(sources)]
+
 		wg.Go(func() {
-			ok, res := Parse(src, Options{})
-			if !ok {
+			if ok, res := Parse(src, Options{}); !ok {
 				t.Errorf("parse failed for %q: %v", src, res.Errors)
 			}
 		})

@@ -8,10 +8,6 @@ import (
 	"time"
 )
 
-func trimext(s string) string {
-	return strings.TrimSuffix(s, Ext)
-}
-
 func getAST(t *testing.T, filename string) Result {
 	// read file
 	content, err := os.ReadFile(filename + Ext)
@@ -27,6 +23,10 @@ func getAST(t *testing.T, filename string) Result {
 	return res
 }
 
+func trimext(s string) string {
+	return strings.TrimSuffix(s, Ext)
+}
+
 func TestAST(t *testing.T) {
 	files, err := os.ReadDir("../" + AstDir)
 	if err != nil {
@@ -38,9 +38,11 @@ func TestAST(t *testing.T) {
 		if !strings.HasSuffix(fn, Ext) {
 			continue
 		}
+
 		name := trimext(fn)
 
 		t.Log(" -- Testing", name, "--")
+
 		filename := fmt.Sprintf("../%s/%s", AstDir, name)
 
 		// out, err := LuauAst(filename + Ext)
@@ -67,8 +69,8 @@ func TestAST(t *testing.T) {
 		if err != nil {
 			t.Fatal("error reading expected output:", err)
 		}
-		og := strings.ReplaceAll(string(ogb), "\r\n", "\n")
 
+		og := strings.ReplaceAll(string(ogb), "\r\n", "\n")
 		if o != og {
 			t.Errorf("output mismatch:\n-- Expected\n%s\n-- Got\n%s\n", og, o)
 			fmt.Println()
@@ -76,7 +78,6 @@ func TestAST(t *testing.T) {
 			// print mismatch
 			oLines, ogLines := strings.Split(o, "\n"), strings.Split(og, "\n")
 			olen, oglen := len(oLines), len(ogLines)
-
 			if olen != oglen {
 				t.Errorf("line count mismatch: expected %d, got %d", oglen, olen)
 			}
@@ -90,7 +91,6 @@ func TestAST(t *testing.T) {
 					t.Errorf("mismatched line, expected:\n%s\n%v\ngot:\n%s\n%v\n", ogline, []byte(ogline), oline, []byte(oline))
 				}
 			}
-
 			os.Exit(1)
 		}
 	}
@@ -101,12 +101,14 @@ func parseFile(t *testing.T, f os.DirEntry, dir string) {
 	if !strings.HasSuffix(fn, Ext) {
 		return
 	}
+
 	name := trimext(fn)
 
 	t.Log(" -- Testing", name, "--")
-	filename := fmt.Sprintf("../%s/%s", dir, name)
 
+	filename := fmt.Sprintf("../%s/%s", dir, name)
 	st := time.Now()
+
 	getAST(t, filename)
 	fmt.Println("decoded in", time.Since(st))
 }

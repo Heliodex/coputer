@@ -8,20 +8,21 @@ import (
 	"strings"
 )
 
-const gzheaderLen = 10
-
-var gzheader = [gzheaderLen]byte{0x1f, 0x8b, 0x08, 0x08, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff}
-
 type File struct {
 	path string
 	data []byte
 }
 
+const gzheaderLen = 10
+
+var gzheader = [gzheaderLen]byte{0x1f, 0x8b, 0x08, 0x08, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff}
+
 func compress(n string, f []byte) (cf File, err error) {
 	var b bytes.Buffer
-	w := gzip.NewWriter(&b)
 
+	w := gzip.NewWriter(&b)
 	w.Name = n
+
 	if _, err = w.Write(f); err != nil {
 		return
 	}
@@ -31,24 +32,6 @@ func compress(n string, f []byte) (cf File, err error) {
 	}
 
 	return File{n, b.Bytes()[gzheaderLen:]}, nil // remove the header
-}
-
-func decompress(c []byte) (f File, err error) {
-	var b bytes.Buffer
-	r, err := gzip.NewReader(bytes.NewReader(append(gzheader[:], c...))) // add the header
-	if err != nil {
-		return
-	}
-
-	if _, err = b.ReadFrom(r); err != nil {
-		return
-	}
-
-	if err = r.Close(); err != nil {
-		return
-	}
-
-	return File{r.Name, b.Bytes()}, nil
 }
 
 func bundleFile(p string, depth int) (bf File, err error) {
@@ -66,4 +49,23 @@ func bundleFile(p string, depth int) (bf File, err error) {
 	np := strings.Join(s[depth:], "/")
 
 	return compress(np, f)
+}
+
+func decompress(c []byte) (f File, err error) {
+	var b bytes.Buffer
+
+	r, err := gzip.NewReader(bytes.NewReader(append(gzheader[:], c...))) // add the header
+	if err != nil {
+		return
+	}
+
+	if _, err = b.ReadFrom(r); err != nil {
+		return
+	}
+
+	if err = r.Close(); err != nil {
+		return
+	}
+
+	return File{r.Name, b.Bytes()}, nil
 }

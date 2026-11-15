@@ -8,6 +8,8 @@ import (
 	. "github.com/Heliodex/coputer/litecode/types"
 )
 
+const tableBenchN = 1024
+
 var tableSink Val
 
 func BenchmarkEmptyTableClone(b *testing.B) {
@@ -18,30 +20,10 @@ func BenchmarkEmptyTableClone(b *testing.B) {
 	}
 }
 
-func BenchmarkTableCloneList(b *testing.B) {
-	t := &Table{}
-	t.SetInt(1, Str("a"))
-
-	for b.Loop() {
-		clone(t)
-	}
-}
-
-func BenchmarkTableCloneListBig(b *testing.B) {
-	t := &Table{}
-	for i := range 100 {
-		t.SetInt(i+1, Num(float64(i)))
-	}
-
-	for b.Loop() {
-		clone(t)
-	}
-}
-
 func BenchmarkTableCloneHash(b *testing.B) {
 	t := &Table{}
-	t.Set(Str("key"), Str("value"))
 
+	t.Set(Str("key"), Str("value"))
 	for b.Loop() {
 		clone(t)
 	}
@@ -49,8 +31,30 @@ func BenchmarkTableCloneHash(b *testing.B) {
 
 func BenchmarkTableCloneHashBig(b *testing.B) {
 	t := &Table{}
+
 	for i := range 100 {
 		t.Set(Str(fmt.Sprintf("key%d", i)), Num(float64(i)))
+	}
+
+	for b.Loop() {
+		clone(t)
+	}
+}
+
+func BenchmarkTableCloneList(b *testing.B) {
+	t := &Table{}
+
+	t.SetInt(1, Str("a"))
+	for b.Loop() {
+		clone(t)
+	}
+}
+
+func BenchmarkTableCloneListBig(b *testing.B) {
+	t := &Table{}
+
+	for i := range 100 {
+		t.SetInt(i+1, Num(float64(i)))
 	}
 
 	for b.Loop() {
@@ -60,9 +64,11 @@ func BenchmarkTableCloneHashBig(b *testing.B) {
 
 func BenchmarkTableCloneMixed(b *testing.B) {
 	t := &Table{}
+
 	for i := range 100 {
 		t.SetInt(i+1, Num(float64(i)))
 	}
+
 	for i := range 100 {
 		t.Set(Str(fmt.Sprintf("key%d", i)), Num(float64(i)))
 	}
@@ -72,42 +78,73 @@ func BenchmarkTableCloneMixed(b *testing.B) {
 	}
 }
 
-const tableBenchN = 1024
+// BenchmarkTableCreate fills a fresh table the way table.create(size, value) does.
+func BenchmarkTableCreate(b *testing.B) {
+	const n = 1 << 20
 
-// BenchmarkTableSetIntList hits SetInt directly, the way SETTABLEN and list appends do.
-func BenchmarkTableSetIntList(b *testing.B) {
-	t := &Table{List: make([]Val, tableBenchN)}
-	i := 0
+	args := Args{
+		Co: &Coroutine{},
+		List: []Val{Num(n), Num(0)},
+	}
+
 	for b.Loop() {
-		i = i%tableBenchN + 1
-		t.SetInt(i, Num(float64(i)))
+		args.pos = 0
+		r, err := table_create(args)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		tableSink = r[0]
+	}
+}
+
+func BenchmarkTableGetHash(b *testing.B) {
+	const n = 256
+
+	keys := make([]Val, n)
+
+	for i := range keys {
+		keys[i] = Str(strconv.Itoa(i))
+	}
+
+	t := &Table{
+		Hash: make(map[Val]Val, n),
+	}
+
+	for i := range n {
+		t.Set(keys[i], Num(float64(i)))
+	}
+
+	var i int
+
+	for b.Loop() {
+		i = i % n
+		tableSink = t.Get(keys[i])
 	}
 }
 
 // BenchmarkTableGetIntList hits GetInt directly.
 func BenchmarkTableGetIntList(b *testing.B) {
-	t := &Table{List: make([]Val, tableBenchN)}
-	i := 0
+	var i int
+
+	t := &Table{
+		List: make([]Val, tableBenchN),
+	}
+
 	for b.Loop() {
 		i = i % tableBenchN
 		tableSink = t.GetInt(i)
 	}
 }
 
-// BenchmarkTableSetNumKey goes through Set and the listKey path, the way SETTABLE with a number key does.
-func BenchmarkTableSetNumKey(b *testing.B) {
-	t := &Table{List: make([]Val, tableBenchN)}
-	i := 0
-	for b.Loop() {
-		i = i%tableBenchN + 1
-		t.Set(Num(float64(i)), Num(float64(i)))
-	}
-}
-
 // BenchmarkTableGetNumKey goes through Get and the listKey path.
 func BenchmarkTableGetNumKey(b *testing.B) {
-	t := &Table{List: make([]Val, tableBenchN)}
-	i := 0
+	var i int
+
+	t := &Table{
+		List: make([]Val, tableBenchN),
+	}
+
 	for b.Loop() {
 		i = i % tableBenchN
 		tableSink = t.Get(Num(float64(i)))
@@ -116,45 +153,52 @@ func BenchmarkTableGetNumKey(b *testing.B) {
 
 func BenchmarkTableSetHash(b *testing.B) {
 	const n = 256
+
 	keys := make([]Val, n)
+
 	for i := range keys {
 		keys[i] = Str(strconv.Itoa(i))
 	}
-	t := &Table{Hash: make(map[Val]Val, n)}
-	i := 0
+
+	var i int
+
+	t := &Table{
+		Hash: make(map[Val]Val, n),
+	}
+
 	for b.Loop() {
 		i = i % n
+
 		t.Set(keys[i], Num(float64(i)))
 	}
 }
 
-func BenchmarkTableGetHash(b *testing.B) {
-	const n = 256
-	keys := make([]Val, n)
-	for i := range keys {
-		keys[i] = Str(strconv.Itoa(i))
+// BenchmarkTableSetIntList hits SetInt directly, the way SETTABLEN and list appends do.
+func BenchmarkTableSetIntList(b *testing.B) {
+	var i int
+
+	t := &Table{
+		List: make([]Val, tableBenchN),
 	}
-	t := &Table{Hash: make(map[Val]Val, n)}
-	for i := range n {
-		t.Set(keys[i], Num(float64(i)))
-	}
-	i := 0
+
 	for b.Loop() {
-		i = i % n
-		tableSink = t.Get(keys[i])
+		i = i%tableBenchN + 1
+
+		t.SetInt(i, Num(float64(i)))
 	}
 }
 
-// BenchmarkTableCreate fills a fresh table the way table.create(size, value) does.
-func BenchmarkTableCreate(b *testing.B) {
-	const n = 1 << 20
-	args := Args{Co: &Coroutine{}, List: []Val{Num(n), Num(0)}}
+// BenchmarkTableSetNumKey goes through Set and the listKey path, the way SETTABLE with a number key does.
+func BenchmarkTableSetNumKey(b *testing.B) {
+	var i int
+
+	t := &Table{
+		List: make([]Val, tableBenchN),
+	}
+
 	for b.Loop() {
-		args.pos = 0
-		r, err := table_create(args)
-		if err != nil {
-			b.Fatal(err)
-		}
-		tableSink = r[0]
+		i = i%tableBenchN + 1
+
+		t.Set(Num(float64(i)), Num(float64(i)))
 	}
 }

@@ -9,6 +9,20 @@ import (
 	"time"
 )
 
+type NumberTest struct {
+	In float64
+	Out string
+}
+
+func TestNumberToSource(t *testing.T) {
+	for _, tt := range numberTests {
+		fmt.Println(tt.Out)
+		if out := NumberToSource(Number(tt.In)); tt.Out != out {
+			t.Errorf("expected %q, got %q", tt.Out, out)
+		}
+	}
+}
+
 func trimext(s string) string {
 	return strings.TrimSuffix(s, Ext)
 }
@@ -24,11 +38,12 @@ func TestAST(t *testing.T) {
 		if !strings.HasSuffix(fn, Ext) {
 			continue
 		}
+
 		name := trimext(fn)
 
 		t.Log(" -- Testing", name, "--")
-		filename := fmt.Sprintf("../%s/%s", AstDir, name)
 
+		filename := fmt.Sprintf("../%s/%s", AstDir, name)
 		out, err := LuauAst(filename + Ext)
 		if err != nil {
 			t.Fatal("error running luau-ast:", err)
@@ -39,6 +54,7 @@ func TestAST(t *testing.T) {
 		if err != nil {
 			t.Fatal("error decoding AST:", err)
 		}
+
 		o := ast.String()
 
 		// write to file
@@ -50,8 +66,8 @@ func TestAST(t *testing.T) {
 		if err != nil {
 			t.Fatal("error reading expected output:", err)
 		}
-		og := string(ogb)
 
+		og := string(ogb)
 		if o != og {
 			t.Errorf("output mismatch:\n-- Expected\n%s\n-- Got\n%s\n", og, o)
 			fmt.Println()
@@ -59,7 +75,6 @@ func TestAST(t *testing.T) {
 			// print mismatch
 			oLines, ogLines := strings.Split(o, "\n"), strings.Split(og, "\n")
 			olen, oglen := len(oLines), len(ogLines)
-
 			if olen != oglen {
 				t.Errorf("line count mismatch: expected %d, got %d", oglen, olen)
 			}
@@ -73,7 +88,6 @@ func TestAST(t *testing.T) {
 					t.Errorf("mismatched line, expected:\n%s\n%v\ngot:\n%s\n%v\n", ogline, []byte(ogline), oline, []byte(oline))
 				}
 			}
-
 			os.Exit(1)
 		}
 	}
@@ -84,9 +98,11 @@ func parseFile(t *testing.T, f os.DirEntry, dir string) {
 	if !strings.HasSuffix(fn, Ext) {
 		return
 	}
+
 	name := trimext(fn)
 
 	t.Log(" -- Testing", name, "--")
+
 	filename := fmt.Sprintf("../%s/%s", dir, name)
 
 	if name == "luauception" {
@@ -98,15 +114,14 @@ func parseFile(t *testing.T, f os.DirEntry, dir string) {
 	if err != nil {
 		t.Fatal("error running luau-ast:", err)
 	}
-
 	fmt.Println("luau-ast completed")
+
 	st := time.Now()
 
 	// Decode the AST
 	if _, err = DecodeAST(out); err != nil {
 		t.Fatal("error decoding AST:", err)
 	}
-
 	fmt.Println("decoded in", time.Since(st))
 }
 
@@ -141,6 +156,7 @@ func sourceFiles(t *testing.T, dir string) {
 		if !strings.HasSuffix(fn, Ext) {
 			continue
 		}
+
 		name := trimext(fn)
 
 		// yk the deal, this one takes forever
@@ -149,8 +165,8 @@ func sourceFiles(t *testing.T, dir string) {
 		// }
 
 		t.Log(" -- Testing", name, "--")
-		filename := fmt.Sprintf("../%s/%s", dir, name)
 
+		filename := fmt.Sprintf("../%s/%s", dir, name)
 		content, err := os.ReadFile(filename + Ext)
 		if err != nil {
 			t.Fatal("error reading test file:", err)
@@ -166,26 +182,17 @@ func sourceFiles(t *testing.T, dir string) {
 		if err != nil {
 			t.Fatal("error decoding AST:", err)
 		}
+
 		src, err := ast.Source(string(content))
 		if err != nil {
 			t.Fatal("error getting source from AST:", err)
 		}
-
 		fmt.Println(src)
 	}
 }
 
 func TestSourceAST(t *testing.T) {
 	sourceFiles(t, AstDir)
-}
-
-func TestSourceConformance(t *testing.T) {
-	sourceFiles(t, ConformanceDir)
-}
-
-type NumberTest struct {
-	In float64
-	Out string
 }
 
 // Numbers in AST will never be negative (they'll be a positive number with a unary minus operator)
@@ -212,11 +219,6 @@ var numberTests = []NumberTest{
 	{6008514751430, "6.00851475143e12"},
 }
 
-func TestNumberToSource(t *testing.T) {
-	for _, tt := range numberTests {
-		fmt.Println(tt.Out)
-		if out := NumberToSource(Number(tt.In)); tt.Out != out {
-			t.Errorf("expected %q, got %q", tt.Out, out)
-		}
-	}
+func TestSourceConformance(t *testing.T) {
+	sourceFiles(t, ConformanceDir)
 }

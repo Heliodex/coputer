@@ -2,9 +2,8 @@ package compile
 
 import (
 	"fmt"
-	"testing"
-
 	"slices"
+	"testing"
 )
 
 func Expect(t *testing.T, got, want any) {
@@ -26,12 +25,10 @@ func TestDeserialise(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to deserialize bytecode: %v", err)
 	}
-
 	Expect(t, len(d.ProtoList), 1)
 	Expect(t, d.ProtoList[0], d.MainProto)
 	Expect(t, d.MainProto.Dbgname, "(main)")
 	Expect(t, d.MainProto.Code[0].Opcode, uint8(65))
 	Expect(t, slices.Equal(d.MainProto.InstLineInfo, []uint32{1, 1, 1, 1, 1, 2}), true)
-
 	fmt.Println(d.MainProto.InstLineInfo)
 }

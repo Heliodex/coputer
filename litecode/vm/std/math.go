@@ -6,6 +6,304 @@ import (
 	. "github.com/Heliodex/coputer/litecode/types"
 )
 
+var (
+	// kohuept
+	// live in perlingrad
+	kPerlinGrad = [16][3]float32{
+		{1, 1, 0},
+		{-1, 1, 0},
+		{1, -1, 0},
+		{-1, -1, 0},
+		{1, 0, 1},
+		{-1, 0, 1},
+		{1, 0, -1},
+		{-1, 0, -1},
+		{0, 1, 1},
+		{0, -1, 1},
+		{0, 1, -1},
+		{0, -1, -1},
+		{1, 1, 0},
+		{0, -1, 1},
+		{-1, 1, 0},
+		{0, -1, -1},
+	}
+
+	// lmathlib.cpp
+	kPerlinHash = [257]uint8{
+		151,
+		160,
+		137,
+		91,
+		90,
+		15,
+		131,
+		13,
+		201,
+		95,
+		96,
+		53,
+		194,
+		233,
+		7,
+		225,
+		140,
+		36,
+		103,
+		30,
+		69,
+		142,
+		8,
+		99,
+		37,
+		240,
+		21,
+		10,
+		23,
+		190,
+		6,
+		148,
+		247,
+		120,
+		234,
+		75,
+		0,
+		26,
+		197,
+		62,
+		94,
+		252,
+		219,
+		203,
+		117,
+		35,
+		11,
+		32,
+		57,
+		177,
+		33,
+		88,
+		237,
+		149,
+		56,
+		87,
+		174,
+		20,
+		125,
+		136,
+		171,
+		168,
+		68,
+		175,
+		74,
+		165,
+		71,
+		134,
+		139,
+		48,
+		27,
+		166,
+		77,
+		146,
+		158,
+		231,
+		83,
+		111,
+		229,
+		122,
+		60,
+		211,
+		133,
+		230,
+		220,
+		105,
+		92,
+		41,
+		55,
+		46,
+		245,
+		40,
+		244,
+		102,
+		143,
+		54,
+		65,
+		25,
+		63,
+		161,
+		1,
+		216,
+		80,
+		73,
+		209,
+		76,
+		132,
+		187,
+		208,
+		89,
+		18,
+		169,
+		200,
+		196,
+		135,
+		130,
+		116,
+		188,
+		159,
+		86,
+		164,
+		100,
+		109,
+		198,
+		173,
+		186,
+		3,
+		64,
+		52,
+		217,
+		226,
+		250,
+		124,
+		123,
+		5,
+		202,
+		38,
+		147,
+		118,
+		126,
+		255,
+		82,
+		85,
+		212,
+		207,
+		206,
+		59,
+		227,
+		47,
+		16,
+		58,
+		17,
+		182,
+		189,
+		28,
+		42,
+		223,
+		183,
+		170,
+		213,
+		119,
+		248,
+		152,
+		2,
+		44,
+		154,
+		163,
+		70,
+		221,
+		153,
+		101,
+		155,
+		167,
+		43,
+		172,
+		9,
+		129,
+		22,
+		39,
+		253,
+		19,
+		98,
+		108,
+		110,
+		79,
+		113,
+		224,
+		232,
+		178,
+		185,
+		112,
+		104,
+		218,
+		246,
+		97,
+		228,
+		251,
+		34,
+		242,
+		193,
+		238,
+		210,
+		144,
+		12,
+		191,
+		179,
+		162,
+		241,
+		81,
+		51,
+		145,
+		235,
+		249,
+		14,
+		239,
+		107,
+		49,
+		192,
+		214,
+		31,
+		181,
+		199,
+		106,
+		157,
+		184,
+		84,
+		204,
+		176,
+		115,
+		121,
+		50,
+		45,
+		127,
+		4,
+		150,
+		254,
+		138,
+		236,
+		205,
+		93,
+		222,
+		114,
+		67,
+		29,
+		24,
+		72,
+		243,
+		141,
+		128,
+		195,
+		78,
+		66,
+		215,
+		61,
+		156,
+		180,
+		151,
+	}
+)
+
+func fade(t float32) float32 {
+	return t * t * t * (t*(t*6-15) + 10)
+}
+
+func grad(hash uint8, x, y, z float32) float32 {
+	g := kPerlinGrad[hash&15]
+
+	return g[0]*x + g[1]*y + g[2]*z
+}
+
+func lerp(t, a, b float32) float32 {
+	return a + t*(b-a)
+}
+
 func math_abs(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
@@ -44,13 +342,14 @@ func math_ceil(args Args) (r []Val, err error) {
 
 func math_clamp(args Args) (r []Val, err error) {
 	x, min, max := args.GetNumber(), args.GetNumber(), args.GetNumber()
-
 	if x < min {
 		return args.Rets(Num(min)), nil
 	}
+
 	if x > max {
 		return args.Rets(Num(max)), nil
 	}
+
 	return args.Rets(Num(x)), nil
 }
 
@@ -92,8 +391,8 @@ func math_fmod(args Args) (r []Val, err error) {
 
 func math_frexp(args Args) (r []Val, err error) {
 	x := args.GetNumber()
-
 	frac, exp := math.Frexp(x)
+
 	return args.Rets(Num(frac), Num(float64(exp))), nil
 }
 
@@ -105,10 +404,10 @@ func math_ldexp(args Args) (r []Val, err error) {
 
 func math_lerp(args Args) (r []Val, err error) {
 	a, b, t := args.GetNumber(), args.GetNumber(), args.GetNumber()
-
 	if t == 1 {
 		return args.Rets(Num(b)), nil
 	}
+
 	return args.Rets(Num(a + (b-a)*t)), nil
 }
 
@@ -117,8 +416,10 @@ func math_log(args Args) (r []Val, err error) {
 
 	if len(args.List) > 1 {
 		base := args.GetNumber()
+
 		return args.Rets(Num(math.Log(x) / math.Log(base))), nil
 	}
+
 	return args.Rets(Num(math.Log(x))), nil
 }
 
@@ -144,6 +445,7 @@ func math_max(args Args) (r []Val, err error) {
 			first = n
 		}
 	}
+
 	return args.Rets(Num(first)), nil
 }
 
@@ -155,77 +457,15 @@ func math_min(args Args) (r []Val, err error) {
 			first = n
 		}
 	}
+
 	return args.Rets(Num(first)), nil
 }
 
 func math_modf(args Args) (r []Val, err error) {
 	x := args.GetNumber()
-
 	i, frac := math.Modf(x)
+
 	return args.Rets(Num(i), Num(frac)), nil
-}
-
-// lmathlib.cpp
-var kPerlinHash = [257]uint8{151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225, 140, 36, 103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23, 190, 6, 148, 247, 120, 234, 75, 0, 26, 197, 62, 94, 252, 219, 203, 117, 35, 11, 32, 57, 177, 33, 88, 237, 149, 56, 87, 174, 20, 125, 136, 171, 168, 68, 175, 74, 165, 71, 134, 139, 48, 27, 166, 77, 146, 158, 231, 83, 111, 229, 122, 60, 211, 133, 230, 220, 105, 92, 41, 55, 46, 245, 40, 244, 102, 143, 54, 65, 25, 63, 161, 1, 216, 80, 73, 209, 76, 132, 187, 208, 89, 18, 169, 200, 196, 135, 130, 116, 188, 159, 86, 164, 100, 109, 198, 173, 186, 3, 64, 52, 217, 226, 250, 124, 123, 5, 202, 38, 147, 118, 126, 255, 82, 85, 212, 207, 206, 59, 227, 47, 16, 58, 17, 182, 189, 28, 42, 223, 183, 170, 213, 119, 248, 152, 2, 44, 154, 163, 70, 221, 153, 101, 155, 167, 43, 172, 9, 129, 22, 39, 253, 19, 98, 108, 110, 79, 113, 224, 232, 178, 185, 112, 104, 218, 246, 97, 228, 251, 34, 242, 193, 238, 210, 144, 12, 191, 179, 162, 241, 81, 51, 145, 235, 249, 14, 239, 107, 49, 192, 214, 31, 181, 199, 106, 157, 184, 84, 204, 176, 115, 121, 50, 45, 127, 4, 150, 254, 138, 236, 205, 93, 222, 114, 67, 29, 24, 72, 243, 141, 128, 195, 78, 66, 215, 61, 156, 180, 151}
-
-// kohuept
-// live in perlingrad
-var kPerlinGrad = [16][3]float32{
-	{1, 1, 0},
-	{-1, 1, 0},
-	{1, -1, 0},
-	{-1, -1, 0},
-	{1, 0, 1},
-	{-1, 0, 1},
-	{1, 0, -1},
-	{-1, 0, -1},
-	{0, 1, 1},
-	{0, -1, 1},
-	{0, 1, -1},
-	{0, -1, -1},
-	{1, 1, 0},
-	{0, -1, 1},
-	{-1, 1, 0},
-	{0, -1, -1},
-}
-
-func fade(t float32) float32 {
-	return t * t * t * (t*(t*6-15) + 10)
-}
-
-func lerp(t, a, b float32) float32 {
-	return a + t*(b-a)
-}
-
-func grad(hash uint8, x, y, z float32) float32 {
-	g := kPerlinGrad[hash&15]
-	return g[0]*x + g[1]*y + g[2]*z
-}
-
-func perlin(x, y, z float32) float64 {
-	xflr, yflr, zflr := f32Floor(x), f32Floor(y), f32Floor(z)
-	xi, yi, zi := uint8(xflr), uint8(yflr), uint8(zflr)
-	xf, yf, zf := x-xflr, y-yflr, z-zflr
-	u, v, w := fade(xf), fade(yf), fade(zf)
-
-	a := kPerlinHash[xi] + yi
-	aa, ab := kPerlinHash[a]+zi, kPerlinHash[a+1]+zi
-
-	b := kPerlinHash[xi+1] + yi
-	ba, bb := kPerlinHash[b]+zi, kPerlinHash[b+1]+zi
-
-	la := lerp(u, grad(kPerlinHash[aa], xf, yf, zf), grad(kPerlinHash[ba], xf-1, yf, zf))
-	lb := lerp(u, grad(kPerlinHash[ab], xf, yf-1, zf), grad(kPerlinHash[bb], xf-1, yf-1, zf))
-	la1 := lerp(u, grad(kPerlinHash[aa+1], xf, yf, zf-1), grad(kPerlinHash[ba+1], xf-1, yf, zf-1))
-	lb1 := lerp(u, grad(kPerlinHash[ab+1], xf, yf-1, zf-1), grad(kPerlinHash[bb+1], xf-1, yf-1, zf-1))
-
-	return float64(lerp(w, lerp(v, la, lb), lerp(v, la1, lb1)))
-}
-
-func math_noise(args Args) (r []Val, err error) {
-	x, y, z := args.GetNumber(), args.GetNumber(0), args.GetNumber(0)
-
-	return args.Rets(Num(perlin(float32(x), float32(y), float32(z)))), nil
 }
 
 func math_pow(args Args) (r []Val, err error) {
@@ -248,13 +488,14 @@ func math_round(args Args) (r []Val, err error) {
 
 func math_sign(args Args) (r []Val, err error) {
 	x := args.GetNumber()
-
 	if x > 0 {
 		return args.Rets(Num(float64(1))), nil
 	}
+
 	if x < 0 {
 		return args.Rets(Num(float64(-1))), nil
 	}
+
 	return args.Rets(Num(float64(0))), nil
 }
 
@@ -286,6 +527,29 @@ func math_tanh(args Args) (r []Val, err error) {
 	x := args.GetNumber()
 
 	return args.Rets(Num(math.Tanh(x))), nil
+}
+
+func perlin(x, y, z float32) float64 {
+	xflr, yflr, zflr := f32Floor(x), f32Floor(y), f32Floor(z)
+	xf, yf, zf := x-xflr, y-yflr, z-zflr
+	xi, yi, zi := uint8(xflr), uint8(yflr), uint8(zflr)
+	u, v, w := fade(xf), fade(yf), fade(zf)
+	a := kPerlinHash[xi] + yi
+	aa, ab := kPerlinHash[a]+zi, kPerlinHash[a+1]+zi
+	b := kPerlinHash[xi+1] + yi
+	ba, bb := kPerlinHash[b]+zi, kPerlinHash[b+1]+zi
+	la := lerp(u, grad(kPerlinHash[aa], xf, yf, zf), grad(kPerlinHash[ba], xf-1, yf, zf))
+	lb := lerp(u, grad(kPerlinHash[ab], xf, yf-1, zf), grad(kPerlinHash[bb], xf-1, yf-1, zf))
+	la1 := lerp(u, grad(kPerlinHash[aa+1], xf, yf, zf-1), grad(kPerlinHash[ba+1], xf-1, yf, zf-1))
+	lb1 := lerp(u, grad(kPerlinHash[ab+1], xf, yf-1, zf-1), grad(kPerlinHash[bb+1], xf-1, yf-1, zf-1))
+
+	return float64(lerp(w, lerp(v, la, lb), lerp(v, la1, lb1)))
+}
+
+func math_noise(args Args) (r []Val, err error) {
+	x, y, z := args.GetNumber(), args.GetNumber(0), args.GetNumber(0)
+
+	return args.Rets(Num(perlin(float32(x), float32(y), float32(z)))), nil
 }
 
 var Libmath = NewLib([]Function{
@@ -322,7 +586,4 @@ var Libmath = NewLib([]Function{
 	MakeFn("sqrt", math_sqrt),
 	MakeFn("tan", math_tan),
 	MakeFn("tanh", math_tanh),
-}, map[string]Val{
-	"huge": Num(math.Inf(1)),
-	"pi": Num(math.Pi),
-})
+}, map[string]Val{"huge": Num(math.Inf(1)), "pi": Num(math.Pi)})

@@ -13,6 +13,258 @@ import (
 	"github.com/Heliodex/coputer/litecode/vm/compile"
 )
 
+type bufPos struct {
+	buf [48]byte
+	pos int
+}
+
+const (
+	chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	kPow10TableMin = -292
+)
+
+func b2i(b bool) uint64 {
+	if b { // damn integer booleans
+		return 1
+	}
+
+	return 0 // nock moment #1
+}
+
+var ipairs = MakeFn("ipairs", ipairs_iter)
+
+func (b *bufPos) Get(i int) byte {
+	return b.buf[b.pos+i]
+}
+
+func (b *bufPos) Get0() byte {
+	return b.buf[b.pos]
+}
+
+func (b *bufPos) Set(i int, v byte) {
+	b.buf[b.pos+i] = v
+}
+
+func (b *bufPos) Set0(v byte) {
+	b.buf[b.pos] = v
+}
+
+var (
+	kPow10Table = [39][3]uint64{
+		{0xff77b1fcbebcdc4f, 0x25e8e89c13bb0f7b, 0x333443443333443b},
+		{0x8dd01fad907ffc3b, 0xae3da7d97f6792e4, 0xbbb3ab3cb3ba3cbc},
+		{0x9d71ac8fada6c9b5, 0x6f773fc3603db4aa, 0x4ba4bc4bb4bb4bcc},
+		{0xaecc49914078536d, 0x58fae9f773886e19, 0x3ba3bc33b43b43bb},
+		{0xc21094364dfb5636, 0x985915fc12f542e5, 0x33b43b43a33b33cb},
+		{0xd77485cb25823ac7, 0x7d633293366b828c, 0x34b44c444343443c},
+		{0xef340a98172aace4, 0x86fb897116c87c35, 0x333343333343334b},
+		{0x84c8d4dfd2c63f3b, 0x29ecd9f40041e074, 0xccaccbbcbcbb4bbc},
+		{0x936b9fcebb25c995, 0xcab10dd900beec35, 0x3ab3ab3ab3bb3bbb},
+		{0xa3ab66580d5fdaf5, 0xc13e60d0d2e0ebbb, 0x4cc3dc4db4db4dbb},
+		{0xb5b5ada8aaff80b8, 0x0d819992132456bb, 0x33b33a34c33b34ab},
+		{0xc9bcff6034c13052, 0xfc89b393dd02f0b6, 0x33c33b44b43c34bc},
+		{0xdff9772470297ebd, 0x59787e2b93bc56f8, 0x43b444444443434c},
+		{0xf8a95fcf88747d94, 0x75a44c6397ce912b, 0x443334343443343b},
+		{0x8a08f0f8bf0f156b, 0x1b8e9ecb641b5900, 0xbbabab3aa3ab4ccc},
+		{0x993fe2c6d07b7fab, 0xe546a8038efe402a, 0x4cb4bc4db4db4bcc},
+		{0xaa242499697392d2, 0xdde50bd1d5d0b9ea, 0x3ba3ba3bb33b33bc},
+		{0xbce5086492111aea, 0x88f4bb1ca6bcf585, 0x44b44c44c44c43cb},
+		{0xd1b71758e219652b, 0xd3c36113404ea4a9, 0x44c44c44c444443b},
+		{0xe8d4a51000000000, 0x0000000000000000, 0x444444444444444c},
+		{0x813f3978f8940984, 0x4000000000000000, 0xcccccccccccccccc},
+		{0x8f7e32ce7bea5c6f, 0xe4820023a2000000, 0xbba3bc4cc4cc4ccc},
+		{0x9f4f2726179a2245, 0x01d762422c946591, 0x4aa3bb3aa3ba3bab},
+		{0xb0de65388cc8ada8, 0x3b25a55f43294bcc, 0x3ca33b33b44b43bc},
+		{0xc45d1df942711d9a, 0x3ba5d0bd324f8395, 0x44c44c34c44b44cb},
+		{0xda01ee641a708de9, 0xe80e6f4820cc9496, 0x33b33b343333333c},
+		{0xf209787bb47d6b84, 0xc0678c5dbd23a49b, 0x443444444443443b},
+		{0x865b86925b9bc5c2, 0x0b8a2392ba45a9b3, 0xdbccbcccb4cb3bbb},
+		{0x952ab45cfa97a0b2, 0xdd945a747bf26184, 0x3bc4bb4ab3ca3cbc},
+		{0xa59bc234db398c25, 0x43fab9837e699096, 0x3bb3ac3ab3bb33ac},
+		{0xb7dcbf5354e9bece, 0x0c11ed6d538aeb30, 0x33b43b43b34c34dc},
+		{0xcc20ce9bd35c78a5, 0x31ec038df7b441f5, 0x34c44c43c44b44cb},
+		{0xe2a0b5dc971f303a, 0x2e44ae64840fd61e, 0x333333333333333c},
+		{0xfb9b7cd9a4a7443c, 0x169840ef017da3b2, 0x433344443333344c},
+		{0x8bab8eefb6409c1a, 0x1ad089b6c2f7548f, 0xdcbdcc3cc4cc4bcb},
+		{0x9b10a4e5e9913128, 0xca7cf2b4191c8327, 0x3ab3cb3bc3bb4bbb},
+		{0xac2820d9623bf429, 0x546345fa9fbdcd45, 0x3bb3cc43c43c43cb},
+		{0xbf21e44003acdd2c, 0xe0470a63e6bd56c4, 0x44b34a43b44c44bc},
+		{0xd433179d9c8cb841, 0x5fa60692a46151ec, 0x43a33a33a333333c},
+	}
+
+	// const kPow10TableMax = 324
+
+	kPow5Table = [16]uint64{
+		0x8000000000000000,
+		0xa000000000000000,
+		0xc800000000000000,
+		0xfa00000000000000,
+		0x9c40000000000000,
+		0xc350000000000000,
+		0xf424000000000000,
+		0x9896800000000000,
+		0xbebc200000000000,
+		0xee6b280000000000,
+		0x9502f90000000000,
+		0xba43b74000000000,
+		0xe8d4a51000000000,
+		0x9184e72a00000000,
+		0xb5e620f480000000,
+		0xe35fa931a0000000,
+	}
+	kDigitTable = [200]byte([]byte("00010203040506070809101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899"))
+)
+
+func (b *bufPos) String() string {
+	return string(b.buf[:b.pos])
+}
+
+func global_ipairs(args Args) (r []Val, err error) {
+	a := args.GetTable()
+
+	return args.Rets(FnVal(ipairs), TableVal(a), Num(float64(0))), nil
+}
+
+// The call next(t, k), where k is a key of the table t, returns a next key in the table, in an arbitrary order. (It returns also the value associated with that key, as a second return value.) The call next(t, nil) returns a first pair. When there are no more pairs, next returns nil.
+func global_next(args Args) (r []Val, err error) {
+	t := args.GetTable()
+	fk := args.GetAny(NilVal)
+	k, v, found, ok := t.Next(fk)
+	if !found {
+		return nil, errors.New("invalid key to 'next'") // erroring probably not great here but whatever, given it's rarely used
+	}
+
+	if !ok {
+		return args.Rets(NilVal), nil // reached the end
+	}
+
+	return args.Rets(k, v), nil
+}
+
+func global_pairs(args Args) (r []Val, err error) {
+	t := args.GetTable()
+
+	return args.Rets(FnVal(MakeFn("next", global_next)), TableVal(t)), nil
+}
+
+func global_tonumber(args Args) (r []Val, err error) {
+	value := args.GetAny()
+	radix := uint64(args.GetNumber(10))
+	str, ok := AsString(value)
+	if !ok || radix < 2 || radix > 36 {
+		return args.Rets(NilVal), nil
+		// panic("base out of range") // invalid argument #2
+	}
+
+	if radix == 10 {
+		if f, err := strconv.ParseFloat(str, 64); err == nil {
+			return args.Rets(Num(f)), nil
+		}
+	}
+
+	var negative bool
+
+	if strings.HasPrefix(str, "-") {
+		str = str[1:]
+		negative = true
+	}
+
+	ogRadix := radix
+
+	switch radix {
+	case 10, 16:
+		if strings.HasPrefix(str, "0x") {
+			str = str[2:]
+			radix = 16
+		}
+		// case 2:
+		// 	if strings.HasPrefix(str, "0b") {
+		// 		str = str[2:]
+		// 	}
+	}
+
+	str = strings.ToUpper(str)
+	radixChars := chars[:radix]
+
+	var n uint64
+
+	for _, c := range str {
+		n *= radix
+		index := strings.IndexRune(radixChars, c)
+		if index == -1 {
+			return args.Rets(NilVal), nil
+		}
+
+		n += uint64(index)
+	}
+
+	if !negative {
+		return args.Rets(Num(float64(n))), nil
+	}
+
+	if ogRadix == 10 {
+		// this is wild Luau, fix yo shit
+		return args.Rets(Num(-float64(n))), nil
+	}
+
+	return args.Rets(Num(float64(-n))), nil
+}
+
+func global_tostring(args Args) (r []Val, err error) {
+	value := args.GetAny()
+
+	return args.Rets(Str(ToString(value))), nil
+}
+
+func global_type(args Args) (r []Val, err error) {
+	obj := args.GetAny()
+
+	return args.Rets(Str(TypeOf(obj))), nil
+}
+
+func hasValidPrefix(path string) bool {
+	return path[:2] == "./" || path[:3] == "../"
+}
+
+func global_require(args Args) (r []Val, err error) {
+	name := args.GetString()
+	name = strings.ReplaceAll(name, "\\", "/")
+
+	if !hasValidPrefix(name) {
+		return nil, errors.New("require path must start with a valid prefix: ./ or ../")
+	}
+
+	if strings.HasSuffix(name, ".luau") { // not the exact same check order but whatever
+		return nil, errors.New("error requiring module: consider removing the file extension")
+	}
+
+	// combine filepath and name to get the new path
+	fp := args.Co.Filepath
+	path := filepath.Join(filepath.Dir(args.Co.Dbgpath), name)
+	path = strings.ReplaceAll(path, "\\", "/")
+	// fmt.Println("REQUIRING", path)
+
+	if path == fp {
+		return nil, errors.New("cyclic module dependency: file requires itself")
+	}
+
+	// compile bytecodeee
+	p, err := compile.Compile(args.Co.Compiler, path)
+	if err != nil {
+		return nil, fmt.Errorf("error requiring module: %w", err)
+	}
+
+	rh := args.Co.RequireHistory
+	if slices.Contains(rh, path) {
+		return nil, errors.New("cyclic module dependency: file requires itself indirectly")
+	}
+
+	p.RequireHistory = append(rh, fp)
+
+	// this is where we take it to the top babbyyyyy (with the same as parent global env)
+	return args.Rets(ObjVal(p)), nil
+}
+
 // p sure that 'globals' is a misnomer here but whatever
 
 /* -- fantastic globals and whether to implement them --
@@ -30,163 +282,15 @@ typeof: not much use without metatables
 func ipairs_iter(args Args) (r []Val, err error) {
 	a := args.GetTable()
 	i := args.GetNumber() + 1
-
 	if a.List == nil || int(i) > len(a.List) {
 		return
 	}
+
 	if v := a.List[int(i)-1]; !IsNil(v) {
 		return args.Rets(Num(i), v), nil
 	}
+
 	return // would prefer nil, nil but whateverrrrr
-}
-
-var ipairs = MakeFn("ipairs", ipairs_iter)
-
-func global_ipairs(args Args) (r []Val, err error) {
-	a := args.GetTable()
-
-	return args.Rets(FnVal(ipairs), TableVal(a), Num(float64(0))), nil
-}
-
-// The call next(t, k), where k is a key of the table t, returns a next key in the table, in an arbitrary order. (It returns also the value associated with that key, as a second return value.) The call next(t, nil) returns a first pair. When there are no more pairs, next returns nil.
-func global_next(args Args) (r []Val, err error) {
-	t := args.GetTable()
-	fk := args.GetAny(NilVal)
-
-	k, v, found, ok := t.Next(fk)
-	if !found {
-		return nil, errors.New("invalid key to 'next'") // erroring probably not great here but whatever, given it's rarely used
-	}
-	if !ok {
-		return args.Rets(NilVal), nil // reached the end
-	}
-	return args.Rets(k, v), nil
-}
-
-func global_pairs(args Args) (r []Val, err error) {
-	t := args.GetTable()
-
-	return args.Rets(FnVal(MakeFn("next", global_next)), TableVal(t)), nil
-}
-
-const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-func global_tonumber(args Args) (r []Val, err error) {
-	value := args.GetAny()
-	radix := uint64(args.GetNumber(10))
-
-	str, ok := AsString(value)
-	if !ok || radix < 2 || radix > 36 {
-		return args.Rets(NilVal), nil
-		// panic("base out of range") // invalid argument #2
-	}
-
-	if radix == 10 {
-		if f, err := strconv.ParseFloat(str, 64); err == nil {
-			return args.Rets(Num(f)), nil
-		}
-	}
-
-	var negative bool
-	if strings.HasPrefix(str, "-") {
-		str = str[1:]
-		negative = true
-	}
-
-	ogRadix := radix
-	switch radix {
-	case 10, 16:
-		if strings.HasPrefix(str, "0x") {
-			str = str[2:]
-			radix = 16
-		}
-		// case 2:
-		// 	if strings.HasPrefix(str, "0b") {
-		// 		str = str[2:]
-		// 	}
-	}
-
-	str = strings.ToUpper(str)
-
-	radixChars := chars[:radix]
-
-	var n uint64
-	for _, c := range str {
-		n *= radix
-		index := strings.IndexRune(radixChars, c)
-		if index == -1 {
-			return args.Rets(NilVal), nil
-		}
-		n += uint64(index)
-	}
-
-	if !negative {
-		return args.Rets(Num(float64(n))), nil
-	}
-
-	if ogRadix == 10 {
-		// this is wild Luau, fix yo shit
-		return args.Rets(Num(-float64(n))), nil
-	}
-	return args.Rets(Num(float64(-n))), nil
-}
-
-const kPow10TableMin = -292
-
-// const kPow10TableMax = 324
-
-var kPow5Table = [16]uint64{0x8000000000000000, 0xa000000000000000, 0xc800000000000000, 0xfa00000000000000, 0x9c40000000000000, 0xc350000000000000, 0xf424000000000000, 0x9896800000000000, 0xbebc200000000000, 0xee6b280000000000, 0x9502f90000000000, 0xba43b74000000000, 0xe8d4a51000000000, 0x9184e72a00000000, 0xb5e620f480000000, 0xe35fa931a0000000}
-
-var kPow10Table = [39][3]uint64{
-	{0xff77b1fcbebcdc4f, 0x25e8e89c13bb0f7b, 0x333443443333443b},
-	{0x8dd01fad907ffc3b, 0xae3da7d97f6792e4, 0xbbb3ab3cb3ba3cbc},
-	{0x9d71ac8fada6c9b5, 0x6f773fc3603db4aa, 0x4ba4bc4bb4bb4bcc},
-	{0xaecc49914078536d, 0x58fae9f773886e19, 0x3ba3bc33b43b43bb},
-	{0xc21094364dfb5636, 0x985915fc12f542e5, 0x33b43b43a33b33cb},
-	{0xd77485cb25823ac7, 0x7d633293366b828c, 0x34b44c444343443c},
-	{0xef340a98172aace4, 0x86fb897116c87c35, 0x333343333343334b},
-	{0x84c8d4dfd2c63f3b, 0x29ecd9f40041e074, 0xccaccbbcbcbb4bbc},
-	{0x936b9fcebb25c995, 0xcab10dd900beec35, 0x3ab3ab3ab3bb3bbb},
-	{0xa3ab66580d5fdaf5, 0xc13e60d0d2e0ebbb, 0x4cc3dc4db4db4dbb},
-	{0xb5b5ada8aaff80b8, 0x0d819992132456bb, 0x33b33a34c33b34ab},
-	{0xc9bcff6034c13052, 0xfc89b393dd02f0b6, 0x33c33b44b43c34bc},
-	{0xdff9772470297ebd, 0x59787e2b93bc56f8, 0x43b444444443434c},
-	{0xf8a95fcf88747d94, 0x75a44c6397ce912b, 0x443334343443343b},
-	{0x8a08f0f8bf0f156b, 0x1b8e9ecb641b5900, 0xbbabab3aa3ab4ccc},
-	{0x993fe2c6d07b7fab, 0xe546a8038efe402a, 0x4cb4bc4db4db4bcc},
-	{0xaa242499697392d2, 0xdde50bd1d5d0b9ea, 0x3ba3ba3bb33b33bc},
-	{0xbce5086492111aea, 0x88f4bb1ca6bcf585, 0x44b44c44c44c43cb},
-	{0xd1b71758e219652b, 0xd3c36113404ea4a9, 0x44c44c44c444443b},
-	{0xe8d4a51000000000, 0x0000000000000000, 0x444444444444444c},
-	{0x813f3978f8940984, 0x4000000000000000, 0xcccccccccccccccc},
-	{0x8f7e32ce7bea5c6f, 0xe4820023a2000000, 0xbba3bc4cc4cc4ccc},
-	{0x9f4f2726179a2245, 0x01d762422c946591, 0x4aa3bb3aa3ba3bab},
-	{0xb0de65388cc8ada8, 0x3b25a55f43294bcc, 0x3ca33b33b44b43bc},
-	{0xc45d1df942711d9a, 0x3ba5d0bd324f8395, 0x44c44c34c44b44cb},
-	{0xda01ee641a708de9, 0xe80e6f4820cc9496, 0x33b33b343333333c},
-	{0xf209787bb47d6b84, 0xc0678c5dbd23a49b, 0x443444444443443b},
-	{0x865b86925b9bc5c2, 0x0b8a2392ba45a9b3, 0xdbccbcccb4cb3bbb},
-	{0x952ab45cfa97a0b2, 0xdd945a747bf26184, 0x3bc4bb4ab3ca3cbc},
-	{0xa59bc234db398c25, 0x43fab9837e699096, 0x3bb3ac3ab3bb33ac},
-	{0xb7dcbf5354e9bece, 0x0c11ed6d538aeb30, 0x33b43b43b34c34dc},
-	{0xcc20ce9bd35c78a5, 0x31ec038df7b441f5, 0x34c44c43c44b44cb},
-	{0xe2a0b5dc971f303a, 0x2e44ae64840fd61e, 0x333333333333333c},
-	{0xfb9b7cd9a4a7443c, 0x169840ef017da3b2, 0x433344443333344c},
-	{0x8bab8eefb6409c1a, 0x1ad089b6c2f7548f, 0xdcbdcc3cc4cc4bcb},
-	{0x9b10a4e5e9913128, 0xca7cf2b4191c8327, 0x3ab3cb3bc3bb4bbb},
-	{0xac2820d9623bf429, 0x546345fa9fbdcd45, 0x3bb3cc43c43c43cb},
-	{0xbf21e44003acdd2c, 0xe0470a63e6bd56c4, 0x44b34a43b44c44bc},
-	{0xd433179d9c8cb841, 0x5fa60692a46151ec, 0x43a33a33a333333c},
-}
-
-var kDigitTable = [200]byte([]byte("00010203040506070809101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899"))
-
-func mul128hi(x, y uint64) uint64 {
-	x0, x1 := uint64(uint32(x)), uint64(uint32(x>>32))
-	y0, y1 := uint64(uint32(y)), uint64(uint32(y>>32))
-	p11, p01, p10, p00 := x1*y1, x0*y1, x1*y0, x0*y0
-	mid := p10 + p00>>32 + uint64(uint32(p01))
-	return p11 + mid>>32 + p01>>32
 }
 
 // x*y => 128-bit product (lo+hi)
@@ -195,31 +299,88 @@ func mul128(x, y uint64) (uint64, uint64) {
 	y0, y1 := uint64(uint32(y)), uint64(uint32(y>>32))
 	p11, p01, p10, p00 := x1*y1, x0*y1, x1*y0, x0*y0
 	mid := p10 + p00>>32 + uint64(uint32(p01))
+
 	return p11 + mid>>32 + p01>>32, mid<<32 | uint64(uint32(p00))
 }
 
-func b2i(b bool) uint64 {
-	if b { // damn integer booleans
-		return 1
-	}
-	return 0 // nock moment #1
+func mul128hi(x, y uint64) uint64 {
+	x0, x1 := uint64(uint32(x)), uint64(uint32(x>>32))
+	y0, y1 := uint64(uint32(y)), uint64(uint32(y>>32))
+	p11, p01, p10, p00 := x1*y1, x0*y1, x1*y0, x0*y0
+	mid := p10 + p00>>32 + uint64(uint32(p01))
+
+	return p11 + mid>>32 + p01>>32
 }
 
 // (x*y)>>64 => 128-bit product (lo+hi)
 func mul192hi(xhi, xlo, y uint64) (uint64, uint64) {
 	z2, z1 := mul128(xhi, y)
 	z1c := mul128hi(xlo, y)
-
 	z1 += z1c
+
 	return z2 + b2i(z1 < z1c), z1
+}
+
+func printexp(buf *bufPos, v int) string {
+	p, b := buf.pos, buf.buf
+	b[p] = 'e'
+
+	if v < 0 {
+		b[p+1] = '-'
+		v = -v
+	} else {
+		b[p+1] = '+'
+	}
+
+	if v >= 100 {
+		b[p+2] = '0' + byte(v/100)
+		p++
+		v %= 100
+	}
+
+	dt := v * 2
+	b[p+2], b[p+3] = kDigitTable[dt], kDigitTable[dt+1]
+
+	return string(b[:p+4])
+}
+
+func printunsignedrev(end *bufPos, num uint64) {
+	for num >= 10000 {
+		tail := num % 10000
+		dt1, dt2 := tail/100*2, tail%100*2
+
+		end.Set(-4, kDigitTable[dt1])
+		end.Set(-3, kDigitTable[dt1+1])
+		end.Set(-2, kDigitTable[dt2])
+		end.Set(-1, kDigitTable[dt2+1])
+
+		num /= 10000
+		end.pos -= 4
+	}
+
+	for num >= 10 {
+		dt := num % 100 * 2
+
+		end.Set(-2, kDigitTable[dt])
+		end.Set(-1, kDigitTable[dt+1])
+
+		num /= 100
+		end.pos -= 2
+	}
+
+	if num != 0 {
+		end.pos--
+
+		end.Set0('0' + byte(num))
+	}
 }
 
 // 9.3. Rounding to odd (+ figure 8 + result 23)
 func roundodd(ghi, glo, cp uint64) uint64 {
 	yhi, ylo := mul128(ghi, cp)
 	xhi := mul128hi(glo, cp)
-
 	z := ylo + xhi
+
 	return yhi + b2i(z < xhi) | b2i(z > 1)
 }
 
@@ -253,27 +414,27 @@ func schubfach(exponent int, c uint64) (uint64, int) {
 		A = -131008 // floor(2^Q * log10(3/4))
 		C2 = 3483294 // floor(2^Q * log2(10))
 	)
+
 	var k int
+
 	if irr {
 		k = (q*C + A) >> Q
 	} else {
 		k = q * C >> Q
 	}
-	h := q + -k*C2>>Q + 1 // see (9) in 9.9
 
 	// 9.8.2. Overestimates of powers of 10
 	// Recover 10^-k fraction using compact tables generated by tools/numutils.py
 	// The 128-bit fraction is encoded as 128-bit baseline * power-of-5 * scale + offset
 	gtoff := -k - kPow10TableMin
-	gt := kPow10Table[gtoff>>4]
-
 	g15 := gtoff & 15
+	gt := kPow10Table[gtoff>>4]
+	h := q + -k*C2>>Q + 1 // see (9) in 9.9
 	ghi, glo := mul192hi(gt[0], gt[1], kPow5Table[g15])
 
 	// Apply 1-bit scale + 3-bit offset; note, offset is intentionally applied without carry, numutils.py validates that this is sufficient
 	gterr := gt[2] >> (g15 * 4) & 15
 	gtscale := gterr >> 3
-
 	ghi <<= gtscale
 	ghi += glo >> 63 & gtscale
 	glo <<= gtscale
@@ -288,6 +449,7 @@ func schubfach(exponent int, c uint64) (uint64, int) {
 	s := vb / 4
 	if s >= 10 {
 		sp := s / 10
+
 		if upin, wpin := vbl+out <= 40*sp, vbr >= 40*sp+40+out; upin != wpin {
 			return sp + b2i(wpin), k + 1
 		}
@@ -301,84 +463,8 @@ func schubfach(exponent int, c uint64) (uint64, int) {
 	}
 
 	rup := vb >= 4*s+2+1-s&1
+
 	return s + b2i(rup), k
-}
-
-type bufPos struct {
-	buf [48]byte
-	pos int
-}
-
-func (b *bufPos) String() string {
-	return string(b.buf[:b.pos])
-}
-
-func (b *bufPos) Get0() byte {
-	return b.buf[b.pos]
-}
-
-func (b *bufPos) Get(i int) byte {
-	return b.buf[b.pos+i]
-}
-
-func (b *bufPos) Set0(v byte) {
-	b.buf[b.pos] = v
-}
-
-func (b *bufPos) Set(i int, v byte) {
-	b.buf[b.pos+i] = v
-}
-
-func printunsignedrev(end *bufPos, num uint64) {
-	for num >= 10000 {
-		tail := num % 10000
-
-		dt1, dt2 := tail/100*2, tail%100*2
-		end.Set(-4, kDigitTable[dt1])
-		end.Set(-3, kDigitTable[dt1+1])
-		end.Set(-2, kDigitTable[dt2])
-		end.Set(-1, kDigitTable[dt2+1])
-
-		num /= 10000
-		end.pos -= 4
-	}
-
-	for num >= 10 {
-		dt := num % 100 * 2
-		end.Set(-2, kDigitTable[dt])
-		end.Set(-1, kDigitTable[dt+1])
-
-		num /= 100
-		end.pos -= 2
-	}
-
-	if num != 0 {
-		end.pos--
-		end.Set0('0' + byte(num))
-	}
-}
-
-func printexp(buf *bufPos, v int) string {
-	p, b := buf.pos, buf.buf
-
-	b[p] = 'e'
-	if v < 0 {
-		b[p+1] = '-'
-		v = -v
-	} else {
-		b[p+1] = '+'
-	}
-
-	if v >= 100 {
-		b[p+2] = '0' + byte(v/100)
-		p++
-		v %= 100
-	}
-
-	dt := v * 2
-	b[p+2], b[p+3] = kDigitTable[dt], kDigitTable[dt+1]
-
-	return string(b[:p+4])
 }
 
 func trimzero(end *bufPos) {
@@ -395,6 +481,7 @@ func num2str2(exponent int, fraction uint64, buf *bufPos) string {
 	// print the decimal to a temporary buffer; we'll need to insert the decimal point and figure out the format
 	const decend = 20 // significand needs at most 17 digits; the rest of the buffer may be copied using fixed length memcpy
 	dec := &bufPos{[48]byte{}, decend}
+
 	printunsignedrev(dec, s)
 
 	declen := decend - dec.pos
@@ -408,8 +495,8 @@ func num2str2(exponent int, fraction uint64, buf *bufPos) string {
 		copy(buf.buf[buf.pos+2:], dec.buf[dec.pos+1:])
 
 		buf.pos += declen + 1
-		trimzero(buf)
 
+		trimzero(buf)
 		if buf.Get(-1) == '.' {
 			buf.pos--
 		}
@@ -421,16 +508,17 @@ func num2str2(exponent int, fraction uint64, buf *bufPos) string {
 	if dot <= 0 {
 		buf.Set0('0')
 		buf.Set(1, '.')
-
 		for i := range -dot {
 			buf.Set(i+2, '0')
 		}
 		copy(buf.buf[buf.pos+2-dot:], dec.buf[dec.pos:])
 
 		buf.pos += 2 + -dot + declen
+
 		trimzero(buf)
 		return buf.String()
 	}
+
 	if dot == declen {
 		// no dot
 		copy(buf.buf[buf.pos:], dec.buf[dec.pos:])
@@ -438,8 +526,10 @@ func num2str2(exponent int, fraction uint64, buf *bufPos) string {
 		// fmt.Println("no dot", dec, buf, dot, declen)
 
 		buf.pos += dot
+
 		return buf.String()
 	}
+
 	if dot > declen {
 		// fmt.Println("no dot, zero padding", declen, dot)
 		copy(buf.buf[buf.pos:], dec.buf[dec.pos:])
@@ -452,12 +542,11 @@ func num2str2(exponent int, fraction uint64, buf *bufPos) string {
 
 	// dot in the middle
 	copy(buf.buf[buf.pos:][:dot], dec.buf[dec.pos:][:dot])
-
 	buf.Set(dot, '.')
-
 	copy(buf.buf[buf.pos+dot+1:], dec.buf[dec.pos+dot:])
 
 	buf.pos += declen + 1
+
 	trimzero(buf)
 	return buf.String()
 }
@@ -465,25 +554,29 @@ func num2str2(exponent int, fraction uint64, buf *bufPos) string {
 func num2str(n float64) string {
 	// IEEE-754
 	bits := math.Float64bits(n)
-	sign := uint8(bits>>63) == 0 // nock moment #2
 	exponent := int(bits >> 52 & 0x7ff)
 	fraction := bits & (1<<52 - 1)
+	sign := uint8(bits>>63) == 0 // nock moment #2
 
 	if exponent == 0x7ff {
 		// specials
 		if fraction != 0 {
 			return "nan"
 		}
+
 		if sign {
 			return "inf"
 		}
+
 		return "-inf"
 	}
+
 	if exponent == 0 && fraction == 0 {
 		// zero
 		if sign {
 			return "0"
 		}
+
 		return "-0"
 	}
 
@@ -493,60 +586,8 @@ func num2str(n float64) string {
 	if sign {
 		return s
 	}
+
 	return "-" + s
-}
-
-func global_tostring(args Args) (r []Val, err error) {
-	value := args.GetAny()
-
-	return args.Rets(Str(ToString(value))), nil
-}
-
-func global_type(args Args) (r []Val, err error) {
-	obj := args.GetAny()
-
-	return args.Rets(Str(TypeOf(obj))), nil
-}
-
-func hasValidPrefix(path string) bool {
-	return path[:2] == "./" || path[:3] == "../"
-}
-
-func global_require(args Args) (r []Val, err error) {
-	name := args.GetString()
-
-	name = strings.ReplaceAll(name, "\\", "/")
-	if !hasValidPrefix(name) {
-		return nil, errors.New("require path must start with a valid prefix: ./ or ../")
-	}
-	if strings.HasSuffix(name, ".luau") { // not the exact same check order but whatever
-		return nil, errors.New("error requiring module: consider removing the file extension")
-	}
-
-	// combine filepath and name to get the new path
-	fp := args.Co.Filepath
-	path := filepath.Join(filepath.Dir(args.Co.Dbgpath), name)
-	path = strings.ReplaceAll(path, "\\", "/")
-	// fmt.Println("REQUIRING", path)
-
-	if path == fp {
-		return nil, errors.New("cyclic module dependency: file requires itself")
-	}
-
-	// compile bytecodeee
-	p, err := compile.Compile(args.Co.Compiler, path)
-	if err != nil {
-		return nil, fmt.Errorf("error requiring module: %w", err)
-	}
-
-	rh := args.Co.RequireHistory
-	if slices.Contains(rh, path) {
-		return nil, errors.New("cyclic module dependency: file requires itself indirectly")
-	}
-	p.RequireHistory = append(rh, fp)
-
-	// this is where we take it to the top babbyyyyy (with the same as parent global env)
-	return args.Rets(ObjVal(p)), nil
 }
 
 var Globals = []Function{

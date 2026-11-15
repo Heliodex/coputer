@@ -2,8 +2,28 @@ package types
 
 import "encoding/json"
 
-// ProgramType represents the type of a program.
-type ProgramType uint8
+type (
+	// ProgramType represents the type of a program.
+	ProgramType uint8
+
+	// TODO: either merge or distinguish these
+
+	// Encoding can't really error, decoding can
+	// encoding could probably be cached if we care
+
+	// ProgramArgs represents the arguments passed to a program.
+	ProgramArgs interface {
+		Type() ProgramType
+		Encode() []byte
+	}
+
+	// ProgramRets represents the response returned from a program.
+	ProgramRets interface {
+		// Equal(ProgramRets) error
+		Type() ProgramType
+		Encode() []byte
+	}
+)
 
 const (
 	// TestProgramType represents the type of a test program.
@@ -12,17 +32,6 @@ const (
 	// WebProgramType represents the type of a web program.
 	WebProgramType
 )
-
-// TODO: either merge or distinguish these
-
-// Encoding can't really error, decoding can
-// encoding could probably be cached if we care
-
-// ProgramArgs represents the arguments passed to a program.
-type ProgramArgs interface {
-	Type() ProgramType
-	Encode() []byte
-}
 
 // type EncodedArgs[T ProgramArgs] struct {
 // 	Args    T
@@ -40,13 +49,6 @@ type ProgramArgs interface {
 
 func DecodeArgs[T ProgramArgs](encoded []byte) (args T, err error) {
 	return args, json.Unmarshal(encoded, &args)
-}
-
-// ProgramRets represents the response returned from a program.
-type ProgramRets interface {
-	// Equal(ProgramRets) error
-	Type() ProgramType
-	Encode() []byte
 }
 
 // type EncodedRets[T ProgramRets] struct {

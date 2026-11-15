@@ -11,6 +11,17 @@ import (
 	. "github.com/Heliodex/coputer/litecode/types"
 )
 
+type (
+	capture struct {
+		init, len int
+	}
+
+	captures struct {
+		level int
+		captures []capture
+	}
+)
+
 // loggin shit for login' shit
 // var depth = 0
 
@@ -25,6 +36,27 @@ var (
 	errMalformedEsc = fmt.Errorf("malformed pattern (ends with '%c')", l_esc)
 	errMalformedBracket = errors.New("malformed pattern (missing ']')")
 )
+
+func captureToClose(caps *captures) (int, error) {
+	for level := caps.level - 1; level >= 0; level-- {
+		// fmt.Println(" cap level", level, caps.captures, caps.captures[level])
+		if caps.captures[level].len == cap_unfinished {
+			return level, nil
+		}
+	}
+
+	return 0, errors.New("invalid pattern capture")
+}
+
+func checkCapture(l int, caps *captures) (int, error) {
+	l -= '1'
+
+	if l < 0 || l >= caps.level || caps.captures[l].len == cap_unfinished {
+		return 0, fmt.Errorf("invalid capture index %%%d", l+1)
+	}
+
+	return l, nil
+}
 
 func classend(p string, pi int) (int, error) {
 	// dlog("CLASSEND", p, pi, string(p[pi]))
@@ -55,9 +87,11 @@ func classend(p string, pi int) (int, error) {
 			if pi+1 >= len(p) {
 				return 0, errMalformedBracket
 			}
+
 			if p[pi] == l_esc {
 				pi++ // skip escapes (eg. '%]')
 			}
+
 			pi++
 
 			if p[pi] == ']' {
@@ -67,6 +101,61 @@ func classend(p string, pi int) (int, error) {
 	}
 
 	return pi + 1, nil
+}
+
+// literalItem returns the byte a pattern item matches verbatim, and whether the item is a plain literal rather than '.', an escape, or a bracket class.
+func literalItem(p string, pi int) (byte, bool) {
+	c := p[pi]
+
+	return c, c != '.' && c != l_esc && c != '['
+}
+
+func matchCapture(s string, si, l int, caps *captures) (i int, err error) {
+	if l, err = checkCapture(l, caps); err != nil {
+		return
+	}
+	// fmt.Println("matching catching", s, si, l)
+	c := caps.captures[l]
+
+	if ll := c.len; len(s) >= ll {
+		if s2 := s[si:]; s[c.init:][:ll] == s2[:min(len(s2), ll)] {
+			return si + ll, nil
+		}
+	}
+
+	return -1, nil
+}
+
+func matchbalance(s, p string, si, pi int) (int, error) {
+	if pi >= len(p)-1 {
+		return 0, errors.New("malformed pattern (missing arguments to '%b')")
+	}
+
+	b := p[pi]
+	if si >= len(s) || s[si] != b {
+		return -1, nil
+	}
+
+	for e, cont := p[pi+1], 1; ; {
+		si++
+
+		if si >= len(s) {
+			break
+		}
+
+		switch s[si] {
+		case e:
+			if cont == 1 {
+				return si + 1, nil
+			}
+
+			cont--
+		case b:
+			cont++
+		}
+	}
+
+	return -1, nil // string ends out of balance
 }
 
 func matchclass(c, cl byte) (res bool) {
@@ -114,6 +203,7 @@ func matchbracketclass(c byte, p string, pi, eci int) (sig bool) {
 		if p[pi] == l_esc {
 			// fmt.Println("it's a %")
 			pi++
+
 			if matchclass(c, p[pi]) {
 				// fmt.Println("MATCHEDClass")
 				return
@@ -122,6 +212,7 @@ func matchbracketclass(c byte, p string, pi, eci int) (sig bool) {
 			if p[pi] <= c && c <= p[pi+2] {
 				return
 			}
+
 			pi += 2
 		} else if p[pi] == c {
 			return
@@ -131,54 +222,15 @@ func matchbracketclass(c byte, p string, pi, eci int) (sig bool) {
 	return !sig
 }
 
-func singlematch(s, p string, si, pi, epi int) bool {
-	// dlog("SINGLEMATCH", s, p, si, pi, epi)
-
-	if si >= len(s) {
-		return false
-	}
-
-	c := s[si]
-	switch p[pi] {
-	case '.': // matches any char
-		return true
-	case l_esc:
-		// dlog("  match class", string(c), p[pi+1], m)
-		return matchclass(c, p[pi+1])
-	case '[':
-		return matchbracketclass(c, p, pi, epi-1)
-	}
-	return p[pi] == c
-}
-
-func matchbalance(s, p string, si, pi int) (int, error) {
-	if pi >= len(p)-1 {
-		return 0, errors.New("malformed pattern (missing arguments to '%b')")
-	}
-
-	b := p[pi]
-	if si >= len(s) || s[si] != b {
-		return -1, nil
-	}
-
-	for e, cont := p[pi+1], 1; ; {
-		si++
-		if si >= len(s) {
-			break
-		}
-
-		switch s[si] {
-		case e:
-			if cont == 1 {
-				return si + 1, nil
-			}
-			cont--
-		case b:
-			cont++
+// check whether pattern has no special characters
+func nospecials(p string) bool {
+	for _, c := range p {
+		if strings.ContainsRune(specials, c) {
+			return false // pattern has a special character
 		}
 	}
 
-	return -1, nil // string ends out of balance
+	return true // no special characters found
 }
 
 func pushCapture(caps *captures, s string, start, end, i int) (Val, error) {
@@ -188,11 +240,13 @@ func pushCapture(caps *captures, s string, start, end, i int) (Val, error) {
 		if i != 0 {
 			return NilVal, errors.New("invalid capture index")
 		}
+
 		if start == -1 {
 			// caps.level == 0, too
 			// fmt.Println("    adding whole match")
 			return Str(s), nil // add whole string
 		}
+
 		return Str(s[start:end]), nil // add whole match
 	}
 
@@ -201,6 +255,7 @@ func pushCapture(caps *captures, s string, start, end, i int) (Val, error) {
 	if l == cap_unfinished {
 		return NilVal, errors.New("unfinished capture")
 	}
+
 	if l == cap_position {
 		// fmt.Println("    adding cap position")
 		return Num(float64(i + 1)), nil
@@ -218,12 +273,14 @@ func pushCaptures(caps *captures, s string, start, end int, find bool) (r []Val,
 			// fmt.Println("  no nlevels")
 			return
 		}
+
 		nlevels = 1
 	}
 
 	// fmt.Println("  nlevels", nlevels)
 
 	r = make([]Val, nlevels)
+
 	for i := range nlevels {
 		if r[i], err = pushCapture(caps, s, start, end, i); err != nil {
 			return
@@ -236,20 +293,26 @@ func pushCaptures(caps *captures, s string, start, end int, find bool) (r []Val,
 	return
 }
 
-// check whether pattern has no special characters
-func nospecials(p string) bool {
-	for _, c := range p {
-		if strings.ContainsRune(specials, c) {
-			return false // pattern has a special character
-		}
-	}
-	return true // no special characters found
-}
+func singlematch(s, p string, si, pi, epi int) bool {
+	// dlog("SINGLEMATCH", s, p, si, pi, epi)
 
-// literalItem returns the byte a pattern item matches verbatim, and whether the item is a plain literal rather than '.', an escape, or a bracket class.
-func literalItem(p string, pi int) (byte, bool) {
-	c := p[pi]
-	return c, c != '.' && c != l_esc && c != '['
+	if si >= len(s) {
+		return false
+	}
+
+	c := s[si]
+
+	switch p[pi] {
+	case '.': // matches any char
+		return true
+	case l_esc:
+		// dlog("  match class", string(c), p[pi+1], m)
+		return matchclass(c, p[pi+1])
+	case '[':
+		return matchbracketclass(c, p, pi, epi-1)
+	}
+
+	return p[pi] == c
 }
 
 func maxExpand(s, p string, si, pi, epi int, caps *captures) (res int, err error) {
@@ -272,6 +335,7 @@ func maxExpand(s, p string, si, pi, epi int, caps *captures) (res int, err error
 		if res, err = matchPos(s, p, si+i, epi+1, caps); err != nil || res != -1 {
 			return
 		}
+
 		i-- // else didn't match; reduce 1 repetition to try again
 	}
 
@@ -298,34 +362,6 @@ func minExpand(s, p string, si, pi, epi int, caps *captures) (res int, err error
 	}
 }
 
-type capture struct {
-	init, len int
-}
-
-type captures struct {
-	level int
-	captures []capture
-}
-
-func checkCapture(l int, caps *captures) (int, error) {
-	l -= '1'
-	if l < 0 || l >= caps.level || caps.captures[l].len == cap_unfinished {
-		return 0, fmt.Errorf("invalid capture index %%%d", l+1)
-	}
-
-	return l, nil
-}
-
-func captureToClose(caps *captures) (int, error) {
-	for level := caps.level - 1; level >= 0; level-- {
-		// fmt.Println(" cap level", level, caps.captures, caps.captures[level])
-		if caps.captures[level].len == cap_unfinished {
-			return level, nil
-		}
-	}
-	return 0, errors.New("invalid pattern capture")
-}
-
 func startCapture(s, p string, si, pi, what int, caps *captures) (si2 int, err error) {
 	level := caps.level
 	if level >= max_captures {
@@ -343,6 +379,7 @@ func startCapture(s, p string, si, pi, what int, caps *captures) (si2 int, err e
 	if si, err = matchPos(s, p, si, pi, caps); err != nil {
 		return 0, err
 	}
+
 	if si == -1 { // match failed?
 		caps.level-- // undo capture
 	}
@@ -362,6 +399,7 @@ func endCapture(s, p string, si, pi int, caps *captures) (si2 int, err error) {
 	if si, err = matchPos(s, p, si, pi, caps); err != nil {
 		return 0, err
 	}
+
 	if si == -1 { // match failed?
 		// fmt.Println("undo capture")
 		caps.captures[l].len = cap_unfinished // undo capture
@@ -372,21 +410,6 @@ func endCapture(s, p string, si, pi int, caps *captures) (si2 int, err error) {
 	return si, nil
 }
 
-func matchCapture(s string, si, l int, caps *captures) (i int, err error) {
-	if l, err = checkCapture(l, caps); err != nil {
-		return
-	}
-	// fmt.Println("matching catching", s, si, l)
-	c := caps.captures[l]
-
-	if ll := c.len; len(s) >= ll {
-		if s2 := s[si:]; s[c.init:][:ll] == s2[:min(len(s2), ll)] {
-			return si + ll, nil
-		}
-	}
-	return -1, nil
-}
-
 func optSuffix(s, p string, si, pi, epi int, caps *captures) (cont bool, si2, pi2 int, err error) {
 	switch p[epi] {
 	case '?': // optional
@@ -394,6 +417,7 @@ func optSuffix(s, p string, si, pi, epi int, caps *captures) (cont bool, si2, pi
 		if si2, err = matchPos(s, p, si+1, epi+1, caps); err != nil {
 			return
 		}
+
 		if si2 == -1 {
 			// dlog("pi is", pi, epi+1)
 			return true, si, epi, nil
@@ -427,6 +451,7 @@ func defaultCase(s, p string, si, pi int, caps *captures) (cont bool, si2, pi2 i
 	if err != nil {
 		return
 	}
+
 	if !singlematch(s, p, si, pi, epi) {
 		// does not match at least once?
 		// dlog("  nomatch", epi)
@@ -442,6 +467,7 @@ func defaultCase(s, p string, si, pi int, caps *captures) (cont bool, si2, pi2 i
 		// dlog("  '+' or no suffix")
 		return false, -1, pi, nil // fail
 	}
+
 	if epi >= len(p) {
 		// matched once
 		// dlog("matched once")
@@ -465,6 +491,7 @@ func matchPos(s, p string, si, pi int, caps *captures) (si2 int, err error) {
 		switch p[pi] {
 		case '(': // start capture
 			what := cap_unfinished
+
 			if p[pi+1] == ')' { // position capture?
 				// dlog("POSITION CAPTURE")
 				what = cap_position
@@ -485,6 +512,7 @@ func matchPos(s, p string, si, pi int, caps *captures) (si2 int, err error) {
 				if si, err = matchbalance(s, p, si, pi+2); err != nil {
 					return 0, err
 				}
+
 				if si != -1 {
 					pi += 3 // 1 less beacuse increment
 					// dlog("matched balanced", pi < len(p))
@@ -495,6 +523,7 @@ func matchPos(s, p string, si, pi int, caps *captures) (si2 int, err error) {
 				// dlog("the final frontier", si)
 
 				pi += 2
+
 				if pi == len(p) || p[pi] != '[' {
 					return 0, errors.New("missing '[' after '%f' in pattern")
 				}
@@ -517,6 +546,7 @@ func matchPos(s, p string, si, pi int, caps *captures) (si2 int, err error) {
 				// dlog("m1", m1)
 				if !matchbracketclass(previous, p, pi, ep-1) {
 					var sc byte
+
 					if si != len(s) {
 						sc = s[si]
 					}
@@ -534,11 +564,13 @@ func matchPos(s, p string, si, pi int, caps *captures) (si2 int, err error) {
 				if si, err = matchCapture(s, si, int(p[pi+1]), caps); err != nil {
 					return
 				}
+
 				if si != -1 {
 					// dlog("matched catched")
 					pi++
 					continue
 				}
+
 				return si, nil
 			}
 			// go to default (escaped character)
@@ -551,10 +583,13 @@ func matchPos(s, p string, si, pi int, caps *captures) (si2 int, err error) {
 					// dlog("not end of string", len(s)-si)
 					return -1, nil
 				}
+
 				continue
 			}
+
 			if c != l_esc && c != '[' {
 				epi := pi + 1
+
 				if si < len(s) && (c == '.' || s[si] == c) {
 					if epi >= len(p) {
 						si++
@@ -567,22 +602,28 @@ func matchPos(s, p string, si, pi int, caps *captures) (si2 int, err error) {
 						if e != nil {
 							return 0, e
 						}
+
 						if ns != -1 {
 							return ns, nil
 						}
+
 						pi = epi
 						continue
 					}
+
 					var cont bool
 					if cont, si, pi, err = optSuffix(s, p, si, pi, epi, caps); !cont {
 						return si, err
 					}
+
 					continue
 				}
+
 				if epi < len(p) && (p[epi] == '*' || p[epi] == '?' || p[epi] == '-') {
 					pi = epi
 					continue
 				}
+
 				return -1, nil
 			}
 
@@ -602,6 +643,7 @@ func match(s, p string, caps *captures) (start, end int, err error) {
 	// dlog("MATCH", s, p, len(s), len(p))
 
 	m, pis := 0, 1
+
 	if len(p) > 0 && p[0] != '^' {
 		m, pis = len(s), 0
 	}
@@ -615,7 +657,6 @@ func match(s, p string, caps *captures) (start, end int, err error) {
 			return
 		}
 		// depth--
-
 		// dlog("MATCH DONE", start, end)
 	}
 
@@ -624,7 +665,6 @@ func match(s, p string, caps *captures) (start, end int, err error) {
 
 func stringFindAux(s, p string, i int, plain, find bool) (r []Val, err error) {
 	ls := len(s)
-
 	init := max(1, string_posrelat(i, ls))
 	if init > ls+1 { // start after string's end?
 		return []Val{NilVal}, nil // cannot find anything
@@ -632,25 +672,24 @@ func stringFindAux(s, p string, i int, plain, find bool) (r []Val, err error) {
 
 	// explicit request or no special characters?
 	is := s[init-1:]
+
 	if find && (plain || nospecials(p)) {
 		// do a plain search, good-style
 		pos := strings.Index(is, p)
 		if pos == -1 {
 			return []Val{NilVal}, nil // one nil
 		}
-		return []Val{
-			Num(float64(pos + init)),
-			Num(float64(pos + init + len(p) - 1)),
-		}, nil
+
+		return []Val{Num(float64(pos + init)), Num(float64(pos + init + len(p) - 1))}, nil
 	}
 
 	// pattern matching
 	caps := &captures{}
-
 	start, end, err := match(is, p, caps)
 	if err != nil {
 		return
 	}
+
 	if start == -1 {
 		return []Val{NilVal}, nil // not found
 	}
@@ -662,8 +701,5 @@ func stringFindAux(s, p string, i int, plain, find bool) (r []Val, err error) {
 
 	// fmt.Println("pushed", rs)
 
-	return append([]Val{
-		Num(float64(start + init)),
-		Num(float64(end + init - 1)),
-	}, r...), nil
+	return append([]Val{Num(float64(start + init)), Num(float64(end + init - 1))}, r...), nil
 }

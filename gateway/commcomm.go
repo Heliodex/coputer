@@ -20,6 +20,7 @@ func GetProfile(pk keys.PK) (programs []string, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("get programs: %v", err)
 	}
+
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
@@ -33,9 +34,11 @@ func GetProfile(pk keys.PK) (programs []string, err error) {
 
 	bprograms := bytes.Split(bytes.TrimSpace(b), []byte{'\n'})
 	programs = make([]string, len(bprograms))
+
 	for i, v := range bprograms {
 		programs[i] = string(v)
 	}
+
 	return
 }
 
@@ -61,5 +64,6 @@ func StartWebProgram(pk keys.PK, name string, args WebArgs) (rets WebRets, err e
 	if rets, err = DecodeRets[WebRets](b); err != nil {
 		return WebRets{}, fmt.Errorf("decode response body while starting web program: %v", err)
 	}
+
 	return
 }

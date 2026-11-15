@@ -29,7 +29,6 @@ func TestExec(t *testing.T) {
 		if err := test.Rets.Equal(res); err != nil {
 			t.Fatal("unexpected response:", err)
 		}
-
 		t.Log(string(res.Body))
 	}
 }

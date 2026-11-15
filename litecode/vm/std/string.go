@@ -8,53 +8,6 @@ import (
 	. "github.com/Heliodex/coputer/litecode/types"
 )
 
-func string_posrelat(pos, l int) int {
-	// relative string position: negative means back from end
-	if pos < 0 {
-		pos += l + 1
-	}
-	return max(0, pos)
-}
-
-func string_byte(args Args) (bytes []Val, err error) {
-	s := args.GetString()
-	l := len(s)
-
-	i := args.GetNumber(1)
-	posi := string_posrelat(int(i), l)
-	j := args.GetNumber(float64(posi))
-	pose := string_posrelat(int(j), l)
-
-	posi, pose = max(posi, 1), min(pose, l)
-
-	n := pose - posi + 1
-	if n < 0 {
-		return // empty interval; return no values
-	}
-	if posi+n <= pose { // overflow?
-		return nil, errors.New("string slice too long")
-	}
-
-	bytes = make([]Val, n)
-	for b := range bytes {
-		bytes[b] = Num(float64(s[posi+b-1]))
-	}
-	return
-}
-
-func string_char(args Args) (r []Val, err error) {
-	l := len(args.List)
-
-	bytes := make([]byte, l)
-	for i := range l {
-		a := args.GetNumber()
-
-		bytes[i] = byte(a)
-	}
-
-	return args.Rets(Str(string(bytes))), nil
-}
-
 // matching yeyyy
 
 const (
@@ -65,60 +18,13 @@ const (
 	// maxcalls       = 200
 )
 
-func tolower(c byte) byte {
-	if c >= 'A' && c <= 'Z' {
-		return c + 'a' - 'A'
-	}
-	return c
-}
-
-// stole from ctype
-func isalpha(c byte) bool {
-	return c|32-'a' < 26
-}
-func iscntrl(c byte) bool {
-	return c < ' ' || c == 127
-}
-func isdigit(c byte) bool {
-	return c-'0' < 10
-}
-func isgraph(c byte) bool {
-	return c-'!' < 94
-}
-func islower(c byte) bool {
-	return c-'a' < 26
-}
-func isspace(c byte) bool {
-	return c == ' ' || c-'\t' < 5
-}
-func isupper(c byte) bool {
-	return c-'A' < 26
-}
-func isalnum(c byte) bool {
-	return isalpha(c) || isdigit(c)
-}
-func ispunct(c byte) bool {
-	return isgraph(c) && !isalnum(c)
-}
-func isxdigit(c byte) bool {
-	return isdigit(c) || c|32-'a' < 6
-}
-
-func string_find(args Args) (r []Val, err error) {
-	s, p := args.GetString(), args.GetString()
-	i := int(args.GetNumber(1))
-	plain := args.GetBool(false)
-
-	return stringFindAux(s, p, i, plain, true)
-}
-
 func addquoted(args Args, b *strings.Builder) {
 	s := args.GetString()
 
 	b.WriteByte('"')
 	for i, l := uint(0), len(s); l > 0; l-- {
 		switch w := s[i]; w {
-		case '"', '\\', '\n':
+		case '\n', '"', '\\':
 			b.WriteByte('\\')
 			b.WriteByte(w)
 		case '\r':
@@ -128,42 +34,10 @@ func addquoted(args Args, b *strings.Builder) {
 		default:
 			b.WriteByte(w)
 		}
+
 		i++
 	}
 	b.WriteByte('"')
-}
-
-func scanformat(strfrmt string) (byte, string, int, error) {
-	const flags = "-+ #0"
-
-	var p int
-	for strings.ContainsRune(flags, rune(strfrmt[p])) {
-		p++ // skip flags
-	}
-	if p > len(flags) {
-		return 0, "", 0, errors.New("invalid format (repeated flags)")
-	}
-	if isdigit(strfrmt[p]) {
-		p++ // skip width
-		if isdigit(strfrmt[p]) {
-			p++ // (2 digits at most)
-		}
-	}
-	if strfrmt[p] == '.' {
-		p++
-		if isdigit(strfrmt[p]) {
-			p++ // skip precision
-			if isdigit(strfrmt[p]) {
-				p++ // (2 digits at most)
-			}
-		}
-	}
-
-	if isdigit(strfrmt[p]) {
-		return 0, "", 0, errors.New("invalid format (width or precision too long)")
-	}
-
-	return strfrmt[p], strfrmt[:p], p, nil
 }
 
 func format(form string, formatIndicator byte, sub any) string {
@@ -181,10 +55,11 @@ func formatItem(args *Args, formatIndicator byte, form string, b *strings.Builde
 		n := args.GetNumber()
 
 		b.WriteString(format(form, 'd', int(n)))
-	case 'o', 'u', 'x', 'X':
+	case 'X', 'o', 'u', 'x':
 		n := args.GetNumber()
 
 		var v uint64
+
 		if n < 0 {
 			v = uint64(int64(n))
 		} else {
@@ -195,10 +70,10 @@ func formatItem(args *Args, formatIndicator byte, form string, b *strings.Builde
 			formatIndicator = 'd'
 		}
 		b.WriteString(format(form, formatIndicator, v))
-	case 'e', 'E', 'f', 'g', 'G':
+	case 'E', 'G', 'e', 'f', 'g':
 		n := args.GetNumber()
-
 		format := fmt.Sprintf("%%%s%c", form, formatIndicator)
+
 		fmt.Fprintf(b, format, n)
 	case 'q':
 		addquoted(*args, b)
@@ -209,7 +84,6 @@ func formatItem(args *Args, formatIndicator byte, form string, b *strings.Builde
 			b.WriteString(s)
 			break
 		}
-
 		b.WriteString(format(form, 's', s))
 	case '*':
 		//  %* is parsed above, so if we got here we must have a %...*
@@ -217,84 +91,21 @@ func formatItem(args *Args, formatIndicator byte, form string, b *strings.Builde
 	default: // also treat cases `pnLlh'
 		return fmt.Errorf("invalid option '%%%c' to 'format'", formatIndicator)
 	}
+
 	return nil
 }
 
-func Fmtstring(strfrmt string, args Args) (string, error) {
-	var b strings.Builder
-	for i, sfl := 0, len(strfrmt); i < sfl; {
-		if strfrmt[i] != l_esc {
-			b.WriteByte(strfrmt[i])
-			i++
-			continue
-		}
-
-		i++
-		if strfrmt[i] == l_esc {
-			b.WriteByte(l_esc) // %%
-			i++
-			continue
-		}
-		if strfrmt[i] == '*' {
-			a := args.GetAny()
-			b.WriteString(ToString(a))
-			i++
-			continue
-		}
-
-		// format item
-		args.CheckNextArg()
-		formatIndicator, form, p, err := scanformat(strfrmt[i:])
-		if err != nil {
-			return "", err
-		}
-		i += p + 1
-
-		if err := formatItem(&args, formatIndicator, form, &b); err != nil {
-			return "", err
-		}
-	}
-
-	return b.String(), nil
+// stole from ctype
+func isalpha(c byte) bool {
+	return c|32-'a' < 26
 }
 
-func string_format(args Args) (r []Val, err error) {
-	strfrmt := args.GetString()
-
-	res, err := Fmtstring(strfrmt, args)
-	if err != nil {
-		return
-	}
-	return args.Rets(Str(res)), nil
+func iscntrl(c byte) bool {
+	return c < ' ' || c == 127
 }
 
-func string_gmatch(args Args) (r []Val, err error) {
-	s, p := args.GetString(), args.GetString()
-	ls := len(s)
-
-	var start int
-	gmatch := func(args Args) (r []Val, err error) {
-		for caps := (&captures{}); start <= ls; start++ {
-			caps.level = 0
-
-			end, err := matchPos(s, p, start, 0, caps)
-			if err != nil {
-				return nil, err
-			}
-			if end == -1 {
-				continue
-			}
-
-			// we got a match
-			r, err = pushCaptures(caps, s, start, end, false)
-			start = max(start+1, end)
-			return r, err
-		}
-
-		return
-	}
-
-	return args.Rets(FnVal(MakeFn("gmatch", gmatch))), nil
+func isdigit(c byte) bool {
+	return c-'0' < 10
 }
 
 func add_s(caps *captures, b *strings.Builder, s string, si, ei int, news string) error {
@@ -317,7 +128,6 @@ func add_s(caps *captures, b *strings.Builder, s string, si, ei int, news string
 			if err != nil {
 				return err
 			}
-
 			b.WriteString(ToString(r)) // add capture to accumulated result
 		}
 	}
@@ -335,6 +145,7 @@ func add_value(caps *captures, b *strings.Builder, co *Coroutine, s string, si, 
 		if err != nil {
 			return err
 		}
+
 		if len(rets) != 0 {
 			val = rets[0]
 		}
@@ -353,6 +164,7 @@ func add_value(caps *captures, b *strings.Builder, co *Coroutine, s string, si, 
 		b.WriteString(s[si:ei]) // keep original text
 		return
 	}
+
 	if _, ok := AsString(val); !ok {
 		return fmt.Errorf("invalid replacement value (a %s)", TypeOf(val))
 	}
@@ -362,27 +174,203 @@ func add_value(caps *captures, b *strings.Builder, co *Coroutine, s string, si, 
 	return
 }
 
+func isalnum(c byte) bool {
+	return isalpha(c) || isdigit(c)
+}
+
+func isgraph(c byte) bool {
+	return c-'!' < 94
+}
+
+func islower(c byte) bool {
+	return c-'a' < 26
+}
+
+func ispunct(c byte) bool {
+	return isgraph(c) && !isalnum(c)
+}
+
+func isspace(c byte) bool {
+	return c == ' ' || c-'\t' < 5
+}
+
+func isupper(c byte) bool {
+	return c-'A' < 26
+}
+
+func isxdigit(c byte) bool {
+	return isdigit(c) || c|32-'a' < 6
+}
+
+func scanformat(strfrmt string) (byte, string, int, error) {
+	const flags = "-+ #0"
+
+	var p int
+
+	for strings.ContainsRune(flags, rune(strfrmt[p])) {
+		p++ // skip flags
+	}
+
+	if p > len(flags) {
+		return 0, "", 0, errors.New("invalid format (repeated flags)")
+	}
+
+	if isdigit(strfrmt[p]) {
+		p++ // skip width
+		if isdigit(strfrmt[p]) {
+			p++ // (2 digits at most)
+		}
+	}
+
+	if strfrmt[p] == '.' {
+		p++
+
+		if isdigit(strfrmt[p]) {
+			p++ // skip precision
+			if isdigit(strfrmt[p]) {
+				p++ // (2 digits at most)
+			}
+		}
+	}
+
+	if isdigit(strfrmt[p]) {
+		return 0, "", 0, errors.New("invalid format (width or precision too long)")
+	}
+
+	return strfrmt[p], strfrmt[:p], p, nil
+}
+
+func Fmtstring(strfrmt string, args Args) (string, error) {
+	var b strings.Builder
+
+	for i, sfl := 0, len(strfrmt); i < sfl; {
+		if strfrmt[i] != l_esc {
+			b.WriteByte(strfrmt[i])
+
+			i++
+			continue
+		}
+
+		i++
+
+		if strfrmt[i] == l_esc {
+			b.WriteByte(l_esc) // %%
+			i++
+			continue
+		}
+
+		if strfrmt[i] == '*' {
+			a := args.GetAny()
+
+			b.WriteString(ToString(a))
+
+			i++
+			continue
+		}
+
+		// format item
+		args.CheckNextArg()
+
+		formatIndicator, form, p, err := scanformat(strfrmt[i:])
+		if err != nil {
+			return "", err
+		}
+
+		i += p + 1
+
+		if err := formatItem(&args, formatIndicator, form, &b); err != nil {
+			return "", err
+		}
+	}
+
+	return b.String(), nil
+}
+
+func string_char(args Args) (r []Val, err error) {
+	l := len(args.List)
+	bytes := make([]byte, l)
+
+	for i := range l {
+		a := args.GetNumber()
+		bytes[i] = byte(a)
+	}
+
+	return args.Rets(Str(string(bytes))), nil
+}
+
+func string_find(args Args) (r []Val, err error) {
+	s, p := args.GetString(), args.GetString()
+	i := int(args.GetNumber(1))
+	plain := args.GetBool(false)
+
+	return stringFindAux(s, p, i, plain, true)
+}
+
+func string_format(args Args) (r []Val, err error) {
+	strfrmt := args.GetString()
+	res, err := Fmtstring(strfrmt, args)
+	if err != nil {
+		return
+	}
+
+	return args.Rets(Str(res)), nil
+}
+
+func string_gmatch(args Args) (r []Val, err error) {
+	s, p := args.GetString(), args.GetString()
+	ls := len(s)
+
+	var start int
+
+	gmatch := func(args Args) (r []Val, err error) {
+		for caps := (&captures{}); start <= ls; start++ {
+			caps.level = 0
+			end, err := matchPos(s, p, start, 0, caps)
+			if err != nil {
+				return nil, err
+			}
+
+			if end == -1 {
+				continue
+			}
+
+			// we got a match
+			r, err = pushCaptures(caps, s, start, end, false)
+			start = max(start+1, end)
+
+			return r, err
+		}
+
+		return
+	}
+
+	return args.Rets(FnVal(MakeFn("gmatch", gmatch))), nil
+}
+
 func string_gsub(args Args) (r []Val, err error) {
 	src := args.GetString()
 	p := args.GetString()
 	next := args.GetAny()
-
 	if !IsString(next) && !IsFunction(next) && !IsTable(next) {
 		return nil, fmt.Errorf("invalid argument #3 to 'gsub' (string/function/table expected, got %s)", TypeOf(next))
 	}
 
 	srcl := len(src)
 	max_s := args.GetNumber(float64(srcl + 1))
-
 	m, pis, sis := int(max_s), 0, 0
+
 	var anchor bool
+
 	if len(p) > 0 && p[0] == '^' {
 		anchor = true
 		pis = 1
 	}
 
-	var n int // number of replacements
-	var b strings.Builder
+	var (
+		n int // number of replacements
+		b strings.Builder
+	)
+
 	caps := &captures{}
 
 	for n < m {
@@ -391,8 +379,10 @@ func string_gsub(args Args) (r []Val, err error) {
 		if err != nil {
 			return nil, err
 		}
+
 		if e != -1 {
 			n++
+
 			add_value(caps, &b, args.Co, src, sis, e, next)
 		}
 
@@ -400,6 +390,7 @@ func string_gsub(args Args) (r []Val, err error) {
 			sis = e // skip it
 		} else if sis < srcl {
 			b.WriteByte(src[sis])
+
 			sis++
 		} else {
 			break
@@ -436,6 +427,41 @@ func string_match(args Args) (r []Val, err error) {
 	return stringFindAux(s, p, i, false, false)
 }
 
+func string_posrelat(pos, l int) int {
+	// relative string position: negative means back from end
+	if pos < 0 {
+		pos += l + 1
+	}
+
+	return max(0, pos)
+}
+
+func string_byte(args Args) (bytes []Val, err error) {
+	s := args.GetString()
+	l := len(s)
+	i := args.GetNumber(1)
+	posi := string_posrelat(int(i), l)
+	j := args.GetNumber(float64(posi))
+	pose := string_posrelat(int(j), l)
+	posi, pose = max(posi, 1), min(pose, l)
+	n := pose - posi + 1
+	if n < 0 {
+		return // empty interval; return no values
+	}
+
+	if posi+n <= pose { // overflow?
+		return nil, errors.New("string slice too long")
+	}
+
+	bytes = make([]Val, n)
+
+	for b := range bytes {
+		bytes[b] = Num(float64(s[posi+b-1]))
+	}
+
+	return
+}
+
 func string_rep(args Args) (r []Val, err error) {
 	s := args.GetString()
 	n := args.GetNumber()
@@ -445,33 +471,34 @@ func string_rep(args Args) (r []Val, err error) {
 
 func string_reverse(args Args) (r []Val, err error) {
 	s := args.GetString()
-
 	rs := []byte(s) // []rune(s)
 	for i, j := 0, len(rs)-1; i < j; i, j = i+1, j-1 {
 		rs[i], rs[j] = rs[j], rs[i]
 	}
+
 	return args.Rets(Str(string(rs))), nil
 }
 
 func string_split(args Args) (r []Val, err error) {
 	s := args.GetString()
 	separator := args.GetString(",")
-
 	split := strings.Split(s, separator)
 
 	// can't copy (or copy()) []string to []types.Val
 	a := make([]Val, len(split))
+
 	for i, v := range split {
 		a[i] = Str(v)
 	}
 
-	return args.Rets(TableVal(&Table{List: a})), nil
+	return args.Rets(TableVal(&Table{
+		List: a,
+	})), nil
 }
 
 func string_sub(args Args) (r []Val, err error) {
 	s := args.GetString()
 	i, j := args.GetNumber(1), args.GetNumber(-1)
-
 	l := len(s)
 	start, end := string_posrelat(int(i), l), string_posrelat(int(j), l)
 	start, end = max(start, 1), min(end, l)
@@ -479,6 +506,7 @@ func string_sub(args Args) (r []Val, err error) {
 	if end < start {
 		return args.Rets(Str("")), nil
 	}
+
 	return args.Rets(Str(s[start-1 : end])), nil
 }
 
@@ -486,6 +514,14 @@ func string_upper(args Args) (r []Val, err error) {
 	s := args.GetString()
 
 	return args.Rets(Str(strings.ToUpper(s))), nil
+}
+
+func tolower(c byte) byte {
+	if c >= 'A' && c <= 'Z' {
+		return c + 'a' - 'A'
+	}
+
+	return c
 }
 
 var Libstring = NewLib([]Function{

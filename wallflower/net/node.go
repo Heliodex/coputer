@@ -13,46 +13,25 @@ import (
 	"github.com/Heliodex/coputer/wallflower/keys"
 )
 
+type (
+	// struct keys > nested maps
+	InputName struct {
+		Pk keys.PK
+		Name string
+		InputHash [32]byte
+	}
+
+	Node struct {
+		keys.ThisPeer
+		Peers map[keys.PK]*keys.Peer // known peers
+		SendRaw Sender
+		ReceiveRaw Receiver
+		resultsWaitingName map[InputName]chan *ProgramRets
+		running bool
+	}
+)
+
 const FindStart = "cofind:"
-
-func PeerFromFindString(find string) (p *keys.Peer, err error) {
-	if !strings.HasPrefix(find, FindStart) || find[56] != '.' {
-		return nil, errors.New("not a valid find string")
-	}
-
-	pk, err := keys.DecodePKNoPrefix(find[7:56]) // up until 1st dot
-	if err != nil {
-		return
-	}
-
-	rest := find[57:] // after the dot
-
-	decodedAddrs, err := base64.RawURLEncoding.DecodeString(rest)
-	if err != nil {
-		return
-	}
-
-	addrs, ok := pk.Verify(decodedAddrs)
-	if !ok {
-		return nil, errors.New("invalid addresses signature")
-	}
-
-	addrsSize := len(addrs)
-	if addrsSize%keys.AddressLen != 0 {
-		return nil, errors.New("invalid addresses part length")
-	}
-	addrsCount := addrsSize / keys.AddressLen
-
-	mainAddr := keys.Address{}
-	copy(mainAddr[:], addrs[:keys.AddressLen]) // first address is always the main
-
-	altAddrs := make([]keys.Address, addrsCount-1)
-	for i := range altAddrs {
-		copy(altAddrs[i][:], addrs[(i+1)*keys.AddressLen:][:keys.AddressLen])
-	}
-
-	return &keys.Peer{Pk: pk, MainAddr: mainAddr, AltAddrs: altAddrs}, nil
-}
 
 func (e EncryptedMsg) Decode(kp keys.Keypair) (am AnyMsg, err error) {
 	from, body, err := keys.Decrypt(kp, e)
@@ -65,23 +44,6 @@ func (e EncryptedMsg) Decode(kp keys.Keypair) (am AnyMsg, err error) {
 		Type: body[0],
 		Body: body[1:],
 	}, nil
-}
-
-// struct keys > nested maps
-type InputName struct {
-	Pk keys.PK
-	Name string
-	InputHash [32]byte
-}
-
-type Node struct {
-	keys.ThisPeer
-
-	Peers map[keys.PK]*keys.Peer // known peers
-	SendRaw Sender
-	ReceiveRaw Receiver
-	resultsWaitingName map[InputName]chan *ProgramRets
-	running bool
 }
 
 func NewNode(kp keys.Keypair, mainAddr keys.Address, altAddrs ...keys.Address) (node *Node) {
@@ -113,6 +75,47 @@ func (n *Node) AddPeer(p *keys.Peer) {
 	}
 }
 
+// A find string encodes the pk and addresses
+func (n Node) FindString() string {
+	pk := n.Kp.Pk.Encode()[6:]
+	addrs := make([]byte, (len(n.AltAddrs)+1)*keys.AddressLen)
+
+	copy(addrs[:keys.AddressLen], n.MainAddr[:]) // main address is always first
+	for i, addr := range n.AltAddrs {
+		copy(addrs[(i+1)*keys.AddressLen:], addr[:])
+	}
+
+	signedAddrs := n.Kp.Sk.Sign(addrs) // yes, actually works now
+	encodedAddrs := base64.RawURLEncoding.EncodeToString(signedAddrs) // we might do ipv6/libp2p/port enocding or smth later
+	return fmt.Sprintf("cofind:%s.%s", pk, encodedAddrs)
+}
+
+// unoptimised; debug
+func (n Node) log(msg ...any) {
+	pke := n.Kp.Pk.Encode()
+	logId := pke[6:][:2]
+	m := strings.ReplaceAll(fmt.Sprint(msg...), "\n", "\n     ")
+
+	fmt.Printf("[%s]\n     %s\n", logId, m)
+}
+
+func (n *Node) Stop() {
+	n.log("Stopping")
+
+	n.running = false
+
+	close(n.SendRaw)
+	close(n.ReceiveRaw)
+}
+
+func (n *Node) seenPeer(p *keys.Peer) {
+	if _, ok := n.Peers[p.Pk]; !ok {
+		n.Peers[p.Pk] = p
+	}
+
+	n.Peers[p.Pk].LastSeen = time.Now()
+}
+
 func (n *Node) send(p *keys.Peer, sm SentMsg) (err error) {
 	s, err := sm.Serialise()
 	if err != nil {
@@ -128,31 +131,24 @@ func (n *Node) send(p *keys.Peer, sm SentMsg) (err error) {
 		EncryptedMsg: ct,
 		Peer: p,
 	}
+
 	return
 }
 
-// A find string encodes the pk and addresses
-func (n Node) FindString() string {
-	pk := n.Kp.Pk.Encode()[6:]
-
-	addrs := make([]byte, (len(n.AltAddrs)+1)*keys.AddressLen)
-	copy(addrs[:keys.AddressLen], n.MainAddr[:]) // main address is always first
-	for i, addr := range n.AltAddrs {
-		copy(addrs[(i+1)*keys.AddressLen:], addr[:])
+func (n *Node) StoreProgram(pk keys.PK, name string, sig keys.HashSig, b []byte) (err error) {
+	if _, err = StoreProgram(pk, name, b); err != nil {
+		return // maybe we can still continue if this happens
 	}
 
-	signedAddrs := n.Kp.Sk.Sign(addrs) // yes, actually works now
-	encodedAddrs := base64.RawURLEncoding.EncodeToString(signedAddrs) // we might do ipv6/libp2p/port enocding or smth later
-	return fmt.Sprintf("cofind:%s.%s", pk, encodedAddrs)
-}
+	m := mStore{name, pk, sig, b}
 
-// unoptimised; debug
-func (n Node) log(msg ...any) {
-	pke := n.Kp.Pk.Encode()
-	logId := pke[6:][:2]
+	for _, peer := range n.Peers {
+		if err = n.send(peer, m); err != nil {
+			return
+		}
+	}
 
-	m := strings.ReplaceAll(fmt.Sprint(msg...), "\n", "\n     ")
-	fmt.Printf("[%s]\n     %s\n", logId, m)
+	return
 }
 
 func (n *Node) handleMessage(am AnyMsg) {
@@ -165,7 +161,6 @@ func (n *Node) handleMessage(am AnyMsg) {
 	switch m := dm.(type) {
 	case mHi:
 		n.log("Received hi message from peer\n", am.From.Pk.Encode(), "\n", am.From.MainAddr)
-
 	case mStore:
 		if !m.Pk.VerifyHash(m.Sig, m.Bundled) {
 			n.log("Invalid program signature\n", m.Pk.Encode())
@@ -180,14 +175,12 @@ func (n *Node) handleMessage(am AnyMsg) {
 
 		// show result was successful
 		res := mStoreResult{hash}
-		n.send(am.From, res)
 
+		n.send(am.From, res)
 	case mStoreResult:
 		n.log("Program storage successful\n", "Hash: ", hex.EncodeToString(m.Hash[:]))
-
 	case mRun:
 		n.log("Running program\n", "PK: ", m.Pk.Encode(), "\n", "Name: ", m.Name)
-
 		switch tin := m.Input.(type) {
 		case WebArgs:
 			// serialise
@@ -200,46 +193,23 @@ func (n *Node) handleMessage(am AnyMsg) {
 
 			// return result
 			pret := ProgramRets(ret)
-			n.send(am.From, mRunResult{WebProgramType, m.Pk, m.Name, sha3.Sum256(tin.Encode()), &pret})
 
+			n.send(am.From, mRunResult{WebProgramType, m.Pk, m.Name, sha3.Sum256(tin.Encode()), &pret})
 		default:
 			n.log("Unknown program type\n", m.Input.Type())
 		}
-
 	case mRunResult:
 		h := InputName{m.Pk, m.Name, m.InputHash}
+
 		if ch, ok := n.resultsWaitingName[h]; ok {
 			ch <- m.Result
 		} else {
 			n.log("Received name result for unexpected program\n", m.Result)
 		}
-
 	default:
 		// any unknown is dropped
 		n.log("Unknown message type\n", am.Type, m)
 	}
-}
-
-func (n *Node) seenPeer(p *keys.Peer) {
-	if _, ok := n.Peers[p.Pk]; !ok {
-		n.Peers[p.Pk] = p
-	}
-	n.Peers[p.Pk].LastSeen = time.Now()
-}
-
-func (n *Node) StoreProgram(pk keys.PK, name string, sig keys.HashSig, b []byte) (err error) {
-	if _, err = StoreProgram(pk, name, b); err != nil {
-		return // maybe we can still continue if this happens
-	}
-
-	m := mStore{name, pk, sig, b}
-	for _, peer := range n.Peers {
-		if err = n.send(peer, m); err != nil {
-			return
-		}
-	}
-
-	return
 }
 
 // we don't have the program; ask peers for it
@@ -248,8 +218,8 @@ func (n *Node) peerRunName(pk keys.PK, name string, inputhash [32]byte, ptype Pr
 		return nil, errors.New("no peers to run program")
 	}
 
-	h := InputName{pk, name, inputhash}
 	ch := make(chan *ProgramRets)
+	h := InputName{pk, name, inputhash}
 	n.resultsWaitingName[h] = ch
 
 	for _, peer := range n.Peers {
@@ -271,27 +241,10 @@ func (n *Node) peerRunName(pk keys.PK, name string, inputhash [32]byte, ptype Pr
 	return nil, errors.New("no peers have the program")
 }
 
-func (n *Node) receive() {
-	for {
-		rec := <-n.ReceiveRaw
-		if !n.running {
-			break
-		}
-
-		msg, err := rec.Decode(n.Kp)
-		if err != nil {
-			n.log("Failed to decode message\n", err)
-			continue
-		}
-
-		n.seenPeer(msg.From)
-		n.handleMessage(msg)
-	}
-}
-
 func (n *Node) RunWebProgram(pk keys.PK, name string, input WebArgs, useLocal bool) (res WebRets, err error) {
 	if useLocal { // testing; to prevent 2 communication servers (from realising they're) using the same execution server
 		res, err = StartWebProgram(pk, name, input)
+
 		if err == nil {
 			return // we have the program!
 		}
@@ -310,15 +263,29 @@ func (n *Node) RunWebProgram(pk keys.PK, name string, input WebArgs, useLocal bo
 	return r.(WebRets), nil
 }
 
+func (n *Node) receive() {
+	for {
+		rec := <-n.ReceiveRaw
+
+		if !n.running {
+			break
+		}
+
+		msg, err := rec.Decode(n.Kp)
+		if err != nil {
+			n.log("Failed to decode message\n", err)
+			continue
+		}
+		n.seenPeer(msg.From)
+		n.handleMessage(msg)
+	}
+}
+
 func (n *Node) Start() {
 	pke := n.Kp.Pk.Encode()
 	n.running = true
 
-	n.log(
-		"Starting\n",
-		"I'm ", pke, "\n",
-		"My primary address is ", n.MainAddr, "\n",
-		"I know ", len(n.Peers), " peers")
+	n.log("Starting\n", "I'm ", pke, "\n", "My primary address is ", n.MainAddr, "\n", "I know ", len(n.Peers), " peers")
 
 	// Receiver
 	go n.receive()
@@ -331,9 +298,47 @@ func (n *Node) Start() {
 	}
 }
 
-func (n *Node) Stop() {
-	n.log("Stopping")
-	n.running = false
-	close(n.SendRaw)
-	close(n.ReceiveRaw)
+func PeerFromFindString(find string) (p *keys.Peer, err error) {
+	if !strings.HasPrefix(find, FindStart) || find[56] != '.' {
+		return nil, errors.New("not a valid find string")
+	}
+
+	pk, err := keys.DecodePKNoPrefix(find[7:56]) // up until 1st dot
+	if err != nil {
+		return
+	}
+
+	rest := find[57:] // after the dot
+
+	decodedAddrs, err := base64.RawURLEncoding.DecodeString(rest)
+	if err != nil {
+		return
+	}
+
+	addrs, ok := pk.Verify(decodedAddrs)
+	if !ok {
+		return nil, errors.New("invalid addresses signature")
+	}
+
+	addrsSize := len(addrs)
+	if addrsSize%keys.AddressLen != 0 {
+		return nil, errors.New("invalid addresses part length")
+	}
+
+	addrsCount := addrsSize / keys.AddressLen
+	mainAddr := keys.Address{}
+
+	copy(mainAddr[:], addrs[:keys.AddressLen]) // first address is always the main
+
+	altAddrs := make([]keys.Address, addrsCount-1)
+
+	for i := range altAddrs {
+		copy(altAddrs[i][:], addrs[(i+1)*keys.AddressLen:][:keys.AddressLen])
+	}
+
+	return &keys.Peer{
+		Pk: pk,
+		MainAddr: mainAddr,
+		AltAddrs: altAddrs,
+	}, nil
 }

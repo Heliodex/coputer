@@ -10,16 +10,35 @@ import (
 	. "github.com/Heliodex/coputer/litecode/types"
 )
 
+// ltablib.cpp
+type comp func(a, b Val) (bool, error) // ton, compton, aint no city quite like miiine
+
 var errReadonly = errors.New("attempt to modify a readonly table")
 
-func table_clear(args Args) (r []Val, err error) {
-	t := args.GetTable()
-	if t.Readonly {
-		return nil, errReadonly
+func bumpelements(t *Table, start int) {
+	// fmt.Println("BEFORE", start)
+	// fmt.Println(t)
+	// fmt.Println()
+
+	var keys int
+
+	for i := start; ; i++ {
+		// fmt.Println("starting with", i)
+		if IsNil(t.GetInt(i)) {
+			keys = i - 1
+			break
+		}
 	}
 
-	*t = Table{}
-	return
+	// fmt.Println("keys", keys)
+
+	for k := keys; k >= start; k-- {
+		// fmt.Println("moving key", k+1, "=", t.Get(k))
+		t.SetInt(k+1, t.GetInt(k))
+	}
+	// fmt.Println("AFTER")
+	// fmt.Println(t)
+	// fmt.Println()
 }
 
 // The cloned table is not readonly
@@ -28,6 +47,237 @@ func clone(t *Table) *Table {
 		List: slices.Clone(t.List),
 		Hash: maps.Clone(t.Hash),
 	}
+}
+
+func maxArray(list []Val) (maxn float64) {
+	for i, v := range list {
+		if IsNil(v) {
+			continue
+		}
+
+		if fi := float64(i + 1); fi > maxn {
+			maxn = fi
+		}
+	}
+
+	return
+}
+
+func maxHash(hash map[Val]Val) (maxn float64) {
+	for k, v := range hash {
+		if IsNil(v) {
+			continue
+		}
+
+		if fk, ok := AsNum(k); ok && fk > maxn {
+			maxn = fk
+		}
+	}
+
+	return
+}
+
+func sort_less(t *Table, i, j int, c comp) (res bool, err error) {
+	a, n := t.List, len(t.List)
+	// LUAU_ASSERT(unsigned(i) < unsigned(n) && unsigned(j) < unsigned(n)) // contract maintained in sort_less after predicate call
+
+	res, err = c(a[i], a[j])
+
+	// predicate call may resize the table, which is invalid
+	if len(a) != n {
+		return false, errors.New("table modified during sorting")
+	}
+
+	return
+}
+
+func sort_swap(t *Table, i, j int) {
+	a := t.List
+	// LUAU_ASSERT(unsigned(i) < unsigned(n) && unsigned(j) < unsigned(n)) // contract maintained in sort_less after predicate call
+
+	// no barrier required because both elements are in the array before and after the swap
+	a[i], a[j] = a[j], a[i]
+}
+
+func sort_siftheap(t *Table, l, u int, c comp, root int) (err error) {
+	// LUAU_ASSERT(l <= u)
+	count := u - l + 1
+
+	// process all elements with two children
+	for root*2+2 < count {
+		left, right := root*2+1, root*2+2
+		next := root
+
+		if r, err := sort_less(t, l+next, l+left, c); err != nil {
+			return err
+		} else if r {
+			next = left
+		}
+
+		if r, err := sort_less(t, l+next, l+left, c); err != nil {
+			return err
+		} else if r {
+			next = left
+		}
+
+		if r, err := sort_less(t, l+next, l+right, c); err != nil {
+			return err
+		} else if r {
+			next = right
+		}
+
+		if next == root {
+			break
+		}
+		sort_swap(t, l+root, l+next)
+
+		root = next
+	}
+
+	// process last element if it has just one child
+	if lastleft := root*2 + 1; lastleft != count-1 {
+		return
+	} else if r, err := sort_less(t, l+root, l+lastleft, c); err != nil {
+		return err
+	} else if r {
+		sort_swap(t, l+root, l+lastleft)
+	}
+
+	return
+}
+
+func sort_heap(t *Table, l, u int, c comp) {
+	// LUAU_ASSERT(l <= u)
+	count := u - l + 1
+
+	for i := count/2 - 1; i >= 0; i-- {
+		sort_siftheap(t, l, u, c, i)
+	}
+
+	for i := count - 1; i > 0; i-- {
+		sort_swap(t, l, l+i)
+		sort_siftheap(t, l, l+i-1, c, 0)
+	}
+}
+
+func sort_rec(t *Table, l, u, limit int, c comp) (err error) {
+	// sort range [l..u] (inclusive, 0-based)
+	for l < u {
+		// if the limit has been reached, quick sort is going over the permitted nlogn complexity, so we fall back to heap sort
+		if limit == 0 {
+			sort_heap(t, l, u, c)
+			return
+		}
+
+		if r, err := sort_less(t, u, l, c); err != nil {
+			return err
+		} else if r { // a[u] < a[l]?
+			// sort elements a[l], a[(l+u)/2] and a[u]
+			// note: this simultaneously acts as a small sort and a median selector
+			sort_swap(t, u, l) // swap a[l] - a[u]
+		}
+
+		if u-l == 1 {
+			break // only 2 elements
+		}
+
+		m := l + (u-l)>>1 // midpoint
+		if r, err := sort_less(t, m, l, c); err != nil {
+			return err
+		} else if r { // a[m]<a[l]?
+			sort_swap(t, m, l)
+		} else if r, err := sort_less(t, u, m, c); err != nil {
+			return err
+		} else if r { // a[u]<a[m]?
+			sort_swap(t, m, u)
+		}
+
+		if u-l == 2 {
+			break // only 3 elements
+		}
+
+		// here l, m, u are ordered; m will become the new pivot
+		p := u - 1
+
+		sort_swap(t, m, u-1) // pivot is now (and always) at u-1
+
+		// a[l] <= P == a[u-1] <= a[u], only need to sort from l+1 to u-2
+		i := l
+		j := u - 1
+
+		for {
+			// invariant: a[l..i] <= P <= a[j..u]
+			// repeat ++i until a[i] >= P
+			i++
+
+			for {
+				if r, err := sort_less(t, i, p, c); err != nil {
+					return err
+				} else if !r {
+					break
+				} else if i >= u {
+					return invalidOrderFunc
+				}
+
+				i++
+			}
+
+			// repeat --j until a[j] <= P
+			j--
+
+			for {
+				if r, err := sort_less(t, p, j, c); err != nil {
+					return err
+				} else if !r {
+					break
+				} else if j <= l {
+					return invalidOrderFunc
+				}
+
+				j--
+			}
+
+			if j < i {
+				break
+			}
+			sort_swap(t, i, j)
+		}
+
+		// swap pivot a[p] with a[i], which is the new midpoint
+		sort_swap(t, p, i)
+
+		// adjust limit to allow 1.5 log2N recursive steps
+		limit = limit>>1 + limit>>2
+
+		// a[l..i-1] <= a[i] == P <= a[i+1..u]
+		// sort smaller half recursively; the larger half is sorted in the next loop iteration
+		if i-l < u-i {
+			if err := sort_rec(t, l, i-1, limit, c); err != nil {
+				return err
+			}
+
+			l = i + 1
+		} else {
+			if err := sort_rec(t, i+1, u, limit, c); err != nil {
+				return err
+			}
+
+			u = i - 1
+		}
+	}
+
+	return
+}
+
+func table_clear(args Args) (r []Val, err error) {
+	t := args.GetTable()
+	if t.Readonly {
+		return nil, errReadonly
+	}
+
+	*t = Table{}
+
+	return
 }
 
 func table_clone(args Args) (r []Val, err error) {
@@ -41,12 +291,12 @@ func table_concat(args Args) (r []Val, err error) {
 	sep := args.GetString("")
 	i := args.GetNumber(1)
 	j := args.GetNumber(float64(t.Len()))
-
 	if i > j {
 		return args.Rets(Str("")), nil
 	}
 
 	var b strings.Builder
+
 	for ; i <= j; i++ {
 		v := t.GetFloat(i)
 		sv, ok := AsString(v)
@@ -54,7 +304,6 @@ func table_concat(args Args) (r []Val, err error) {
 			// return nil, errors.New("attempt to concatenate non-string value")
 			return nil, fmt.Errorf("invalid value (%s) at index %d in table for 'concat'", TypeOf(v), int(i))
 		}
-
 		b.WriteString(sv)
 		if i < j {
 			b.WriteString(sep)
@@ -71,6 +320,7 @@ func table_create(args Args) (r []Val, err error) {
 	}
 
 	var val Val
+
 	if len(args.List) > 1 {
 		val = args.GetAny()
 	}
@@ -78,15 +328,21 @@ func table_create(args Args) (r []Val, err error) {
 	if IsNil(val) {
 		// no value fill or fill with nil (tests/niltable.luau)
 		a := make([]Val, 0, s)
-		return args.Rets(TableVal(&Table{List: a})), nil
+
+		return args.Rets(TableVal(&Table{
+			List: a,
+		})), nil
 	}
 
 	a := make([]Val, s)
+
 	for i := range a {
 		a[i] = val
 	}
 
-	return args.Rets(TableVal(&Table{List: a})), nil
+	return args.Rets(TableVal(&Table{
+		List: a,
+	})), nil
 }
 
 func table_find(args Args) (r []Val, err error) {
@@ -112,35 +368,9 @@ func table_find(args Args) (r []Val, err error) {
 
 func table_freeze(args Args) (r []Val, err error) {
 	t := args.GetTable()
-
 	t.Readonly = true
+
 	return args.Rets(TableVal(t)), nil
-}
-
-func bumpelements(t *Table, start int) {
-	// fmt.Println("BEFORE", start)
-	// fmt.Println(t)
-	// fmt.Println()
-
-	var keys int
-	for i := start; ; i++ {
-		// fmt.Println("starting with", i)
-		if IsNil(t.GetInt(i)) {
-			keys = i - 1
-			break
-		}
-	}
-
-	// fmt.Println("keys", keys)
-
-	for k := keys; k >= start; k-- {
-		// fmt.Println("moving key", k+1, "=", t.Get(k))
-		t.SetInt(k+1, t.GetInt(k))
-	}
-
-	// fmt.Println("AFTER")
-	// fmt.Println(t)
-	// fmt.Println()
 }
 
 func table_insert(args Args) (r []Val, err error) {
@@ -167,10 +397,12 @@ func table_insert(args Args) (r []Val, err error) {
 	}
 
 	v := args.GetAny()
-	t.SetInt(pos, v)
 
+	t.SetInt(pos, v)
 	return
 }
+
+var invalidOrderFunc = errors.New("invalid order function for sorting")
 
 func table_isfrozen(args Args) (r []Val, err error) {
 	t := args.GetTable()
@@ -178,41 +410,19 @@ func table_isfrozen(args Args) (r []Val, err error) {
 	return args.Rets(Bool(t.Readonly)), nil
 }
 
-func maxArray(list []Val) (maxn float64) {
-	for i, v := range list {
-		if IsNil(v) {
-			continue
-		}
-		if fi := float64(i + 1); fi > maxn {
-			maxn = fi
-		}
-	}
-	return
-}
-
-func maxHash(hash map[Val]Val) (maxn float64) {
-	for k, v := range hash {
-		if IsNil(v) {
-			continue
-		}
-		if fk, ok := AsNum(k); ok && fk > maxn {
-			maxn = fk
-		}
-	}
-	return
-}
-
 func table_maxn(args Args) (r []Val, err error) {
 	t := args.GetTable()
 
 	// array kvs
 	var maxa float64
+
 	if t.List != nil {
 		maxa = maxArray(t.List)
 	}
 
 	// hash kvs
 	var maxh float64
+
 	if t.Hash != nil {
 		maxh = maxHash(t.Hash)
 	}
@@ -250,8 +460,8 @@ func table_remove(args Args) (r []Val, err error) {
 
 	l := t.Len()
 	pos := args.GetNumber(float64(l))
-
 	p := t.GetFloat(pos)
+
 	if ipos := int(pos); ipos == l {
 		t.SetInt(ipos, NilVal)
 	} else if 0 < ipos && ipos < l {
@@ -260,189 +470,8 @@ func table_remove(args Args) (r []Val, err error) {
 		}
 		t.SetInt(l, NilVal)
 	}
+
 	return args.Rets(p), nil
-}
-
-// ltablib.cpp
-type comp func(a, b Val) (bool, error) // ton, compton, aint no city quite like miiine
-
-var invalidOrderFunc = errors.New("invalid order function for sorting")
-
-func sort_swap(t *Table, i, j int) {
-	a := t.List
-	// LUAU_ASSERT(unsigned(i) < unsigned(n) && unsigned(j) < unsigned(n)) // contract maintained in sort_less after predicate call
-
-	// no barrier required because both elements are in the array before and after the swap
-	a[i], a[j] = a[j], a[i]
-}
-
-func sort_less(t *Table, i, j int, c comp) (res bool, err error) {
-	a, n := t.List, len(t.List)
-	// LUAU_ASSERT(unsigned(i) < unsigned(n) && unsigned(j) < unsigned(n)) // contract maintained in sort_less after predicate call
-
-	res, err = c(a[i], a[j])
-
-	// predicate call may resize the table, which is invalid
-	if len(a) != n {
-		return false, errors.New("table modified during sorting")
-	}
-	return
-}
-
-func sort_siftheap(t *Table, l, u int, c comp, root int) (err error) {
-	// LUAU_ASSERT(l <= u)
-	count := u - l + 1
-
-	// process all elements with two children
-	for root*2+2 < count {
-		left, right := root*2+1, root*2+2
-		next := root
-		if r, err := sort_less(t, l+next, l+left, c); err != nil {
-			return err
-		} else if r {
-			next = left
-		}
-		if r, err := sort_less(t, l+next, l+left, c); err != nil {
-			return err
-		} else if r {
-			next = left
-		}
-		if r, err := sort_less(t, l+next, l+right, c); err != nil {
-			return err
-		} else if r {
-			next = right
-		}
-
-		if next == root {
-			break
-		}
-
-		sort_swap(t, l+root, l+next)
-		root = next
-	}
-
-	// process last element if it has just one child
-	if lastleft := root*2 + 1; lastleft != count-1 {
-		return
-	} else if r, err := sort_less(t, l+root, l+lastleft, c); err != nil {
-		return err
-	} else if r {
-		sort_swap(t, l+root, l+lastleft)
-	}
-	return
-}
-
-func sort_heap(t *Table, l, u int, c comp) {
-	// LUAU_ASSERT(l <= u)
-	count := u - l + 1
-
-	for i := count/2 - 1; i >= 0; i-- {
-		sort_siftheap(t, l, u, c, i)
-	}
-
-	for i := count - 1; i > 0; i-- {
-		sort_swap(t, l, l+i)
-		sort_siftheap(t, l, l+i-1, c, 0)
-	}
-}
-
-func sort_rec(t *Table, l, u, limit int, c comp) (err error) {
-	// sort range [l..u] (inclusive, 0-based)
-	for l < u {
-		// if the limit has been reached, quick sort is going over the permitted nlogn complexity, so we fall back to heap sort
-		if limit == 0 {
-			sort_heap(t, l, u, c)
-			return
-		}
-		if r, err := sort_less(t, u, l, c); err != nil {
-			return err
-		} else if r { // a[u] < a[l]?
-			// sort elements a[l], a[(l+u)/2] and a[u]
-			// note: this simultaneously acts as a small sort and a median selector
-			sort_swap(t, u, l) // swap a[l] - a[u]
-		}
-		if u-l == 1 {
-			break // only 2 elements
-		}
-
-		m := l + (u-l)>>1 // midpoint
-		if r, err := sort_less(t, m, l, c); err != nil {
-			return err
-		} else if r { // a[m]<a[l]?
-			sort_swap(t, m, l)
-		} else if r, err := sort_less(t, u, m, c); err != nil {
-			return err
-		} else if r { // a[u]<a[m]?
-			sort_swap(t, m, u)
-		}
-		if u-l == 2 {
-			break // only 3 elements
-		}
-
-		// here l, m, u are ordered; m will become the new pivot
-		p := u - 1
-		sort_swap(t, m, u-1) // pivot is now (and always) at u-1
-
-		// a[l] <= P == a[u-1] <= a[u], only need to sort from l+1 to u-2
-		i := l
-		j := u - 1
-		for {
-			// invariant: a[l..i] <= P <= a[j..u]
-			// repeat ++i until a[i] >= P
-			i++
-			for {
-				if r, err := sort_less(t, i, p, c); err != nil {
-					return err
-				} else if !r {
-					break
-				} else if i >= u {
-					return invalidOrderFunc
-				}
-				i++
-			}
-
-			// repeat --j until a[j] <= P
-			j--
-			for {
-				if r, err := sort_less(t, p, j, c); err != nil {
-					return err
-				} else if !r {
-					break
-				} else if j <= l {
-					return invalidOrderFunc
-				}
-				j--
-			}
-			if j < i {
-				break
-			}
-			sort_swap(t, i, j)
-		}
-
-		// swap pivot a[p] with a[i], which is the new midpoint
-		sort_swap(t, p, i)
-
-		// adjust limit to allow 1.5 log2N recursive steps
-		limit = limit>>1 + limit>>2
-
-		// a[l..i-1] <= a[i] == P <= a[i+1..u]
-		// sort smaller half recursively; the larger half is sorted in the next loop iteration
-		if i-l < u-i {
-			err := sort_rec(t, l, i-1, limit, c)
-			if err != nil {
-				return err
-			}
-			l = i + 1
-		} else {
-			err := sort_rec(t, i+1, u, limit, c)
-			if err != nil {
-				return err
-			}
-			u = i - 1
-		}
-	}
-
-	return
 }
 
 func table_sort(args Args) (r []Val, err error) {
@@ -452,6 +481,7 @@ func table_sort(args Args) (r []Val, err error) {
 	}
 
 	var c comp
+
 	if len(args.List) == 1 {
 		c = Lt
 	} else {
@@ -466,6 +496,7 @@ func table_sort(args Args) (r []Val, err error) {
 			if !ok {
 				return false, invalidOrderFunc
 			}
+
 			return
 		}
 	}
@@ -473,6 +504,7 @@ func table_sort(args Args) (r []Val, err error) {
 	if n := t.Len(); n > 0 {
 		return nil, sort_rec(t, 0, n-1, n, c)
 	}
+
 	return
 }
 
@@ -494,6 +526,7 @@ func table_unpack(args Args) (r []Val, err error) {
 	}
 
 	r = make([]Val, uj-ui+1)
+
 	for k := ui; k <= uj; k++ {
 		r[k-ui] = list.GetInt(k)
 	}

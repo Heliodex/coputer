@@ -7,10 +7,11 @@ type (
 		EncryptedMsg
 		*keys.Peer
 	}
-	Sender chan AddressedMsg
-	Receiver chan EncryptedMsg
-)
 
-type Net interface {
-	AddNode(node *Node)
-}
+	Net interface {
+		AddNode(node *Node)
+	}
+
+	Receiver chan EncryptedMsg
+	Sender chan AddressedMsg
+)

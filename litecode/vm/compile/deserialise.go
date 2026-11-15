@@ -10,6 +10,17 @@ import (
 	. "github.com/Heliodex/coputer/litecode/types"
 )
 
+type stream struct {
+	data []byte
+	pos uint32
+	version uint8
+}
+
+const (
+	expectedBytecodeVersion = 14
+	expectedTypesVersion = 3
+)
+
 // opList contains information about the instruction, each instruction is defined in this format:
 // { Name, Mode, KMode, HasAux }
 // Mode specifies what type of registers the instruction uses if any
@@ -30,96 +41,456 @@ import (
 // HasAux boolean specifies whether the instruction is followed up with an AUX word, which may be used to execute the instruction.
 
 var opList = [90]internal.OpInfo{
-	{Mode: 0, KMode: 0, HasAux: false}, // NOP
-	{Mode: 0, KMode: 0, HasAux: false}, // BREAK
-	{Mode: 1, KMode: 0, HasAux: false}, // LOADNIL
-	{Mode: 3, KMode: 0, HasAux: false}, // LOADB
-	{Mode: 4, KMode: 0, HasAux: false}, // LOADN
-	{Mode: 4, KMode: 3, HasAux: false}, // LOADK
-	{Mode: 2, KMode: 0, HasAux: false}, // MOVE
-	{Mode: 1, KMode: 1, HasAux: true}, // GETGLOBAL
-	{Mode: 1, KMode: 1, HasAux: true}, // SETGLOBAL
-	{Mode: 2, KMode: 0, HasAux: false}, // GETUPVAL
-	{Mode: 2, KMode: 0, HasAux: false}, // SETUPVAL
-	{Mode: 1, KMode: 0, HasAux: false}, // CLOSEUPVALS
-	{Mode: 4, KMode: 4, HasAux: true}, // GETIMPORT
-	{Mode: 3, KMode: 0, HasAux: false}, // GETTABLE
-	{Mode: 3, KMode: 0, HasAux: false}, // SETTABLE
-	{Mode: 3, KMode: 1, HasAux: true}, // GETTABLEKS
-	{Mode: 3, KMode: 1, HasAux: true}, // SETTABLEKS
-	{Mode: 3, KMode: 0, HasAux: false}, // GETTABLEN
-	{Mode: 3, KMode: 0, HasAux: false}, // SETTABLEN
-	{Mode: 4, KMode: 0, HasAux: false}, // NEWCLOSURE
-	{Mode: 3, KMode: 1, HasAux: true}, // NAMECALL
-	{Mode: 3, KMode: 0, HasAux: false}, // CALL
-	{Mode: 2, KMode: 0, HasAux: false}, // RETURN
-	{Mode: 4, KMode: 0, HasAux: false}, // JUMP
-	{Mode: 4, KMode: 0, HasAux: false}, // JUMPBACK
-	{Mode: 4, KMode: 0, HasAux: false}, // JUMPIF
-	{Mode: 4, KMode: 0, HasAux: false}, // JUMPIFNOT
-	{Mode: 4, KMode: 0, HasAux: true}, // JUMPIFEQ
-	{Mode: 4, KMode: 0, HasAux: true}, // JUMPIFLE
-	{Mode: 4, KMode: 0, HasAux: true}, // JUMPIFLT
-	{Mode: 4, KMode: 0, HasAux: true}, // JUMPIFNOTEQ
-	{Mode: 4, KMode: 0, HasAux: true}, // JUMPIFNOTLE
-	{Mode: 4, KMode: 0, HasAux: true}, // JUMPIFNOTLT
-	{Mode: 3, KMode: 0, HasAux: false}, // ADD
-	{Mode: 3, KMode: 0, HasAux: false}, // SUB
-	{Mode: 3, KMode: 0, HasAux: false}, // MUL
-	{Mode: 3, KMode: 0, HasAux: false}, // DIV
-	{Mode: 3, KMode: 0, HasAux: false}, // MOD
-	{Mode: 3, KMode: 0, HasAux: false}, // POW
-	{Mode: 3, KMode: 2, HasAux: false}, // ADDK
-	{Mode: 3, KMode: 2, HasAux: false}, // SUBK
-	{Mode: 3, KMode: 2, HasAux: false}, // MULK
-	{Mode: 3, KMode: 2, HasAux: false}, // DIVK
-	{Mode: 3, KMode: 2, HasAux: false}, // MODK
-	{Mode: 3, KMode: 2, HasAux: false}, // POWK
-	{Mode: 3, KMode: 0, HasAux: false}, // AND
-	{Mode: 3, KMode: 0, HasAux: false}, // OR
-	{Mode: 3, KMode: 2, HasAux: false}, // ANDK
-	{Mode: 3, KMode: 2, HasAux: false}, // ORK
-	{Mode: 3, KMode: 0, HasAux: false}, // CONCAT
-	{Mode: 2, KMode: 0, HasAux: false}, // NOT
-	{Mode: 2, KMode: 0, HasAux: false}, // MINUS
-	{Mode: 2, KMode: 0, HasAux: false}, // LENGTH
-	{Mode: 2, KMode: 0, HasAux: true}, // NEWTABLE
-	{Mode: 4, KMode: 3, HasAux: false}, // DUPTABLE
-	{Mode: 3, KMode: 0, HasAux: true}, // SETLIST
-	{Mode: 4, KMode: 0, HasAux: false}, // FORNPREP
-	{Mode: 4, KMode: 0, HasAux: false}, // FORNLOOP
-	{Mode: 4, KMode: 8, HasAux: true}, // FORGLOOP
-	{Mode: 4, KMode: 0, HasAux: false}, // FORGPREP_INEXT
-	{Mode: 3, KMode: 1, HasAux: true}, // FASTCALL3
-	{Mode: 4, KMode: 0, HasAux: false}, // FORGPREP_NEXT
-	{Mode: 0, KMode: 0, HasAux: false}, // FORGLOOP_NEXT (deprecated)
-	{Mode: 2, KMode: 0, HasAux: false}, // GETVARARGS
-	{Mode: 4, KMode: 3, HasAux: false}, // DUPCLOSURE
-	{Mode: 1, KMode: 0, HasAux: false}, // PREPVARARGS
-	{Mode: 1, KMode: 1, HasAux: true}, // LOADKX
-	{Mode: 5, KMode: 0, HasAux: false}, // JUMPX
-	{Mode: 3, KMode: 0, HasAux: false}, // FASTCALL
-	{Mode: 5, KMode: 0, HasAux: false}, // COVERAGE
-	{Mode: 2, KMode: 0, HasAux: false}, // CAPTURE
-	{Mode: 3, KMode: 7, HasAux: false}, // SUBRK
-	{Mode: 3, KMode: 7, HasAux: false}, // DIVRK
-	{Mode: 3, KMode: 0, HasAux: false}, // FASTCALL1
-	{Mode: 3, KMode: 0, HasAux: true}, // FASTCALL2
-	{Mode: 3, KMode: 1, HasAux: true}, // FASTCALL2K
-	{Mode: 4, KMode: 0, HasAux: false}, // FORGPREP
-	{Mode: 4, KMode: 5, HasAux: true}, // JUMPXEQKNIL
-	{Mode: 4, KMode: 5, HasAux: true}, // JUMPXEQKB
-	{Mode: 4, KMode: 6, HasAux: true}, // JUMPXEQKN
-	{Mode: 4, KMode: 6, HasAux: true}, // JUMPXEQKS
-	{Mode: 3, KMode: 0, HasAux: false}, // IDIV
-	{Mode: 3, KMode: 2, HasAux: false}, // IDIVK
-	{Mode: 3, KMode: 1, HasAux: true}, // GETUDATAKS
-	{Mode: 3, KMode: 1, HasAux: true}, // SETUDATAKS
-	{Mode: 3, KMode: 1, HasAux: true}, // NAMECALLUDATA
-	{Mode: 3, KMode: 1, HasAux: true}, // NEWCLASSMEMBER
-	{Mode: 3, KMode: 0, HasAux: true}, // CALLFB
-	{Mode: 4, KMode: 0, HasAux: true}, // CMPPROTO
-	{Mode: 3, KMode: 0, HasAux: false}, // FASTPCALL
+	{
+		Mode: 0,
+		KMode: 0,
+		HasAux: false,
+	}, // NOP
+	{
+		Mode: 0,
+		KMode: 0,
+		HasAux: false,
+	}, // BREAK
+	{
+		Mode: 1,
+		KMode: 0,
+		HasAux: false,
+	}, // LOADNIL
+	{
+		Mode: 3,
+		KMode: 0,
+		HasAux: false,
+	}, // LOADB
+	{
+		Mode: 4,
+		KMode: 0,
+		HasAux: false,
+	}, // LOADN
+	{
+		Mode: 4,
+		KMode: 3,
+		HasAux: false,
+	}, // LOADK
+	{
+		Mode: 2,
+		KMode: 0,
+		HasAux: false,
+	}, // MOVE
+	{
+		Mode: 1,
+		KMode: 1,
+		HasAux: true,
+	}, // GETGLOBAL
+	{
+		Mode: 1,
+		KMode: 1,
+		HasAux: true,
+	}, // SETGLOBAL
+	{
+		Mode: 2,
+		KMode: 0,
+		HasAux: false,
+	}, // GETUPVAL
+	{
+		Mode: 2,
+		KMode: 0,
+		HasAux: false,
+	}, // SETUPVAL
+	{
+		Mode: 1,
+		KMode: 0,
+		HasAux: false,
+	}, // CLOSEUPVALS
+	{
+		Mode: 4,
+		KMode: 4,
+		HasAux: true,
+	}, // GETIMPORT
+	{
+		Mode: 3,
+		KMode: 0,
+		HasAux: false,
+	}, // GETTABLE
+	{
+		Mode: 3,
+		KMode: 0,
+		HasAux: false,
+	}, // SETTABLE
+	{
+		Mode: 3,
+		KMode: 1,
+		HasAux: true,
+	}, // GETTABLEKS
+	{
+		Mode: 3,
+		KMode: 1,
+		HasAux: true,
+	}, // SETTABLEKS
+	{
+		Mode: 3,
+		KMode: 0,
+		HasAux: false,
+	}, // GETTABLEN
+	{
+		Mode: 3,
+		KMode: 0,
+		HasAux: false,
+	}, // SETTABLEN
+	{
+		Mode: 4,
+		KMode: 0,
+		HasAux: false,
+	}, // NEWCLOSURE
+	{
+		Mode: 3,
+		KMode: 1,
+		HasAux: true,
+	}, // NAMECALL
+	{
+		Mode: 3,
+		KMode: 0,
+		HasAux: false,
+	}, // CALL
+	{
+		Mode: 2,
+		KMode: 0,
+		HasAux: false,
+	}, // RETURN
+	{
+		Mode: 4,
+		KMode: 0,
+		HasAux: false,
+	}, // JUMP
+	{
+		Mode: 4,
+		KMode: 0,
+		HasAux: false,
+	}, // JUMPBACK
+	{
+		Mode: 4,
+		KMode: 0,
+		HasAux: false,
+	}, // JUMPIF
+	{
+		Mode: 4,
+		KMode: 0,
+		HasAux: false,
+	}, // JUMPIFNOT
+	{
+		Mode: 4,
+		KMode: 0,
+		HasAux: true,
+	}, // JUMPIFEQ
+	{
+		Mode: 4,
+		KMode: 0,
+		HasAux: true,
+	}, // JUMPIFLE
+	{
+		Mode: 4,
+		KMode: 0,
+		HasAux: true,
+	}, // JUMPIFLT
+	{
+		Mode: 4,
+		KMode: 0,
+		HasAux: true,
+	}, // JUMPIFNOTEQ
+	{
+		Mode: 4,
+		KMode: 0,
+		HasAux: true,
+	}, // JUMPIFNOTLE
+	{
+		Mode: 4,
+		KMode: 0,
+		HasAux: true,
+	}, // JUMPIFNOTLT
+	{
+		Mode: 3,
+		KMode: 0,
+		HasAux: false,
+	}, // ADD
+	{
+		Mode: 3,
+		KMode: 0,
+		HasAux: false,
+	}, // SUB
+	{
+		Mode: 3,
+		KMode: 0,
+		HasAux: false,
+	}, // MUL
+	{
+		Mode: 3,
+		KMode: 0,
+		HasAux: false,
+	}, // DIV
+	{
+		Mode: 3,
+		KMode: 0,
+		HasAux: false,
+	}, // MOD
+	{
+		Mode: 3,
+		KMode: 0,
+		HasAux: false,
+	}, // POW
+	{
+		Mode: 3,
+		KMode: 2,
+		HasAux: false,
+	}, // ADDK
+	{
+		Mode: 3,
+		KMode: 2,
+		HasAux: false,
+	}, // SUBK
+	{
+		Mode: 3,
+		KMode: 2,
+		HasAux: false,
+	}, // MULK
+	{
+		Mode: 3,
+		KMode: 2,
+		HasAux: false,
+	}, // DIVK
+	{
+		Mode: 3,
+		KMode: 2,
+		HasAux: false,
+	}, // MODK
+	{
+		Mode: 3,
+		KMode: 2,
+		HasAux: false,
+	}, // POWK
+	{
+		Mode: 3,
+		KMode: 0,
+		HasAux: false,
+	}, // AND
+	{
+		Mode: 3,
+		KMode: 0,
+		HasAux: false,
+	}, // OR
+	{
+		Mode: 3,
+		KMode: 2,
+		HasAux: false,
+	}, // ANDK
+	{
+		Mode: 3,
+		KMode: 2,
+		HasAux: false,
+	}, // ORK
+	{
+		Mode: 3,
+		KMode: 0,
+		HasAux: false,
+	}, // CONCAT
+	{
+		Mode: 2,
+		KMode: 0,
+		HasAux: false,
+	}, // NOT
+	{
+		Mode: 2,
+		KMode: 0,
+		HasAux: false,
+	}, // MINUS
+	{
+		Mode: 2,
+		KMode: 0,
+		HasAux: false,
+	}, // LENGTH
+	{
+		Mode: 2,
+		KMode: 0,
+		HasAux: true,
+	}, // NEWTABLE
+	{
+		Mode: 4,
+		KMode: 3,
+		HasAux: false,
+	}, // DUPTABLE
+	{
+		Mode: 3,
+		KMode: 0,
+		HasAux: true,
+	}, // SETLIST
+	{
+		Mode: 4,
+		KMode: 0,
+		HasAux: false,
+	}, // FORNPREP
+	{
+		Mode: 4,
+		KMode: 0,
+		HasAux: false,
+	}, // FORNLOOP
+	{
+		Mode: 4,
+		KMode: 8,
+		HasAux: true,
+	}, // FORGLOOP
+	{
+		Mode: 4,
+		KMode: 0,
+		HasAux: false,
+	}, // FORGPREP_INEXT
+	{
+		Mode: 3,
+		KMode: 1,
+		HasAux: true,
+	}, // FASTCALL3
+	{
+		Mode: 4,
+		KMode: 0,
+		HasAux: false,
+	}, // FORGPREP_NEXT
+	{
+		Mode: 0,
+		KMode: 0,
+		HasAux: false,
+	}, // FORGLOOP_NEXT (deprecated)
+	{
+		Mode: 2,
+		KMode: 0,
+		HasAux: false,
+	}, // GETVARARGS
+	{
+		Mode: 4,
+		KMode: 3,
+		HasAux: false,
+	}, // DUPCLOSURE
+	{
+		Mode: 1,
+		KMode: 0,
+		HasAux: false,
+	}, // PREPVARARGS
+	{
+		Mode: 1,
+		KMode: 1,
+		HasAux: true,
+	}, // LOADKX
+	{
+		Mode: 5,
+		KMode: 0,
+		HasAux: false,
+	}, // JUMPX
+	{
+		Mode: 3,
+		KMode: 0,
+		HasAux: false,
+	}, // FASTCALL
+	{
+		Mode: 5,
+		KMode: 0,
+		HasAux: false,
+	}, // COVERAGE
+	{
+		Mode: 2,
+		KMode: 0,
+		HasAux: false,
+	}, // CAPTURE
+	{
+		Mode: 3,
+		KMode: 7,
+		HasAux: false,
+	}, // SUBRK
+	{
+		Mode: 3,
+		KMode: 7,
+		HasAux: false,
+	}, // DIVRK
+	{
+		Mode: 3,
+		KMode: 0,
+		HasAux: false,
+	}, // FASTCALL1
+	{
+		Mode: 3,
+		KMode: 0,
+		HasAux: true,
+	}, // FASTCALL2
+	{
+		Mode: 3,
+		KMode: 1,
+		HasAux: true,
+	}, // FASTCALL2K
+	{
+		Mode: 4,
+		KMode: 0,
+		HasAux: false,
+	}, // FORGPREP
+	{
+		Mode: 4,
+		KMode: 5,
+		HasAux: true,
+	}, // JUMPXEQKNIL
+	{
+		Mode: 4,
+		KMode: 5,
+		HasAux: true,
+	}, // JUMPXEQKB
+	{
+		Mode: 4,
+		KMode: 6,
+		HasAux: true,
+	}, // JUMPXEQKN
+	{
+		Mode: 4,
+		KMode: 6,
+		HasAux: true,
+	}, // JUMPXEQKS
+	{
+		Mode: 3,
+		KMode: 0,
+		HasAux: false,
+	}, // IDIV
+	{
+		Mode: 3,
+		KMode: 2,
+		HasAux: false,
+	}, // IDIVK
+	{
+		Mode: 3,
+		KMode: 1,
+		HasAux: true,
+	}, // GETUDATAKS
+	{
+		Mode: 3,
+		KMode: 1,
+		HasAux: true,
+	}, // SETUDATAKS
+	{
+		Mode: 3,
+		KMode: 1,
+		HasAux: true,
+	}, // NAMECALLUDATA
+	{
+		Mode: 3,
+		KMode: 1,
+		HasAux: true,
+	}, // NEWCLASSMEMBER
+	{
+		Mode: 3,
+		KMode: 0,
+		HasAux: true,
+	}, // CALLFB
+	{
+		Mode: 4,
+		KMode: 0,
+		HasAux: true,
+	}, // CMPPROTO
+	{
+		Mode: 3,
+		KMode: 0,
+		HasAux: false,
+	}, // FASTPCALL
 }
 
 func checkkmode(i *internal.Inst, k []Val) error {
@@ -135,25 +506,28 @@ func checkkmode(i *internal.Inst, k []Val) error {
 		if i.C >= uint8(len(k)) {
 			return fmt.Errorf("invalid constant index for C: %d", i.C)
 		}
+
 		i.K = k[i.C]
 		// fmt.Println("SET K TO", i.K, "FROM", i.C)
 	case 3: // D
 		if i.D >= int32(len(k)) {
 			return fmt.Errorf("invalid constant index for D: %d", i.D)
 		}
+
 		i.K = k[i.D]
 	case 4: // AUX import
 		count := uint8(aux >> 30)
 		i.KC = count
 
 		var ki [3]string
-		i.KI = &ki
 
+		i.KI = &ki
 		id0 := aux >> 20 & 0x3ff
 
 		var ok bool
 		// don't lmk if this panics
 		kid0 := k[id0]
+
 		if ki[0], ok = AsString(kid0); !ok {
 			return fmt.Errorf("invalid constant type for K0: %T", kid0)
 		}
@@ -162,9 +536,10 @@ func checkkmode(i *internal.Inst, k []Val) error {
 		if count < 2 {
 			break
 		}
-		id1 := aux >> 10 & 0x3ff
 
+		id1 := aux >> 10 & 0x3ff
 		kid1 := k[id1]
+
 		if ki[1], ok = AsString(kid1); !ok {
 			return fmt.Errorf("invalid constant type for K1: %T", kid1)
 		}
@@ -172,9 +547,10 @@ func checkkmode(i *internal.Inst, k []Val) error {
 		if count < 3 { // should never be >3
 			break
 		}
-		id2 := aux & 0x3ff
 
+		id2 := aux & 0x3ff
 		kid2 := k[id2]
+
 		if ki[2], ok = AsString(kid2); !ok {
 			return fmt.Errorf("invalid constant type for K2: %T", kid2)
 		}
@@ -196,15 +572,18 @@ func checkkmode(i *internal.Inst, k []Val) error {
 	return nil
 }
 
-type stream struct {
-	data []byte
-	pos uint32
-	version uint8
+func (s *stream) checkEnd() error {
+	if s.pos != uint32(len(s.data)) {
+		return errors.New("deserialiser position mismatch")
+	}
+
+	return nil
 }
 
 func (s *stream) rByte() (b byte) {
 	b = s.data[s.pos]
 	s.pos++
+
 	return
 }
 
@@ -212,28 +591,17 @@ func (s *stream) rBool() bool {
 	return s.rByte() != 0
 }
 
+func (s *stream) rFloat64() (r float64) {
+	r = math.Float64frombits(binary.LittleEndian.Uint64(s.data[s.pos:]))
+	s.pos += 8
+
+	return
+}
+
 func (s *stream) rUint32() (w uint32) {
 	w = binary.LittleEndian.Uint32(s.data[s.pos:])
 	s.pos += 4
-	return
-}
 
-func (s *stream) skipUint32() {
-	s.pos += 4
-}
-
-// this is the only thing float32s are ever used for anyway
-func (s *stream) rVector() (r Vector) {
-	for i := range 4 {
-		r[i] = math.Float32frombits(s.rUint32())
-	}
-	return
-}
-
-func (s *stream) rFloat64() (r float64) {
-	r = math.Float64frombits(binary.LittleEndian.Uint64(s.data[s.pos:]))
-
-	s.pos += 8
 	return
 }
 
@@ -241,29 +609,12 @@ func (s *stream) rVarInt() (r uint32) {
 	for i := range 4 {
 		v := uint32(s.rByte())
 		r |= v & 0b0111_1111 << (i * 7)
+
 		if v&0b1000_0000 == 0 {
 			return
 		}
 	}
-	return
-}
 
-func (s *stream) skipVarInt() {
-	for range 4 {
-		if s.rByte()&0b1000_0000 == 0 {
-			return
-		}
-	}
-}
-
-func (s *stream) rVarInt64() (r uint64) {
-	for i := range 8 {
-		v := uint64(s.rByte())
-		r |= v & 0b0111_1111 << (i * 7)
-		if v&0b1000_0000 == 0 {
-			return
-		}
-	}
 	return
 }
 
@@ -271,16 +622,31 @@ func (s *stream) rString() (str string) {
 	size := s.rVarInt()
 	// fmt.Println("String size:", size)
 	str = string(s.data[s.pos:][:size])
-
 	s.pos += size
+
 	return
 }
 
-func (s *stream) checkEnd() error {
-	if s.pos != uint32(len(s.data)) {
-		return errors.New("deserialiser position mismatch")
+func (s *stream) rVarInt64() (r uint64) {
+	for i := range 8 {
+		v := uint64(s.rByte())
+		r |= v & 0b0111_1111 << (i * 7)
+
+		if v&0b1000_0000 == 0 {
+			return
+		}
 	}
-	return nil
+
+	return
+}
+
+// this is the only thing float32s are ever used for anyway
+func (s *stream) rVector() (r Vector) {
+	for i := range 4 {
+		r[i] = math.Float32frombits(s.rUint32())
+	}
+
+	return
 }
 
 // reads either 1 or 2 words
@@ -292,8 +658,8 @@ func (s *stream) readInst(code *[]internal.Inst) (bool, error) {
 	if int(opcode) >= len(opList) {
 		return false, fmt.Errorf("invalid opcode %d", opcode)
 	}
-	opinfo := opList[opcode]
 
+	opinfo := opList[opcode]
 	i := internal.Inst{
 		Opcode: opcode,
 		KMode: opinfo.KMode,
@@ -324,6 +690,7 @@ func (s *stream) readInst(code *[]internal.Inst) (bool, error) {
 
 	if !opinfo.HasAux {
 		*code = append(*code, i)
+
 		return false, nil
 	}
 
@@ -331,14 +698,16 @@ func (s *stream) readInst(code *[]internal.Inst) (bool, error) {
 
 	// the following slot is the instruction's auxiliary word placeholder
 	*code = append(*code, i, internal.Inst{})
+
 	return true, nil
 }
 
 func (s *stream) readLineInfo(sizecode uint32) (instLineInfo []uint32) {
 	linegaplog2 := s.rByte()
-
 	lineinfo := make([]uint8, sizecode)
+
 	var lastoffset uint8
+
 	for i := range sizecode {
 		lastoffset += s.rByte() // yeah this is how the reference implementation does it, whatever hpppens happens
 		lineinfo[i] = lastoffset
@@ -346,7 +715,9 @@ func (s *stream) readLineInfo(sizecode uint32) (instLineInfo []uint32) {
 
 	intervals := (sizecode-1)>>linegaplog2 + 1
 	abslineinfo := make([]uint32, intervals)
+
 	var lastline uint32
+
 	for i := range intervals {
 		lastline += s.rUint32()
 		// fmt.Println("lastline", lastline)
@@ -354,13 +725,27 @@ func (s *stream) readLineInfo(sizecode uint32) (instLineInfo []uint32) {
 	}
 
 	instLineInfo = make([]uint32, sizecode)
+
 	for i, v := range lineinfo {
 		// -- p->abslineinfo[pc >> p->linegaplog2] + p->lineinfo[pc];
 		// fmt.Println("i:", i, "v:", v)
 		// fmt.Println("linegaplog2:", linegaplog2, "abslineinfo:", abslineinfo)
 		instLineInfo[i] = abslineinfo[i>>linegaplog2] + uint32(v)
 	}
+
 	return
+}
+
+func (s *stream) skipUint32() {
+	s.pos += 4
+}
+
+func (s *stream) skipVarInt() {
+	for range 4 {
+		if s.rByte()&0b1000_0000 == 0 {
+			return
+		}
+	}
 }
 
 func (s *stream) skipDebugInfo() {
@@ -376,6 +761,7 @@ func (s *stream) skipDebugInfo() {
 		// reg := s.rByte()
 		// fmt.Println("reg:", reg)
 	}
+
 	for range s.rVarInt() { // sizeupvalues
 		s.skipVarInt() // upvalue
 	}
@@ -387,6 +773,7 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 	// v12+ prepends each proto with its size in bytes so that unknown trailing
 	// data can be skipped over
 	var protoSize, protoStart uint32
+
 	if s.version >= 12 {
 		protoSize = s.rVarInt()
 		protoStart = s.pos
@@ -412,7 +799,8 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 	// fmt.Println("Sizecode:", sizecode)
 	// MUST BE A NON-RANGE FOR LOOP
 	// because i is incremented if the instruction has aux
-	b := 0
+	var b int
+
 	for i := uint32(0); i < sizecode; i++ {
 		// fmt.Print("code", b)
 		hasAux, err := s.readInst(&p.Code)
@@ -424,6 +812,7 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 			// fmt.Println("Insts (aux)  ", *p.Code[i-1], *p.Code[i])
 			i++
 		}
+
 		b++
 	}
 
@@ -449,10 +838,13 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 		case 5: // Table
 			// table shape without constant values; keys have placeholder values
 			t := &Table{}
+
 			for range s.rVarInt() {
 				key := s.rVarInt()
+
 				t.Set(K[key], Num(0.0))
 			}
+
 			K[i] = TableVal(t)
 		case 6: // Closure
 			// pain in the cranium
@@ -462,21 +854,23 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 			K[i] = VecVal(s.rVector())
 		case 8: // Table with constants
 			t := &Table{}
+
 			for range s.rVarInt() {
 				key := s.rVarInt()
 				cidx := int32(s.rUint32())
 				if cidx < 0 {
 					continue
 				}
+
 				if v := K[cidx]; !IsNil(v) {
 					t.Set(K[key], v)
 				}
 			}
+
 			K[i] = TableVal(t)
 		case 9: // Integer
 			isNegative := s.rBool()
-			magnitude := s.rVarInt64()
-			if isNegative {
+			if magnitude := s.rVarInt64(); isNegative {
 				K[i] = IntVal(int64(^magnitude + 1))
 			} else {
 				K[i] = IntVal(int64(magnitude))
@@ -484,18 +878,22 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 		case 10: // Class shape
 			// cnid := s.rVarInt()
 			s.skipVarInt()
+
 			numProps := s.rVarInt()
 			numMethods := s.rVarInt()
 			numMembers := numProps + numMethods
+
 			for range numMembers {
 				// mid := s.rVarInt()
 				s.skipVarInt()
 			}
 		case 11: // Vector (double precision)
 			var v Vector
+
 			for i := range 4 {
 				v[i] = float32(s.rFloat64())
 			}
+
 			K[i] = VecVal(v)
 		default:
 			return nil, fmt.Errorf("unknown constant kind %d", kt)
@@ -516,6 +914,7 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 	// fmt.Println("sizep", sizep)
 
 	p.Protos = make([]uint32, sizep)
+
 	for i := range sizep {
 		p.Protos[i] = s.rVarInt()
 		// fmt.Println("p", i, p.Protos[i])
@@ -523,7 +922,6 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 
 	// p.LineDefined = s.rVarInt()
 	s.skipVarInt()
-
 	if dbgnamei := s.rVarInt(); dbgnamei == 0 {
 		p.Dbgname = "(??)"
 	} else {
@@ -531,6 +929,7 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 		if i >= uint32(len(stringList)) {
 			return nil, fmt.Errorf("invalid dbgname index %d", dbgnamei)
 		}
+
 		p.Dbgname = stringList[i]
 	}
 
@@ -554,8 +953,7 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 	// feedbackvec := make([]uint32, feedbackvecsize)
 
 	for i := range feedbackvecsize {
-		slottype := s.rByte()
-		if slottype != 0 {
+		if slottype := s.rByte(); slottype != 0 {
 			return nil, fmt.Errorf("unexpected feedback slot %d type %d", i, slottype)
 		}
 
@@ -578,23 +976,21 @@ var (
 	errUnsupportedTypesVersion = errors.New("bytecode type version mismatch")
 )
 
-const (
-	expectedBytecodeVersion = 14
-	expectedTypesVersion = 3
-)
-
 func Deserialise(b []byte) (d internal.Deserialised, err error) {
-	s := &stream{data: b}
-
+	s := &stream{
+		data: b,
+	}
 	version := s.rByte()
 	// fmt.Println("version", version)
 
 	if version == 0 {
 		return d, errors.New("the provided bytecode is an error message")
 	}
+
 	if version != expectedBytecodeVersion {
 		return d, fmt.Errorf("%w: expected %d, got %d", errUnsupportedVersion, expectedBytecodeVersion, version)
 	}
+
 	s.version = version
 
 	if typesVersion := s.rByte(); typesVersion != expectedTypesVersion {
@@ -606,6 +1002,7 @@ func Deserialise(b []byte) (d internal.Deserialised, err error) {
 	stringCount := s.rVarInt()
 	// fmt.Println("String count:", stringCount)
 	stringList := make([]string, stringCount)
+
 	for i := range stringCount {
 		stringList[i] = s.rString()
 		// fmt.Println("String:", stringList[i])
@@ -633,6 +1030,7 @@ func Deserialise(b []byte) (d internal.Deserialised, err error) {
 	// fmt.Println("Rest:", s.data[s.pos:])
 
 	protoList := make([]*internal.Proto, protoCount)
+
 	for i := range protoCount {
 		if protoList[i], err = s.readProto(stringList); err != nil {
 			return d, fmt.Errorf("readProto %d: %w", i, err)

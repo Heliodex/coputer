@@ -8,109 +8,10 @@ import (
 	"github.com/Heliodex/coputer/ast/lex"
 )
 
-func sourceFiles(t *testing.T, dir string) {
-	files, err := os.ReadDir("../" + dir)
-	if err != nil {
-		t.Fatal("error reading directory:", err)
-	}
-
-	for _, f := range files {
-		fn := f.Name()
-		if !strings.HasSuffix(fn, Ext) {
-			continue
-		}
-		name := trimext(fn)
-
-		content, err := os.ReadFile("../" + dir + "/" + name + Ext)
-		if err != nil {
-			t.Fatal("error reading file:", err)
-		}
-
-		ok, res := Parse(string(content), Options{})
-		if !ok {
-			t.Errorf("%s/%s: source failed to parse: %v", dir, name, res.Errors)
-			continue
-		}
-
-		source := res.Root.Source()
-
-		ok, res2 := Parse(source, Options{})
-		if !ok {
-			t.Errorf("%s/%s: generated source failed to parse: %v\n--- source\n%s", dir, name, res2.Errors, source)
-			continue
-		}
-
-		// rendering the re-parsed AST should produce identical source
-		source2 := res2.Root.Source()
-		if source != source2 {
-			t.Errorf("%s/%s: generated source is not stable\n--- first\n%s\n--- second\n%s", dir, name, source, source2)
-		}
-	}
-}
-
-// TestSourceRoundTrip checks that Source() output is valid, stable Luau for every file in the AST, conformance and benchmark test suites.
-func TestSourceRoundTrip(t *testing.T) {
-	sourceFiles(t, AstDir)
-	sourceFiles(t, ConformanceDir)
-	sourceFiles(t, BenchmarkDir)
-}
-
-// TestSourceFormatting checks the formatted output for a representative mix of declarations, functions, tables, if-local statements and types.
-func TestSourceFormatting(t *testing.T) {
-	src := `export type Point = { x: number, y: number }
-type Callback<T> = (T) -> ()
-local function map<T, U>(list: {T}, f: (T) -> U): {U}
-	local out = table.create(#list)
-	for i, v in list do
-		out[i] = f(v)
-	end
-	return out
-end
-local t = {
-	a = 1,
-	[2] = "two",
-}
-if local n = #t then
-	print(n, t.a)
-elseif false then
-	print("no")
-else
-	print("n is " .. tostring(t.a))
-end
-`
-
-	expected := `export type Point = {
-	x: number,
-	y: number,
-}
-type Callback<T> = (T) -> ()
-
-local function map<T, U>(
-	list: { T },
-	f: (T) -> U
-): { U }
-	local out = table.create(#list)
-
-	for i, v in list do
-		out[i] = f(v)
-	end
-
-	return out
-end
-
-local t = {
-	a = 1,
-	[2] = "two",
-}
-
-if local n = #t then
-	print(n, t.a)
-elseif false then
-	print "no"
-else
-	print("n is " .. tostring(t.a))
-end`
-
+// TestSourceComments checks that comments are rendered near their original positions: leading comments stay above the statement they precede, trailing comments stay on the same line, and comments inside a block stay inside it.
+func TestSourceComments(t *testing.T) {
+	expected := "-- leading comment\n" + "local x = 1 -- trailing comment\n" + "\n" + "--[[ block comment ]]\n" + "local function f()\n" + "\t-- inner comment\n" + "\treturn x -- return comment\n" + "end\n" + "\n" + "do\n" + "\t--[[ multi\n" + "\tline ]]\n" + "end"
+	src := "-- leading comment\n" + "local x = 1 -- trailing comment\n" + "--[[ block comment ]]\n" + "local function f()\n" + "\t-- inner comment\n" + "\treturn x -- return comment\n" + "end\n" + "do\n" + "\t--[[ multi\n" + "\tline ]]\n" + "end\n"
 	ok, res := Parse(src, Options{})
 	if !ok {
 		t.Fatal("error parsing source:", res.Errors)
@@ -121,95 +22,161 @@ end`
 	}
 }
 
-// TestSourceServiceSorting checks that a leading run of `game:GetService` declarations is sorted alphabetically by service name, including the guards that keep the rewrite behaviour-preserving.
-func TestSourceServiceSorting(t *testing.T) {
-	cases := []struct {
-		name string
-		src string
-		want string
-	}{
-		{
-			name: "sorts locals by service name",
-			src: "local Workspace = game:GetService \"Workspace\"\nlocal Players = game:GetService \"Players\"\nlocal RunService = game:GetService \"RunService\"\n",
-			want: "local Players = game:GetService \"Players\"\nlocal RunService = game:GetService \"RunService\"\nlocal Workspace = game:GetService \"Workspace\"",
-		},
-		{
-			name: "comments move with their declaration but a file header stays put",
-			src: "--!strict\n-- header\nlocal Zed = game:GetService \"Zed\"\n-- players\nlocal Players = game:GetService \"Players\" -- the players\n",
-			want: "--!strict\n-- header\n-- players\n\nlocal Players = game:GetService \"Players\" -- the players\nlocal Zed = game:GetService \"Zed\"",
-		},
-		{
-			name: "parenthesised calls and sugar are both recognised",
-			src: "local C = game:GetService(\"Camera\")\nlocal A = game:GetService \"Accessory\"\nlocal B = game:GetService(\"Body\")\n",
-			want: "local A = game:GetService \"Accessory\"\nlocal B = game:GetService \"Body\"\nlocal C = game:GetService \"Camera\"",
-		},
-		{
-			name: "type annotations do not disqualify",
-			src: "local B: Instance = game:GetService \"B\"\nlocal A: Instance = game:GetService \"A\"\n",
-			want: "local A: Instance = game:GetService \"A\"\nlocal B: Instance = game:GetService \"B\"",
-		},
-		{
-			name: "the run stops at the first non-service statement",
-			src: "local B = game:GetService \"B\"\nlocal A = game:GetService \"A\"\nlocal C = game:GetService \"C\"\n",
-			want: "local A = game:GetService \"A\"\nlocal B = game:GetService \"B\"\nlocal C = game:GetService \"C\"",
-		},
-		{
-			name: "duplicate names still sort by service name",
-			src: "local A = game:GetService \"Zed\"\nlocal A = game:GetService \"Apple\"\n",
-			want: "local A = game:GetService \"Apple\"\nlocal A = game:GetService \"Zed\"",
-		},
-		{
-			name: "a non-game base is left unsorted",
-			src: "local B = Client:GetService \"B\"\nlocal A = Client:GetService \"A\"\n",
-			want: "local B = Client:GetService \"B\"\nlocal A = Client:GetService \"A\"",
-		},
-		{
-			name: "a non-string argument is left unsorted",
-			src: "local B = game:GetService(name)\nlocal A = game:GetService(other)\n",
-			want: "local B = game:GetService(name)\nlocal A = game:GetService(other)",
-		},
-		{
-			name: "multiple declared variables are left unsorted",
-			src: "local B, C = game:GetService \"B\", 1\nlocal A = game:GetService \"A\"\n",
-			want: "local B, C = game:GetService \"B\", 1\nlocal A = game:GetService \"A\"",
-		},
-		{
-			name: "only the leading same-kind run sorts",
-			src: "local B = game:GetService \"B\"\nlocal A = game:GetService \"A\"\nconst D = game:GetService \"D\"\nconst C = game:GetService \"C\"\n",
-			want: "local A = game:GetService \"A\"\nlocal B = game:GetService \"B\"\n\nconst D = game:GetService \"D\"\nconst C = game:GetService \"C\"",
-		},
+// TestSourceCommentsOption checks that comments are always rendered by Source(), while Result.CommentLocations still respects CaptureComments.
+func TestSourceCommentsOption(t *testing.T) {
+	src := "-- comment\nlocal x = 1\n"
+	_, res := Parse(src, Options{})
+	if len(res.CommentLocations) != 0 {
+		t.Errorf("expected no comment locations without CaptureComments, got %d", len(res.CommentLocations))
 	}
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			ok, res := Parse(tc.src, Options{})
-			if !ok {
-				t.Fatal("error parsing source:", res.Errors)
-			}
-
-			got := formatAST(res).Root.Source()
-			if got != tc.want {
-				t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", tc.want, got)
-			}
-
-			// the rewritten source must be stable
-			ok, res2 := Parse(got, Options{})
-			if !ok {
-				t.Fatal("error parsing generated source:", res2.Errors)
-			}
-			if got2 := formatAST(res2).Root.Source(); got2 != got {
-				t.Errorf("generated source is not stable:\n-- First\n%s\n-- Second\n%s\n", got, got2)
-			}
-		})
+	if !strings.Contains(res.Root.Source(), "-- comment") {
+		t.Errorf("expected Source() to include comments without CaptureComments")
 	}
+
+	_, res = Parse(src, Options{
+		CaptureComments: true,
+	})
+
+	if len(res.CommentLocations) != 1 {
+		t.Fatalf("expected 1 comment location, got %d", len(res.CommentLocations))
+	}
+
+	if res.CommentLocations[0].Content != " comment" {
+		t.Errorf("unexpected comment content: %q", res.CommentLocations[0].Content)
+	}
+}
+
+// TestSourceDeclareNodes checks Source() for declaration nodes, which are part of the AST but aren't produced by this parser.
+func TestSourceDeclareNodes(t *testing.T) {
+	ref := func(name string) AstTypeReference {
+		return AstTypeReference{
+			NodeLoc: &NodeLoc{},
+			Name: name,
+		}
+	}
+	pack := func(p AstTypePack) *AstTypePack {
+		return &p
+	}
+
+	t.Run("declare function", func(t *testing.T) {
+		node := AstStatDeclareFunction{
+			NodeLoc: &NodeLoc{},
+			Name: "foo",
+			Generics: []AstGenericType{
+				{
+					NodeLoc: &NodeLoc{},
+					Name: "T",
+				},
+			},
+			Params: AstTypeList{
+				Types: []AstType{ref("number")},
+				TailType: pack(AstTypePackVariadic{
+					NodeLoc: &NodeLoc{},
+					VariadicType: ref("string"),
+				}),
+			},
+			ParamNames: []AstArgumentName{
+				{
+					Name: "a",
+				},
+			},
+			Vararg: true,
+			RetTypes: AstTypePackExplicit{
+				NodeLoc: &NodeLoc{},
+				Types: AstTypeList{
+					Types: []AstType{ref("string"), ref("number")},
+				},
+			},
+		}
+		expected := "declare function foo<T>(a: number, ...: string): (string, number)"
+		if got := node.Source(); got != expected {
+			t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", expected, got)
+		}
+	})
+	t.Run("declare extern type", func(t *testing.T) {
+		super := "Bar"
+		node := AstStatDeclareExternType{
+			NodeLoc: &NodeLoc{},
+			Name: "Foo",
+			SuperName: &super,
+			Props: []AstDeclaredExternTypeProperty{
+				{
+					Name: lex.AstName{
+						Value: "prop",
+					},
+					Ty: ref("number"),
+				},
+				{
+					Name: lex.AstName{
+						Value: "method",
+					},
+					IsMethod: true,
+					Ty: AstTypeFunction{
+						NodeLoc: &NodeLoc{},
+						ArgTypes: AstTypeList{
+							Types: []AstType{ref("number")},
+						},
+						ArgNames: []*AstArgumentName{
+							{
+								Name: "foo",
+							},
+						},
+						ReturnTypes: AstTypePackExplicit{
+							NodeLoc: &NodeLoc{},
+							Types: AstTypeList{
+								Types: []AstType{ref("string")},
+							},
+						},
+					},
+				},
+			},
+			Indexer: &AstTableIndexer{
+				IndexType: ref("string"),
+				ResultType: ref("number"),
+				Access: "ReadWrite",
+			},
+		}
+		expected := "declare extern type Foo extends Bar with\n" + "\tprop: number\n" + "\tfunction method(self, foo: number): string\n" + "\t[string]: number\n" + "end"
+		if got := node.Source(); got != expected {
+			t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", expected, got)
+		}
+	})
+	t.Run("declare global", func(t *testing.T) {
+		node := AstStatDeclareGlobal{
+			NodeLoc: &NodeLoc{},
+			Name: "x",
+			Type: ref("number"),
+		}
+		expected := "declare x: number"
+		if got := node.Source(); got != expected {
+			t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", expected, got)
+		}
+	})
+	t.Run("attribute with args", func(t *testing.T) {
+		expected := `@[deprecated("use")]`
+		name := "deprecated"
+		node := AstAttr{
+			NodeLoc: &NodeLoc{},
+			Args: []AstExpr{
+				AstExprConstantString{
+					NodeLoc: &NodeLoc{},
+					Value: "use",
+				},
+			},
+			Name: &name,
+		}
+
+		if got := node.Source(); got != expected {
+			t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", expected, got)
+		}
+	})
 }
 
 // TestSourceDirectiveSorting checks that comment directives at the top of the file are pulled together and sorted by category, that only the first type-check directive survives, and that non-header directives are left alone.
 func TestSourceDirectiveSorting(t *testing.T) {
 	cases := []struct {
-		name string
-		src string
-		want string
+		name, src, want string
 	}{
 		{
 			name: "sorts directives by category",
@@ -274,6 +241,7 @@ func TestSourceDirectiveSorting(t *testing.T) {
 			if !ok {
 				t.Fatal("error parsing generated source:", res2.Errors)
 			}
+
 			if got2 := formatAST(res2).Root.Source(); got2 != got {
 				t.Errorf("generated source is not stable:\n-- First\n%s\n-- Second\n%s\n", got, got2)
 			}
@@ -281,47 +249,45 @@ func TestSourceDirectiveSorting(t *testing.T) {
 	}
 }
 
-// TestSourceRequireSorting checks that a leading run of `require` declarations is sorted by filename, with string requires before instance-path ones, and that it composes after the service section.
-func TestSourceRequireSorting(t *testing.T) {
+// TestSourceEmptyDoBlocks checks that empty `do end` blocks are dropped by the formatAST transformation, that inner comments move out to the parent block instead of being deleted, and that non-empty blocks are kept.
+func TestSourceEmptyDoBlocks(t *testing.T) {
 	cases := []struct {
-		name string
-		src string
-		want string
+		name, src, want string
 	}{
 		{
-			name: "sorts string requires by filename",
-			src: "local Types = require \"../Types\"\nlocal logError = require \"../Logging/logError\"\nlocal isSimilar = require \"../Utility/isSimilar\"\n",
-			want: "local logError = require \"../Logging/logError\"\nlocal Types = require \"../Types\"\nlocal isSimilar = require \"../Utility/isSimilar\"",
+			name: "a standalone empty do block is removed",
+			src: "do end\n",
+			want: "",
 		},
 		{
-			name: "string requires come before instance requires",
-			src: "local inst = require(script.Parent.Services)\nlocal a = require \"../A\"\nlocal b = require(script.Parent.Alpha)\n",
-			want: "local a = require \"../A\"\nlocal b = require(script.Parent.Alpha)\nlocal inst = require(script.Parent.Services)",
+			name: "an empty do block between statements is removed",
+			src: "local x = 1\ndo end\nprint(x)\n",
+			want: "local x = 1\nprint(x)",
 		},
 		{
-			name: "sorts instance requires by path",
-			src: "local z = require(script.Parent.Zed)\nlocal a = require(script.Parent.Alpha)\n",
-			want: "local a = require(script.Parent.Alpha)\nlocal z = require(script.Parent.Zed)",
+			name: "nested empty do blocks are removed",
+			src: "do\ndo end\nend\nprint(1)\n",
+			want: "print(1)",
 		},
 		{
-			name: "a single require is left alone",
-			src: "local A = require \"../A\"\nlocal B = 2\n",
-			want: "local A = require \"../A\"\n\nlocal B = 2",
+			name: "inner comments move out to the parent block",
+			src: "local x = 1\ndo\n\t-- kept\nend\nprint(x)\n",
+			want: "local x = 1\n-- kept\nprint(x)",
 		},
 		{
-			name: "requires after a non-require statement are left alone",
-			src: "local B = require \"../B\"\nlocal A = require \"../A\"\nlocal x = 1\nlocal D = require \"../D\"\nlocal C = require \"../C\"\n",
-			want: "local A = require \"../A\"\nlocal B = require \"../B\"\n\nlocal x = 1\nlocal D = require \"../D\"\nlocal C = require \"../C\"",
+			name: "a non-empty do block is kept",
+			src: "do\n\tprint(1)\nend\n",
+			want: "do\n\tprint(1)\nend",
 		},
 		{
-			name: "composes after the sorted service section",
-			src: "local Players = game:GetService \"Players\"\nlocal Workspace = game:GetService \"Workspace\"\nlocal B = require \"../B\"\nlocal A = require \"../A\"\nlocal rest = 1\n",
-			want: "local Players = game:GetService \"Players\"\nlocal Workspace = game:GetService \"Workspace\"\n\nlocal A = require \"../A\"\nlocal B = require \"../B\"\n\nlocal rest = 1",
+			name: "an empty do block inside a function is removed",
+			src: "local function f()\n\tdo end\n\treturn 1\nend\n",
+			want: "local function f()\n\treturn 1\nend",
 		},
 		{
-			name: "a shadowed require local is not sorted",
-			src: "local require = function(x)\n\treturn x\nend\nlocal B = require \"../B\"\nlocal A = require \"../A\"\n",
-			want: "local function require(\n\tx\n)\n\treturn x\nend\n\nlocal B = require \"../B\"\nlocal A = require \"../A\"",
+			name: "an empty do block inside a function value is removed once",
+			src: "local f = function() do end return 1 end\n",
+			want: "local function f()\n\treturn 1\nend",
 		},
 	}
 
@@ -337,10 +303,15 @@ func TestSourceRequireSorting(t *testing.T) {
 				t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", tc.want, got)
 			}
 
+			if tc.want == "" {
+				return
+			}
+
 			ok, res2 := Parse(got, Options{})
 			if !ok {
 				t.Fatal("error parsing generated source:", res2.Errors)
 			}
+
 			if got2 := formatAST(res2).Root.Source(); got2 != got {
 				t.Errorf("generated source is not stable:\n-- First\n%s\n-- Second\n%s\n", got, got2)
 			}
@@ -348,34 +319,60 @@ func TestSourceRequireSorting(t *testing.T) {
 	}
 }
 
-// TestSourceComments checks that comments are rendered near their original positions: leading comments stay above the statement they precede, trailing comments stay on the same line, and comments inside a block stay inside it.
-func TestSourceComments(t *testing.T) {
-	src := "-- leading comment\n" +
-		"local x = 1 -- trailing comment\n" +
-		"--[[ block comment ]]\n" +
-		"local function f()\n" +
-		"\t-- inner comment\n" +
-		"\treturn x -- return comment\n" +
-		"end\n" +
-		"do\n" +
-		"\t--[[ multi\n" +
-		"\tline ]]\n" +
-		"end\n"
+// TestSourceFormatting checks the formatted output for a representative mix of declarations, functions, tables, if-local statements and types.
+func TestSourceFormatting(t *testing.T) {
+	expected := `export type Point = {
+	x: number,
+	y: number,
+}
+type Callback<T> = (T) -> ()
 
-	expected := "-- leading comment\n" +
-		"local x = 1 -- trailing comment\n" +
-		"\n" +
-		"--[[ block comment ]]\n" +
-		"local function f()\n" +
-		"\t-- inner comment\n" +
-		"\treturn x -- return comment\n" +
-		"end\n" +
-		"\n" +
-		"do\n" +
-		"\t--[[ multi\n" +
-		"\tline ]]\n" +
-		"end"
+local function map<T, U>(
+	list: { T },
+	f: (T) -> U
+): { U }
+	local out = table.create(#list)
 
+	for i, v in list do
+		out[i] = f(v)
+	end
+
+	return out
+end
+
+local t = {
+	a = 1,
+	[2] = "two",
+}
+
+if local n = #t then
+	print(n, t.a)
+elseif false then
+	print "no"
+else
+	print("n is " .. tostring(t.a))
+end`
+	src := `export type Point = { x: number, y: number }
+type Callback<T> = (T) -> ()
+local function map<T, U>(list: {T}, f: (T) -> U): {U}
+	local out = table.create(#list)
+	for i, v in list do
+		out[i] = f(v)
+	end
+	return out
+end
+local t = {
+	a = 1,
+	[2] = "two",
+}
+if local n = #t then
+	print(n, t.a)
+elseif false then
+	print("no")
+else
+	print("n is " .. tostring(t.a))
+end
+`
 	ok, res := Parse(src, Options{})
 	if !ok {
 		t.Fatal("error parsing source:", res.Errors)
@@ -389,9 +386,7 @@ func TestSourceComments(t *testing.T) {
 // TestSourceFunctionSpacing checks that standalone function declarations are set off from the surrounding code in any scope with a single blank line, while a comment attached to the top of a function stays hugging it.
 func TestSourceFunctionSpacing(t *testing.T) {
 	cases := []struct {
-		name string
-		src string
-		want string
+		name, src, want string
 	}{
 		{
 			name: "blank lines around a function between statements",
@@ -446,6 +441,7 @@ func TestSourceFunctionSpacing(t *testing.T) {
 			if !ok {
 				t.Fatal("error parsing generated source:", res2.Errors)
 			}
+
 			if got2 := res2.Root.Source(); got2 != got {
 				t.Errorf("generated source is not stable:\n-- First\n%s\n-- Second\n%s\n", got, got2)
 			}
@@ -456,9 +452,7 @@ func TestSourceFunctionSpacing(t *testing.T) {
 // TestSourceMethodCalls checks that a dot-notation call repeating its receiver identifier as the first argument is rewritten to the equivalent method call, and that forms which would change behaviour are left alone.
 func TestSourceMethodCalls(t *testing.T) {
 	cases := []struct {
-		name string
-		src string
-		want string
+		name, src, want string
 	}{
 		{
 			name: "repeated local receiver becomes a method call",
@@ -553,6 +547,7 @@ func TestSourceMethodCalls(t *testing.T) {
 			if !ok {
 				t.Fatal("error parsing generated source:", res2.Errors)
 			}
+
 			if got2 := res2.Root.Source(); got2 != got {
 				t.Errorf("generated source is not stable:\n-- First\n%s\n-- Second\n%s\n", got, got2)
 			}
@@ -563,35 +558,125 @@ func TestSourceMethodCalls(t *testing.T) {
 // TestSourceNumberLiterals checks that numeric literals are re-rendered to the value the reference implementation assigns, in particular that an overlong hex or binary literal saturates to the largest representable value instead of collapsing to zero.
 func TestSourceNumberLiterals(t *testing.T) {
 	cases := []struct {
-		name string
-		lit string
-		want string
+		name, lit, want string
 	}{
-		{name: "small hex", lit: "0xff", want: "255"},
-		{name: "hex without loss", lit: "0x10", want: "16"},
-		{name: "largest 64-bit hex", lit: "0xffffffffffffffff", want: "18446744073709552000"},
-		{name: "hex exactly 2^64", lit: "0x10000000000000000", want: "18446744073709552000"},
-		{name: "80-bit hex saturates to the maximum", lit: "0xffffffffffffffffffff", want: "18446744073709552000"},
-		{name: "long hex with leading zeros does not overflow", lit: "0x000000000000000000ff", want: "255"},
-		{name: "small binary", lit: "0b101", want: "5"},
-		{name: "64-bit binary", lit: "0b1111111111111111111111111111111111111111111111111111111111111111", want: "18446744073709552000"},
-		{name: "65-bit binary saturates to the maximum", lit: "0b11111111111111111111111111111111111111111111111111111111111111111", want: "18446744073709552000"},
-		{name: "exponent overflow becomes infinity", lit: "1e400", want: "math.huge"},
-		{name: "hex integer suffix is kept", lit: "0xFFi", want: "255i"},
+		{
+			name: "small hex",
+			lit: "0xff",
+			want: "255",
+		},
+		{
+			name: "hex without loss",
+			lit: "0x10",
+			want: "16",
+		},
+		{
+			name: "largest 64-bit hex",
+			lit: "0xffffffffffffffff",
+			want: "18446744073709552000",
+		},
+		{
+			name: "hex exactly 2^64",
+			lit: "0x10000000000000000",
+			want: "18446744073709552000",
+		},
+		{
+			name: "80-bit hex saturates to the maximum",
+			lit: "0xffffffffffffffffffff",
+			want: "18446744073709552000",
+		},
+		{
+			name: "long hex with leading zeros does not overflow",
+			lit: "0x000000000000000000ff",
+			want: "255",
+		},
+		{
+			name: "small binary",
+			lit: "0b101",
+			want: "5",
+		},
+		{
+			name: "64-bit binary",
+			lit: "0b1111111111111111111111111111111111111111111111111111111111111111",
+			want: "18446744073709552000",
+		},
+		{
+			name: "65-bit binary saturates to the maximum",
+			lit: "0b11111111111111111111111111111111111111111111111111111111111111111",
+			want: "18446744073709552000",
+		},
+		{
+			name: "exponent overflow becomes infinity",
+			lit: "1e400",
+			want: "math.huge",
+		},
+		{
+			name: "hex integer suffix is kept",
+			lit: "0xFFi",
+			want: "255i",
+		},
 
 		// clean values are re-rendered as hexadecimal regardless of the input format
-		{name: "power of 16", lit: "0x1000", want: "0x1000"},
-		{name: "power of 16 from decimal", lit: "4096", want: "0x1000"},
-		{name: "power of 16 from binary", lit: "0b1000000000000", want: "0x1000"},
-		{name: "one less than a power of 16", lit: "0xfffffff", want: "0xfffffff"},
-		{name: "single digit multiple of a power of 16", lit: "0x4000", want: "0x4000"},
-		{name: "large single digit multiple", lit: "0xe00000", want: "0xe00000"},
-		{name: "multiple of a power of 16 from decimal", lit: "5242880", want: "0x500000"},
-		{name: "small value stays decimal", lit: "0x100", want: "256"},
-		{name: "small all-ones stays decimal", lit: "0xff", want: "255"},
-		{name: "value beyond 2^63 stays decimal", lit: "0xffffffffffffffff", want: "18446744073709552000"},
-		{name: "clean integer suffix", lit: "4096i", want: "0x1000i"},
-		{name: "imprecise decimal rounds to a clean value", lit: "9007199254740993", want: "0x20000000000000"},
+		{
+			name: "power of 16",
+			lit: "0x1000",
+			want: "0x1000",
+		},
+		{
+			name: "power of 16 from decimal",
+			lit: "4096",
+			want: "0x1000",
+		},
+		{
+			name: "power of 16 from binary",
+			lit: "0b1000000000000",
+			want: "0x1000",
+		},
+		{
+			name: "one less than a power of 16",
+			lit: "0xfffffff",
+			want: "0xfffffff",
+		},
+		{
+			name: "single digit multiple of a power of 16",
+			lit: "0x4000",
+			want: "0x4000",
+		},
+		{
+			name: "large single digit multiple",
+			lit: "0xe00000",
+			want: "0xe00000",
+		},
+		{
+			name: "multiple of a power of 16 from decimal",
+			lit: "5242880",
+			want: "0x500000",
+		},
+		{
+			name: "small value stays decimal",
+			lit: "0x100",
+			want: "256",
+		},
+		{
+			name: "small all-ones stays decimal",
+			lit: "0xff",
+			want: "255",
+		},
+		{
+			name: "value beyond 2^63 stays decimal",
+			lit: "0xffffffffffffffff",
+			want: "18446744073709552000",
+		},
+		{
+			name: "clean integer suffix",
+			lit: "4096i",
+			want: "0x1000i",
+		},
+		{
+			name: "imprecise decimal rounds to a clean value",
+			lit: "9007199254740993",
+			want: "0x20000000000000",
+		},
 	}
 
 	for _, tc := range cases {
@@ -612,6 +697,7 @@ func TestSourceNumberLiterals(t *testing.T) {
 			if !ok {
 				t.Fatal("error parsing generated source:", res2.Errors)
 			}
+
 			if got2 := res2.Root.Source(); got2 != got {
 				t.Errorf("generated source is not stable:\n-- First\n%s\n-- Second\n%s\n", got, got2)
 			}
@@ -619,142 +705,45 @@ func TestSourceNumberLiterals(t *testing.T) {
 	}
 }
 
-// TestSourceCommentsOption checks that comments are always rendered by Source(), while Result.CommentLocations still respects CaptureComments.
-func TestSourceCommentsOption(t *testing.T) {
-	src := "-- comment\nlocal x = 1\n"
-
-	_, res := Parse(src, Options{})
-	if len(res.CommentLocations) != 0 {
-		t.Errorf("expected no comment locations without CaptureComments, got %d", len(res.CommentLocations))
-	}
-	if !strings.Contains(res.Root.Source(), "-- comment") {
-		t.Errorf("expected Source() to include comments without CaptureComments")
-	}
-
-	_, res = Parse(src, Options{CaptureComments: true})
-	if len(res.CommentLocations) != 1 {
-		t.Fatalf("expected 1 comment location, got %d", len(res.CommentLocations))
-	}
-	if res.CommentLocations[0].Content != " comment" {
-		t.Errorf("unexpected comment content: %q", res.CommentLocations[0].Content)
-	}
-}
-
-// TestSourceDeclareNodes checks Source() for declaration nodes, which are part of the AST but aren't produced by this parser.
-func TestSourceDeclareNodes(t *testing.T) {
-	ref := func(name string) AstTypeReference {
-		return AstTypeReference{NodeLoc: &NodeLoc{}, Name: name}
-	}
-	pack := func(p AstTypePack) *AstTypePack {
-		return &p
-	}
-
-	t.Run("declare function", func(t *testing.T) {
-		node := AstStatDeclareFunction{
-			NodeLoc: &NodeLoc{},
-			Name: "foo",
-			Generics: []AstGenericType{{NodeLoc: &NodeLoc{}, Name: "T"}},
-			Params: AstTypeList{Types: []AstType{ref("number")}, TailType: pack(AstTypePackVariadic{NodeLoc: &NodeLoc{}, VariadicType: ref("string")})},
-			ParamNames: []AstArgumentName{{Name: "a"}},
-			Vararg: true,
-			RetTypes: AstTypePackExplicit{NodeLoc: &NodeLoc{}, Types: AstTypeList{Types: []AstType{ref("string"), ref("number")}}},
-		}
-
-		expected := "declare function foo<T>(a: number, ...: string): (string, number)"
-		if got := node.Source(); got != expected {
-			t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", expected, got)
-		}
-	})
-
-	t.Run("declare extern type", func(t *testing.T) {
-		super := "Bar"
-		node := AstStatDeclareExternType{
-			NodeLoc: &NodeLoc{},
-			Name: "Foo",
-			SuperName: &super,
-			Props: []AstDeclaredExternTypeProperty{
-				{Name: lex.AstName{Value: "prop"}, Ty: ref("number")},
-				{Name: lex.AstName{Value: "method"}, IsMethod: true, Ty: AstTypeFunction{
-					NodeLoc: &NodeLoc{},
-					ArgTypes: AstTypeList{Types: []AstType{ref("number")}},
-					ArgNames: []*AstArgumentName{{Name: "foo"}},
-					ReturnTypes: AstTypePackExplicit{NodeLoc: &NodeLoc{}, Types: AstTypeList{Types: []AstType{ref("string")}}},
-				}},
-			},
-			Indexer: &AstTableIndexer{IndexType: ref("string"), ResultType: ref("number"), Access: "ReadWrite"},
-		}
-
-		expected := "declare extern type Foo extends Bar with\n" +
-			"\tprop: number\n" +
-			"\tfunction method(self, foo: number): string\n" +
-			"\t[string]: number\n" +
-			"end"
-		if got := node.Source(); got != expected {
-			t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", expected, got)
-		}
-	})
-
-	t.Run("declare global", func(t *testing.T) {
-		node := AstStatDeclareGlobal{NodeLoc: &NodeLoc{}, Name: "x", Type: ref("number")}
-
-		expected := "declare x: number"
-		if got := node.Source(); got != expected {
-			t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", expected, got)
-		}
-	})
-
-	t.Run("attribute with args", func(t *testing.T) {
-		name := "deprecated"
-		node := AstAttr{NodeLoc: &NodeLoc{}, Name: &name, Args: []AstExpr{AstExprConstantString{NodeLoc: &NodeLoc{}, Value: "use"}}}
-
-		expected := `@[deprecated("use")]`
-		if got := node.Source(); got != expected {
-			t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", expected, got)
-		}
-	})
-}
-
-// TestSourceEmptyDoBlocks checks that empty `do end` blocks are dropped by the formatAST transformation, that inner comments move out to the parent block instead of being deleted, and that non-empty blocks are kept.
-func TestSourceEmptyDoBlocks(t *testing.T) {
+// TestSourceRequireSorting checks that a leading run of `require` declarations is sorted by filename, with string requires before instance-path ones, and that it composes after the service section.
+func TestSourceRequireSorting(t *testing.T) {
 	cases := []struct {
-		name string
-		src string
-		want string
+		name, src, want string
 	}{
 		{
-			name: "a standalone empty do block is removed",
-			src: "do end\n",
-			want: "",
+			name: "sorts string requires by filename",
+			src: "local Types = require \"../Types\"\nlocal logError = require \"../Logging/logError\"\nlocal isSimilar = require \"../Utility/isSimilar\"\n",
+			want: "local logError = require \"../Logging/logError\"\nlocal Types = require \"../Types\"\nlocal isSimilar = require \"../Utility/isSimilar\"",
 		},
 		{
-			name: "an empty do block between statements is removed",
-			src: "local x = 1\ndo end\nprint(x)\n",
-			want: "local x = 1\nprint(x)",
+			name: "string requires come before instance requires",
+			src: "local inst = require(script.Parent.Services)\nlocal a = require \"../A\"\nlocal b = require(script.Parent.Alpha)\n",
+			want: "local a = require \"../A\"\nlocal b = require(script.Parent.Alpha)\nlocal inst = require(script.Parent.Services)",
 		},
 		{
-			name: "nested empty do blocks are removed",
-			src: "do\ndo end\nend\nprint(1)\n",
-			want: "print(1)",
+			name: "sorts instance requires by path",
+			src: "local z = require(script.Parent.Zed)\nlocal a = require(script.Parent.Alpha)\n",
+			want: "local a = require(script.Parent.Alpha)\nlocal z = require(script.Parent.Zed)",
 		},
 		{
-			name: "inner comments move out to the parent block",
-			src: "local x = 1\ndo\n\t-- kept\nend\nprint(x)\n",
-			want: "local x = 1\n-- kept\nprint(x)",
+			name: "a single require is left alone",
+			src: "local A = require \"../A\"\nlocal B = 2\n",
+			want: "local A = require \"../A\"\n\nlocal B = 2",
 		},
 		{
-			name: "a non-empty do block is kept",
-			src: "do\n\tprint(1)\nend\n",
-			want: "do\n\tprint(1)\nend",
+			name: "requires after a non-require statement are left alone",
+			src: "local B = require \"../B\"\nlocal A = require \"../A\"\nlocal x = 1\nlocal D = require \"../D\"\nlocal C = require \"../C\"\n",
+			want: "local A = require \"../A\"\nlocal B = require \"../B\"\n\nlocal x = 1\nlocal D = require \"../D\"\nlocal C = require \"../C\"",
 		},
 		{
-			name: "an empty do block inside a function is removed",
-			src: "local function f()\n\tdo end\n\treturn 1\nend\n",
-			want: "local function f()\n\treturn 1\nend",
+			name: "composes after the sorted service section",
+			src: "local Players = game:GetService \"Players\"\nlocal Workspace = game:GetService \"Workspace\"\nlocal B = require \"../B\"\nlocal A = require \"../A\"\nlocal rest = 1\n",
+			want: "local Players = game:GetService \"Players\"\nlocal Workspace = game:GetService \"Workspace\"\n\nlocal A = require \"../A\"\nlocal B = require \"../B\"\n\nlocal rest = 1",
 		},
 		{
-			name: "an empty do block inside a function value is removed once",
-			src: "local f = function() do end return 1 end\n",
-			want: "local function f()\n\treturn 1\nend",
+			name: "a shadowed require local is not sorted",
+			src: "local require = function(x)\n\treturn x\nend\nlocal B = require \"../B\"\nlocal A = require \"../A\"\n",
+			want: "local function require(\n\tx\n)\n\treturn x\nend\n\nlocal B = require \"../B\"\nlocal A = require \"../A\"",
 		},
 	}
 
@@ -770,16 +759,142 @@ func TestSourceEmptyDoBlocks(t *testing.T) {
 				t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", tc.want, got)
 			}
 
-			if tc.want == "" {
-				return
-			}
 			ok, res2 := Parse(got, Options{})
 			if !ok {
 				t.Fatal("error parsing generated source:", res2.Errors)
 			}
+
 			if got2 := formatAST(res2).Root.Source(); got2 != got {
 				t.Errorf("generated source is not stable:\n-- First\n%s\n-- Second\n%s\n", got, got2)
 			}
 		})
 	}
+}
+
+// TestSourceServiceSorting checks that a leading run of `game:GetService` declarations is sorted alphabetically by service name, including the guards that keep the rewrite behaviour-preserving.
+func TestSourceServiceSorting(t *testing.T) {
+	cases := []struct {
+		name, src, want string
+	}{
+		{
+			name: "sorts locals by service name",
+			src: "local Workspace = game:GetService \"Workspace\"\nlocal Players = game:GetService \"Players\"\nlocal RunService = game:GetService \"RunService\"\n",
+			want: "local Players = game:GetService \"Players\"\nlocal RunService = game:GetService \"RunService\"\nlocal Workspace = game:GetService \"Workspace\"",
+		},
+		{
+			name: "comments move with their declaration but a file header stays put",
+			src: "--!strict\n-- header\nlocal Zed = game:GetService \"Zed\"\n-- players\nlocal Players = game:GetService \"Players\" -- the players\n",
+			want: "--!strict\n-- header\n-- players\n\nlocal Players = game:GetService \"Players\" -- the players\nlocal Zed = game:GetService \"Zed\"",
+		},
+		{
+			name: "parenthesised calls and sugar are both recognised",
+			src: "local C = game:GetService(\"Camera\")\nlocal A = game:GetService \"Accessory\"\nlocal B = game:GetService(\"Body\")\n",
+			want: "local A = game:GetService \"Accessory\"\nlocal B = game:GetService \"Body\"\nlocal C = game:GetService \"Camera\"",
+		},
+		{
+			name: "type annotations do not disqualify",
+			src: "local B: Instance = game:GetService \"B\"\nlocal A: Instance = game:GetService \"A\"\n",
+			want: "local A: Instance = game:GetService \"A\"\nlocal B: Instance = game:GetService \"B\"",
+		},
+		{
+			name: "the run stops at the first non-service statement",
+			src: "local B = game:GetService \"B\"\nlocal A = game:GetService \"A\"\nlocal C = game:GetService \"C\"\n",
+			want: "local A = game:GetService \"A\"\nlocal B = game:GetService \"B\"\nlocal C = game:GetService \"C\"",
+		},
+		{
+			name: "duplicate names still sort by service name",
+			src: "local A = game:GetService \"Zed\"\nlocal A = game:GetService \"Apple\"\n",
+			want: "local A = game:GetService \"Apple\"\nlocal A = game:GetService \"Zed\"",
+		},
+		{
+			name: "a non-game base is left unsorted",
+			src: "local B = Client:GetService \"B\"\nlocal A = Client:GetService \"A\"\n",
+			want: "local B = Client:GetService \"B\"\nlocal A = Client:GetService \"A\"",
+		},
+		{
+			name: "a non-string argument is left unsorted",
+			src: "local B = game:GetService(name)\nlocal A = game:GetService(other)\n",
+			want: "local B = game:GetService(name)\nlocal A = game:GetService(other)",
+		},
+		{
+			name: "multiple declared variables are left unsorted",
+			src: "local B, C = game:GetService \"B\", 1\nlocal A = game:GetService \"A\"\n",
+			want: "local B, C = game:GetService \"B\", 1\nlocal A = game:GetService \"A\"",
+		},
+		{
+			name: "only the leading same-kind run sorts",
+			src: "local B = game:GetService \"B\"\nlocal A = game:GetService \"A\"\nconst D = game:GetService \"D\"\nconst C = game:GetService \"C\"\n",
+			want: "local A = game:GetService \"A\"\nlocal B = game:GetService \"B\"\n\nconst D = game:GetService \"D\"\nconst C = game:GetService \"C\"",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ok, res := Parse(tc.src, Options{})
+			if !ok {
+				t.Fatal("error parsing source:", res.Errors)
+			}
+
+			got := formatAST(res).Root.Source()
+			if got != tc.want {
+				t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", tc.want, got)
+			}
+
+			// the rewritten source must be stable
+			ok, res2 := Parse(got, Options{})
+			if !ok {
+				t.Fatal("error parsing generated source:", res2.Errors)
+			}
+
+			if got2 := formatAST(res2).Root.Source(); got2 != got {
+				t.Errorf("generated source is not stable:\n-- First\n%s\n-- Second\n%s\n", got, got2)
+			}
+		})
+	}
+}
+
+func sourceFiles(t *testing.T, dir string) {
+	files, err := os.ReadDir("../" + dir)
+	if err != nil {
+		t.Fatal("error reading directory:", err)
+	}
+
+	for _, f := range files {
+		fn := f.Name()
+		if !strings.HasSuffix(fn, Ext) {
+			continue
+		}
+
+		name := trimext(fn)
+		content, err := os.ReadFile("../" + dir + "/" + name + Ext)
+		if err != nil {
+			t.Fatal("error reading file:", err)
+		}
+
+		ok, res := Parse(string(content), Options{})
+		if !ok {
+			t.Errorf("%s/%s: source failed to parse: %v", dir, name, res.Errors)
+			continue
+		}
+
+		source := res.Root.Source()
+		ok, res2 := Parse(source, Options{})
+		if !ok {
+			t.Errorf("%s/%s: generated source failed to parse: %v\n--- source\n%s", dir, name, res2.Errors, source)
+			continue
+		}
+
+		// rendering the re-parsed AST should produce identical source
+
+		if source2 := res2.Root.Source(); source != source2 {
+			t.Errorf("%s/%s: generated source is not stable\n--- first\n%s\n--- second\n%s", dir, name, source, source2)
+		}
+	}
+}
+
+// TestSourceRoundTrip checks that Source() output is valid, stable Luau for every file in the AST, conformance and benchmark test suites.
+func TestSourceRoundTrip(t *testing.T) {
+	sourceFiles(t, AstDir)
+	sourceFiles(t, ConformanceDir)
+	sourceFiles(t, BenchmarkDir)
 }

@@ -22,67 +22,84 @@ func benchmarkScript(b *testing.B, name string, o uint8) {
 	luau_print := std.MakeFn("print", func(args std.Args) (r []Val, err error) {
 		return
 	})
-	var env Env
-	env.AddFn(luau_print)
 
+	var env Env
+
+	env.AddFn(luau_print)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
 		b.StopTimer()
+
 		co, _ := Load(p, env, TestArgs{})
+
 		b.StartTimer()
 
 		r, err := co.Resume()
 		if err != nil {
 			b.Fatal(err)
 		}
+
 		scriptSink = r
 	}
 }
 
-func BenchmarkScriptStrings(b *testing.B) {
-	benchmarkScript(b, "strings", 1)
+func BenchmarkScript10(b *testing.B) {
+	benchmarkScript(b, "10", 1)
 }
-func BenchmarkScriptHash(b *testing.B) {
-	benchmarkScript(b, "hash", 1)
+
+func BenchmarkScript12(b *testing.B) {
+	benchmarkScript(b, "12", 1)
 }
-func BenchmarkScriptPairs(b *testing.B) {
-	benchmarkScript(b, "pairs", 1)
-}
-func BenchmarkScriptClosures(b *testing.B) {
-	benchmarkScript(b, "closures", 1)
-}
-func BenchmarkScriptMethods(b *testing.B) {
-	benchmarkScript(b, "methods", 1)
+
+func BenchmarkScript14(b *testing.B) {
+	benchmarkScript(b, "14", 1)
 }
 
 func BenchmarkScript3(b *testing.B) {
 	benchmarkScript(b, "3", 1)
 }
+
 func BenchmarkScript4(b *testing.B) {
 	benchmarkScript(b, "4", 1)
 }
+
 func BenchmarkScript5(b *testing.B) {
 	benchmarkScript(b, "5", 1)
 }
-func BenchmarkScript10(b *testing.B) {
-	benchmarkScript(b, "10", 1)
-}
-func BenchmarkScript12(b *testing.B) {
-	benchmarkScript(b, "12", 1)
-}
-func BenchmarkScript14(b *testing.B) {
-	benchmarkScript(b, "14", 1)
-}
+
 func BenchmarkScriptBase64(b *testing.B) {
 	benchmarkScript(b, "base64", 1)
 }
+
 func BenchmarkScriptBigstring(b *testing.B) {
 	benchmarkScript(b, "bigstring", 1)
 }
+
+func BenchmarkScriptClosures(b *testing.B) {
+	benchmarkScript(b, "closures", 1)
+}
+
+func BenchmarkScriptHash(b *testing.B) {
+	benchmarkScript(b, "hash", 1)
+}
+
 func BenchmarkScriptLargealloc(b *testing.B) {
 	benchmarkScript(b, "largealloc", 1)
 }
+
 func BenchmarkScriptLuauception(b *testing.B) {
 	benchmarkScript(b, "luauception", 1)
+}
+
+func BenchmarkScriptMethods(b *testing.B) {
+	benchmarkScript(b, "methods", 1)
+}
+
+func BenchmarkScriptPairs(b *testing.B) {
+	benchmarkScript(b, "pairs", 1)
+}
+
+func BenchmarkScriptStrings(b *testing.B) {
+	benchmarkScript(b, "strings", 1)
 }

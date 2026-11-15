@@ -7,30 +7,13 @@ import (
 	. "github.com/Heliodex/coputer/litecode/types"
 )
 
-func newCoroutine(body Function, currentCo *Coroutine) *Coroutine {
-	// first time i actually ran into the channel axiom issues
-	return &Coroutine{
-		Function: body,
-		Filepath: currentCo.Filepath,
-		Dbgpath: currentCo.Dbgpath,
-		YieldChan: make(chan internal.Yield, 1),
-		ResumeChan: make(chan []Val, 1),
-	}
-}
-
 // ngl this might be the easiest library yet (or at least because most of its functionality is coroutines in the main file instead of here)
 
 func coroutine_close(args Args) (r []Val, err error) {
 	co := args.GetCoroutine()
-
 	co.Status = internal.CoDead
+
 	return
-}
-
-func coroutine_create(args Args) (r []Val, err error) {
-	f := args.GetFunction()
-
-	return args.Rets(CoVal(newCoroutine(f, args.Co))), nil
 }
 
 func coroutine_isyieldable(args Args) (r []Val, err error) {
@@ -39,10 +22,10 @@ func coroutine_isyieldable(args Args) (r []Val, err error) {
 
 func coroutine_resume(args Args) (r []Val, err error) {
 	co := args.GetCoroutine()
-
 	if co.Status == internal.CoDead {
 		return args.Rets(Bool(false), Str("cannot resume dead coroutine")), nil
 	}
+
 	if co.Status == internal.CoRunning {
 		return args.Rets(Bool(false), Str("cannot resume running coroutine")), nil
 	}
@@ -56,6 +39,7 @@ func coroutine_resume(args Args) (r []Val, err error) {
 	if err != nil {
 		return
 	}
+
 	return append([]Val{Bool(true)}, res...), nil
 }
 
@@ -73,38 +57,58 @@ func coroutine_status(args Args) (r []Val, err error) {
 	case internal.CoNormal:
 		return args.Rets(Str("normal")), nil
 	}
+
 	return args.Rets(Str("dead")), nil
-}
-
-func coroutine_wrap(args Args) (r []Val, err error) {
-	f := args.GetFunction()
-
-	co := newCoroutine(f, args.Co)
-
-	return args.Rets(FnVal(fn("wrap", func(_ *Coroutine, args ...Val) (r []Val, err error) {
-		if co.Status == internal.CoDead {
-			return nil, errors.New("cannot resume dead coroutine") // ought to be better (return false, error message) if we can figure out how
-		}
-		if co.Status == internal.CoRunning {
-			return nil, errors.New("cannot resume running coroutine")
-		}
-		return co.Resume(args...)
-	}))), nil
 }
 
 func coroutine_yield(args Args) (r []Val, err error) {
 	co := args.Co
-
 	if co.Status == internal.CoRunning {
 		// fmt.Println("C.Y suspending coroutine")
 		co.Status = internal.CoSuspended
 	}
 
 	// fmt.Println("C.Y yielding")
-	co.YieldChan <- internal.Yield{Rets: args.List}
+	co.YieldChan <- internal.Yield{
+		Rets: args.List,
+	}
 	// fmt.Println("C.Y yielded", "waiting for resume")
 	return <-co.ResumeChan, nil
 	// fmt.Println("C.Y resumed")
+}
+
+func newCoroutine(body Function, currentCo *Coroutine) *Coroutine {
+	// first time i actually ran into the channel axiom issues
+	return &Coroutine{
+		Function: body,
+		Filepath: currentCo.Filepath,
+		Dbgpath: currentCo.Dbgpath,
+		YieldChan: make(chan internal.Yield, 1),
+		ResumeChan: make(chan []Val, 1),
+	}
+}
+
+func coroutine_create(args Args) (r []Val, err error) {
+	f := args.GetFunction()
+
+	return args.Rets(CoVal(newCoroutine(f, args.Co))), nil
+}
+
+func coroutine_wrap(args Args) (r []Val, err error) {
+	f := args.GetFunction()
+	co := newCoroutine(f, args.Co)
+
+	return args.Rets(FnVal(fn("wrap", func(_ *Coroutine, args ...Val) (r []Val, err error) {
+		if co.Status == internal.CoDead {
+			return nil, errors.New("cannot resume dead coroutine") // ought to be better (return false, error message) if we can figure out how
+		}
+
+		if co.Status == internal.CoRunning {
+			return nil, errors.New("cannot resume running coroutine")
+		}
+
+		return co.Resume(args...)
+	}))), nil
 }
 
 var Libcoroutine = NewLib([]Function{

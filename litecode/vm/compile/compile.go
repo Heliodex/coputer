@@ -11,19 +11,14 @@ import (
 	. "github.com/Heliodex/coputer/litecode/types"
 )
 
-const Ext = ".luau"
-
-func luauCompile(path string, o uint8) (bytecode []byte, err error) {
-	cmd := exec.Command("luau-compile", "--binary", fmt.Sprintf("-O%d", o), path)
-	return cmd.Output()
-}
-
 type Program struct {
 	internal.Deserpath
 	Filepath string
 	Compiler Compiler
 	RequireHistory []string
 }
+
+const Ext = ".luau"
 
 // MakeCompiler creates a new compiler with the given optimisation level.
 func MakeCompiler(o uint8) Compiler {
@@ -33,10 +28,17 @@ func MakeCompiler(o uint8) Compiler {
 	}
 }
 
+func luauCompile(path string, o uint8) (bytecode []byte, err error) {
+	cmd := exec.Command("luau-compile", "--binary", fmt.Sprintf("-O%d", o), path)
+
+	return cmd.Output()
+}
+
 // Compile compiles a program at a specific path to bytecode and returns its deserialised form.
 func Compile(c Compiler, path string) (p Program, err error) {
 	// hash path instead of bytecode
 	hash := sha3.Sum256([]byte(path))
+
 	if dp, ok := c.Cache[hash]; ok {
 		return Program{
 			Deserpath: dp,

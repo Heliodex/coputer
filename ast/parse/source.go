@@ -12,54 +12,241 @@ import (
 	"github.com/Heliodex/coputer/ast/lex"
 )
 
-// This file implements Source() for every AST node. Each Source() renders the node as formatted Luau code starting at column zero, delegating to the Source() methods of its children and re-indenting their output where needed.
-//
-// Statements/expressions that span multiple lines indent their own contents with tabs relative to their first line, so a parent can embed them by indenting every line once more with sourceIndent.
-
-// sourceIndent prefixes every non-empty line of s with one tab per level.
-func sourceIndent(s string, levels int) string {
-	if s == "" || levels <= 0 {
-		return s
+type (
+	// sourceStatUnit is a statement together with the comments that belong to it: leading comments render above the statement and trailing comments stay on its last line.
+	sourceStatUnit struct {
+		stat AstStat
+		leading, trailing []Comment
 	}
 
-	pad := strings.Repeat("\t", levels)
-	lines := strings.Split(s, "\n")
-	for i, line := range lines {
-		if line == "" {
-			continue
-		}
-		lines[i] = pad + line
+	// sourceTypeTableEntry is a member of a type table (the indexer or a prop) together with the comments attributed to it.
+	sourceTypeTableEntry struct {
+		start, end lex.Position
+		src string
+		indexer bool
+		leading, trailing []Comment
 	}
+)
 
-	return strings.Join(lines, "\n")
+// Directive categories, in the order the formatter groups them.
+const (
+	directiveTypeCheck = iota
+	directiveLint
+	directiveNative
+	directiveOptimize
+	directiveUnknown
+)
+
+const (
+	precAssert = 11
+	precFunction = 11
+
+	// Expression precedence levels, mirroring the parser's binding powers. A group can be dropped when its contents bind at least as tightly as the context.
+	precIfElse = 0
+	precPrimary = 12
+	precUnary = 9
+	precUnaryOperand = 8
+)
+
+func (n AstArgumentName) Source() string {
+	return n.Name
 }
 
-func leadingWhitespace(s string) string {
-	i := 0
-	for i < len(s) && (s[i] == ' ' || s[i] == '\t') {
-		i++
+func (n AstExprConstantBool) Source() string {
+	if n.Value {
+		return "true"
 	}
-	return s[:i]
+
+	return "false"
+}
+
+func (n AstExprConstantNil) Source() string {
+	return "nil"
+}
+
+func (n AstExprGlobal) Source() string {
+	return n.Name
+}
+
+func (n AstExprLocal) Source() string {
+	return n.Local.Name
+}
+
+func (n AstExprVarargs) Source() string {
+	return "..."
+}
+
+func (n AstStatBreak) Source() string {
+	return "break"
+}
+
+func (n AstStatContinue) Source() string {
+	return "continue"
+}
+
+func (n AstTypeOptional) Source() string {
+	return "?"
+}
+
+func (n AstTypePackGeneric) Source() string {
+	return n.GenericName + "..."
+}
+
+func (n AstTypeSingletonBool) Source() string {
+	if n.Value {
+		return "true"
+	}
+
+	return "false"
+}
+
+func asBlock(stat AstStat) (*AstStatBlock, bool) {
+	if s, ok := stat.(*AstStatBlock); ok {
+		return s, true
+	}
+
+	return nil, false
+}
+
+func asIfElseExpr(expr AstExpr) (AstExprIfElse, bool) {
+	switch e := expr.(type) {
+	case *AstExprIfElse:
+		return *e, true
+	case AstExprIfElse:
+		return e, true
+	}
+
+	return AstExprIfElse{}, false
+}
+
+func asIfStat(stat AstStat) (*AstStatIf, bool) {
+	if s, ok := stat.(*AstStatIf); ok {
+		return s, true
+	}
+
+	return nil, false
+}
+
+// asStatLocal returns stat as an AstStatLocal.
+func asStatLocal(stat AstStat) *AstStatLocal {
+	s, _ := stat.(*AstStatLocal)
+
+	return s
+}
+
+// cleanHex returns the hexadecimal spelling of u when it has a tidy shape: a power of 16 (0x1000), one less than a power of 16 (0xfffffff), or a single hex digit times a power of 16 (0x4000, 0xe00000).
+func cleanHex(u uint64) (string, bool) {
+	// a run of ones ending on a nibble boundary, i.e. one less than a power of 16
+	if u&(u+1) == 0 && bits.TrailingZeros64(u+1)%4 == 0 {
+		return fmt.Sprintf("0x%x", u), true
+	}
+
+	// one hex digit followed only by whole zero nibbles
+
+	if nibbles := bits.TrailingZeros64(u) / 4; u>>(4*nibbles) < 16 {
+		return fmt.Sprintf("0x%x", u), true
+	}
+
+	return "", false
+}
+
+func (n AstExprConstantInteger) Source() string {
+	if n.Value >= 0x1000 {
+		if hex, ok := cleanHex(uint64(n.Value)); ok {
+			return hex + "i"
+		}
+	}
+
+	return fmt.Sprintf("%di", n.Value)
+}
+
+// cleanNumberHex returns the hexadecimal spelling of value when it has a tidy shape and is large enough that hexadecimal reads better than decimal.
+func cleanNumberHex(value float64) (string, bool) {
+	// small values and tiny powers of 16 are clearer in decimal, and the bound keeps the conversion to uint64 exact
+	if value < 0x1000 || value >= 1<<63 || value != math.Trunc(value) {
+		return "", false
+	}
+
+	return cleanHex(uint64(value))
 }
 
 func commonLeadingWhitespace(a, b string) string {
 	n := min(len(a), len(b))
-	i := 0
+
+	var i int
+
 	for i < n && a[i] == b[i] {
 		i++
 	}
+
 	return a[:i]
 }
 
-// sourceLongString renders a long (`[[...]]`) string with enough equals signs to avoid an accidental terminator.
-func sourceLongString(value string) string {
-	for eq := 0; ; eq++ {
-		eqs := strings.Repeat("=", eq)
-		strend := "]" + eqs + "]"
-		if !strings.Contains(value, strend) {
-			return "[" + eqs + "[" + value + strend
+// directiveCategory returns the sort category of a comment directive (a line comment whose body starts with `!` immediately followed by the directive name), and reports whether comment is one. Unknown directives sort after the known categories.
+func directiveCategory(comment Comment) (int, bool) {
+	if comment.Type != lex.Comment || !strings.HasPrefix(comment.Content, "!") {
+		return 0, false
+	}
+
+	// a space after `!` means Luau's parseMode won't honour it, so it isn't a directive here either
+	name := comment.Content[1:]
+	if name == "" || name[0] == ' ' || name[0] == '\t' {
+		return 0, false
+	}
+
+	if i := strings.IndexAny(name, " \t"); i >= 0 {
+		name = name[:i]
+	}
+
+	switch name {
+	case "nocheck", "nonstrict", "strict":
+		return directiveTypeCheck, true
+	case "nolint":
+		return directiveLint, true
+	case "native":
+		return directiveNative, true
+	case "optimize":
+		return directiveOptimize, true
+	}
+
+	return directiveUnknown, true
+}
+
+// hasDirective reports whether any of the comments is a comment directive.
+func hasDirective(comments []Comment) bool {
+	for _, c := range comments {
+		if _, ok := directiveCategory(c); ok {
+			return true
 		}
 	}
+
+	return false
+}
+
+// isFunctionDecl reports whether stat declares a function outright: `function Name()`, `local function name()` or `const function name()`. Function values assigned to a variable (`local f = function()`) are left alone.
+func isFunctionDecl(stat AstStat) bool {
+	switch stat.(type) {
+	case *AstStatFunction, *AstStatLocalFunction:
+		return true
+	}
+
+	return false
+}
+
+func isIfStat(stat AstStat) bool {
+	_, ok := asIfStat(stat)
+
+	return ok
+}
+
+func leadingWhitespace(s string) string {
+	var i int
+
+	for i < len(s) && (s[i] == ' ' || s[i] == '\t') {
+		i++
+	}
+
+	return s[:i]
 }
 
 // normalizeCommentContent removes the comment's own indentation from the continuation lines of a block comment, so re-indenting the comment when rendering can't keep adding whitespace. The stripped amount is capped at indent, the comment's original column, so indentation inside the comment is preserved.
@@ -70,23 +257,27 @@ func normalizeCommentContent(content string, indent uint32) string {
 
 	lines := strings.Split(content, "\n")
 
-	common := ""
+	var common string
+
 	for i := 1; i < len(lines); i++ {
 		if strings.TrimSpace(lines[i]) == "" {
 			continue
 		}
 
 		lineIndent := leadingWhitespace(lines[i])
+
 		if common == "" {
 			common = lineIndent
 			continue
 		}
+
 		common = commonLeadingWhitespace(common, lineIndent)
 	}
 
 	if uint32(len(common)) > indent {
 		common = common[:indent]
 	}
+
 	if common == "" {
 		return content
 	}
@@ -98,160 +289,81 @@ func normalizeCommentContent(content string, indent uint32) string {
 	return strings.Join(lines, "\n")
 }
 
-// sourceComment renders a comment.
-func sourceComment(comment Comment) string {
-	if comment.Type == lex.BlockComment || comment.Type == lex.BrokenComment {
-		var column uint32
-		if comment.NodeLoc != nil {
-			column = comment.Location.Begin.Column
-		}
+// sameIdentifier reports whether a and b are the same variable reference: the same local or the same-named global. Because both occurrences sit in the same expression, a matching name and kind always resolve to the same binding.
+func sameIdentifier(a, b AstExpr) bool {
+	switch x := a.(type) {
+	case *AstExprGlobal:
+		y, ok := b.(*AstExprGlobal)
 
-		return "--" + sourceLongString(normalizeCommentContent(comment.Content, column))
+		return ok && x.Name == y.Name
+	case *AstExprLocal:
+		y, ok := b.(*AstExprLocal)
+
+		return ok && x.Local.Name == y.Local.Name
+	case AstExprGlobal:
+		y, ok := b.(AstExprGlobal)
+
+		return ok && x.Name == y.Name
+	case AstExprLocal:
+		y, ok := b.(AstExprLocal)
+
+		return ok && x.Local.Name == y.Local.Name
 	}
-	return "--" + comment.Content
+
+	return false
 }
 
-// writeByteEscape writes a decimal escape for value[i], padding it to three digits when the next byte is a digit so that it isn't absorbed into the escape.
-func writeByteEscape(b *strings.Builder, value string, i int) {
-	if i+1 < len(value) && value[i+1] >= '0' && value[i+1] <= '9' {
-		fmt.Fprintf(b, "\\%03d", value[i])
-		return
+// sortDirectives collects the directive comments among comments and orders them by category, followed by the non-directive comments in their original order. Only the first type-check directive is kept: Luau's parseMode honours the first header strict/nonstrict/nocheck and ignores the rest.
+func sortDirectives(comments []Comment) []Comment {
+	type rankedDirective struct {
+		comment Comment
+		rank int
 	}
+	directives := make([]rankedDirective, 0, len(comments))
+	others := make([]Comment, 0, len(comments))
 
-	fmt.Fprintf(b, "\\%d", value[i])
-}
+	var seenTypeCheck bool
 
-// sourceString renders a string literal in the requested quote style, falling back to a safer representation when needed.
-func sourceString(value string, style QuoteStyle) string {
-	// long strings are avoided when they contain newlines: a multi-line literal can't be re-indented without changing its value. They can't escape bytes either, so invalid UTF-8 falls back to a quoted string.
-	if style == QuoteStyle_QuotedRaw && !strings.ContainsAny(value, "\r\n") && utf8.ValidString(value) {
-		return sourceLongString(value)
-	}
-
-	quote := byte('"')
-	if style == QuoteStyle_QuotedSingle {
-		quote = '\''
-	}
-
-	// if the value contains the preferred quote but not the other one, switch
-	other := byte('"')
-	if quote == '"' {
-		other = '\''
-	}
-	if strings.IndexByte(value, quote) >= 0 && strings.IndexByte(value, other) < 0 {
-		quote = other
-	}
-
-	var b strings.Builder
-	b.WriteByte(quote)
-	for i := 0; i < len(value); {
-		ch := value[i]
-
-		// valid UTF-8 sequences are kept as-is, invalid bytes are escaped
-		if ch >= 0x80 {
-			r, size := utf8.DecodeRuneInString(value[i:])
-			if r == utf8.RuneError && size <= 1 {
-				writeByteEscape(&b, value, i)
-				i++
-				continue
-			}
-
-			b.WriteString(value[i : i+size])
-			i += size
+	for _, c := range comments {
+		rank, ok := directiveCategory(c)
+		if !ok {
+			others = append(others, c)
 			continue
 		}
 
-		switch ch {
-		case '\\':
-			b.WriteString(`\\`)
-		case quote:
-			b.WriteByte('\\')
-			b.WriteByte(quote)
-		case '\a':
-			b.WriteString(`\a`)
-		case '\b':
-			b.WriteString(`\b`)
-		case '\f':
-			b.WriteString(`\f`)
-		case '\n':
-			b.WriteString(`\n`)
-		case '\r':
-			b.WriteString(`\r`)
-		case '\t':
-			b.WriteString(`\t`)
-		case '\v':
-			b.WriteString(`\v`)
-		default:
-			if ch < 0x20 || ch == 0x7f {
-				writeByteEscape(&b, value, i)
-			} else {
-				b.WriteByte(ch)
+		if rank == directiveTypeCheck {
+			if seenTypeCheck {
+				continue
 			}
+
+			seenTypeCheck = true
 		}
 
-		i++
+		directives = append(directives, rankedDirective{
+			comment: c,
+			rank: rank,
+		})
 	}
-	b.WriteByte(quote)
+	sort.SliceStable(directives, func(i, j int) bool {
+		return directives[i].rank < directives[j].rank
+	})
 
-	return b.String()
+	result := make([]Comment, 0, len(comments))
+
+	for _, d := range directives {
+		result = append(result, d.comment)
+	}
+
+	return append(result, others...)
 }
 
-// sourceNumber renders a numeric literal.
-func sourceNumber(value float64) string {
-	if math.IsInf(value, 1) {
-		return "math.huge"
-	}
-	if math.IsInf(value, -1) {
-		return "-math.huge"
+// sortHeaderDirectives pulls the comment directives at the top of the file together and sorts them by category, leaving the remaining leading comments after them.
+func sortHeaderDirectives(units []sourceStatUnit) {
+	if len(units) == 0 {
+		return
 	}
 
-	// a cleanly-shaped value reads better in hexadecimal than in decimal
-	if hex, ok := cleanNumberHex(value); ok {
-		return hex
-	}
-
-	exp := fmt.Sprintf("%g", value)
-	exp = strings.Replace(exp, "e+", "e", 1)
-
-	for strings.Contains(exp, "e0") {
-		exp = strings.Replace(exp, "e0", "e", 1)
-	}
-	for strings.Contains(exp, "e-0") {
-		exp = strings.Replace(exp, "e-0", "e-", 1)
-	}
-
-	// prefer the plain decimal form when it isn't longer than the exponent form
-	plain := strconv.FormatFloat(value, 'f', -1, 64)
-	if len(plain) <= len(exp) {
-		return plain
-	}
-
-	return exp
-}
-
-// cleanHex returns the hexadecimal spelling of u when it has a tidy shape: a power of 16 (0x1000), one less than a power of 16 (0xfffffff), or a single hex digit times a power of 16 (0x4000, 0xe00000).
-func cleanHex(u uint64) (string, bool) {
-	// a run of ones ending on a nibble boundary, i.e. one less than a power of 16
-	if u&(u+1) == 0 && bits.TrailingZeros64(u+1)%4 == 0 {
-		return fmt.Sprintf("0x%x", u), true
-	}
-
-	// one hex digit followed only by whole zero nibbles
-	nibbles := bits.TrailingZeros64(u) / 4
-	if u>>(4*nibbles) < 16 {
-		return fmt.Sprintf("0x%x", u), true
-	}
-
-	return "", false
-}
-
-// cleanNumberHex returns the hexadecimal spelling of value when it has a tidy shape and is large enough that hexadecimal reads better than decimal.
-func cleanNumberHex(value float64) (string, bool) {
-	// small values and tiny powers of 16 are clearer in decimal, and the bound keeps the conversion to uint64 exact
-	if value < 0x1000 || value >= 1<<63 || value != math.Trunc(value) {
-		return "", false
-	}
-	return cleanHex(uint64(value))
+	units[0].leading = sortDirectives(units[0].leading)
 }
 
 // sourceBinaryOp renders a binary operator.
@@ -290,20 +402,89 @@ func sourceBinaryOp(op BinaryOp) string {
 	case BinaryOp_Or:
 		return "or"
 	}
+
 	return "?"
 }
 
-// sourceUnaryOp renders a unary operator.
-func sourceUnaryOp(op UnaryOp) string {
+// sourceCompoundOp returns the compound assignment operator for a binary operator, if it has one.
+func sourceCompoundOp(op BinaryOp) (BinaryOp, bool) {
 	switch op {
-	case UnaryOp_Not:
-		return "not "
-	case UnaryOp_Minus:
-		return "-"
-	case UnaryOp_Len:
-		return "#"
+	case BinaryOp_Add, BinaryOp_Concat, BinaryOp_Div, BinaryOp_FloorDiv, BinaryOp_Mod, BinaryOp_Mul, BinaryOp_Pow, BinaryOp_Sub:
+		return op, true
 	}
-	return "?"
+
+	return 0, false
+}
+
+// sourceEndChain reports whether line consists solely of `end` keywords, e.g.
+// "end" or "end end end".
+func sourceEndChain(line string) bool {
+	fields := strings.Fields(line)
+	if len(fields) == 0 {
+		return false
+	}
+
+	for _, field := range fields {
+		if field != "end" {
+			return false
+		}
+	}
+
+	return true
+}
+
+// appendEnd appends an `end` to a block body, collapsing it onto the previous line when that line already ends a nested block. The collapsed line is unindented one level, so a chain of ends lines up with the outermost block.
+func appendEnd(body string) string {
+	if body == "" {
+		return "\nend"
+	}
+
+	lines := strings.Split(body, "\n")
+	if last := len(lines) - 1; sourceEndChain(lines[last]) {
+		lines[last] = strings.TrimPrefix(lines[last], "\t") + " end"
+
+		return strings.Join(lines, "\n")
+	}
+
+	return body + "\nend"
+}
+
+// sourceExprExpands reports whether a bare expression can expand to multiple values, i.e. a call or `...`.
+func sourceExprExpands(expr AstExpr) bool {
+	switch expr.(type) {
+	case *AstExprCall, *AstExprVarargs, AstExprCall, AstExprVarargs:
+		return true
+	}
+
+	return false
+}
+
+// sourceExprHugsParens reports whether an expression keeps its parentheses on its first and last lines, e.g. `(function() ... end)`.
+func sourceExprHugsParens(expr AstExpr) bool {
+	switch expr.(type) {
+	case *AstExprFunction, AstExprFunction:
+		return true
+	}
+
+	return false
+}
+
+// sourceExprPrecedence returns the binding power of an expression, used to decide whether a parenthesised group can be dropped.
+func sourceExprPrecedence(expr AstExpr) int {
+	switch e := expr.(type) {
+	case *AstExprFunction, AstExprFunction:
+		return precFunction
+	case AstExprBinary:
+		return BinaryPriority[BinaryOp(e.Op)][0]
+	case AstExprIfElse:
+		return precIfElse
+	case AstExprTypeAssertion:
+		return precAssert
+	case AstExprUnary:
+		return precUnary
+	}
+
+	return precPrimary
 }
 
 func sourceHasSemicolon(stat AstStat) bool {
@@ -351,33 +532,179 @@ func sourceHasSemicolon(stat AstStat) bool {
 	case *AstStatWhile:
 		return s.HasSemicolon != nil && *s.HasSemicolon
 	}
+
 	return false
 }
 
-// sourceStat renders a statement, preserving a trailing semicolon when the source had one (semicolons can be semantically significant).
-func sourceStat(stat AstStat) string {
-	s := stat.Source()
-	if sourceHasSemicolon(stat) {
-		s += ";"
+// This file implements Source() for every AST node. Each Source() renders the node as formatted Luau code starting at column zero, delegating to the Source() methods of its children and re-indenting their output where needed.
+//
+// Statements/expressions that span multiple lines indent their own contents with tabs relative to their first line, so a parent can embed them by indenting every line once more with sourceIndent.
+
+// sourceIndent prefixes every non-empty line of s with one tab per level.
+func sourceIndent(s string, levels int) string {
+	if s == "" || levels <= 0 {
+		return s
 	}
-	return s
+
+	pad := strings.Repeat("\t", levels)
+	lines := strings.Split(s, "\n")
+
+	for i, line := range lines {
+		if line == "" {
+			continue
+		}
+
+		lines[i] = pad + line
+	}
+
+	return strings.Join(lines, "\n")
 }
 
-// sourceStatUnit is a statement together with the comments that belong to it: leading comments render above the statement and trailing comments stay on its last line.
-type sourceStatUnit struct {
-	stat AstStat
-	leading []Comment
-	trailing []Comment
+// sourceIsBlock reports whether stat is a block statement (`if`, `for`, `while`, `repeat` or `do`), which gets its own paragraph in a scope. Comment-only units (no statement) never do.
+func sourceIsBlock(stat AstStat) bool {
+	switch stat.(type) {
+	case
+		*AstStatIf,
+		*AstStatFor,
+		*AstStatForIn,
+		*AstStatWhile,
+		*AstStatRepeat,
+		*AstStatReturn, // also return because it's final
+		*AstStatBlock:
+		return true
+	}
+
+	return false
+}
+
+// sourceIsIdentifier reports whether s is a valid Luau identifier.
+func sourceIsIdentifier(s string) bool {
+	if s == "" {
+		return false
+	}
+
+	for i := range s {
+		ch := s[i]
+
+		switch {
+		case ch == '_' || ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z':
+		case i > 0 && ch >= '0' && ch <= '9':
+		default:
+			return false
+		}
+	}
+
+	return true
+}
+
+// sourceLongString renders a long (`[[...]]`) string with enough equals signs to avoid an accidental terminator.
+func sourceLongString(value string) string {
+	for eq := 0; ; eq++ {
+		eqs := strings.Repeat("=", eq)
+
+		if strend := "]" + eqs + "]"; !strings.Contains(value, strend) {
+			return "[" + eqs + "[" + value + strend
+		}
+	}
+}
+
+// sourceComment renders a comment.
+func sourceComment(comment Comment) string {
+	if comment.Type == lex.BlockComment || comment.Type == lex.BrokenComment {
+		var column uint32
+
+		if comment.NodeLoc != nil {
+			column = comment.Location.Begin.Column
+		}
+
+		return "--" + sourceLongString(normalizeCommentContent(comment.Content, column))
+	}
+
+	return "--" + comment.Content
+}
+
+// sourceNumber renders a numeric literal.
+func sourceNumber(value float64) string {
+	if math.IsInf(value, 1) {
+		return "math.huge"
+	}
+
+	if math.IsInf(value, -1) {
+		return "-math.huge"
+	}
+
+	// a cleanly-shaped value reads better in hexadecimal than in decimal
+	if hex, ok := cleanNumberHex(value); ok {
+		return hex
+	}
+
+	exp := fmt.Sprintf("%g", value)
+	exp = strings.Replace(exp, "e+", "e", 1)
+
+	for strings.Contains(exp, "e0") {
+		exp = strings.Replace(exp, "e0", "e", 1)
+	}
+
+	for strings.Contains(exp, "e-0") {
+		exp = strings.Replace(exp, "e-0", "e-", 1)
+	}
+
+	// prefer the plain decimal form when it isn't longer than the exponent form
+
+	if plain := strconv.FormatFloat(value, 'f', -1, 64); len(plain) <= len(exp) {
+		return plain
+	}
+
+	return exp
+}
+
+func (n AstExprConstantNumber) Source() string {
+	return sourceNumber(n.Value)
+}
+
+// sourceParens wraps an expression in parentheses, indenting multi-line contents onto their own lines. Function expressions hug the parentheses instead so IIFEs read as `(function() ... end)()`.
+func sourceParens(expr AstExpr, s string) string {
+	if sourceExprHugsParens(expr) {
+		return "(" + s + ")"
+	}
+
+	if strings.Contains(s, "\n") {
+		return "(\n" + sourceIndent(s, 1) + "\n)"
+	}
+
+	return "(" + s + ")"
+}
+
+// sourcePostfixBase reports whether an expression can be indexed or called without parentheses. (on lhs not rhs)
+func sourcePostfixBase(expr AstExpr) bool {
+	switch expr.(type) {
+	case *AstExprCall, *AstExprGlobal, *AstExprIndexExpr, *AstExprIndexName, *AstExprInstantiate, *AstExprLocal, AstExprCall, AstExprGlobal, AstExprIndexExpr, AstExprIndexName, AstExprInstantiate, AstExprLocal:
+		return true
+	}
+
+	return false
+}
+
+// sourceSameLocal reports whether two local bindings are the same. Bindings share the NodeLoc of their declaration, so comparing it identifies them without touching the uncomparable Annotation field.
+func sourceSameLocal(a, b AstLocal) bool {
+	if a.NodeLoc == nil || b.NodeLoc == nil {
+		return false
+	}
+
+	return a.NodeLoc == b.NodeLoc
 }
 
 // sourceStatUnits splits statements and comments into per-statement units, preserving the existing comment attachment rules: comments before a statement lead it, comments on the statement's end line trail it, and comments after the last statement become a trailing commentless unit.
 func sourceStatUnits(stats []AstStat, comments []Comment) []sourceStatUnit {
 	units := make([]sourceStatUnit, 0, len(stats))
-	ci := 0
+
+	var ci int
 
 	for i, stat := range stats {
 		statLoc := stat.GetLocation()
-		unit := sourceStatUnit{stat: stat}
+		unit := sourceStatUnit{
+			stat: stat,
+		}
 
 		// comments that start at or before this statement go on their own line
 		for ci < len(comments) && !comments[ci].Location.Begin.After(statLoc.Begin) {
@@ -386,9 +713,7 @@ func sourceStatUnits(stats []AstStat, comments []Comment) []sourceStatUnit {
 		}
 
 		// comments on the same line as the end of the statement stay there
-		for ci < len(comments) &&
-			comments[ci].Location.Begin.Line == statLoc.End.Line &&
-			(i+1 >= len(stats) || comments[ci].Location.Begin.Before(stats[i+1].GetLocation().Begin)) {
+		for ci < len(comments) && comments[ci].Location.Begin.Line == statLoc.End.Line && (i+1 >= len(stats) || comments[ci].Location.Begin.Before(stats[i+1].GetLocation().Begin)) {
 			unit.trailing = append(unit.trailing, comments[ci])
 			ci++
 		}
@@ -398,193 +723,137 @@ func sourceStatUnits(stats []AstStat, comments []Comment) []sourceStatUnit {
 
 	// comments after the last statement
 	if ci < len(comments) {
-		units = append(units, sourceStatUnit{leading: comments[ci:]})
+		units = append(units, sourceStatUnit{
+			leading: comments[ci:],
+		})
 	}
 
 	return units
 }
 
-// sourceStatList renders statements separated by newlines, interleaving the block's comments in their original positions: leading comments stay above the statement they precede and trailing comments stay on the same line.
-func sourceStatList(stats []AstStat, comments []Comment) string {
-	return sourceStatListSorted(stats, comments, false)
-}
-
-// sourceStatListSorted renders a statement list. When root is set (the top-level chunk), the directives, services, requires and remaining code sections (ordered beforehand by formatAST) are separated by blank lines.
-func sourceStatListSorted(stats []AstStat, comments []Comment, root bool) string {
-	units := sourceStatUnits(stats, comments)
-	if !root {
-		return renderScopedUnits(units)
+// sourceTableItemEnd returns the position where a table item ends, used to place trailing comments.
+func sourceTableItemEnd(item AstExprTableItem) lex.Position {
+	if item.Value != nil {
+		return item.Value.GetLocation().End
 	}
-	return renderRoot(units)
+
+	return lex.Position{}
 }
 
-// renderUnits renders units as newline-separated lines, with each unit's leading comments above its statement and trailing comments on the same line.
-func renderUnits(units []sourceStatUnit) string {
-	var lines []string
-	for _, unit := range units {
-		lines = append(lines, unitLines(unit)...)
+// sourceTableItemStart returns the position where a table item starts, used to place comments. Item locations are empty, so keyed items use their key and list items their value.
+func sourceTableItemStart(item AstExprTableItem) lex.Position {
+	if item.Key != nil {
+		return (*item.Key).GetLocation().Begin
 	}
-	return strings.Join(lines, "\n")
+
+	if item.Value != nil {
+		return item.Value.GetLocation().Begin
+	}
+
+	return lex.Position{}
 }
 
-// renderScopedUnits renders a scope's units, giving each block statement (`if`/`for`/`while`/`repeat`/`do`) its own paragraph: consecutive non-block statements stay grouped, and groups are joined by a single blank line. Function declarations are blocks too, so they are set off as before. Top-level sections share this layout. A comment attached to the top of a unit stays with it, so the blank line lands above that comment.
-func renderScopedUnits(units []sourceStatUnit) string {
-	var blocks []string
-	var run []sourceStatUnit
+// sourceTypeStartsInline reports whether a multi-line type should stay on the current line, e.g. a table type's opening brace.
+func sourceTypeStartsInline(s string) bool {
+	return strings.HasPrefix(s, "{")
+}
 
-	flush := func() {
-		if len(run) > 0 {
-			blocks = append(blocks, renderUnits(run))
-			run = nil
+// sourceTypeTableStart returns the position where a prop starts, used to place comments.
+func sourceTypeTableStart(prop AstTableProp) lex.Position {
+	if prop.NodeLoc != nil {
+		return prop.GetLocation().Begin
+	}
+
+	return lex.Position{}
+}
+
+// sourceTypeTableEnd returns the position where a prop ends, used to place trailing comments.
+func sourceTypeTableEnd(prop AstTableProp) lex.Position {
+	if prop.Type != nil {
+		return prop.Type.GetLocation().End
+	}
+
+	return sourceTypeTableStart(prop)
+}
+
+// sourceUnaryOp renders a unary operator.
+func sourceUnaryOp(op UnaryOp) string {
+	switch op {
+	case UnaryOp_Not:
+		return "not "
+	case UnaryOp_Minus:
+		return "-"
+	case UnaryOp_Len:
+		return "#"
+	}
+
+	return "?"
+}
+
+// sourceUnwrapExpr removes any parentheses groups and type assertions around an expression, so `(x :: T)` and `x :: T` both yield x.
+func sourceUnwrapExpr(expr AstExpr) AstExpr {
+	for {
+		switch e := expr.(type) {
+		case *AstExprGroup:
+			expr = e.Expr
+		case *AstExprTypeAssertion:
+			expr = e.Expr
+		case AstExprGroup:
+			expr = e.Expr
+		case AstExprTypeAssertion:
+			expr = e.Expr
+		default:
+			return expr
 		}
 	}
-
-	for _, unit := range units {
-		if unit.stat == nil {
-			// A trailing comment with no statement stays glued to the preceding code.
-			flush()
-			if len(blocks) > 0 {
-				blocks[len(blocks)-1] += "\n" + renderUnits([]sourceStatUnit{unit})
-			} else {
-				run = append(run, unit)
-			}
-			continue
-		}
-		if isFunctionDecl(unit.stat) || sourceIsBlock(unit.stat) {
-			flush()
-			blocks = append(blocks, renderUnits([]sourceStatUnit{unit}))
-			continue
-		}
-		run = append(run, unit)
-	}
-
-	flush()
-
-	return strings.Join(blocks, "\n\n")
 }
 
-// sourceIsBlock reports whether stat is a block statement (`if`, `for`, `while`, `repeat` or `do`), which gets its own paragraph in a scope. Comment-only units (no statement) never do.
-func sourceIsBlock(stat AstStat) bool {
-	switch stat.(type) {
-	case *AstStatIf,
-		*AstStatFor,
-		*AstStatForIn,
-		*AstStatWhile,
-		*AstStatRepeat,
-		*AstStatReturn, // also return because it's final
-		*AstStatBlock:
-		return true
+// asExprCall returns expr as an *AstExprCall, unwrapping groups and type assertions and accepting both the value and pointer forms.
+func asExprCall(expr AstExpr) *AstExprCall {
+	switch e := sourceUnwrapExpr(expr).(type) {
+	case *AstExprCall:
+		return e
+	case AstExprCall:
+		return &e
 	}
-	return false
+
+	return nil
 }
 
-// isFunctionDecl reports whether stat declares a function outright: `function Name()`, `local function name()` or `const function name()`. Function values assigned to a variable (`local f = function()`) are left alone.
-func isFunctionDecl(stat AstStat) bool {
-	switch stat.(type) {
-	case *AstStatFunction, *AstStatLocalFunction:
-		return true
+// asExprConstantString returns expr as an *AstExprConstantString, unwrapping groups and type assertions and accepting both the value and pointer forms.
+func asExprConstantString(expr AstExpr) *AstExprConstantString {
+	switch e := sourceUnwrapExpr(expr).(type) {
+	case *AstExprConstantString:
+		return e
+	case AstExprConstantString:
+		return &e
 	}
-	return false
+
+	return nil
 }
 
-// unitLines renders a single unit's lines.
-func unitLines(unit sourceStatUnit) []string {
-	lines := make([]string, 0, len(unit.leading)+1)
-	for _, c := range unit.leading {
-		lines = append(lines, sourceComment(c))
+// asExprGlobal returns expr as an *AstExprGlobal, unwrapping groups and type assertions and accepting both the value and pointer forms.
+func asExprGlobal(expr AstExpr) *AstExprGlobal {
+	switch e := sourceUnwrapExpr(expr).(type) {
+	case *AstExprGlobal:
+		return e
+	case AstExprGlobal:
+		return &e
 	}
 
-	if unit.stat == nil {
-		return lines
-	}
-
-	src := sourceStat(unit.stat)
-	for _, c := range unit.trailing {
-		src += " " + sourceComment(c)
-	}
-	return append(lines, src)
+	return nil
 }
 
-// renderRoot renders the top-level chunk, separating each present section (directives, services, requires and the remaining code, ordered beforehand by formatAST) with a blank line.
-func renderRoot(units []sourceStatUnit) string {
-	serviceEnd := serviceSectionEnd(units)
-
-	requireEnd := serviceEnd
-	for requireEnd < len(units) {
-		if _, _, ok := requireDeclaration(units[requireEnd].stat); !ok {
-			break
-		}
-		requireEnd++
+// asExprIndexName returns expr as an *AstExprIndexName, unwrapping groups and type assertions and accepting both the value and pointer forms.
+func asExprIndexName(expr AstExpr) *AstExprIndexName {
+	switch e := sourceUnwrapExpr(expr).(type) {
+	case *AstExprIndexName:
+		return e
+	case AstExprIndexName:
+		return &e
 	}
 
-	// the leading comments form their own section when they hold a directive, or when a sorted section follows them, so they aren't glued to the first declaration
-	var header []Comment
-	if len(units) > 0 && len(units[0].leading) > 0 &&
-		(hasDirective(units[0].leading) || serviceEnd > 0 || requireEnd > 0) {
-		header = units[0].leading
-		units[0].leading = nil
-	}
-
-	// the first declaration may carry its own comments; fold them into the header so reformatting the result doesn't reclassify them
-	if header != nil && len(units) > 0 && len(units[0].leading) > 0 {
-		header = append(header, units[0].leading...)
-		units[0].leading = nil
-	}
-
-	var blocks []string
-	appendBlock := func(u []sourceStatUnit) {
-		if s := renderScopedUnits(u); s != "" {
-			blocks = append(blocks, s)
-		}
-	}
-
-	if header != nil {
-		blocks = append(blocks, renderUnits([]sourceStatUnit{{leading: header}}))
-	}
-	appendBlock(units[:serviceEnd])
-	appendBlock(units[serviceEnd:requireEnd])
-	appendBlock(units[requireEnd:])
-
-	return strings.Join(blocks, "\n\n")
-}
-
-// hasDirective reports whether any of the comments is a comment directive.
-func hasDirective(comments []Comment) bool {
-	for _, c := range comments {
-		if _, ok := directiveCategory(c); ok {
-			return true
-		}
-	}
-	return false
-}
-
-// sourceBlockBody renders a block's statements indented one level, preceded by a newline. Empty blocks render as an empty string.
-func sourceBlockBody(body AstStatBlock) string {
-	s := sourceStatList(body.Body, body.Comments)
-	if s == "" {
-		return ""
-	}
-	return "\n" + sourceIndent(s, 1)
-}
-
-// serviceDeclarationName returns the service name of a top-level `local X = game:GetService "Name"` (or `const X = ...`) declaration, and reports whether it is one. Only a single-variable declaration whose sole value is a strict `game:GetService(...)` call with a single string argument qualifies.
-func serviceDeclarationName(stat AstStat) (string, bool) {
-	decl := asStatLocal(stat)
-	if decl == nil || len(decl.Vars) != 1 || len(decl.Values) != 1 {
-		return "", false
-	}
-
-	name, ok := getServiceCallName(decl.Values[0])
-	if !ok {
-		return "", false
-	}
-	return name, true
-}
-
-// asStatLocal returns stat as an AstStatLocal.
-func asStatLocal(stat AstStat) *AstStatLocal {
-	s, _ := stat.(*AstStatLocal)
-	return s
+	return nil
 }
 
 // getServiceCallName returns the argument of a `game:GetService "Name"` call, and reports whether expr is one. Groups are unwrapped so a redundant `(game:GetService "Name")` is recognised.
@@ -599,8 +868,7 @@ func getServiceCallName(expr AstExpr) (string, bool) {
 		return "", false
 	}
 
-	base := asExprGlobal(index.Expr)
-	if base == nil || base.Name != "game" {
+	if base := asExprGlobal(index.Expr); base == nil || base.Name != "game" {
 		return "", false
 	}
 
@@ -612,56 +880,64 @@ func getServiceCallName(expr AstExpr) (string, bool) {
 	return str.Value, true
 }
 
-// asExprCall returns expr as an *AstExprCall, unwrapping groups and type assertions and accepting both the value and pointer forms.
-func asExprCall(expr AstExpr) *AstExprCall {
-	switch e := sourceUnwrapExpr(expr).(type) {
-	case AstExprCall:
-		return &e
-	case *AstExprCall:
-		return e
+// serviceDeclarationName returns the service name of a top-level `local X = game:GetService "Name"` (or `const X = ...`) declaration, and reports whether it is one. Only a single-variable declaration whose sole value is a strict `game:GetService(...)` call with a single string argument qualifies.
+func serviceDeclarationName(stat AstStat) (string, bool) {
+	decl := asStatLocal(stat)
+	if decl == nil || len(decl.Vars) != 1 || len(decl.Values) != 1 {
+		return "", false
 	}
-	return nil
+
+	name, ok := getServiceCallName(decl.Values[0])
+	if !ok {
+		return "", false
+	}
+
+	return name, true
 }
 
-// asExprIndexName returns expr as an *AstExprIndexName, unwrapping groups and type assertions and accepting both the value and pointer forms.
-func asExprIndexName(expr AstExpr) *AstExprIndexName {
-	switch e := sourceUnwrapExpr(expr).(type) {
-	case AstExprIndexName:
-		return &e
-	case *AstExprIndexName:
-		return e
+// serviceSectionEnd returns the length of the leading run of `game:GetService` declarations, truncated at the first kind change. The run must be all const or all local, so a mixed run stops here.
+func serviceSectionEnd(units []sourceStatUnit) int {
+	var end int
+
+	for end < len(units) {
+		if _, ok := serviceDeclarationName(units[end].stat); !ok {
+			break
+		}
+
+		if end > 0 && asStatLocal(units[end].stat).IsConst != asStatLocal(units[0].stat).IsConst {
+			break
+		}
+
+		end++
 	}
-	return nil
+
+	return end
+}
+
+// sourceUnwrapGroup removes any parentheses groups around an expression.
+func sourceUnwrapGroup(expr AstExpr) AstExpr {
+	for {
+		switch e := expr.(type) {
+		case *AstExprGroup:
+			expr = e.Expr
+		case AstExprGroup:
+			expr = e.Expr
+		default:
+			return expr
+		}
+	}
 }
 
 // asExprIndexNameGroup returns expr as an *AstExprIndexName, unwrapping parentheses groups but not type assertions, so an assertion around the indexed function is kept.
 func asExprIndexNameGroup(expr AstExpr) *AstExprIndexName {
 	switch e := sourceUnwrapGroup(expr).(type) {
-	case AstExprIndexName:
-		return &e
 	case *AstExprIndexName:
 		return e
+	case AstExprIndexName:
+		return &e
 	}
-	return nil
-}
 
-// sameIdentifier reports whether a and b are the same variable reference: the same local or the same-named global. Because both occurrences sit in the same expression, a matching name and kind always resolve to the same binding.
-func sameIdentifier(a, b AstExpr) bool {
-	switch x := a.(type) {
-	case AstExprLocal:
-		y, ok := b.(AstExprLocal)
-		return ok && x.Local.Name == y.Local.Name
-	case *AstExprLocal:
-		y, ok := b.(*AstExprLocal)
-		return ok && x.Local.Name == y.Local.Name
-	case AstExprGlobal:
-		y, ok := b.(AstExprGlobal)
-		return ok && x.Name == y.Name
-	case *AstExprGlobal:
-		y, ok := b.(*AstExprGlobal)
-		return ok && x.Name == y.Name
-	}
-	return false
+	return nil
 }
 
 // asMethodCall rewrites a dot-notation call whose first argument repeats the receiver identifier, such as `x.func(x, y)`, into the equivalent method call `x:func(y)`, and reports whether the rewrite applies. Only a plain local or global identifier receiver is rewritten: a receiver that is itself an index or a call would be evaluated twice in the dot form but once as a method, so rewriting it could invoke metamethods a different number of times. An explicit type instantiation, such as `x.func<<T>>(x, y)`, moves onto the method name as `x:func<<T>>(y)`.
@@ -671,15 +947,17 @@ func asMethodCall(n AstExprCall) (AstExprCall, bool) {
 	}
 
 	var instantiate *AstExprInstantiate
+
 	switch e := sourceUnwrapGroup(n.Func).(type) {
+	case *AstExprInstantiate:
+		instantiate = e
 	case AstExprInstantiate:
 		inst := e
 		instantiate = &inst
-	case *AstExprInstantiate:
-		instantiate = e
 	}
 
 	funcExpr := n.Func
+
 	if instantiate != nil {
 		funcExpr = instantiate.Expr
 	}
@@ -694,6 +972,7 @@ func asMethodCall(n AstExprCall) (AstExprCall, bool) {
 	}
 
 	index.Op = ':'
+
 	if instantiate != nil {
 		instantiate.Expr = *index
 		n.Func = *instantiate
@@ -703,396 +982,249 @@ func asMethodCall(n AstExprCall) (AstExprCall, bool) {
 
 	n.Args = n.Args[1:]
 	n.Self = true
+
 	return n, true
-}
-
-// asExprGlobal returns expr as an *AstExprGlobal, unwrapping groups and type assertions and accepting both the value and pointer forms.
-func asExprGlobal(expr AstExpr) *AstExprGlobal {
-	switch e := sourceUnwrapExpr(expr).(type) {
-	case AstExprGlobal:
-		return &e
-	case *AstExprGlobal:
-		return e
-	}
-	return nil
-}
-
-// asExprConstantString returns expr as an *AstExprConstantString, unwrapping groups and type assertions and accepting both the value and pointer forms.
-func asExprConstantString(expr AstExpr) *AstExprConstantString {
-	switch e := sourceUnwrapExpr(expr).(type) {
-	case AstExprConstantString:
-		return &e
-	case *AstExprConstantString:
-		return e
-	}
-	return nil
-}
-
-// Directive categories, in the order the formatter groups them.
-const (
-	directiveTypeCheck = iota
-	directiveLint
-	directiveNative
-	directiveOptimize
-	directiveUnknown
-)
-
-// directiveCategory returns the sort category of a comment directive (a line comment whose body starts with `!` immediately followed by the directive name), and reports whether comment is one. Unknown directives sort after the known categories.
-func directiveCategory(comment Comment) (int, bool) {
-	if comment.Type != lex.Comment || !strings.HasPrefix(comment.Content, "!") {
-		return 0, false
-	}
-
-	// a space after `!` means Luau's parseMode won't honour it, so it isn't a directive here either
-	name := comment.Content[1:]
-	if name == "" || name[0] == ' ' || name[0] == '\t' {
-		return 0, false
-	}
-	if i := strings.IndexAny(name, " \t"); i >= 0 {
-		name = name[:i]
-	}
-
-	switch name {
-	case "strict", "nonstrict", "nocheck":
-		return directiveTypeCheck, true
-	case "nolint":
-		return directiveLint, true
-	case "native":
-		return directiveNative, true
-	case "optimize":
-		return directiveOptimize, true
-	}
-	return directiveUnknown, true
-}
-
-// sortDirectives collects the directive comments among comments and orders them by category, followed by the non-directive comments in their original order. Only the first type-check directive is kept: Luau's parseMode honours the first header strict/nonstrict/nocheck and ignores the rest.
-func sortDirectives(comments []Comment) []Comment {
-	type rankedDirective struct {
-		comment Comment
-		rank int
-	}
-
-	directives := make([]rankedDirective, 0, len(comments))
-	others := make([]Comment, 0, len(comments))
-	seenTypeCheck := false
-
-	for _, c := range comments {
-		rank, ok := directiveCategory(c)
-		if !ok {
-			others = append(others, c)
-			continue
-		}
-
-		if rank == directiveTypeCheck {
-			if seenTypeCheck {
-				continue
-			}
-			seenTypeCheck = true
-		}
-
-		directives = append(directives, rankedDirective{comment: c, rank: rank})
-	}
-
-	sort.SliceStable(directives, func(i, j int) bool {
-		return directives[i].rank < directives[j].rank
-	})
-
-	result := make([]Comment, 0, len(comments))
-	for _, d := range directives {
-		result = append(result, d.comment)
-	}
-	return append(result, others...)
-}
-
-// sortHeaderDirectives pulls the comment directives at the top of the file together and sorts them by category, leaving the remaining leading comments after them.
-func sortHeaderDirectives(units []sourceStatUnit) {
-	if len(units) == 0 {
-		return
-	}
-	units[0].leading = sortDirectives(units[0].leading)
-}
-
-// serviceSectionEnd returns the length of the leading run of `game:GetService` declarations, truncated at the first kind change. The run must be all const or all local, so a mixed run stops here.
-func serviceSectionEnd(units []sourceStatUnit) int {
-	end := 0
-	for end < len(units) {
-		if _, ok := serviceDeclarationName(units[end].stat); !ok {
-			break
-		}
-		if end > 0 && asStatLocal(units[end].stat).IsConst != asStatLocal(units[0].stat).IsConst {
-			break
-		}
-		end++
-	}
-	return end
-}
-
-// requireDeclaration returns the sort key of a `local X = require "..."` (or instance path) declaration, whether the require is a string, and whether stat is a require declaration at all. String requires sort before instance-path ones; within a group the key is the filename or the rendered instance path.
-func requireDeclaration(stat AstStat) (key string, isString, ok bool) {
-	decl := asStatLocal(stat)
-	if decl == nil || len(decl.Vars) != 1 || len(decl.Values) != 1 {
-		return "", false, false
-	}
-
-	call := asExprCall(decl.Values[0])
-	if call == nil || len(call.Args) != 1 {
-		return "", false, false
-	}
-
-	fn := asExprGlobal(call.Func)
-	if fn == nil || fn.Name != "require" {
-		return "", false, false
-	}
-
-	arg := sourceUnwrapExpr(call.Args[0])
-	if str := asExprConstantString(arg); str != nil {
-		return str.Value, true, true
-	}
-	return arg.Source(), false, true
-}
-
-// sourceEndChain reports whether line consists solely of `end` keywords, e.g.
-// "end" or "end end end".
-func sourceEndChain(line string) bool {
-	fields := strings.Fields(line)
-	if len(fields) == 0 {
-		return false
-	}
-
-	for _, field := range fields {
-		if field != "end" {
-			return false
-		}
-	}
-	return true
-}
-
-// appendEnd appends an `end` to a block body, collapsing it onto the previous line when that line already ends a nested block. The collapsed line is unindented one level, so a chain of ends lines up with the outermost block.
-func appendEnd(body string) string {
-	if body == "" {
-		return "\nend"
-	}
-
-	lines := strings.Split(body, "\n")
-	last := len(lines) - 1
-
-	if sourceEndChain(lines[last]) {
-		lines[last] = strings.TrimPrefix(lines[last], "\t") + " end"
-		return strings.Join(lines, "\n")
-	}
-
-	return body + "\nend"
-}
-
-// Expression precedence levels, mirroring the parser's binding powers. A group can be dropped when its contents bind at least as tightly as the context.
-const (
-	precIfElse = 0
-	precUnaryOperand = 8
-	precUnary = 9
-	precAssert = 11
-	precFunction = 11
-	precPrimary = 12
-)
-
-// sourceExprPrecedence returns the binding power of an expression, used to decide whether a parenthesised group can be dropped.
-func sourceExprPrecedence(expr AstExpr) int {
-	switch e := expr.(type) {
-	case AstExprBinary:
-		return BinaryPriority[BinaryOp(e.Op)][0]
-	case AstExprUnary:
-		return precUnary
-	case AstExprIfElse:
-		return precIfElse
-	case AstExprTypeAssertion:
-		return precAssert
-	case AstExprFunction, *AstExprFunction:
-		return precFunction
-	}
-	return precPrimary
-}
-
-// sourceExprExpands reports whether a bare expression can expand to multiple values, i.e. a call or `...`.
-func sourceExprExpands(expr AstExpr) bool {
-	switch expr.(type) {
-	case AstExprCall, *AstExprCall, AstExprVarargs, *AstExprVarargs:
-		return true
-	}
-	return false
-}
-
-// sourceExprHugsParens reports whether an expression keeps its parentheses on its first and last lines, e.g. `(function() ... end)`.
-func sourceExprHugsParens(expr AstExpr) bool {
-	switch expr.(type) {
-	case AstExprFunction, *AstExprFunction:
-		return true
-	}
-	return false
-}
-
-// sourceParens wraps an expression in parentheses, indenting multi-line contents onto their own lines. Function expressions hug the parentheses instead so IIFEs read as `(function() ... end)()`.
-func sourceParens(expr AstExpr, s string) string {
-	if sourceExprHugsParens(expr) {
-		return "(" + s + ")"
-	}
-
-	if strings.Contains(s, "\n") {
-		return "(\n" + sourceIndent(s, 1) + "\n)"
-	}
-	return "(" + s + ")"
-}
-
-// sourceUnwrapGroup removes any parentheses groups around an expression.
-func sourceUnwrapGroup(expr AstExpr) AstExpr {
-	for {
-		switch e := expr.(type) {
-		case AstExprGroup:
-			expr = e.Expr
-		case *AstExprGroup:
-			expr = e.Expr
-		default:
-			return expr
-		}
-	}
-}
-
-// sourceUnwrapExpr removes any parentheses groups and type assertions around an expression, so `(x :: T)` and `x :: T` both yield x.
-func sourceUnwrapExpr(expr AstExpr) AstExpr {
-	for {
-		switch e := expr.(type) {
-		case AstExprGroup:
-			expr = e.Expr
-		case *AstExprGroup:
-			expr = e.Expr
-		case AstExprTypeAssertion:
-			expr = e.Expr
-		case *AstExprTypeAssertion:
-			expr = e.Expr
-		default:
-			return expr
-		}
-	}
-}
-
-// sourceExpr renders expr in a context requiring at least minPrec. When expand is true the expression sits where a bare call or `...` would expand to multiple values, so parentheses around one are kept. Groups are dropped when they affect neither operator precedence nor the number of values.
-func sourceExpr(expr AstExpr, minPrec int, expand bool) string {
-	var group *AstExprGroup
-	switch e := expr.(type) {
-	case AstExprGroup:
-		group = &e
-	case *AstExprGroup:
-		group = e
-	}
-
-	if group != nil {
-		inner := group.Expr
-
-		// a group around a call or `...` truncates it to a single value
-		if expand && sourceExprExpands(inner) {
-			return sourceParens(inner, sourceExpr(inner, 0, false))
-		}
-
-		return sourceExpr(inner, minPrec, expand)
-	}
-
-	s := expr.Source()
-	if sourceExprPrecedence(expr) < minPrec {
-		return sourceParens(expr, s)
-	}
-	return s
-}
-
-// sourceExprPrec renders expr in a single-value context requiring at least minPrec.
-func sourceExprPrec(expr AstExpr, minPrec int) string {
-	return sourceExpr(expr, minPrec, false)
-}
-
-// sourcePostfixBase reports whether an expression can be indexed or called without parentheses. (on lhs not rhs)
-func sourcePostfixBase(expr AstExpr) bool {
-	switch expr.(type) {
-	case AstExprLocal, *AstExprLocal,
-		AstExprGlobal, *AstExprGlobal,
-		AstExprIndexName, *AstExprIndexName,
-		AstExprIndexExpr, *AstExprIndexExpr,
-		AstExprCall, *AstExprCall,
-		AstExprInstantiate, *AstExprInstantiate:
-		return true
-	}
-	return false
-}
-
-// sourceExprPostfix renders an expression used as the base of a postfix operation. Unlike other primary expressions, literals, tables, functions and `...` can't be indexed or called without parentheses.
-func sourceExprPostfix(expr AstExpr) string {
-	var inner AstExpr
-	switch e := expr.(type) {
-	case AstExprGroup:
-		inner = e.Expr
-	case *AstExprGroup:
-		inner = e.Expr
-	}
-
-	if inner != nil {
-		unwrapped := sourceUnwrapGroup(inner)
-		if !sourcePostfixBase(unwrapped) {
-			return sourceParens(unwrapped, sourceExprPrec(unwrapped, 0))
-		}
-	}
-
-	return sourceExprPrec(expr, precPrimary)
-}
-
-// sourceExprList renders comma-separated expressions, allowing the last one to expand into multiple values.
-func sourceExprList(exprs []AstExpr) string {
-	parts := make([]string, len(exprs))
-	for i, expr := range exprs {
-		parts[i] = sourceExpr(expr, 0, i == len(exprs)-1)
-	}
-	return strings.Join(parts, ", ")
-}
-
-// sourceTypeOrPackList renders comma-separated types/type packs.
-func sourceTypeOrPackList(items []AstTypeOrPack) string {
-	parts := make([]string, len(items))
-	for i, item := range items {
-		parts[i] = item.Source()
-	}
-	return strings.Join(parts, ", ")
-}
-
-// sourceGenerics renders a generic list, e.g. `T, U..., V = string`.
-func sourceGenerics(generics []AstGenericType, packs []AstGenericTypePack) string {
-	parts := make([]string, 0, len(generics)+len(packs))
-	for _, generic := range generics {
-		parts = append(parts, generic.Source())
-	}
-	for _, pack := range packs {
-		parts = append(parts, pack.Source())
-	}
-	return strings.Join(parts, ", ")
-}
-
-// sourceAttrs renders attributes followed by newlines, or "" when there are none.
-func sourceAttrs(attrs []AstAttr) string {
-	if len(attrs) == 0 {
-		return ""
-	}
-
-	var b strings.Builder
-	for _, attr := range attrs {
-		b.WriteString(attr.Source())
-		b.WriteByte('\n')
-	}
-	return b.String()
 }
 
 // sourceCallSugar reports whether a call argument can be passed without parentheses, i.e. `f "string"` or `f { table }`.
 func sourceCallSugar(expr AstExpr) bool {
 	switch sourceUnwrapGroup(expr).(type) {
-	case AstExprConstantString, *AstExprConstantString:
+	case *AstExprConstantString, AstExprConstantString:
 		return true
-	case AstExprTable, *AstExprTable:
+	case *AstExprTable, AstExprTable:
 		return true
 	}
+
 	return false
+}
+
+// sourceHasIfExpr reports whether any of the expressions is an if-then-else expression.
+func sourceHasIfExpr(exprs []AstExpr) bool {
+	for _, expr := range exprs {
+		if _, ok := asIfElseExpr(sourceUnwrapGroup(expr)); ok {
+			return true
+		}
+	}
+
+	return false
+}
+
+// sourceHugsCallArg reports whether a call's parentheses hug its sole argument instead of breaking around it: a lone function literal stays glued like an IIFE callee.
+func sourceHugsCallArg(args []AstExpr) bool {
+	if len(args) != 1 {
+		return false
+	}
+
+	switch sourceUnwrapGroup(args[0]).(type) {
+	case *AstExprFunction, AstExprFunction:
+		return true
+	}
+
+	return false
+}
+
+// sourcePureExpr reports whether evaluating an expression has no observable effects. Only locals and constants qualify: global reads can invoke environment metamethods and indexing can invoke table metamethods.
+func sourcePureExpr(expr AstExpr) bool {
+	switch sourceUnwrapGroup(expr).(type) {
+	case *AstExprConstantBool, *AstExprConstantInteger, *AstExprConstantNil, *AstExprConstantNumber, *AstExprConstantString, *AstExprLocal, AstExprConstantBool, AstExprConstantInteger, AstExprConstantNil, AstExprConstantNumber, AstExprConstantString, AstExprLocal:
+		return true
+	}
+
+	return false
+}
+
+// sourceRecordKey returns the bare record-key form of a string table key, if the string is a valid identifier that isn't a reserved word.
+func sourceRecordKey(expr AstExpr) (string, bool) {
+	var value string
+
+	switch key := sourceUnwrapGroup(expr).(type) {
+	case AstExprConstantString: // can't collapse these cuz typing
+		value = key.Value
+	case *AstExprConstantString:
+		value = key.Value
+	default:
+		return "", false
+	}
+
+	if !sourceIsIdentifier(value) || lex.IsReserved(value) {
+		return "", false
+	}
+
+	return value, true
+}
+
+// sourceSafeCompoundTarget reports whether a target can be used in a compound assignment without changing behaviour. `target = target op value` evaluates the target twice, while `target op= value` evaluates it once, so targets whose evaluation has observable effects must keep the plain form.
+func sourceSafeCompoundTarget(target AstExpr) bool {
+	switch t := sourceUnwrapGroup(target).(type) {
+	case *AstExprGlobal, *AstExprLocal, AstExprGlobal, AstExprLocal:
+		return true
+	case *AstExprIndexExpr:
+		return sourcePureExpr(t.Expr) && sourcePureExpr(t.Index)
+	case *AstExprIndexName:
+		return sourcePureExpr(t.Expr)
+	case AstExprIndexExpr:
+		return sourcePureExpr(t.Expr) && sourcePureExpr(t.Index)
+	case AstExprIndexName:
+		return sourcePureExpr(t.Expr)
+	}
+
+	return false
+}
+
+// sourceSameExpr reports whether two expressions refer to the same value or location. Groups are ignored, so `(x)` and `x` compare equal.
+func sourceSameExpr(a, b AstExpr) bool {
+	a, b = sourceUnwrapGroup(a), sourceUnwrapGroup(b)
+
+	switch av := a.(type) {
+	case *AstExprConstantBool:
+		bv, ok := b.(*AstExprConstantBool)
+
+		return ok && av.Value == bv.Value
+	case *AstExprConstantInteger:
+		bv, ok := b.(*AstExprConstantInteger)
+
+		return ok && av.Value == bv.Value
+	case *AstExprConstantNil:
+		_, ok := b.(*AstExprConstantNil)
+
+		return ok
+	case *AstExprConstantNumber:
+		bv, ok := b.(*AstExprConstantNumber)
+
+		return ok && av.Value == bv.Value
+	case *AstExprConstantString:
+		bv, ok := b.(*AstExprConstantString)
+
+		return ok && av.Value == bv.Value
+	case *AstExprGlobal:
+		bv, ok := b.(*AstExprGlobal)
+
+		return ok && av.Name == bv.Name
+	case *AstExprIndexExpr:
+		bv, ok := b.(*AstExprIndexExpr)
+
+		return ok && sourceSameExpr(av.Expr, bv.Expr) && sourceSameExpr(av.Index, bv.Index)
+	case *AstExprIndexName:
+		bv, ok := b.(*AstExprIndexName)
+
+		return ok && av.Index == bv.Index && av.Op == bv.Op && sourceSameExpr(av.Expr, bv.Expr)
+	case *AstExprLocal:
+		bv, ok := b.(*AstExprLocal)
+
+		return ok && sourceSameLocal(av.Local, bv.Local)
+	case AstExprConstantBool:
+		bv, ok := b.(AstExprConstantBool)
+
+		return ok && av.Value == bv.Value
+	case AstExprConstantInteger:
+		bv, ok := b.(AstExprConstantInteger)
+
+		return ok && av.Value == bv.Value
+	case AstExprConstantNil:
+		_, ok := b.(AstExprConstantNil)
+
+		return ok
+	case AstExprConstantNumber:
+		bv, ok := b.(AstExprConstantNumber)
+
+		return ok && av.Value == bv.Value
+	case AstExprConstantString:
+		bv, ok := b.(AstExprConstantString)
+
+		return ok && av.Value == bv.Value
+	case AstExprGlobal:
+		bv, ok := b.(AstExprGlobal)
+
+		return ok && av.Name == bv.Name
+	case AstExprIndexExpr:
+		bv, ok := b.(AstExprIndexExpr)
+
+		return ok && sourceSameExpr(av.Expr, bv.Expr) && sourceSameExpr(av.Index, bv.Index)
+	case AstExprIndexName:
+		bv, ok := b.(AstExprIndexName)
+
+		return ok && av.Index == bv.Index && av.Op == bv.Op && sourceSameExpr(av.Expr, bv.Expr)
+	case AstExprLocal:
+		bv, ok := b.(AstExprLocal)
+
+		return ok && sourceSameLocal(av.Local, bv.Local)
+	}
+
+	return false
+}
+
+// sourceCompoundAssign converts `target = target op value` into a compound assignment when doing so cannot change behaviour.
+func sourceCompoundAssign(target, value AstExpr) (AstStatCompoundAssign, bool) {
+	var bin AstExprBinary
+
+	switch v := sourceUnwrapGroup(value).(type) {
+	case *AstExprBinary:
+		bin = *v
+	case AstExprBinary:
+		bin = v
+	default:
+		return AstStatCompoundAssign{}, false
+	}
+
+	op, ok := sourceCompoundOp(BinaryOp(bin.Op))
+	if !ok || !sourceSameExpr(target, bin.Left) || !sourceSafeCompoundTarget(target) {
+		return AstStatCompoundAssign{}, false
+	}
+
+	return AstStatCompoundAssign{
+		Op: op,
+		Var: target,
+		Value: bin.Right,
+	}, true
+}
+
+// unwrapOptionalGroup unwraps parentheses around typ, reporting the members and operator when they reveal a union or intersection.
+func unwrapOptionalGroup(typ AstType) ([]AstType, string, bool) {
+	for {
+		switch t := typ.(type) {
+		case *AstTypeGroup:
+			typ = t.Type
+			continue
+		case AstTypeGroup:
+			typ = t.Type
+			continue
+		}
+
+		break
+	}
+
+	switch t := typ.(type) {
+	case *AstTypeIntersection:
+		return t.Types, "&", true
+	case *AstTypeUnion:
+		return t.Types, "|", true
+	case AstTypeIntersection:
+		return t.Types, "&", true
+	case AstTypeUnion:
+		return t.Types, "|", true
+	}
+
+	return nil, "", false
+}
+
+// writeAnnotation writes `: annotation`, putting a multi-line annotation on its own indented lines, unless it opens a block such as a table type.
+func writeAnnotation(b *strings.Builder, annotation string) {
+	if strings.Contains(annotation, "\n") && !sourceTypeStartsInline(annotation) {
+		b.WriteString(":\n")
+		b.WriteString(sourceIndent(annotation, 1))
+		return
+	}
+	b.WriteString(": ")
+	b.WriteString(annotation)
+}
+
+// writeByteEscape writes a decimal escape for value[i], padding it to three digits when the next byte is a digit so that it isn't absorbed into the escape.
+func writeByteEscape(b *strings.Builder, value string, i int) {
+	if i+1 < len(value) && value[i+1] >= '0' && value[i+1] <= '9' {
+		fmt.Fprintf(b, "\\%03d", value[i])
+		return
+	}
+	fmt.Fprintf(b, "\\%d", value[i])
 }
 
 // sourceInterpStringPart escapes a raw segment of an interpolated string.
@@ -1107,11 +1239,12 @@ func sourceInterpStringPart(s string) string {
 			r, size := utf8.DecodeRuneInString(s[i:])
 			if r == utf8.RuneError && size <= 1 {
 				writeByteEscape(&b, s, i)
+
 				i++
 				continue
 			}
-
 			b.WriteString(s[i : i+size])
+
 			i += size
 			continue
 		}
@@ -1143,179 +1276,403 @@ func sourceInterpStringPart(s string) string {
 	return b.String()
 }
 
-func asIfElseExpr(expr AstExpr) (AstExprIfElse, bool) {
-	switch e := expr.(type) {
-	case AstExprIfElse:
-		return e, true
-	case *AstExprIfElse:
-		return *e, true
+// sourceString renders a string literal in the requested quote style, falling back to a safer representation when needed.
+func sourceString(value string, style QuoteStyle) string {
+	// long strings are avoided when they contain newlines: a multi-line literal can't be re-indented without changing its value. They can't escape bytes either, so invalid UTF-8 falls back to a quoted string.
+	if style == QuoteStyle_QuotedRaw && !strings.ContainsAny(value, "\r\n") && utf8.ValidString(value) {
+		return sourceLongString(value)
 	}
-	return AstExprIfElse{}, false
+
+	quote := byte('"')
+
+	if style == QuoteStyle_QuotedSingle {
+		quote = '\''
+	}
+
+	// if the value contains the preferred quote but not the other one, switch
+	other := byte('"')
+
+	if quote == '"' {
+		other = '\''
+	}
+
+	if strings.IndexByte(value, quote) >= 0 && strings.IndexByte(value, other) < 0 {
+		quote = other
+	}
+
+	var b strings.Builder
+
+	b.WriteByte(quote)
+	for i := 0; i < len(value); {
+		ch := value[i]
+
+		// valid UTF-8 sequences are kept as-is, invalid bytes are escaped
+		if ch >= 0x80 {
+			r, size := utf8.DecodeRuneInString(value[i:])
+			if r == utf8.RuneError && size <= 1 {
+				writeByteEscape(&b, value, i)
+
+				i++
+				continue
+			}
+			b.WriteString(value[i : i+size])
+
+			i += size
+			continue
+		}
+
+		switch ch {
+		case '\\':
+			b.WriteString(`\\`)
+		case quote:
+			b.WriteByte('\\')
+			b.WriteByte(quote)
+		case '\a':
+			b.WriteString(`\a`)
+		case '\b':
+			b.WriteString(`\b`)
+		case '\f':
+			b.WriteString(`\f`)
+		case '\n':
+			b.WriteString(`\n`)
+		case '\r':
+			b.WriteString(`\r`)
+		case '\t':
+			b.WriteString(`\t`)
+		case '\v':
+			b.WriteString(`\v`)
+		default:
+			if ch < 0x20 || ch == 0x7f {
+				writeByteEscape(&b, value, i)
+			} else {
+				b.WriteByte(ch)
+			}
+		}
+
+		i++
+	}
+	b.WriteByte(quote)
+	return b.String()
 }
 
-// sourceHasIfExpr reports whether any of the expressions is an if-then-else expression.
-func sourceHasIfExpr(exprs []AstExpr) bool {
-	for _, expr := range exprs {
-		if _, ok := asIfElseExpr(sourceUnwrapGroup(expr)); ok {
-			return true
+func (n AstExprConstantString) Source() string {
+	return sourceString(n.Value, n.QuoteStyle)
+}
+
+func (n AstTypeSingletonString) Source() string {
+	return sourceString(n.Value, QuoteStyle_QuotedSimple)
+}
+
+// sourceStat renders a statement, preserving a trailing semicolon when the source had one (semicolons can be semantically significant).
+func sourceStat(stat AstStat) string {
+	s := stat.Source()
+
+	if sourceHasSemicolon(stat) {
+		s += ";"
+	}
+
+	return s
+}
+
+// sourceStatList renders statements separated by newlines, interleaving the block's comments in their original positions: leading comments stay above the statement they precede and trailing comments stay on the same line.
+func sourceStatList(stats []AstStat, comments []Comment) string {
+	return sourceStatListSorted(stats, comments, false)
+}
+
+// sourceStatListSorted renders a statement list. When root is set (the top-level chunk), the directives, services, requires and remaining code sections (ordered beforehand by formatAST) are separated by blank lines.
+func sourceStatListSorted(stats []AstStat, comments []Comment, root bool) string {
+	units := sourceStatUnits(stats, comments)
+
+	if !root {
+		return renderScopedUnits(units)
+	}
+
+	return renderRoot(units)
+}
+
+// renderUnits renders units as newline-separated lines, with each unit's leading comments above its statement and trailing comments on the same line.
+func renderUnits(units []sourceStatUnit) string {
+	var lines []string
+
+	for _, unit := range units {
+		lines = append(lines, unitLines(unit)...)
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+// renderScopedUnits renders a scope's units, giving each block statement (`if`/`for`/`while`/`repeat`/`do`) its own paragraph: consecutive non-block statements stay grouped, and groups are joined by a single blank line. Function declarations are blocks too, so they are set off as before. Top-level sections share this layout. A comment attached to the top of a unit stays with it, so the blank line lands above that comment.
+func renderScopedUnits(units []sourceStatUnit) string {
+	var (
+		blocks []string
+		run []sourceStatUnit
+	)
+
+	flush := func() {
+		if len(run) > 0 {
+			blocks = append(blocks, renderUnits(run))
+			run = nil
 		}
 	}
-	return false
+
+	for _, unit := range units {
+		if unit.stat == nil {
+			// A trailing comment with no statement stays glued to the preceding code.
+			flush()
+			if len(blocks) > 0 {
+				blocks[len(blocks)-1] += "\n" + renderUnits([]sourceStatUnit{unit})
+			} else {
+				run = append(run, unit)
+			}
+
+			continue
+		}
+
+		if isFunctionDecl(unit.stat) || sourceIsBlock(unit.stat) {
+			flush()
+
+			blocks = append(blocks, renderUnits([]sourceStatUnit{unit}))
+			continue
+		}
+
+		run = append(run, unit)
+	}
+	flush()
+	return strings.Join(blocks, "\n\n")
 }
 
-// sourceCompoundOp returns the compound assignment operator for a binary operator, if it has one.
-func sourceCompoundOp(op BinaryOp) (BinaryOp, bool) {
-	switch op {
-	case BinaryOp_Add, BinaryOp_Sub, BinaryOp_Mul, BinaryOp_Div,
-		BinaryOp_FloorDiv, BinaryOp_Mod, BinaryOp_Pow, BinaryOp_Concat:
-		return op, true
+// unitLines renders a single unit's lines.
+func unitLines(unit sourceStatUnit) []string {
+	lines := make([]string, 0, len(unit.leading)+1)
+
+	for _, c := range unit.leading {
+		lines = append(lines, sourceComment(c))
 	}
-	return 0, false
+
+	if unit.stat == nil {
+		return lines
+	}
+
+	src := sourceStat(unit.stat)
+
+	for _, c := range unit.trailing {
+		src += " " + sourceComment(c)
+	}
+
+	return append(lines, src)
 }
 
-// sourcePureExpr reports whether evaluating an expression has no observable effects. Only locals and constants qualify: global reads can invoke environment metamethods and indexing can invoke table metamethods.
-func sourcePureExpr(expr AstExpr) bool {
-	switch sourceUnwrapGroup(expr).(type) {
-	case AstExprLocal, *AstExprLocal,
-		AstExprConstantNil, *AstExprConstantNil,
-		AstExprConstantBool, *AstExprConstantBool,
-		AstExprConstantNumber, *AstExprConstantNumber,
-		AstExprConstantInteger, *AstExprConstantInteger,
-		AstExprConstantString, *AstExprConstantString:
-		return true
+// renderRoot renders the top-level chunk, separating each present section (directives, services, requires and the remaining code, ordered beforehand by formatAST) with a blank line.
+func renderRoot(units []sourceStatUnit) string {
+	serviceEnd := serviceSectionEnd(units)
+	requireEnd := serviceEnd
+
+	for requireEnd < len(units) {
+		if _, _, ok := requireDeclaration(units[requireEnd].stat); !ok {
+			break
+		}
+
+		requireEnd++
 	}
-	return false
+
+	// the leading comments form their own section when they hold a directive, or when a sorted section follows them, so they aren't glued to the first declaration
+	var header []Comment
+
+	if len(units) > 0 && len(units[0].leading) > 0 && (hasDirective(units[0].leading) || serviceEnd > 0 || requireEnd > 0) {
+		header = units[0].leading
+		units[0].leading = nil
+	}
+
+	// the first declaration may carry its own comments; fold them into the header so reformatting the result doesn't reclassify them
+	if header != nil && len(units) > 0 && len(units[0].leading) > 0 {
+		header = append(header, units[0].leading...)
+		units[0].leading = nil
+	}
+
+	var blocks []string
+
+	appendBlock := func(u []sourceStatUnit) {
+		if s := renderScopedUnits(u); s != "" {
+			blocks = append(blocks, s)
+		}
+	}
+
+	if header != nil {
+		blocks = append(blocks, renderUnits([]sourceStatUnit{
+			{
+				leading: header,
+			},
+		}))
+	}
+	appendBlock(units[:serviceEnd])
+	appendBlock(units[serviceEnd:requireEnd])
+	appendBlock(units[requireEnd:])
+	return strings.Join(blocks, "\n\n")
 }
 
-// sourceSameLocal reports whether two local bindings are the same. Bindings share the NodeLoc of their declaration, so comparing it identifies them without touching the uncomparable Annotation field.
-func sourceSameLocal(a, b AstLocal) bool {
-	if a.NodeLoc == nil || b.NodeLoc == nil {
-		return false
+// sourceBlockBody renders a block's statements indented one level, preceded by a newline. Empty blocks render as an empty string.
+func sourceBlockBody(body AstStatBlock) string {
+	s := sourceStatList(body.Body, body.Comments)
+	if s == "" {
+		return ""
 	}
-	return a.NodeLoc == b.NodeLoc
+
+	return "\n" + sourceIndent(s, 1)
 }
 
-// sourceSameExpr reports whether two expressions refer to the same value or location. Groups are ignored, so `(x)` and `x` compare equal.
-func sourceSameExpr(a, b AstExpr) bool {
-	a, b = sourceUnwrapGroup(a), sourceUnwrapGroup(b)
-
-	switch av := a.(type) {
-	case AstExprLocal:
-		bv, ok := b.(AstExprLocal)
-		return ok && sourceSameLocal(av.Local, bv.Local)
-	case *AstExprLocal:
-		bv, ok := b.(*AstExprLocal)
-		return ok && sourceSameLocal(av.Local, bv.Local)
-	case AstExprGlobal:
-		bv, ok := b.(AstExprGlobal)
-		return ok && av.Name == bv.Name
-	case *AstExprGlobal:
-		bv, ok := b.(*AstExprGlobal)
-		return ok && av.Name == bv.Name
-	case AstExprConstantNil:
-		_, ok := b.(AstExprConstantNil)
-		return ok
-	case *AstExprConstantNil:
-		_, ok := b.(*AstExprConstantNil)
-		return ok
-	case AstExprConstantBool:
-		bv, ok := b.(AstExprConstantBool)
-		return ok && av.Value == bv.Value
-	case *AstExprConstantBool:
-		bv, ok := b.(*AstExprConstantBool)
-		return ok && av.Value == bv.Value
-	case AstExprConstantNumber:
-		bv, ok := b.(AstExprConstantNumber)
-		return ok && av.Value == bv.Value
-	case *AstExprConstantNumber:
-		bv, ok := b.(*AstExprConstantNumber)
-		return ok && av.Value == bv.Value
-	case AstExprConstantInteger:
-		bv, ok := b.(AstExprConstantInteger)
-		return ok && av.Value == bv.Value
-	case *AstExprConstantInteger:
-		bv, ok := b.(*AstExprConstantInteger)
-		return ok && av.Value == bv.Value
-	case AstExprConstantString:
-		bv, ok := b.(AstExprConstantString)
-		return ok && av.Value == bv.Value
-	case *AstExprConstantString:
-		bv, ok := b.(*AstExprConstantString)
-		return ok && av.Value == bv.Value
-	case AstExprIndexName:
-		bv, ok := b.(AstExprIndexName)
-		return ok && av.Index == bv.Index && av.Op == bv.Op && sourceSameExpr(av.Expr, bv.Expr)
-	case *AstExprIndexName:
-		bv, ok := b.(*AstExprIndexName)
-		return ok && av.Index == bv.Index && av.Op == bv.Op && sourceSameExpr(av.Expr, bv.Expr)
-	case AstExprIndexExpr:
-		bv, ok := b.(AstExprIndexExpr)
-		return ok && sourceSameExpr(av.Expr, bv.Expr) && sourceSameExpr(av.Index, bv.Index)
-	case *AstExprIndexExpr:
-		bv, ok := b.(*AstExprIndexExpr)
-		return ok && sourceSameExpr(av.Expr, bv.Expr) && sourceSameExpr(av.Index, bv.Index)
+// requireDeclaration returns the sort key of a `local X = require "..."` (or instance path) declaration, whether the require is a string, and whether stat is a require declaration at all. String requires sort before instance-path ones; within a group the key is the filename or the rendered instance path.
+func requireDeclaration(stat AstStat) (key string, isString, ok bool) {
+	decl := asStatLocal(stat)
+	if decl == nil || len(decl.Vars) != 1 || len(decl.Values) != 1 {
+		return "", false, false
 	}
-	return false
+
+	call := asExprCall(decl.Values[0])
+	if call == nil || len(call.Args) != 1 {
+		return "", false, false
+	}
+
+	if fn := asExprGlobal(call.Func); fn == nil || fn.Name != "require" {
+		return "", false, false
+	}
+
+	arg := sourceUnwrapExpr(call.Args[0])
+
+	if str := asExprConstantString(arg); str != nil {
+		return str.Value, true, true
+	}
+
+	return arg.Source(), false, true
 }
 
-// sourceSafeCompoundTarget reports whether a target can be used in a compound assignment without changing behaviour. `target = target op value` evaluates the target twice, while `target op= value` evaluates it once, so targets whose evaluation has observable effects must keep the plain form.
-func sourceSafeCompoundTarget(target AstExpr) bool {
-	switch t := sourceUnwrapGroup(target).(type) {
-	case AstExprLocal, *AstExprLocal, AstExprGlobal, *AstExprGlobal:
-		return true
-	case AstExprIndexName:
-		return sourcePureExpr(t.Expr)
-	case *AstExprIndexName:
-		return sourcePureExpr(t.Expr)
-	case AstExprIndexExpr:
-		return sourcePureExpr(t.Expr) && sourcePureExpr(t.Index)
-	case *AstExprIndexExpr:
-		return sourcePureExpr(t.Expr) && sourcePureExpr(t.Index)
+// sourceExpr renders expr in a context requiring at least minPrec. When expand is true the expression sits where a bare call or `...` would expand to multiple values, so parentheses around one are kept. Groups are dropped when they affect neither operator precedence nor the number of values.
+func sourceExpr(expr AstExpr, minPrec int, expand bool) string {
+	var group *AstExprGroup
+
+	switch e := expr.(type) {
+	case *AstExprGroup:
+		group = e
+	case AstExprGroup:
+		group = &e
 	}
-	return false
+
+	if group != nil {
+		inner := group.Expr
+
+		// a group around a call or `...` truncates it to a single value
+		if expand && sourceExprExpands(inner) {
+			return sourceParens(inner, sourceExpr(inner, 0, false))
+		}
+
+		return sourceExpr(inner, minPrec, expand)
+	}
+
+	s := expr.Source()
+
+	if sourceExprPrecedence(expr) < minPrec {
+		return sourceParens(expr, s)
+	}
+
+	return s
 }
 
-// sourceCompoundAssign converts `target = target op value` into a compound assignment when doing so cannot change behaviour.
-func sourceCompoundAssign(target AstExpr, value AstExpr) (AstStatCompoundAssign, bool) {
-	var bin AstExprBinary
-	switch v := sourceUnwrapGroup(value).(type) {
-	case AstExprBinary:
-		bin = v
-	case *AstExprBinary:
-		bin = *v
-	default:
-		return AstStatCompoundAssign{}, false
+// sourceExprPrec renders expr in a single-value context requiring at least minPrec.
+func sourceExprPrec(expr AstExpr, minPrec int) string {
+	return sourceExpr(expr, minPrec, false)
+}
+
+// sourceExprPostfix renders an expression used as the base of a postfix operation. Unlike other primary expressions, literals, tables, functions and `...` can't be indexed or called without parentheses.
+func sourceExprPostfix(expr AstExpr) string {
+	var inner AstExpr
+
+	switch e := expr.(type) {
+	case *AstExprGroup:
+		inner = e.Expr
+	case AstExprGroup:
+		inner = e.Expr
 	}
 
-	op, ok := sourceCompoundOp(BinaryOp(bin.Op))
-	if !ok || !sourceSameExpr(target, bin.Left) || !sourceSafeCompoundTarget(target) {
-		return AstStatCompoundAssign{}, false
+	if inner != nil {
+		if unwrapped := sourceUnwrapGroup(inner); !sourcePostfixBase(unwrapped) {
+			return sourceParens(unwrapped, sourceExprPrec(unwrapped, 0))
+		}
 	}
 
-	return AstStatCompoundAssign{Var: target, Op: op, Value: bin.Right}, true
+	return sourceExprPrec(expr, precPrimary)
+}
+
+// sourceExprList renders comma-separated expressions, allowing the last one to expand into multiple values.
+func sourceExprList(exprs []AstExpr) string {
+	parts := make([]string, len(exprs))
+
+	for i, expr := range exprs {
+		parts[i] = sourceExpr(expr, 0, i == len(exprs)-1)
+	}
+
+	return strings.Join(parts, ", ")
+}
+
+// sourceTypeOrPackList renders comma-separated types/type packs.
+func sourceTypeOrPackList(items []AstTypeOrPack) string {
+	parts := make([]string, len(items))
+
+	for i, item := range items {
+		parts[i] = item.Source()
+	}
+
+	return strings.Join(parts, ", ")
+}
+
+// sourceGenerics renders a generic list, e.g. `T, U..., V = string`.
+func sourceGenerics(generics []AstGenericType, packs []AstGenericTypePack) string {
+	parts := make([]string, 0, len(generics)+len(packs))
+
+	for _, generic := range generics {
+		parts = append(parts, generic.Source())
+	}
+
+	for _, pack := range packs {
+		parts = append(parts, pack.Source())
+	}
+
+	return strings.Join(parts, ", ")
+}
+
+// sourceAttrs renders attributes followed by newlines, or "" when there are none.
+func sourceAttrs(attrs []AstAttr) string {
+	if len(attrs) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+
+	for _, attr := range attrs {
+		b.WriteString(attr.Source())
+		b.WriteByte('\n')
+	}
+
+	return b.String()
 }
 
 // writeIfBranch writes an if-expression branch value on its own indented line, like an if statement body.
 func writeIfBranch(b *strings.Builder, expr AstExpr) {
 	b.WriteByte('\n')
-
 	if expr == nil {
 		b.WriteString(sourceIndent("nil", 1))
 		return
 	}
-
 	b.WriteString(sourceIndent(sourceExprPrec(expr, 0), 1))
 }
 
 // writeAssignedValue writes ` = values`, putting if-expressions on their own indented lines.
 func writeAssignedValue(b *strings.Builder, exprs []AstExpr) {
 	value := sourceExprList(exprs)
+
 	if sourceHasIfExpr(exprs) {
 		b.WriteString(" =\n")
 		b.WriteString(sourceIndent(value, 1))
 		return
 	}
-
 	b.WriteString(" = ")
 	b.WriteString(value)
 }
@@ -1323,11 +1680,12 @@ func writeAssignedValue(b *strings.Builder, exprs []AstExpr) {
 // sourceVarargAnnotation renders a vararg annotation. The parser wraps parameter vararg annotations in a variadic type pack, but the `...` is already written as part of the parameter list.
 func sourceVarargAnnotation(pack AstTypePack) string {
 	switch p := pack.(type) {
-	case AstTypePackVariadic:
-		return p.VariadicType.Source()
 	case *AstTypePackVariadic:
 		return p.VariadicType.Source()
+	case AstTypePackVariadic:
+		return p.VariadicType.Source()
 	}
+
 	return pack.Source()
 }
 
@@ -1336,17 +1694,21 @@ func sourceDeclareParams(params AstTypeList, names []AstArgumentName, vararg boo
 
 	for i, param := range params.Types {
 		p := param.Source()
+
 		if i < len(names) && names[i].Name != "" {
 			p = names[i].Name + ": " + p
 		}
+
 		parts = append(parts, p)
 	}
 
 	if vararg {
 		p := "..."
+
 		if params.TailType != nil {
 			p += ": " + sourceVarargAnnotation(*params.TailType)
 		}
+
 		parts = append(parts, p)
 	} else if params.TailType != nil {
 		parts = append(parts, (*params.TailType).Source())
@@ -1355,68 +1717,12 @@ func sourceDeclareParams(params AstTypeList, names []AstArgumentName, vararg boo
 	return strings.Join(parts, ", ")
 }
 
-// sourceTypeStartsInline reports whether a multi-line type should stay on the current line, e.g. a table type's opening brace.
-func sourceTypeStartsInline(s string) bool {
-	return strings.HasPrefix(s, "{")
-}
-
-// writeAnnotation writes `: annotation`, putting a multi-line annotation on its own indented lines, unless it opens a block such as a table type.
-func writeAnnotation(b *strings.Builder, annotation string) {
-	if strings.Contains(annotation, "\n") && !sourceTypeStartsInline(annotation) {
-		b.WriteString(":\n")
-		b.WriteString(sourceIndent(annotation, 1))
-		return
-	}
-
-	b.WriteString(": ")
-	b.WriteString(annotation)
-}
-
 // writeTypeAnnotation writes `: type`, putting a multi-line type on its own indented lines.
 func writeTypeAnnotation(b *strings.Builder, annotation AstType) {
 	if annotation == nil {
 		return
 	}
-
 	writeAnnotation(b, annotation.Source())
-}
-
-// sourceIsIdentifier reports whether s is a valid Luau identifier.
-func sourceIsIdentifier(s string) bool {
-	if s == "" {
-		return false
-	}
-
-	for i := range s {
-		ch := s[i]
-		switch {
-		case ch == '_' || ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z':
-		case i > 0 && ch >= '0' && ch <= '9':
-		default:
-			return false
-		}
-	}
-
-	return true
-}
-
-// sourceRecordKey returns the bare record-key form of a string table key, if the string is a valid identifier that isn't a reserved word.
-func sourceRecordKey(expr AstExpr) (string, bool) {
-	var value string
-	switch key := sourceUnwrapGroup(expr).(type) {
-	case AstExprConstantString: // can't collapse these cuz typing
-		value = key.Value
-	case *AstExprConstantString:
-		value = key.Value
-	default:
-		return "", false
-	}
-
-	if !sourceIsIdentifier(value) || lex.IsReserved(value) {
-		return "", false
-	}
-
-	return value, true
 }
 
 // sourceTableItem renders a table item, allowing the value of a trailing list item to expand into multiple values.
@@ -1428,44 +1734,30 @@ func sourceTableItem(item AstExprTableItem, expand bool) string {
 	value := sourceExpr(item.Value, 0, expand)
 
 	switch item.Kind {
-	case Record:
-		if key, ok := (*item.Key).(AstExprConstantString); ok {
-			return key.Value + " = " + value
-		}
-		return sourceExprPrec(*item.Key, 0) + " = " + value
 	case General:
 		// a string key that's a valid identifier can use the record form
 		if key, ok := sourceRecordKey(*item.Key); ok {
 			return key + " = " + value
 		}
+
 		return "[" + sourceExprPrec(*item.Key, 0) + "] = " + value
+	case Record:
+		if key, ok := (*item.Key).(AstExprConstantString); ok {
+			return key.Value + " = " + value
+		}
+
+		return sourceExprPrec(*item.Key, 0) + " = " + value
 	}
+
 	return value
-}
-
-// sourceTableItemStart returns the position where a table item starts, used to place comments. Item locations are empty, so keyed items use their key and list items their value.
-func sourceTableItemStart(item AstExprTableItem) lex.Position {
-	if item.Key != nil {
-		return (*item.Key).GetLocation().Begin
-	}
-	if item.Value != nil {
-		return item.Value.GetLocation().Begin
-	}
-	return lex.Position{}
-}
-
-// sourceTableItemEnd returns the position where a table item ends, used to place trailing comments.
-func sourceTableItemEnd(item AstExprTableItem) lex.Position {
-	if item.Value != nil {
-		return item.Value.GetLocation().End
-	}
-	return lex.Position{}
 }
 
 // sourceTableItems renders a table's items with their comments, one per line, each item followed by a comma.
 func sourceTableItems(items []AstExprTableItem, comments []Comment) string {
-	var lines []string
-	ci := 0
+	var (
+		lines []string
+		ci int
+	)
 
 	for i, item := range items {
 		start := sourceTableItemStart(item)
@@ -1480,9 +1772,7 @@ func sourceTableItems(items []AstExprTableItem, comments []Comment) string {
 		src := sourceTableItem(item, i == len(items)-1 && item.Kind == List) + ","
 
 		// comments on the same line as the end of the item stay there
-		for ci < len(comments) &&
-			comments[ci].Location.Begin.Line == end.Line &&
-			(i+1 >= len(items) || comments[ci].Location.Begin.Before(sourceTableItemStart(items[i+1]))) {
+		for ci < len(comments) && comments[ci].Location.Begin.Line == end.Line && (i+1 >= len(items) || comments[ci].Location.Begin.Before(sourceTableItemStart(items[i+1]))) {
 			src += " " + sourceComment(comments[ci])
 			ci++
 		}
@@ -1501,14 +1791,17 @@ func sourceTableItems(items []AstExprTableItem, comments []Comment) string {
 
 // sourceUnionIntersection renders union and intersection types. Types are always split across multiple lines, one per line, each prefixed by op.
 func sourceUnionIntersection(types []AstType, op string) string {
-	var nonOptional []AstType
-	seenOptional := false
+	var (
+		nonOptional []AstType
+		seenOptional bool
+	)
 
 	for _, typ := range types {
 		if _, ok := typ.(AstTypeOptional); ok {
 			seenOptional = true
 			continue
 		}
+
 		nonOptional = append(nonOptional, typ)
 	}
 
@@ -1517,6 +1810,7 @@ func sourceUnionIntersection(types []AstType, op string) string {
 	}
 
 	parts := make([]string, len(nonOptional))
+
 	for i, typ := range nonOptional {
 		parts[i] = typ.Source()
 	}
@@ -1527,12 +1821,15 @@ func sourceUnionIntersection(types []AstType, op string) string {
 			if inner, innerOp, ok := unwrapOptionalGroup(nonOptional[0]); ok && innerOp == "|" {
 				return sourceUnionIntersection(append(inner, AstTypeOptional{}), innerOp)
 			}
+
 			return parts[0] + "?"
 		}
+
 		return parts[0]
 	}
 
 	var b strings.Builder
+
 	for i, part := range parts {
 		if i > 0 {
 			b.WriteByte('\n')
@@ -1547,55 +1844,11 @@ func sourceUnionIntersection(types []AstType, op string) string {
 		if op == "|" {
 			return b.String() + "\n?"
 		}
+
 		return "(\n" + sourceIndent(b.String(), 1) + "\n)?"
 	}
+
 	return b.String()
-}
-
-// unwrapOptionalGroup unwraps parentheses around typ, reporting the members and operator when they reveal a union or intersection.
-func unwrapOptionalGroup(typ AstType) ([]AstType, string, bool) {
-	for {
-		switch t := typ.(type) {
-		case AstTypeGroup:
-			typ = t.Type
-			continue
-		case *AstTypeGroup:
-			typ = t.Type
-			continue
-		}
-		break
-	}
-
-	switch t := typ.(type) {
-	case AstTypeUnion:
-		return t.Types, "|", true
-	case *AstTypeUnion:
-		return t.Types, "|", true
-	case AstTypeIntersection:
-		return t.Types, "&", true
-	case *AstTypeIntersection:
-		return t.Types, "&", true
-	}
-	return nil, "", false
-}
-
-func asIfStat(stat AstStat) (*AstStatIf, bool) {
-	if s, ok := stat.(*AstStatIf); ok {
-		return s, true
-	}
-	return nil, false
-}
-
-func isIfStat(stat AstStat) bool {
-	_, ok := asIfStat(stat)
-	return ok
-}
-
-func asBlock(stat AstStat) (*AstStatBlock, bool) {
-	if s, ok := stat.(*AstStatBlock); ok {
-		return s, true
-	}
-	return nil, false
 }
 
 // -------------------------------------------------------------------------------- -- EXPRESSIONS --------------------------------------------------------------------------------
@@ -1603,7 +1856,6 @@ func asBlock(stat AstStat) (*AstStatBlock, bool) {
 func (n AstExprBinary) Source() string {
 	op := BinaryOp(n.Op)
 	priorities := BinaryPriority[op]
-
 	leftMin := priorities[0]
 	rightMin := priorities[1]
 
@@ -1621,18 +1873,6 @@ func (n AstExprBinary) Source() string {
 	return left + " " + sourceBinaryOp(op) + " " + right
 }
 
-// sourceHugsCallArg reports whether a call's parentheses hug its sole argument instead of breaking around it: a lone function literal stays glued like an IIFE callee.
-func sourceHugsCallArg(args []AstExpr) bool {
-	if len(args) != 1 {
-		return false
-	}
-	switch sourceUnwrapGroup(args[0]).(type) {
-	case AstExprFunction, *AstExprFunction:
-		return true
-	}
-	return false
-}
-
 func (n AstExprCall) Source() string {
 	if method, ok := asMethodCall(n); ok {
 		return method.Source()
@@ -1641,7 +1881,6 @@ func (n AstExprCall) Source() string {
 	var b strings.Builder
 
 	b.WriteString(sourceExprPostfix(n.Func))
-
 	if n.TypeArguments != nil && len(*n.TypeArguments) > 0 {
 		b.WriteString("<<")
 		b.WriteString(sourceTypeOrPackList(*n.TypeArguments))
@@ -1654,10 +1893,8 @@ func (n AstExprCall) Source() string {
 		b.WriteString(sourceExpr(n.Args[0], 0, true))
 		return b.String()
 	}
-
 	b.WriteString("(")
-	args := sourceExprList(n.Args)
-	if strings.Contains(args, "\n") && !sourceHugsCallArg(n.Args) {
+	if args := sourceExprList(n.Args); strings.Contains(args, "\n") && !sourceHugsCallArg(n.Args) {
 		b.WriteString("\n")
 		b.WriteString(sourceIndent(args, 1))
 		b.WriteString("\n)")
@@ -1669,38 +1906,11 @@ func (n AstExprCall) Source() string {
 	return b.String()
 }
 
-func (n AstExprConstantBool) Source() string {
-	if n.Value {
-		return "true"
-	}
-	return "false"
-}
-
-func (n AstExprConstantNil) Source() string {
-	return "nil"
-}
-
-func (n AstExprConstantNumber) Source() string {
-	return sourceNumber(n.Value)
-}
-
-func (n AstExprConstantInteger) Source() string {
-	if n.Value >= 0x1000 {
-		if hex, ok := cleanHex(uint64(n.Value)); ok {
-			return hex + "i"
-		}
-	}
-	return fmt.Sprintf("%di", n.Value)
-}
-
-func (n AstExprConstantString) Source() string {
-	return sourceString(n.Value, n.QuoteStyle)
-}
-
 func (n AstExprError) Source() string {
 	if len(n.Expressions) > 0 {
 		return sourceExprPrec(n.Expressions[0], 0)
 	}
+
 	return "nil"
 }
 
@@ -1711,10 +1921,8 @@ func (n AstExprFunction) Source() string {
 		b.WriteString(attr.Source())
 		b.WriteByte(' ')
 	}
-
 	b.WriteString("function")
 	b.WriteString(n.sourceRest())
-
 	return b.String()
 }
 
@@ -1727,12 +1935,14 @@ func (n AstExprFunction) sourceRest() string {
 		b.WriteString(generics)
 		b.WriteString(">")
 	}
-
 	b.WriteString("(")
+
 	args := make([]string, 0, len(n.Args)+1)
+
 	for _, arg := range n.Args {
 		args = append(args, arg.Source())
 	}
+
 	if n.Vararg {
 		if n.VarargAnnotation != nil {
 			args = append(args, "...: "+sourceVarargAnnotation(*n.VarargAnnotation))
@@ -1740,6 +1950,7 @@ func (n AstExprFunction) sourceRest() string {
 			args = append(args, "...")
 		}
 	}
+
 	if len(args) == 0 {
 		b.WriteString(")")
 	} else {
@@ -1751,14 +1962,8 @@ func (n AstExprFunction) sourceRest() string {
 	if n.ReturnAnnotation != nil {
 		writeAnnotation(&b, (*n.ReturnAnnotation).Source())
 	}
-
 	b.WriteString(appendEnd(sourceBlockBody(n.Body)))
-
 	return b.String()
-}
-
-func (n AstExprGlobal) Source() string {
-	return n.Name
 }
 
 func (n AstExprGroup) Source() string {
@@ -1775,7 +1980,6 @@ func (n AstExprIfElse) sourceIf(keyword string) string {
 
 	b.WriteString(keyword)
 	b.WriteByte(' ')
-
 	if n.ConditionLocal != nil {
 		if n.ConditionIsConst {
 			b.WriteString("const ")
@@ -1788,7 +1992,6 @@ func (n AstExprIfElse) sourceIf(keyword string) string {
 	b.WriteString(sourceExprPrec(n.Condition, 0))
 	b.WriteString(" then")
 	writeIfBranch(&b, n.TrueExpr)
-
 	if falseExpr, ok := asIfElseExpr(sourceUnwrapGroup(n.FalseExpr)); ok {
 		// `else` + `if ...` renders as an `elseif ...` chain
 		b.WriteByte('\n')
@@ -1807,6 +2010,7 @@ func (n AstExprIndexExpr) Source() string {
 	if strings.Contains(index, "\n") {
 		return sourceExprPostfix(n.Expr) + "[\n" + sourceIndent(index, 1) + "\n]"
 	}
+
 	return sourceExprPostfix(n.Expr) + "[" + index + "]"
 }
 
@@ -1821,8 +2025,7 @@ func (n AstExprInterpString) Source() string {
 	for i, str := range n.Strings {
 		b.WriteString(sourceInterpStringPart(str))
 		if i < len(n.Expressions) {
-			expr := sourceExprPrec(n.Expressions[i], 0)
-			if strings.Contains(expr, "\n") {
+			if expr := sourceExprPrec(n.Expressions[i], 0); strings.Contains(expr, "\n") {
 				b.WriteString("{\n")
 				b.WriteString(sourceIndent(expr, 1))
 				b.WriteString("\n}")
@@ -1834,16 +2037,11 @@ func (n AstExprInterpString) Source() string {
 		}
 	}
 	b.WriteByte('`')
-
 	return b.String()
 }
 
 func (n AstExprInstantiate) Source() string {
 	return sourceExprPostfix(n.Expr) + "<<" + sourceTypeOrPackList(n.TypeArguments) + ">>"
-}
-
-func (n AstExprLocal) Source() string {
-	return n.Local.Name
 }
 
 func (n AstExprTable) Source() string {
@@ -1864,10 +2062,6 @@ func (n AstExprTypeAssertion) Source() string {
 	return sourceExpr(n.Expr, precPrimary, false) + " :: " + n.Annotation.Source()
 }
 
-func (n AstExprVarargs) Source() string {
-	return "..."
-}
-
 func (n AstExprUnary) Source() string {
 	op := sourceUnaryOp(n.Op)
 	expr := sourceExpr(n.Expr, precUnaryOperand, false)
@@ -1884,6 +2078,7 @@ func (n AstExprUnary) Source() string {
 
 func (n AstAttr) Source() string {
 	name := n.Type
+
 	if n.Name != nil {
 		name = *n.Name
 	}
@@ -1895,29 +2090,30 @@ func (n AstAttr) Source() string {
 	return "@" + name
 }
 
-func (n AstArgumentName) Source() string {
-	return n.Name
-}
-
 func (n AstGenericType) Source() string {
 	s := n.Name
+
 	if n.DefaultValue != nil {
 		s += " = " + (*n.DefaultValue).Source()
 	}
+
 	return s
 }
 
 func (n AstGenericTypePack) Source() string {
 	s := n.Name + "..."
+
 	if n.DefaultValue != nil {
 		s += " = " + (*n.DefaultValue).Source()
 	}
+
 	return s
 }
 
 // Source renders a binding, i.e. `name` or `name: type`.
 func (n AstLocal) Source() string {
 	var b strings.Builder
+
 	b.WriteString(n.Name)
 	writeTypeAnnotation(&b, n.Annotation)
 	return b.String()
@@ -1934,6 +2130,7 @@ func (n AstStatAssign) Source() string {
 	}
 
 	var b strings.Builder
+
 	b.WriteString(sourceExprList(n.Vars))
 	writeAssignedValue(&b, n.Values)
 	return b.String()
@@ -1948,10 +2145,6 @@ func (n AstStatBlock) Source() string {
 	return "do" + appendEnd(sourceBlockBody(n))
 }
 
-func (n AstStatBreak) Source() string {
-	return "break"
-}
-
 func (n AstStatCompoundAssign) Source() string {
 	var b strings.Builder
 
@@ -1961,6 +2154,7 @@ func (n AstStatCompoundAssign) Source() string {
 	b.WriteString("=")
 
 	value := sourceExprPrec(n.Value, 0)
+
 	if _, ok := asIfElseExpr(sourceUnwrapGroup(n.Value)); ok {
 		b.WriteByte('\n')
 		b.WriteString(sourceIndent(value, 1))
@@ -1972,27 +2166,20 @@ func (n AstStatCompoundAssign) Source() string {
 	return b.String()
 }
 
-func (n AstStatContinue) Source() string {
-	return "continue"
-}
-
 func (n AstStatDeclareFunction) Source() string {
 	var b strings.Builder
 
 	b.WriteString(sourceAttrs(n.Attributes))
 	b.WriteString("declare function ")
 	b.WriteString(n.Name)
-
 	if generics := sourceGenerics(n.Generics, n.GenericPacks); generics != "" {
 		b.WriteString("<")
 		b.WriteString(generics)
 		b.WriteString(">")
 	}
-
 	b.WriteString("(")
 	b.WriteString(sourceDeclareParams(n.Params, n.ParamNames, n.Vararg))
 	b.WriteString(")")
-
 	if n.RetTypes != nil {
 		writeAnnotation(&b, n.RetTypes.Source())
 	}
@@ -2014,18 +2201,16 @@ func (n AstStatDeclareExternType) Source() string {
 		b.WriteString(*n.SuperName)
 	}
 	b.WriteString(" with")
-
 	for _, prop := range n.Props {
 		b.WriteByte('\n')
 		b.WriteString(sourceIndent(prop.Source(), 1))
 	}
+
 	if n.Indexer != nil {
 		b.WriteByte('\n')
 		b.WriteString(sourceIndent(n.Indexer.Source(), 1))
 	}
-
 	b.WriteString("\nend")
-
 	return b.String()
 }
 
@@ -2046,6 +2231,7 @@ func (n AstDeclaredExternTypeProperty) Source() string {
 		}
 
 		var b strings.Builder
+
 		b.WriteString("function ")
 		b.WriteString(name)
 		b.WriteString("(")
@@ -2062,9 +2248,11 @@ func (n AstStatError) Source() string {
 	if len(n.Statements) > 0 {
 		return sourceStatList(n.Statements, nil)
 	}
+
 	if len(n.Expressions) > 0 {
 		return sourceExprList(n.Expressions)
 	}
+
 	return "--[[error]]"
 }
 
@@ -2090,11 +2278,11 @@ func (n AstStatFor) Source() string {
 	b.WriteString(" do")
 
 	var body string
+
 	if n.Body != nil {
 		body = sourceBlockBody(*n.Body)
 	}
 	b.WriteString(appendEnd(body))
-
 	return b.String()
 }
 
@@ -2102,7 +2290,9 @@ func (n AstStatForIn) Source() string {
 	var b strings.Builder
 
 	b.WriteString("for ")
+
 	vars := make([]string, len(n.Vars))
+
 	for i, v := range n.Vars {
 		if v != nil {
 			vars[i] = v.Source()
@@ -2114,11 +2304,11 @@ func (n AstStatForIn) Source() string {
 	b.WriteString(" do")
 
 	var body string
+
 	if n.Body != nil {
 		body = sourceBlockBody(*n.Body)
 	}
 	b.WriteString(appendEnd(body))
-
 	return b.String()
 }
 
@@ -2129,7 +2319,6 @@ func (n AstStatFunction) Source() string {
 	b.WriteString("function ")
 	b.WriteString(sourceExprPrec(n.Name, precPrimary))
 	b.WriteString(n.Func.sourceRest())
-
 	return b.String()
 }
 
@@ -2143,7 +2332,6 @@ func (n AstStatIf) sourceIf(keyword string) string {
 
 	b.WriteString(keyword)
 	b.WriteByte(' ')
-
 	if n.ConditionLocal != nil {
 		if n.ConditionIsConst {
 			b.WriteString("const ")
@@ -2153,7 +2341,6 @@ func (n AstStatIf) sourceIf(keyword string) string {
 		b.WriteString(n.ConditionLocal.Name)
 		b.WriteString(" = ")
 	}
-
 	b.WriteString(sourceExprPrec(n.Condition, 0))
 	b.WriteString(" then")
 
@@ -2164,7 +2351,9 @@ func (n AstStatIf) sourceIf(keyword string) string {
 		b.WriteString(appendEnd(thenBody))
 	case isIfStat(n.ElseBody):
 		b.WriteString(thenBody)
+
 		elseIf, _ := asIfStat(n.ElseBody)
+
 		b.WriteByte('\n')
 		b.WriteString(elseIf.sourceIf("elseif"))
 	default:
@@ -2172,6 +2361,7 @@ func (n AstStatIf) sourceIf(keyword string) string {
 		b.WriteString("\nelse")
 
 		var elseBody string
+
 		if elseBlock, ok := asBlock(n.ElseBody); ok {
 			elseBody = sourceBlockBody(*elseBlock)
 		} else {
@@ -2198,11 +2388,11 @@ func (n AstStatLocal) Source() string {
 	}
 
 	vars := make([]string, len(n.Vars))
+
 	for i := range n.Vars {
 		vars[i] = n.Vars[i].Source()
 	}
 	b.WriteString(strings.Join(vars, ", "))
-
 	if len(n.Values) > 0 {
 		writeAssignedValue(&b, n.Values)
 	}
@@ -2214,7 +2404,6 @@ func (n AstStatLocalFunction) Source() string {
 	var b strings.Builder
 
 	b.WriteString(sourceAttrs(n.Func.Attributes))
-
 	switch {
 	case n.Name.IsExported:
 		b.WriteString("export function ")
@@ -2223,10 +2412,8 @@ func (n AstStatLocalFunction) Source() string {
 	default:
 		b.WriteString("local function ")
 	}
-
 	b.WriteString(n.Name.Name)
 	b.WriteString(n.Func.sourceRest())
-
 	return b.String()
 }
 
@@ -2239,7 +2426,6 @@ func (n AstStatRepeat) Source() string {
 	}
 	b.WriteString("\nuntil ")
 	b.WriteString(sourceExprPrec(n.Condition, 0))
-
 	return b.String()
 }
 
@@ -2249,9 +2435,11 @@ func (n AstStatReturn) Source() string {
 	}
 
 	list := sourceExprList(n.List)
+
 	if sourceHasIfExpr(n.List) {
 		return "return\n" + sourceIndent(list, 1)
 	}
+
 	return "return " + list
 }
 
@@ -2263,7 +2451,6 @@ func (n AstStatTypeAlias) Source() string {
 	}
 	b.WriteString("type ")
 	b.WriteString(n.Name)
-
 	if generics := sourceGenerics(n.Generics, n.GenericPacks); generics != "" {
 		b.WriteString("<")
 		b.WriteString(generics)
@@ -2272,6 +2459,7 @@ func (n AstStatTypeAlias) Source() string {
 
 	// multi-line types start on their own line, unless they open a block such as a table type
 	typeSource := n.Type.Source()
+
 	b.WriteString(" =")
 	if strings.Contains(typeSource, "\n") && !sourceTypeStartsInline(typeSource) {
 		b.WriteByte('\n')
@@ -2285,10 +2473,12 @@ func (n AstStatTypeAlias) Source() string {
 }
 
 func (n AstStatTypeFunction) Source() string {
-	prefix := ""
+	var prefix string
+
 	if n.Exported {
 		prefix = "export "
 	}
+
 	return prefix + "type function " + n.Name + n.Body.sourceRest()
 }
 
@@ -2300,11 +2490,11 @@ func (n AstStatWhile) Source() string {
 	b.WriteString(" do")
 
 	var body string
+
 	if n.Body != nil {
 		body = sourceBlockBody(*n.Body)
 	}
 	b.WriteString(appendEnd(body))
-
 	return b.String()
 }
 
@@ -2319,10 +2509,8 @@ func (n AstTableIndexer) Source() string {
 	case "Write":
 		b.WriteString("write ")
 	}
-
 	b.WriteString("[")
-	index := n.IndexType.Source()
-	if strings.Contains(index, "\n") {
+	if index := n.IndexType.Source(); strings.Contains(index, "\n") {
 		b.WriteString("\n")
 		b.WriteString(sourceIndent(index, 1))
 		b.WriteString("\n]")
@@ -2331,7 +2519,6 @@ func (n AstTableIndexer) Source() string {
 		b.WriteString("]")
 	}
 	writeTypeAnnotation(&b, n.ResultType)
-
 	return b.String()
 }
 
@@ -2344,10 +2531,8 @@ func (n AstTableProp) Source() string {
 	case "Write":
 		b.WriteString("write ")
 	}
-
 	b.WriteString(n.Name.Value)
 	writeTypeAnnotation(&b, n.Type)
-
 	return b.String()
 }
 
@@ -2355,6 +2540,7 @@ func (n AstTypeError) Source() string {
 	if len(n.Types) > 0 {
 		return n.Types[0].Source()
 	}
+
 	return "any"
 }
 
@@ -2362,6 +2548,7 @@ func (n AstTypeFunction) Source() string {
 	params, ret := n.sourceParamsAndReturn()
 
 	var b strings.Builder
+
 	if generics := sourceGenerics(n.Generics, n.GenericPacks); generics != "" {
 		b.WriteString("<")
 		b.WriteString(generics)
@@ -2370,7 +2557,6 @@ func (n AstTypeFunction) Source() string {
 	b.WriteString("(")
 	b.WriteString(params)
 	b.WriteString(")")
-
 	if strings.Contains(ret, "\n") && !sourceTypeStartsInline(ret) {
 		b.WriteString(" ->\n")
 		b.WriteString(sourceIndent(ret, 1))
@@ -2383,14 +2569,16 @@ func (n AstTypeFunction) Source() string {
 }
 
 // sourceParamsAndReturn renders the parameter list and return type of a function type, so callers (e.g. declared methods) can splice a name in.
-func (n AstTypeFunction) sourceParamsAndReturn() (params string, ret string) {
+func (n AstTypeFunction) sourceParamsAndReturn() (params, ret string) {
 	parts := make([]string, 0, len(n.ArgTypes.Types)+1)
 
 	for i, argType := range n.ArgTypes.Types {
 		p := argType.Source()
+
 		if i < len(n.ArgNames) && n.ArgNames[i] != nil && n.ArgNames[i].Name != "" {
 			p = n.ArgNames[i].Name + ": " + p
 		}
+
 		parts = append(parts, p)
 	}
 
@@ -2406,6 +2594,7 @@ func (n AstTypeGroup) Source() string {
 	if strings.Contains(inner, "\n") {
 		return "(\n" + sourceIndent(inner, 1) + "\n)"
 	}
+
 	return "(" + inner + ")"
 }
 
@@ -2415,47 +2604,46 @@ func (n AstTypeIntersection) Source() string {
 
 func (n AstTypeList) Source() string {
 	parts := make([]string, 0, len(n.Types)+1)
+
 	for _, typ := range n.Types {
 		parts = append(parts, typ.Source())
 	}
+
 	if n.TailType != nil {
 		parts = append(parts, (*n.TailType).Source())
 	}
-	return strings.Join(parts, ", ")
-}
 
-func (n AstTypeOptional) Source() string {
-	return "?"
+	return strings.Join(parts, ", ")
 }
 
 func (n AstTypeOrPack) Source() string {
 	if n.Type != nil {
 		return (*n.Type).Source()
 	}
+
 	if n.Pack != nil {
 		return (*n.Pack).Source()
 	}
+
 	return ""
 }
 
 func (n AstTypePackExplicit) Source() string {
 	list := n.Types.Source()
+
 	if n.TailType != nil {
 		if list != "" {
 			list += ", "
 		}
+
 		list += (*n.TailType).Source()
 	}
 
-	single := len(n.Types.Types) == 1 && n.Types.TailType == nil && n.TailType == nil
-	if single {
+	if single := len(n.Types.Types) == 1 && n.Types.TailType == nil && n.TailType == nil; single {
 		return list
 	}
-	return "(" + list + ")"
-}
 
-func (n AstTypePackGeneric) Source() string {
-	return n.GenericName + "..."
+	return "(" + list + ")"
 }
 
 func (n AstTypePackVariadic) Source() string {
@@ -2470,7 +2658,6 @@ func (n AstTypeReference) Source() string {
 		b.WriteByte('.')
 	}
 	b.WriteString(n.Name)
-
 	if n.HasParameterList || len(n.Parameters) > 0 {
 		b.WriteString("<")
 		b.WriteString(sourceTypeOrPackList(n.Parameters))
@@ -2478,17 +2665,6 @@ func (n AstTypeReference) Source() string {
 	}
 
 	return b.String()
-}
-
-func (n AstTypeSingletonBool) Source() string {
-	if n.Value {
-		return "true"
-	}
-	return "false"
-}
-
-func (n AstTypeSingletonString) Source() string {
-	return sourceString(n.Value, QuoteStyle_QuotedSimple)
 }
 
 func (n AstTypeTable) Source() string {
@@ -2508,35 +2684,10 @@ func (n AstTypeTable) Source() string {
 	return "{\n" + sourceIndent(body, 1) + "\n}"
 }
 
-// sourceTypeTableEntry is a member of a type table (the indexer or a prop) together with the comments attributed to it.
-type sourceTypeTableEntry struct {
-	start lex.Position
-	end lex.Position
-	src string
-	indexer bool
-	leading []Comment
-	trailing []Comment
-}
-
-// sourceTypeTableStart returns the position where a prop starts, used to place comments.
-func sourceTypeTableStart(prop AstTableProp) lex.Position {
-	if prop.NodeLoc != nil {
-		return prop.GetLocation().Begin
-	}
-	return lex.Position{}
-}
-
-// sourceTypeTableEnd returns the position where a prop ends, used to place trailing comments.
-func sourceTypeTableEnd(prop AstTableProp) lex.Position {
-	if prop.Type != nil {
-		return prop.Type.GetLocation().End
-	}
-	return sourceTypeTableStart(prop)
-}
-
 // sourceTypeTableItems renders a type table's indexer and props with their comments, one per line, each followed by a comma. Comments are attributed to entries in source order (leading comments above the entry, trailing comments on its last line) while the indexer always renders first, matching the commentless layout.
 func sourceTypeTableItems(indexer *AstTableIndexer, props []AstTableProp, comments []Comment) string {
 	entries := make([]sourceTypeTableEntry, 0, len(props)+1)
+
 	if indexer != nil {
 		entries = append(entries, sourceTypeTableEntry{
 			start: indexer.Location.Begin,
@@ -2545,6 +2696,7 @@ func sourceTypeTableItems(indexer *AstTableIndexer, props []AstTableProp, commen
 			indexer: true,
 		})
 	}
+
 	for i := range props {
 		entries = append(entries, sourceTypeTableEntry{
 			start: sourceTypeTableStart(props[i]),
@@ -2558,7 +2710,8 @@ func sourceTypeTableItems(indexer *AstTableIndexer, props []AstTableProp, commen
 		return entries[i].start.Before(entries[j].start)
 	})
 
-	ci := 0
+	var ci int
+
 	for i := range entries {
 		// comments that start before this entry go on their own line
 		for ci < len(comments) && !comments[ci].Location.Begin.After(entries[i].start) {
@@ -2567,9 +2720,7 @@ func sourceTypeTableItems(indexer *AstTableIndexer, props []AstTableProp, commen
 		}
 
 		// comments on the same line as the end of the entry stay there
-		for ci < len(comments) &&
-			comments[ci].Location.Begin.Line == entries[i].end.Line &&
-			(i+1 >= len(entries) || comments[ci].Location.Begin.Before(entries[i+1].start)) {
+		for ci < len(comments) && comments[ci].Location.Begin.Line == entries[i].end.Line && (i+1 >= len(entries) || comments[ci].Location.Begin.Before(entries[i+1].start)) {
 			entries[i].trailing = append(entries[i].trailing, comments[ci])
 			ci++
 		}
@@ -2581,15 +2732,18 @@ func sourceTypeTableItems(indexer *AstTableIndexer, props []AstTableProp, commen
 	})
 
 	var lines []string
+
 	for _, entry := range entries {
 		for _, c := range entry.leading {
 			lines = append(lines, sourceComment(c))
 		}
 
 		src := entry.src + ","
+
 		for _, c := range entry.trailing {
 			src += " " + sourceComment(c)
 		}
+
 		lines = append(lines, src)
 	}
 

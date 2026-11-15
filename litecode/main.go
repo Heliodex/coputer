@@ -73,6 +73,7 @@ func runWeb(w http.ResponseWriter, r *http.Request, hexhash string, c Compiler /
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
 	inputhash := sha3.Sum256(input) // let's hope it's canonical
 
 	// decode input as json
@@ -104,7 +105,9 @@ func runWeb(w http.ResponseWriter, r *http.Request, hexhash string, c Compiler /
 		if errCache[hash] == nil {
 			errCache[hash] = make(map[[32]byte]error, 1)
 		}
+
 		errCache[hash][inputhash] = err
+
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -112,8 +115,8 @@ func runWeb(w http.ResponseWriter, r *http.Request, hexhash string, c Compiler /
 	if runCache[hash] == nil {
 		runCache[hash] = make(map[[32]byte]ProgramRets, 1)
 	}
-	runCache[hash][inputhash] = output
 
+	runCache[hash][inputhash] = output
 	b := output.Encode()
 
 	w.Write(b)
@@ -152,6 +155,7 @@ func main() {
 			http.Error(w, err.Error(), http.StatusBadRequest) // status whatever, reeks of ego anyway
 			return
 		}
+
 		defer f.Close()
 
 		hash := sha3.Sum256(data)
@@ -171,10 +175,8 @@ func main() {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-
 		w.WriteHeader(http.StatusCreated)
 	})
-
 	http.HandleFunc("GET /{pk}", func(w http.ResponseWriter, r *http.Request) {
 		pk := r.PathValue("pk")
 		if !checkPK(w, pk) {
@@ -186,13 +188,11 @@ func main() {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
-
 		w.WriteHeader(http.StatusOK)
 		for _, f := range hashFiles {
 			w.Write(append([]byte(f.Name()), '\n'))
 		}
 	})
-
 	http.HandleFunc("GET /{pk}/{name}", func(w http.ResponseWriter, r *http.Request) {
 		pk, name := r.PathValue("pk"), r.PathValue("name")
 		if !checkPK(w, pk) {
@@ -207,13 +207,12 @@ func main() {
 		}
 
 		hexhash := hex.EncodeToString(hash)
+
 		if _, ok := checkHash(w, hexhash); !ok {
 			return
 		}
-
 		findExists(w, hexhash)
 	})
-
 	http.HandleFunc("POST /web/{pk}/{name}", func(w http.ResponseWriter, r *http.Request) {
 		pk, name := r.PathValue("pk"), r.PathValue("name")
 		if !checkPK(w, pk) {
@@ -228,13 +227,12 @@ func main() {
 		}
 
 		hexhash := hex.EncodeToString(hash)
+
 		if _, ok := checkHash(w, hexhash); !ok {
 			return
 		}
-
 		runWeb(w, r, hexhash, c, errCache, runCache)
 	})
-
 	fmt.Println("Listening on port 2505")
 	panic(http.ListenAndServe(":2505", nil))
 }

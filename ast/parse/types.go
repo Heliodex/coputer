@@ -7,40 +7,54 @@ import (
 	"github.com/Heliodex/coputer/ast/lex"
 )
 
-// bindings
+type (
+	Attrs []AstAttr
 
-type Binding struct {
-	*NodeLoc
-	Name lex.AstName
-	Annotation AstType
-	ColonPosition *lex.Position
-	IsConst bool
-}
+	// bindings
 
-type BindingList []Binding
+	Binding struct {
+		*NodeLoc
+		Name lex.AstName
+		Annotation AstType
+		ColonPosition *lex.Position
+		IsConst bool
+	}
 
-// --------------------------------------------------------------------------------
-// -- PARSER RESULT TYPES
-// --------------------------------------------------------------------------------
+	BindingList []Binding
 
-type ParseError struct {
-	Location lex.Location
-	Message string
-}
+	FunctionState struct {
+		Vararg bool
+		LoopDepth int
+	}
 
-type Options struct {
-	// CaptureComments reports the parsed comment locations in Result. Comments are always collected internally so that Source() can reproduce them.
-	CaptureComments bool
-	StoreCstData bool
-}
+	HotComment struct {
+		Header bool
+		Content string
+		Location lex.Location
+	}
 
-type Attrs []AstAttr
+	Options struct {
+		// CaptureComments reports the parsed comment locations in Result. Comments are always collected internally so that Source() can reproduce them.
+		CaptureComments, StoreCstData bool
+	}
 
-type HotComment struct {
-	Header bool
-	Content string
-	Location lex.Location
-}
+	// --------------------------------------------------------------------------------
+	// -- PARSER RESULT TYPES
+	// --------------------------------------------------------------------------------
+
+	ParseError struct {
+		Location lex.Location
+		Message string
+	}
+
+	Result struct {
+		Root AstStatBlock
+		CommentLocations []Comment
+		HotComments []HotComment
+		CstNodeMap map[AstNode]CstNode
+		Errors []ParseError
+	}
+)
 
 func (c HotComment) String() string {
 	var b strings.Builder
@@ -49,21 +63,7 @@ func (c HotComment) String() string {
 	fmt.Fprintf(&b, "Header: %t\n", c.Header)
 	fmt.Fprintf(&b, "Content: %q\n", c.Content)
 	fmt.Fprintf(&b, "Location: %s\n", c.Location)
-
 	return b.String()
-}
-
-type FunctionState struct {
-	Vararg bool
-	LoopDepth int
-}
-
-type Result struct {
-	Root AstStatBlock
-	CommentLocations []Comment
-	HotComments []HotComment
-	CstNodeMap map[AstNode]CstNode
-	Errors []ParseError
 }
 
 func (r Result) String() string {
@@ -71,7 +71,6 @@ func (r Result) String() string {
 
 	b.WriteString("Root:\n")
 	b.WriteString(indentStart(r.Root.String(), 2))
-
 	if len(r.CommentLocations) > 0 {
 		b.WriteString("CommentLocations:\n")
 		for _, c := range r.CommentLocations {

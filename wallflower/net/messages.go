@@ -11,6 +11,46 @@ import (
 type (
 	EncryptedMsg []byte
 	MessageType = byte
+
+	AnyMsg struct {
+		From *keys.Peer
+		Type MessageType
+		Body []byte
+	}
+
+	// sent messages
+	SentMsg interface {
+		Serialise() ([]byte, error)
+	}
+
+	mHi struct{}
+
+	mRun struct {
+		Type ProgramType // 1
+		Pk keys.PK // 29
+		Name string // 1 + length
+		Input ProgramArgs
+	}
+
+	mRunResult struct {
+		Type ProgramType // 1
+		Pk keys.PK // 29
+		Name string // 1 + length
+		InputHash [32]byte
+		Result *ProgramRets // nil if failed or no program result
+	}
+
+	// TODO: store this in the execution server too so we can retrieve it from there
+	mStore struct {
+		Name string
+		Pk keys.PK
+		Sig keys.HashSig
+		Bundled []byte
+	}
+
+	mStoreResult struct {
+		Hash [32]byte
+	}
 )
 
 const (
@@ -26,27 +66,42 @@ const (
 	tRunResult
 )
 
-// sent messages
-type SentMsg interface {
-	Serialise() ([]byte, error)
-}
-
 func addType(t MessageType, m []byte) []byte {
 	return append([]byte{t}, m...)
 }
-
-type mHi struct{}
 
 func (m mHi) Serialise() ([]byte, error) {
 	return []byte{tHi}, nil
 }
 
-// TODO: store this in the execution server too so we can retrieve it from there
-type mStore struct {
-	Name string
-	Pk keys.PK
-	Sig keys.HashSig
-	Bundled []byte
+func (m mRun) Serialise() (s []byte, err error) {
+	in := m.Input.Encode()
+	b := make([]byte, 1, 1+keys.PKSize+1+len(m.Name)+len(in))
+	b[0] = byte(m.Type)
+	b = append(b, m.Pk[:]...)
+	b = append(b, byte(len(m.Name)))
+	b = append(b, m.Name...)
+	b = append(b, in...)
+
+	return addType(tRun, b), nil
+}
+
+func (m mRunResult) Serialise() (s []byte, err error) {
+	var res []byte
+
+	if m.Result != nil {
+		res = (*m.Result).Encode()
+	}
+
+	b := make([]byte, 1, 1+keys.PKSize+1+len(m.Name)+len(res))
+	b[0] = byte(m.Type)
+	b = append(b, m.Pk[:]...)
+	b = append(b, byte(len(m.Name)))
+	b = append(b, m.Name...)
+	b = append(b, m.InputHash[:]...)
+	b = append(b, res...)
+
+	return addType(tRunResult, b), nil
 }
 
 func (m mStore) Serialise() ([]byte, error) {
@@ -65,63 +120,8 @@ func (m mStore) Serialise() ([]byte, error) {
 	return addType(tStore, b), nil
 }
 
-type mStoreResult struct {
-	Hash [32]byte
-}
-
 func (m mStoreResult) Serialise() ([]byte, error) {
 	return addType(tStoreResult, m.Hash[:]), nil
-}
-
-type mRun struct {
-	Type ProgramType // 1
-	Pk keys.PK // 29
-	Name string // 1 + length
-	Input ProgramArgs
-}
-
-func (m mRun) Serialise() (s []byte, err error) {
-	in := m.Input.Encode()
-
-	b := make([]byte, 1, 1+keys.PKSize+1+len(m.Name)+len(in))
-	b[0] = byte(m.Type)
-	b = append(b, m.Pk[:]...)
-	b = append(b, byte(len(m.Name)))
-	b = append(b, m.Name...)
-	b = append(b, in...)
-
-	return addType(tRun, b), nil
-}
-
-type mRunResult struct {
-	Type ProgramType // 1
-	Pk keys.PK // 29
-	Name string // 1 + length
-	InputHash [32]byte
-	Result *ProgramRets // nil if failed or no program result
-}
-
-func (m mRunResult) Serialise() (s []byte, err error) {
-	var res []byte
-	if m.Result != nil {
-		res = (*m.Result).Encode()
-	}
-
-	b := make([]byte, 1, 1+keys.PKSize+1+len(m.Name)+len(res))
-	b[0] = byte(m.Type)
-	b = append(b, m.Pk[:]...)
-	b = append(b, byte(len(m.Name)))
-	b = append(b, m.Name...)
-	b = append(b, m.InputHash[:]...)
-	b = append(b, res...)
-
-	return addType(tRunResult, b), nil
-}
-
-type AnyMsg struct {
-	From *keys.Peer
-	Type MessageType
-	Body []byte
 }
 
 func unmarshalInput(ptype ProgramType, rest []byte) (ProgramArgs, error) {
@@ -131,8 +131,10 @@ func unmarshalInput(ptype ProgramType, rest []byte) (ProgramArgs, error) {
 		if err != nil {
 			return nil, fmt.Errorf("decode web args: %w", err)
 		}
+
 		return tin, nil
 	}
+
 	return nil, errors.New("unknown program args type")
 }
 
@@ -143,8 +145,10 @@ func unmarshalResult(ptype ProgramType, rest []byte) (ProgramRets, error) {
 		if err != nil {
 			return nil, fmt.Errorf("unmarshal web result: %w", err)
 		}
+
 		return tres, nil
 	}
+
 	return nil, errors.New("unknown program results type")
 }
 
@@ -166,19 +170,22 @@ func (m AnyMsg) Deserialise() (SentMsg, error) {
 		return mStore{string(name), pk, sig, bundled}, nil
 	case tStoreResult:
 		var hash [32]byte
+
 		copy(hash[:], m.Body)
 		return mStoreResult{hash}, nil
 	case tRun:
 		ptype := ProgramType(m.Body[0])
 
 		var pk keys.PK
+
 		copy(pk[:], m.Body[1:][:29])
+
 		nl, rest := m.Body[30], m.Body[31:]
 		if int(nl) > len(m.Body) || nl == 0 {
 			return nil, errors.New("invalid name length")
 		}
-		name, rest := string(rest[:nl]), rest[nl:]
 
+		name, rest := string(rest[:nl]), rest[nl:]
 		in, err := unmarshalInput(ptype, rest)
 		if err != nil {
 			return nil, fmt.Errorf("unmarshal program args: %w", err)
@@ -189,15 +196,20 @@ func (m AnyMsg) Deserialise() (SentMsg, error) {
 		ptype := ProgramType(m.Body[0])
 
 		var pk keys.PK
+
 		copy(pk[:], m.Body[1:][:29])
+
 		nl, rest := m.Body[30], m.Body[31:]
 		if int(nl) > len(m.Body) || nl == 0 {
 			return nil, errors.New("invalid name length")
 		}
+
 		name, rest := string(rest[:nl]), rest[nl:]
 
 		var inputhash [32]byte
+
 		copy(inputhash[:], rest[:32])
+
 		rest = rest[32:]
 
 		if len(rest) == 0 {

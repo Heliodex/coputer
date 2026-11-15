@@ -13,27 +13,6 @@ import (
 	"github.com/quic-go/quic-go"
 )
 
-func addrToUdp(addr keys.Address) (udpAddr *gnet.UDPAddr) {
-	// Convert keys.Address to net.UDPAddr
-	udpAddr = &gnet.UDPAddr{
-		IP: gnet.IP(addr[:]),
-		Port: PortCommunication,
-	}
-	return
-}
-
-func addrToReadable(addr keys.Address) (readable string) {
-	return gnet.IP(addr[:]).String()
-}
-
-type QuicNet struct {
-	tr *quic.Transport
-	tlsConf *tls.Config
-	quicConf *quic.Config
-	listener *quic.Listener
-	streams map[keys.Address]*quic.SendStream
-}
-
 func NewQuicNet(tlsConf *tls.Config, quicConf *quic.Config) (n net.Net, err error) {
 	server, err := gnet.ListenUDP("udp6", &gnet.UDPAddr{
 		Port: PortCommunication,
@@ -47,7 +26,9 @@ func NewQuicNet(tlsConf *tls.Config, quicConf *quic.Config) (n net.Net, err erro
 		fmt.Println("Failed to set OS environment variable.")
 	}
 
-	tr := &quic.Transport{Conn: server}
+	tr := &quic.Transport{
+		Conn: server,
+	}
 	ln, err := tr.Listen(tlsConf, quicConf)
 	if err != nil {
 		return nil, fmt.Errorf("start QUIC server: %w", err)
@@ -62,38 +43,31 @@ func NewQuicNet(tlsConf *tls.Config, quicConf *quic.Config) (n net.Net, err erro
 	}, nil
 }
 
-func sendMsg(stream *quic.SendStream, msg []byte) (ok bool) {
-	if len(msg) == 0 {
-		return true
-	}
-
-	msgl := make([]byte, 4+len(msg))
-	binary.BigEndian.PutUint32(msgl[:4], uint32(len(msg)))
-	copy(msgl[4:], msg)
-
-	_, err := stream.Write(msgl)
-	return err == nil
+func addrToReadable(addr keys.Address) (readable string) {
+	return gnet.IP(addr[:]).String()
 }
 
-func (n *QuicNet) sendTo(addr keys.Address, msg net.EncryptedMsg) (ok bool) {
-	stream, ok := n.streams[addr]
-	if !ok {
-		fmt.Println("No stream for   ", addrToReadable(addr))
-		return // no stream for this address
+type QuicNet struct {
+	tr *quic.Transport
+	tlsConf *tls.Config
+	quicConf *quic.Config
+	listener *quic.Listener
+	streams map[keys.Address]*quic.SendStream
+}
+
+func addrToUdp(addr keys.Address) (udpAddr *gnet.UDPAddr) {
+	// Convert keys.Address to net.UDPAddr
+	udpAddr = &gnet.UDPAddr{
+		IP: gnet.IP(addr[:]),
+		Port: PortCommunication,
 	}
 
-	fmt.Println("Sending message ", addrToReadable(addr), "(existing)  length", len(msg))
-
-	// send message on existing stream
-	if !sendMsg(stream, msg) {
-		delete(n.streams, addr) // remove broken stream
-		return
-	}
-	return true
+	return
 }
 
 func (n *QuicNet) dialStream(addr keys.Address) (err error) {
 	fmt.Println("Dialing         ", addrToReadable(addr))
+
 	qc, err := n.tr.DialEarly(context.TODO(), addrToUdp(addr), n.tlsConf, n.quicConf)
 	if err != nil {
 		return fmt.Errorf("dial QUIC connection: %w", err)
@@ -105,37 +79,13 @@ func (n *QuicNet) dialStream(addr keys.Address) (err error) {
 	}
 
 	n.streams[addr] = stream
+
 	return
-}
-
-func (n *QuicNet) transportFromSender(s net.Sender) {
-mainloop:
-	for msg := range s {
-		fmt.Println("Transporting message", len(msg.EncryptedMsg))
-		addrs := append([]keys.Address{msg.MainAddr}, msg.AltAddrs...)
-
-		for _, addr := range addrs {
-			if n.sendTo(addr, msg.EncryptedMsg) {
-				continue mainloop // found and sent message on existing stream
-			}
-		}
-
-		for _, addr := range addrs {
-			if err := n.dialStream(addr); err != nil {
-				fmt.Println("Dialing failed  ", addrToReadable(addr), ":", err)
-			} else if n.sendTo(addr, msg.EncryptedMsg) {
-				continue mainloop // sent message on newly created stream
-			}
-		}
-
-		fmt.Println("Failed to send message to any address", addrToReadable(msg.MainAddr))
-	}
 }
 
 func readChunks(stream *quic.ReceiveStream, chunkChan chan<- []byte) {
 	for {
 		b := make([]byte, msgChunk)
-
 		n, err := stream.Read(b)
 		if err != nil || n == 0 {
 			continue
@@ -164,6 +114,7 @@ func readMsgs(chunkChan <-chan []byte, msgChan chan<- net.EncryptedMsg) {
 
 		// we are not, I repeat, NOT, preallocating the memory for the message here, in case some yobo decides to send loads of messages with 4GiB length
 		il := int(l)
+
 		for len(b) < il { // now time for the real message
 			b = append(b, <-chunkChan...)
 		}
@@ -175,6 +126,7 @@ func readMsgs(chunkChan <-chan []byte, msgChan chan<- net.EncryptedMsg) {
 
 func parseStream(stream *quic.ReceiveStream, r net.Receiver) {
 	chunkChan := make(chan []byte)
+
 	go readChunks(stream, chunkChan)
 	go readMsgs(chunkChan, r)
 }
@@ -186,7 +138,6 @@ func (n *QuicNet) serveToReceiver(ln *quic.Listener, r net.Receiver) {
 			fmt.Println("Error accepting connection:", err)
 			continue
 		}
-
 		fmt.Println("Accepted connection from", qc.RemoteAddr())
 
 		stream, err := qc.AcceptUniStream(context.TODO())
@@ -196,6 +147,62 @@ func (n *QuicNet) serveToReceiver(ln *quic.Listener, r net.Receiver) {
 		}
 
 		go parseStream(stream, r)
+	}
+}
+
+func sendMsg(stream *quic.SendStream, msg []byte) (ok bool) {
+	if len(msg) == 0 {
+		return true
+	}
+
+	msgl := make([]byte, 4+len(msg))
+
+	binary.BigEndian.PutUint32(msgl[:4], uint32(len(msg)))
+	copy(msgl[4:], msg)
+
+	_, err := stream.Write(msgl)
+
+	return err == nil
+}
+
+func (n *QuicNet) sendTo(addr keys.Address, msg net.EncryptedMsg) (ok bool) {
+	stream, ok := n.streams[addr]
+	if !ok {
+		fmt.Println("No stream for   ", addrToReadable(addr))
+		return // no stream for this address
+	}
+	fmt.Println("Sending message ", addrToReadable(addr), "(existing)  length", len(msg))
+
+	// send message on existing stream
+	if !sendMsg(stream, msg) {
+		delete(n.streams, addr) // remove broken stream
+		return
+	}
+
+	return true
+}
+
+func (n *QuicNet) transportFromSender(s net.Sender) {
+mainloop:
+	for msg := range s {
+		fmt.Println("Transporting message", len(msg.EncryptedMsg))
+
+		addrs := append([]keys.Address{msg.MainAddr}, msg.AltAddrs...)
+
+		for _, addr := range addrs {
+			if n.sendTo(addr, msg.EncryptedMsg) {
+				continue mainloop // found and sent message on existing stream
+			}
+		}
+
+		for _, addr := range addrs {
+			if err := n.dialStream(addr); err != nil {
+				fmt.Println("Dialing failed  ", addrToReadable(addr), ":", err)
+			} else if n.sendTo(addr, msg.EncryptedMsg) {
+				continue mainloop // sent message on newly created stream
+			}
+		}
+		fmt.Println("Failed to send message to any address", addrToReadable(msg.MainAddr))
 	}
 }
 

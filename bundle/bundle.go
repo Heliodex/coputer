@@ -66,6 +66,13 @@ func Bundle(path string) (b []byte, err error) {
 	return
 }
 
+func BundleStored(hexhash string) (b bool) {
+	path := filepath.Join(ProgramsDir, hexhash)
+	_, err := os.Stat(path)
+
+	return err == nil
+}
+
 func Unbundle(b []byte) (fs []File, err error) {
 	if len(b) == 0 {
 		return nil, errors.New("bad bundle: 0 length")
@@ -83,7 +90,6 @@ func Unbundle(b []byte) (fs []File, err error) {
 		// read file
 		c := b[i:][:l]
 		i += l
-
 		f, err := decompress(c)
 		if err != nil {
 			return nil, fmt.Errorf("bad bundle: %w", err)
@@ -98,7 +104,6 @@ func Unbundle(b []byte) (fs []File, err error) {
 func UnbundleToDir(b []byte) (entrypath string, err error) {
 	hash := sha3.Sum256(b)
 	hexhash := hex.EncodeToString(hash[:])
-
 	path := filepath.Join(ProgramsDir, hexhash)
 	entrypath = filepath.Join(path, EntrypointFilename)
 
@@ -114,6 +119,7 @@ func UnbundleToDir(b []byte) (entrypath string, err error) {
 
 	for _, f := range ub {
 		p := filepath.Join(path, f.path)
+
 		if err = os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 			return
 		}
@@ -124,11 +130,4 @@ func UnbundleToDir(b []byte) (entrypath string, err error) {
 	}
 
 	return
-}
-
-func BundleStored(hexhash string) (b bool) {
-	path := filepath.Join(ProgramsDir, hexhash)
-	_, err := os.Stat(path)
-
-	return err == nil
 }

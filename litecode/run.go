@@ -22,12 +22,15 @@ func startWeb(v Val) (rets WebRets, err error) {
 	// ahh, error checking beauty
 
 	var tstatuscode float64
+
 	if statuscode := t.GetHash(Str("statuscode")); IsNil(statuscode) {
 		tstatuscode = 200
 	} else if tstatuscode, ok = AsNum(statuscode); !ok {
 		return WebRets{}, errors.New("return statuscode, if provided, must be a number")
 	}
+
 	rets.StatusCode = int(tstatuscode)
+
 	if rets.StatusCode < 100 || rets.StatusCode > 599 {
 		return WebRets{}, errors.New("return statuscode, if provided, must be between 100 and 599")
 	}
@@ -37,6 +40,7 @@ func startWeb(v Val) (rets WebRets, err error) {
 		if !ok {
 			return WebRets{}, errors.New("return headers, if provided, must be a table")
 		}
+
 		rets.Headers = make(map[string]string, len(theaders.Hash))
 
 		// we don't have to care about the list content, but we will here
@@ -56,19 +60,22 @@ func startWeb(v Val) (rets WebRets, err error) {
 		if !ok {
 			return WebRets{}, errors.New("return body, if provided, must be a buffer")
 		}
+
 		rets.Body = *tbody
 	} else { // default to status message if no body
 		if rets.Headers == nil {
 			rets.Headers = make(map[string]string, 1)
 		}
-		rets.Headers["content-type"] = "text/plain; charset=utf-8"
 
+		rets.Headers["content-type"] = "text/plain; charset=utf-8"
 		sm := http.StatusText(rets.StatusCode)
 		if sm == "" {
 			sm = fmt.Sprintf("Error %d", rets.StatusCode)
 		}
+
 		rets.Body = []byte(sm)
 	}
+
 	return
 }
 
@@ -100,5 +107,6 @@ func Start(c Compiler, hash string, args ProgramArgs) (output ProgramRets, err e
 	case WebProgramType:
 		return startWeb(ret)
 	}
+
 	return nil, errors.New("unknown program type")
 }

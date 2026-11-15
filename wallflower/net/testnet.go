@@ -27,6 +27,7 @@ func (n *TestNet) receiveFromSender(s Sender) {
 
 func (n *TestNet) AddNode(node *Node) {
 	n.peers[node.MainAddr] = node
+
 	for _, addr := range node.AltAddrs {
 		n.peers[addr] = node
 	}
