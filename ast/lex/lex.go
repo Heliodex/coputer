@@ -286,16 +286,16 @@ func (l Lexeme) getQuoteStyle() QuoteStyle {
 
 func isAlpha(ch byte) bool {
 	// use or trick to convert to lower case and unsigned comparison to do range check
-	return uint8(ch|' '-'a') < 26
+	return ch|' '-'a' < 26
 }
 
 func isDigit(ch byte) bool {
-	return uint8(ch-'0') < 10
+	return ch-'0' < 10
 }
 
 func isHexDigit(ch byte) bool {
 	// use or trick to convert to lower case and unsigned comparison to do range check
-	return uint8(ch-'0') < 10 || uint8(ch|' '-'a') < 6
+	return ch-'0' < 10 || ch|' '-'a' < 6
 }
 
 func isNewline(ch byte) bool {

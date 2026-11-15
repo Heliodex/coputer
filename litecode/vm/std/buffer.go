@@ -100,7 +100,7 @@ func buffer_readf64(args Args) (r []Val, err error) {
 	b, offset := readValues(&args)
 	b8 := b[offset:][:8]
 
-	return args.Rets(Num(float64(math.Float64frombits(binary.LittleEndian.Uint64(b8))))), nil
+	return args.Rets(Num(math.Float64frombits(binary.LittleEndian.Uint64(b8)))), nil
 }
 
 func buffer_readi16(args Args) (r []Val, err error) {
