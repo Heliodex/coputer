@@ -7,6 +7,17 @@ import (
 	. "github.com/Heliodex/coputer/litecode/types"
 )
 
+var Libcoroutine = NewLib([]Function{
+	MakeFn("close", coroutine_close),
+	MakeFn("create", coroutine_create),
+	MakeFn("isyieldable", coroutine_isyieldable),
+	MakeFn("resume", coroutine_resume),
+	MakeFn("running", coroutine_running),
+	MakeFn("status", coroutine_status),
+	MakeFn("wrap", coroutine_wrap),
+	MakeFn("yield", coroutine_yield),
+})
+
 // ngl this might be the easiest library yet (or at least because most of its functionality is coroutines in the main file instead of here)
 
 func coroutine_close(args Args) (r []Val, err error) {
@@ -110,14 +121,3 @@ func coroutine_wrap(args Args) (r []Val, err error) {
 		return co.Resume(args...)
 	}))), nil
 }
-
-var Libcoroutine = NewLib([]Function{
-	MakeFn("close", coroutine_close),
-	MakeFn("create", coroutine_create),
-	MakeFn("isyieldable", coroutine_isyieldable),
-	MakeFn("resume", coroutine_resume),
-	MakeFn("running", coroutine_running),
-	MakeFn("status", coroutine_status),
-	MakeFn("wrap", coroutine_wrap),
-	MakeFn("yield", coroutine_yield),
-})

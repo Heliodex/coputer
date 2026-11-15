@@ -12,6 +12,24 @@ const (
 	nbits = 32
 )
 
+var Libbit32 = NewLib([]Function{
+	MakeFn("arshift", bit32_arshift),
+	MakeFn("band", bit32_band),
+	MakeFn("bnot", bit32_bnot),
+	MakeFn("bor", bit32_bor),
+	MakeFn("btest", bit32_btest),
+	MakeFn("bxor", bit32_bxor),
+	MakeFn("byteswap", bit32_byteswap),
+	MakeFn("countlz", bit32_countlz),
+	MakeFn("countrz", bit32_countrz),
+	MakeFn("extract", bit32_extract),
+	MakeFn("lrotate", bit32_lrotate),
+	MakeFn("lshift", bit32_lshift),
+	MakeFn("replace", bit32_replace),
+	MakeFn("rrotate", bit32_rrotate),
+	MakeFn("rshift", bit32_rshift),
+})
+
 func andaux(args Args) uint32 {
 	x := allones
 
@@ -180,21 +198,3 @@ func bit32_replace(args Args) (r []Val, err error) {
 	v &= m // erase bits outside given width
 	return args.Rets(Num(float64(x & ^(m<<f) | v<<f)), Bool(true)), nil
 }
-
-var Libbit32 = NewLib([]Function{
-	MakeFn("arshift", bit32_arshift),
-	MakeFn("band", bit32_band),
-	MakeFn("bnot", bit32_bnot),
-	MakeFn("bor", bit32_bor),
-	MakeFn("btest", bit32_btest),
-	MakeFn("bxor", bit32_bxor),
-	MakeFn("byteswap", bit32_byteswap),
-	MakeFn("countlz", bit32_countlz),
-	MakeFn("countrz", bit32_countrz),
-	MakeFn("extract", bit32_extract),
-	MakeFn("lrotate", bit32_lrotate),
-	MakeFn("lshift", bit32_lshift),
-	MakeFn("replace", bit32_replace),
-	MakeFn("rrotate", bit32_rrotate),
-	MakeFn("rshift", bit32_rshift),
-})

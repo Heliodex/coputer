@@ -21,477 +21,481 @@ const (
 	expectedTypesVersion = 3
 )
 
-// opList contains information about the instruction, each instruction is defined in this format:
-// { Name, Mode, KMode, HasAux }
-// Mode specifies what type of registers the instruction uses if any
-//		0 = NONE
-//		1 = A
-//		2 = AB
-//		3 = ABC
-//		4 = AD
-//		5 = AE
-// KMode specifies if the instruction has a register that holds a constant table index, which will be directly converted to the constant in the 2nd pass
-//		0 = NONE
-//		1 = AUX
-//		2 = C
-//		3 = D
-//		4 = AUX import
-//		5 = AUX boolean low 1 bit
-//		6 = AUX number low 24 bits
-// HasAux boolean specifies whether the instruction is followed up with an AUX word, which may be used to execute the instruction.
+var (
+	// opList contains information about the instruction, each instruction is defined in this format:
+	// { Name, Mode, KMode, HasAux }
+	// Mode specifies what type of registers the instruction uses if any
+	//		0 = NONE
+	//		1 = A
+	//		2 = AB
+	//		3 = ABC
+	//		4 = AD
+	//		5 = AE
+	// KMode specifies if the instruction has a register that holds a constant table index, which will be directly converted to the constant in the 2nd pass
+	//		0 = NONE
+	//		1 = AUX
+	//		2 = C
+	//		3 = D
+	//		4 = AUX import
+	//		5 = AUX boolean low 1 bit
+	//		6 = AUX number low 24 bits
+	// HasAux boolean specifies whether the instruction is followed up with an AUX word, which may be used to execute the instruction.
 
-var opList = [90]internal.OpInfo{
-	{
-		Mode: 0,
-		KMode: 0,
-		HasAux: false,
-	}, // NOP
-	{
-		Mode: 0,
-		KMode: 0,
-		HasAux: false,
-	}, // BREAK
-	{
-		Mode: 1,
-		KMode: 0,
-		HasAux: false,
-	}, // LOADNIL
-	{
-		Mode: 3,
-		KMode: 0,
-		HasAux: false,
-	}, // LOADB
-	{
-		Mode: 4,
-		KMode: 0,
-		HasAux: false,
-	}, // LOADN
-	{
-		Mode: 4,
-		KMode: 3,
-		HasAux: false,
-	}, // LOADK
-	{
-		Mode: 2,
-		KMode: 0,
-		HasAux: false,
-	}, // MOVE
-	{
-		Mode: 1,
-		KMode: 1,
-		HasAux: true,
-	}, // GETGLOBAL
-	{
-		Mode: 1,
-		KMode: 1,
-		HasAux: true,
-	}, // SETGLOBAL
-	{
-		Mode: 2,
-		KMode: 0,
-		HasAux: false,
-	}, // GETUPVAL
-	{
-		Mode: 2,
-		KMode: 0,
-		HasAux: false,
-	}, // SETUPVAL
-	{
-		Mode: 1,
-		KMode: 0,
-		HasAux: false,
-	}, // CLOSEUPVALS
-	{
-		Mode: 4,
-		KMode: 4,
-		HasAux: true,
-	}, // GETIMPORT
-	{
-		Mode: 3,
-		KMode: 0,
-		HasAux: false,
-	}, // GETTABLE
-	{
-		Mode: 3,
-		KMode: 0,
-		HasAux: false,
-	}, // SETTABLE
-	{
-		Mode: 3,
-		KMode: 1,
-		HasAux: true,
-	}, // GETTABLEKS
-	{
-		Mode: 3,
-		KMode: 1,
-		HasAux: true,
-	}, // SETTABLEKS
-	{
-		Mode: 3,
-		KMode: 0,
-		HasAux: false,
-	}, // GETTABLEN
-	{
-		Mode: 3,
-		KMode: 0,
-		HasAux: false,
-	}, // SETTABLEN
-	{
-		Mode: 4,
-		KMode: 0,
-		HasAux: false,
-	}, // NEWCLOSURE
-	{
-		Mode: 3,
-		KMode: 1,
-		HasAux: true,
-	}, // NAMECALL
-	{
-		Mode: 3,
-		KMode: 0,
-		HasAux: false,
-	}, // CALL
-	{
-		Mode: 2,
-		KMode: 0,
-		HasAux: false,
-	}, // RETURN
-	{
-		Mode: 4,
-		KMode: 0,
-		HasAux: false,
-	}, // JUMP
-	{
-		Mode: 4,
-		KMode: 0,
-		HasAux: false,
-	}, // JUMPBACK
-	{
-		Mode: 4,
-		KMode: 0,
-		HasAux: false,
-	}, // JUMPIF
-	{
-		Mode: 4,
-		KMode: 0,
-		HasAux: false,
-	}, // JUMPIFNOT
-	{
-		Mode: 4,
-		KMode: 0,
-		HasAux: true,
-	}, // JUMPIFEQ
-	{
-		Mode: 4,
-		KMode: 0,
-		HasAux: true,
-	}, // JUMPIFLE
-	{
-		Mode: 4,
-		KMode: 0,
-		HasAux: true,
-	}, // JUMPIFLT
-	{
-		Mode: 4,
-		KMode: 0,
-		HasAux: true,
-	}, // JUMPIFNOTEQ
-	{
-		Mode: 4,
-		KMode: 0,
-		HasAux: true,
-	}, // JUMPIFNOTLE
-	{
-		Mode: 4,
-		KMode: 0,
-		HasAux: true,
-	}, // JUMPIFNOTLT
-	{
-		Mode: 3,
-		KMode: 0,
-		HasAux: false,
-	}, // ADD
-	{
-		Mode: 3,
-		KMode: 0,
-		HasAux: false,
-	}, // SUB
-	{
-		Mode: 3,
-		KMode: 0,
-		HasAux: false,
-	}, // MUL
-	{
-		Mode: 3,
-		KMode: 0,
-		HasAux: false,
-	}, // DIV
-	{
-		Mode: 3,
-		KMode: 0,
-		HasAux: false,
-	}, // MOD
-	{
-		Mode: 3,
-		KMode: 0,
-		HasAux: false,
-	}, // POW
-	{
-		Mode: 3,
-		KMode: 2,
-		HasAux: false,
-	}, // ADDK
-	{
-		Mode: 3,
-		KMode: 2,
-		HasAux: false,
-	}, // SUBK
-	{
-		Mode: 3,
-		KMode: 2,
-		HasAux: false,
-	}, // MULK
-	{
-		Mode: 3,
-		KMode: 2,
-		HasAux: false,
-	}, // DIVK
-	{
-		Mode: 3,
-		KMode: 2,
-		HasAux: false,
-	}, // MODK
-	{
-		Mode: 3,
-		KMode: 2,
-		HasAux: false,
-	}, // POWK
-	{
-		Mode: 3,
-		KMode: 0,
-		HasAux: false,
-	}, // AND
-	{
-		Mode: 3,
-		KMode: 0,
-		HasAux: false,
-	}, // OR
-	{
-		Mode: 3,
-		KMode: 2,
-		HasAux: false,
-	}, // ANDK
-	{
-		Mode: 3,
-		KMode: 2,
-		HasAux: false,
-	}, // ORK
-	{
-		Mode: 3,
-		KMode: 0,
-		HasAux: false,
-	}, // CONCAT
-	{
-		Mode: 2,
-		KMode: 0,
-		HasAux: false,
-	}, // NOT
-	{
-		Mode: 2,
-		KMode: 0,
-		HasAux: false,
-	}, // MINUS
-	{
-		Mode: 2,
-		KMode: 0,
-		HasAux: false,
-	}, // LENGTH
-	{
-		Mode: 2,
-		KMode: 0,
-		HasAux: true,
-	}, // NEWTABLE
-	{
-		Mode: 4,
-		KMode: 3,
-		HasAux: false,
-	}, // DUPTABLE
-	{
-		Mode: 3,
-		KMode: 0,
-		HasAux: true,
-	}, // SETLIST
-	{
-		Mode: 4,
-		KMode: 0,
-		HasAux: false,
-	}, // FORNPREP
-	{
-		Mode: 4,
-		KMode: 0,
-		HasAux: false,
-	}, // FORNLOOP
-	{
-		Mode: 4,
-		KMode: 8,
-		HasAux: true,
-	}, // FORGLOOP
-	{
-		Mode: 4,
-		KMode: 0,
-		HasAux: false,
-	}, // FORGPREP_INEXT
-	{
-		Mode: 3,
-		KMode: 1,
-		HasAux: true,
-	}, // FASTCALL3
-	{
-		Mode: 4,
-		KMode: 0,
-		HasAux: false,
-	}, // FORGPREP_NEXT
-	{
-		Mode: 0,
-		KMode: 0,
-		HasAux: false,
-	}, // FORGLOOP_NEXT (deprecated)
-	{
-		Mode: 2,
-		KMode: 0,
-		HasAux: false,
-	}, // GETVARARGS
-	{
-		Mode: 4,
-		KMode: 3,
-		HasAux: false,
-	}, // DUPCLOSURE
-	{
-		Mode: 1,
-		KMode: 0,
-		HasAux: false,
-	}, // PREPVARARGS
-	{
-		Mode: 1,
-		KMode: 1,
-		HasAux: true,
-	}, // LOADKX
-	{
-		Mode: 5,
-		KMode: 0,
-		HasAux: false,
-	}, // JUMPX
-	{
-		Mode: 3,
-		KMode: 0,
-		HasAux: false,
-	}, // FASTCALL
-	{
-		Mode: 5,
-		KMode: 0,
-		HasAux: false,
-	}, // COVERAGE
-	{
-		Mode: 2,
-		KMode: 0,
-		HasAux: false,
-	}, // CAPTURE
-	{
-		Mode: 3,
-		KMode: 7,
-		HasAux: false,
-	}, // SUBRK
-	{
-		Mode: 3,
-		KMode: 7,
-		HasAux: false,
-	}, // DIVRK
-	{
-		Mode: 3,
-		KMode: 0,
-		HasAux: false,
-	}, // FASTCALL1
-	{
-		Mode: 3,
-		KMode: 0,
-		HasAux: true,
-	}, // FASTCALL2
-	{
-		Mode: 3,
-		KMode: 1,
-		HasAux: true,
-	}, // FASTCALL2K
-	{
-		Mode: 4,
-		KMode: 0,
-		HasAux: false,
-	}, // FORGPREP
-	{
-		Mode: 4,
-		KMode: 5,
-		HasAux: true,
-	}, // JUMPXEQKNIL
-	{
-		Mode: 4,
-		KMode: 5,
-		HasAux: true,
-	}, // JUMPXEQKB
-	{
-		Mode: 4,
-		KMode: 6,
-		HasAux: true,
-	}, // JUMPXEQKN
-	{
-		Mode: 4,
-		KMode: 6,
-		HasAux: true,
-	}, // JUMPXEQKS
-	{
-		Mode: 3,
-		KMode: 0,
-		HasAux: false,
-	}, // IDIV
-	{
-		Mode: 3,
-		KMode: 2,
-		HasAux: false,
-	}, // IDIVK
-	{
-		Mode: 3,
-		KMode: 1,
-		HasAux: true,
-	}, // GETUDATAKS
-	{
-		Mode: 3,
-		KMode: 1,
-		HasAux: true,
-	}, // SETUDATAKS
-	{
-		Mode: 3,
-		KMode: 1,
-		HasAux: true,
-	}, // NAMECALLUDATA
-	{
-		Mode: 3,
-		KMode: 1,
-		HasAux: true,
-	}, // NEWCLASSMEMBER
-	{
-		Mode: 3,
-		KMode: 0,
-		HasAux: true,
-	}, // CALLFB
-	{
-		Mode: 4,
-		KMode: 0,
-		HasAux: true,
-	}, // CMPPROTO
-	{
-		Mode: 3,
-		KMode: 0,
-		HasAux: false,
-	}, // FASTPCALL
-}
+	opList = [90]internal.OpInfo{
+		{
+			Mode: 0,
+			KMode: 0,
+			HasAux: false,
+		}, // NOP
+		{
+			Mode: 0,
+			KMode: 0,
+			HasAux: false,
+		}, // BREAK
+		{
+			Mode: 1,
+			KMode: 0,
+			HasAux: false,
+		}, // LOADNIL
+		{
+			Mode: 3,
+			KMode: 0,
+			HasAux: false,
+		}, // LOADB
+		{
+			Mode: 4,
+			KMode: 0,
+			HasAux: false,
+		}, // LOADN
+		{
+			Mode: 4,
+			KMode: 3,
+			HasAux: false,
+		}, // LOADK
+		{
+			Mode: 2,
+			KMode: 0,
+			HasAux: false,
+		}, // MOVE
+		{
+			Mode: 1,
+			KMode: 1,
+			HasAux: true,
+		}, // GETGLOBAL
+		{
+			Mode: 1,
+			KMode: 1,
+			HasAux: true,
+		}, // SETGLOBAL
+		{
+			Mode: 2,
+			KMode: 0,
+			HasAux: false,
+		}, // GETUPVAL
+		{
+			Mode: 2,
+			KMode: 0,
+			HasAux: false,
+		}, // SETUPVAL
+		{
+			Mode: 1,
+			KMode: 0,
+			HasAux: false,
+		}, // CLOSEUPVALS
+		{
+			Mode: 4,
+			KMode: 4,
+			HasAux: true,
+		}, // GETIMPORT
+		{
+			Mode: 3,
+			KMode: 0,
+			HasAux: false,
+		}, // GETTABLE
+		{
+			Mode: 3,
+			KMode: 0,
+			HasAux: false,
+		}, // SETTABLE
+		{
+			Mode: 3,
+			KMode: 1,
+			HasAux: true,
+		}, // GETTABLEKS
+		{
+			Mode: 3,
+			KMode: 1,
+			HasAux: true,
+		}, // SETTABLEKS
+		{
+			Mode: 3,
+			KMode: 0,
+			HasAux: false,
+		}, // GETTABLEN
+		{
+			Mode: 3,
+			KMode: 0,
+			HasAux: false,
+		}, // SETTABLEN
+		{
+			Mode: 4,
+			KMode: 0,
+			HasAux: false,
+		}, // NEWCLOSURE
+		{
+			Mode: 3,
+			KMode: 1,
+			HasAux: true,
+		}, // NAMECALL
+		{
+			Mode: 3,
+			KMode: 0,
+			HasAux: false,
+		}, // CALL
+		{
+			Mode: 2,
+			KMode: 0,
+			HasAux: false,
+		}, // RETURN
+		{
+			Mode: 4,
+			KMode: 0,
+			HasAux: false,
+		}, // JUMP
+		{
+			Mode: 4,
+			KMode: 0,
+			HasAux: false,
+		}, // JUMPBACK
+		{
+			Mode: 4,
+			KMode: 0,
+			HasAux: false,
+		}, // JUMPIF
+		{
+			Mode: 4,
+			KMode: 0,
+			HasAux: false,
+		}, // JUMPIFNOT
+		{
+			Mode: 4,
+			KMode: 0,
+			HasAux: true,
+		}, // JUMPIFEQ
+		{
+			Mode: 4,
+			KMode: 0,
+			HasAux: true,
+		}, // JUMPIFLE
+		{
+			Mode: 4,
+			KMode: 0,
+			HasAux: true,
+		}, // JUMPIFLT
+		{
+			Mode: 4,
+			KMode: 0,
+			HasAux: true,
+		}, // JUMPIFNOTEQ
+		{
+			Mode: 4,
+			KMode: 0,
+			HasAux: true,
+		}, // JUMPIFNOTLE
+		{
+			Mode: 4,
+			KMode: 0,
+			HasAux: true,
+		}, // JUMPIFNOTLT
+		{
+			Mode: 3,
+			KMode: 0,
+			HasAux: false,
+		}, // ADD
+		{
+			Mode: 3,
+			KMode: 0,
+			HasAux: false,
+		}, // SUB
+		{
+			Mode: 3,
+			KMode: 0,
+			HasAux: false,
+		}, // MUL
+		{
+			Mode: 3,
+			KMode: 0,
+			HasAux: false,
+		}, // DIV
+		{
+			Mode: 3,
+			KMode: 0,
+			HasAux: false,
+		}, // MOD
+		{
+			Mode: 3,
+			KMode: 0,
+			HasAux: false,
+		}, // POW
+		{
+			Mode: 3,
+			KMode: 2,
+			HasAux: false,
+		}, // ADDK
+		{
+			Mode: 3,
+			KMode: 2,
+			HasAux: false,
+		}, // SUBK
+		{
+			Mode: 3,
+			KMode: 2,
+			HasAux: false,
+		}, // MULK
+		{
+			Mode: 3,
+			KMode: 2,
+			HasAux: false,
+		}, // DIVK
+		{
+			Mode: 3,
+			KMode: 2,
+			HasAux: false,
+		}, // MODK
+		{
+			Mode: 3,
+			KMode: 2,
+			HasAux: false,
+		}, // POWK
+		{
+			Mode: 3,
+			KMode: 0,
+			HasAux: false,
+		}, // AND
+		{
+			Mode: 3,
+			KMode: 0,
+			HasAux: false,
+		}, // OR
+		{
+			Mode: 3,
+			KMode: 2,
+			HasAux: false,
+		}, // ANDK
+		{
+			Mode: 3,
+			KMode: 2,
+			HasAux: false,
+		}, // ORK
+		{
+			Mode: 3,
+			KMode: 0,
+			HasAux: false,
+		}, // CONCAT
+		{
+			Mode: 2,
+			KMode: 0,
+			HasAux: false,
+		}, // NOT
+		{
+			Mode: 2,
+			KMode: 0,
+			HasAux: false,
+		}, // MINUS
+		{
+			Mode: 2,
+			KMode: 0,
+			HasAux: false,
+		}, // LENGTH
+		{
+			Mode: 2,
+			KMode: 0,
+			HasAux: true,
+		}, // NEWTABLE
+		{
+			Mode: 4,
+			KMode: 3,
+			HasAux: false,
+		}, // DUPTABLE
+		{
+			Mode: 3,
+			KMode: 0,
+			HasAux: true,
+		}, // SETLIST
+		{
+			Mode: 4,
+			KMode: 0,
+			HasAux: false,
+		}, // FORNPREP
+		{
+			Mode: 4,
+			KMode: 0,
+			HasAux: false,
+		}, // FORNLOOP
+		{
+			Mode: 4,
+			KMode: 8,
+			HasAux: true,
+		}, // FORGLOOP
+		{
+			Mode: 4,
+			KMode: 0,
+			HasAux: false,
+		}, // FORGPREP_INEXT
+		{
+			Mode: 3,
+			KMode: 1,
+			HasAux: true,
+		}, // FASTCALL3
+		{
+			Mode: 4,
+			KMode: 0,
+			HasAux: false,
+		}, // FORGPREP_NEXT
+		{
+			Mode: 0,
+			KMode: 0,
+			HasAux: false,
+		}, // FORGLOOP_NEXT (deprecated)
+		{
+			Mode: 2,
+			KMode: 0,
+			HasAux: false,
+		}, // GETVARARGS
+		{
+			Mode: 4,
+			KMode: 3,
+			HasAux: false,
+		}, // DUPCLOSURE
+		{
+			Mode: 1,
+			KMode: 0,
+			HasAux: false,
+		}, // PREPVARARGS
+		{
+			Mode: 1,
+			KMode: 1,
+			HasAux: true,
+		}, // LOADKX
+		{
+			Mode: 5,
+			KMode: 0,
+			HasAux: false,
+		}, // JUMPX
+		{
+			Mode: 3,
+			KMode: 0,
+			HasAux: false,
+		}, // FASTCALL
+		{
+			Mode: 5,
+			KMode: 0,
+			HasAux: false,
+		}, // COVERAGE
+		{
+			Mode: 2,
+			KMode: 0,
+			HasAux: false,
+		}, // CAPTURE
+		{
+			Mode: 3,
+			KMode: 7,
+			HasAux: false,
+		}, // SUBRK
+		{
+			Mode: 3,
+			KMode: 7,
+			HasAux: false,
+		}, // DIVRK
+		{
+			Mode: 3,
+			KMode: 0,
+			HasAux: false,
+		}, // FASTCALL1
+		{
+			Mode: 3,
+			KMode: 0,
+			HasAux: true,
+		}, // FASTCALL2
+		{
+			Mode: 3,
+			KMode: 1,
+			HasAux: true,
+		}, // FASTCALL2K
+		{
+			Mode: 4,
+			KMode: 0,
+			HasAux: false,
+		}, // FORGPREP
+		{
+			Mode: 4,
+			KMode: 5,
+			HasAux: true,
+		}, // JUMPXEQKNIL
+		{
+			Mode: 4,
+			KMode: 5,
+			HasAux: true,
+		}, // JUMPXEQKB
+		{
+			Mode: 4,
+			KMode: 6,
+			HasAux: true,
+		}, // JUMPXEQKN
+		{
+			Mode: 4,
+			KMode: 6,
+			HasAux: true,
+		}, // JUMPXEQKS
+		{
+			Mode: 3,
+			KMode: 0,
+			HasAux: false,
+		}, // IDIV
+		{
+			Mode: 3,
+			KMode: 2,
+			HasAux: false,
+		}, // IDIVK
+		{
+			Mode: 3,
+			KMode: 1,
+			HasAux: true,
+		}, // GETUDATAKS
+		{
+			Mode: 3,
+			KMode: 1,
+			HasAux: true,
+		}, // SETUDATAKS
+		{
+			Mode: 3,
+			KMode: 1,
+			HasAux: true,
+		}, // NAMECALLUDATA
+		{
+			Mode: 3,
+			KMode: 1,
+			HasAux: true,
+		}, // NEWCLASSMEMBER
+		{
+			Mode: 3,
+			KMode: 0,
+			HasAux: true,
+		}, // CALLFB
+		{
+			Mode: 4,
+			KMode: 0,
+			HasAux: true,
+		}, // CMPPROTO
+		{
+			Mode: 3,
+			KMode: 0,
+			HasAux: false,
+		}, // FASTPCALL
+	}
+	errUnsupportedVersion = errors.New("bytecode version mismatch")
+	errUnsupportedTypesVersion = errors.New("bytecode type version mismatch")
+)
 
 func checkkmode(i *internal.Inst, k []Val) error {
 	// fmt.Println("AUX:", i.Aux, "KMODE:", i.KMode)
@@ -970,11 +974,6 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 
 	return
 }
-
-var (
-	errUnsupportedVersion = errors.New("bytecode version mismatch")
-	errUnsupportedTypesVersion = errors.New("bytecode type version mismatch")
-)
 
 func Deserialise(b []byte) (d internal.Deserialised, err error) {
 	s := &stream{

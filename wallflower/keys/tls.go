@@ -27,7 +27,7 @@ func (sk SK) TLS() (cert tls.Certificate, err error) {
 	notBefore := time.Now()
 	notAfter := notBefore.Add(24 * time.Hour) // 1 day validity
 
-	serialNumber, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+	serialNumber, err := rand.Int(rand.Reader, (&big.Int{}).Lsh(big.NewInt(1), 128))
 	if err != nil {
 		return tls.Certificate{}, fmt.Errorf("generate serial number: %v", err)
 	}

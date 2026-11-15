@@ -11,6 +11,17 @@ import (
 
 const int_max = int(^uint(0) >> 1)
 
+var Libutf8 = NewLib([]Function{
+	MakeFn("char", utf8_char),
+	MakeFn("codes", utf8_codes),
+	MakeFn("codepoint", utf8_codepoint),
+	MakeFn("len", utf8_len),
+	MakeFn("offset", utf8_offset),
+	// MakeFn("graphemes", utf8_graphemes), // we can't actually test this, mainly due to the fact it... doesn't exist in the reference implementation..?
+	MakeFn("nfcnormalize", utf8_nfcnormalize), // these are also untestable but they're so trivial here
+	MakeFn("nfdnormalize", utf8_nfdnormalize),
+}, map[string]Val{"charpattern": Str("[\x00-\x7F\xC2-\xF4][\x80-\xBF]*")})
+
 func iscont(c byte) bool {
 	return !utf8.RuneStart(c)
 }
@@ -188,14 +199,3 @@ func utf8_offset(args Args) (r []Val, err error) {
 
 	return args.Rets(Num(float64(posi + 1))), nil
 }
-
-var Libutf8 = NewLib([]Function{
-	MakeFn("char", utf8_char),
-	MakeFn("codes", utf8_codes),
-	MakeFn("codepoint", utf8_codepoint),
-	MakeFn("len", utf8_len),
-	MakeFn("offset", utf8_offset),
-	// MakeFn("graphemes", utf8_graphemes), // we can't actually test this, mainly due to the fact it... doesn't exist in the reference implementation..?
-	MakeFn("nfcnormalize", utf8_nfcnormalize), // these are also untestable but they're so trivial here
-	MakeFn("nfdnormalize", utf8_nfdnormalize),
-}, map[string]Val{"charpattern": Str("[\x00-\x7F\xC2-\xF4][\x80-\xBF]*")})

@@ -13,7 +13,26 @@ import (
 // ltablib.cpp
 type comp func(a, b Val) (bool, error) // ton, compton, aint no city quite like miiine
 
-var errReadonly = errors.New("attempt to modify a readonly table")
+var (
+	errReadonly = errors.New("attempt to modify a readonly table")
+	invalidOrderFunc = errors.New("invalid order function for sorting")
+	Libtable = NewLib([]Function{
+		MakeFn("clear", table_clear),
+		MakeFn("clone", table_clone),
+		MakeFn("concat", table_concat),
+		MakeFn("create", table_create),
+		MakeFn("find", table_find),
+		MakeFn("freeze", table_freeze),
+		MakeFn("insert", table_insert),
+		MakeFn("isfrozen", table_isfrozen),
+		MakeFn("maxn", table_maxn),
+		MakeFn("move", table_move),
+		MakeFn("pack", table_pack),
+		MakeFn("remove", table_remove),
+		MakeFn("sort", table_sort),
+		MakeFn("unpack", table_unpack),
+	})
+)
 
 func bumpelements(t *Table, start int) {
 	// fmt.Println("BEFORE", start)
@@ -402,8 +421,6 @@ func table_insert(args Args) (r []Val, err error) {
 	return
 }
 
-var invalidOrderFunc = errors.New("invalid order function for sorting")
-
 func table_isfrozen(args Args) (r []Val, err error) {
 	t := args.GetTable()
 
@@ -533,20 +550,3 @@ func table_unpack(args Args) (r []Val, err error) {
 
 	return
 }
-
-var Libtable = NewLib([]Function{
-	MakeFn("clear", table_clear),
-	MakeFn("clone", table_clone),
-	MakeFn("concat", table_concat),
-	MakeFn("create", table_create),
-	MakeFn("find", table_find),
-	MakeFn("freeze", table_freeze),
-	MakeFn("insert", table_insert),
-	MakeFn("isfrozen", table_isfrozen),
-	MakeFn("maxn", table_maxn),
-	MakeFn("move", table_move),
-	MakeFn("pack", table_pack),
-	MakeFn("remove", table_remove),
-	MakeFn("sort", table_sort),
-	MakeFn("unpack", table_unpack),
-})

@@ -8,6 +8,25 @@ import (
 
 const wide4 = false
 
+var Libvector = NewLib([]Function{
+	MakeFn("create", vector_create),
+	MakeFn("magnitude", vector_magnitude),
+	MakeFn("normalize", vector_normalize),
+	MakeFn("cross", vector_cross),
+	MakeFn("dot", vector_dot),
+	MakeFn("angle", vector_angle),
+	MakeFn("floor", vector_floor),
+	MakeFn("ceil", vector_ceil),
+	MakeFn("abs", vector_abs),
+	MakeFn("sign", vector_sign),
+	MakeFn("clamp", vector_clamp),
+	MakeFn("max", vector_max),
+	MakeFn("min", vector_min),
+}, map[string]Val{
+	"one": VecVal(Vector{1, 1, 1, 0}), // 3-wide otherwise it breaks
+	"zero": VecVal(Vector{0, 0, 0, 0}),
+})
+
 func angle(a, b, axis Vector) float64 {
 	// cross(a, b)
 	c := Vector{a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]}
@@ -181,22 +200,3 @@ func vector_sign(args Args) (r []Val, err error) {
 
 	return args.Rets(VecVal(Vector{sign(v[0]), sign(v[1]), sign(v[2]), sign(v[3])})), nil
 }
-
-var Libvector = NewLib([]Function{
-	MakeFn("create", vector_create),
-	MakeFn("magnitude", vector_magnitude),
-	MakeFn("normalize", vector_normalize),
-	MakeFn("cross", vector_cross),
-	MakeFn("dot", vector_dot),
-	MakeFn("angle", vector_angle),
-	MakeFn("floor", vector_floor),
-	MakeFn("ceil", vector_ceil),
-	MakeFn("abs", vector_abs),
-	MakeFn("sign", vector_sign),
-	MakeFn("clamp", vector_clamp),
-	MakeFn("max", vector_max),
-	MakeFn("min", vector_min),
-}, map[string]Val{
-	"one": VecVal(Vector{1, 1, 1, 0}), // 3-wide otherwise it breaks
-	"zero": VecVal(Vector{0, 0, 0, 0}),
-})

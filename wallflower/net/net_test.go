@@ -19,233 +19,219 @@ type ProgramTest[A ProgramArgs, R ProgramRets] struct {
 
 const testProgramPath = "../../test/programs"
 
-func getBundled(p string, t *testing.T) (b []byte) {
-	b, err := bundle.Bundle(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return
-}
-
-var webTests = [...]ProgramTest[WebArgs, WebRets]{
-	{
-		"web1",
-		WebArgs{
-			Url: wurl("/"),
-			Method: "GET",
+var (
+	webTests = [...]ProgramTest[WebArgs, WebRets]{
+		{
+			"web1",
+			WebArgs{
+				Url: wurl("/"),
+				Method: "GET",
+			},
+			WebRets{
+				StatusCode: 200,
+				Headers: map[string]string{"content-type": "text/plain; charset=utf-8"},
+				Body: []byte("hello GET / world! /"),
+			},
 		},
-		WebRets{
-			StatusCode: 200,
-			Headers: map[string]string{"content-type": "text/plain; charset=utf-8"},
-			Body: []byte("hello GET / world! /"),
+		{
+			"web1",
+			WebArgs{
+				Url: wurl("/submit?"),
+				Method: "POST",
+			},
+			WebRets{
+				StatusCode: 200,
+				Headers: map[string]string{"content-type": "text/plain; charset=utf-8"},
+				Body: []byte("hello POST /submit world! /submit?"),
+			},
 		},
-	},
-	{
-		"web1",
-		WebArgs{
-			Url: wurl("/submit?"),
-			Method: "POST",
+		{
+			"web2",
+			WebArgs{
+				Url: wurl("/"),
+				Method: "POST",
+			},
+			WebRets{
+				StatusCode: 405,
+				Headers: map[string]string{"content-type": "text/plain; charset=utf-8"},
+				Body: []byte(http.StatusText(405)),
+			},
 		},
-		WebRets{
-			StatusCode: 200,
-			Headers: map[string]string{"content-type": "text/plain; charset=utf-8"},
-			Body: []byte("hello POST /submit world! /submit?"),
+		{
+			"web2",
+			WebArgs{
+				Url: wurl("/"),
+				Method: "GET",
+			},
+			WebRets{
+				StatusCode: 200,
+				Headers: map[string]string{"content-type": "text/html; charset=utf-8"},
+				Body: []byte("<h1>WELCOME TO MY WEBSITE</h1>"),
+			},
 		},
-	},
-	{
-		"web2",
-		WebArgs{
-			Url: wurl("/"),
-			Method: "POST",
+		{
+			"web2",
+			WebArgs{
+				Url: wurl("/hello"),
+				Method: "GET",
+			},
+			WebRets{
+				StatusCode: 200,
+				Headers: map[string]string{"content-type": "text/html; charset=utf-8"},
+				Body: []byte("<p>hello page</p>"),
+			},
 		},
-		WebRets{
-			StatusCode: 405,
-			Headers: map[string]string{"content-type": "text/plain; charset=utf-8"},
-			Body: []byte(http.StatusText(405)),
+		{
+			"web2",
+			WebArgs{
+				Url: wurl("/error"),
+				Method: "GET",
+			},
+			WebRets{
+				StatusCode: 454,
+				Headers: map[string]string{"content-type": "text/plain; charset=utf-8"},
+				Body: []byte("Error 454"),
+			},
 		},
-	},
-	{
-		"web2",
-		WebArgs{
-			Url: wurl("/"),
-			Method: "GET",
+		{
+			"web3",
+			WebArgs{
+				Url: wurl("/error"),
+				Method: "GET",
+			},
+			WebRets{
+				StatusCode: 404,
+				Headers: map[string]string{"content-type": "text/plain; charset=utf-8"},
+				Body: []byte(http.StatusText(404)),
+			},
 		},
-		WebRets{
-			StatusCode: 200,
-			Headers: map[string]string{"content-type": "text/html; charset=utf-8"},
-			Body: []byte("<h1>WELCOME TO MY WEBSITE</h1>"),
+		{
+			"web3",
+			WebArgs{
+				Url: wurl("/"),
+				Method: "GET",
+			},
+			WebRets{
+				StatusCode: 200,
+				Body: []byte(`Raw query: `),
+			},
 		},
-	},
-	{
-		"web2",
-		WebArgs{
-			Url: wurl("/hello"),
-			Method: "GET",
-		},
-		WebRets{
-			StatusCode: 200,
-			Headers: map[string]string{"content-type": "text/html; charset=utf-8"},
-			Body: []byte("<p>hello page</p>"),
-		},
-	},
-	{
-		"web2",
-		WebArgs{
-			Url: wurl("/error"),
-			Method: "GET",
-		},
-		WebRets{
-			StatusCode: 454,
-			Headers: map[string]string{"content-type": "text/plain; charset=utf-8"},
-			Body: []byte("Error 454"),
-		},
-	},
-	{
-		"web3",
-		WebArgs{
-			Url: wurl("/error"),
-			Method: "GET",
-		},
-		WebRets{
-			StatusCode: 404,
-			Headers: map[string]string{"content-type": "text/plain; charset=utf-8"},
-			Body: []byte(http.StatusText(404)),
-		},
-	},
-	{
-		"web3",
-		WebArgs{
-			Url: wurl("/"),
-			Method: "GET",
-		},
-		WebRets{
-			StatusCode: 200,
-			Body: []byte(`Raw query: `),
-		},
-	},
-	{
-		"web3",
-		WebArgs{
-			Url: wurl("/?a="),
-			Method: "GET",
-		},
-		WebRets{
-			StatusCode: 200,
-			Body: []byte(`a =
+		{
+			"web3",
+			WebArgs{
+				Url: wurl("/?a="),
+				Method: "GET",
+			},
+			WebRets{
+				StatusCode: 200,
+				Body: []byte(`a =
 - 
 Raw query: a=`),
+			},
 		},
-	},
-	{
-		"web3",
-		WebArgs{
-			Url: wurl("/?a=b&c=b"),
-			Method: "GET",
-		},
-		WebRets{
-			StatusCode: 200,
-			Body: []byte(`a =
+		{
+			"web3",
+			WebArgs{
+				Url: wurl("/?a=b&c=b"),
+				Method: "GET",
+			},
+			WebRets{
+				StatusCode: 200,
+				Body: []byte(`a =
 - b
 c =
 - b
 Raw query: a=b&c=b`),
+			},
 		},
-	},
-	{
-		"web3",
-		WebArgs{
-			Url: wurl("/?c=b&a=b"),
-			Method: "GET",
-		},
-		WebRets{
-			StatusCode: 200,
-			Body: []byte(`a =
+		{
+			"web3",
+			WebArgs{
+				Url: wurl("/?c=b&a=b"),
+				Method: "GET",
+			},
+			WebRets{
+				StatusCode: 200,
+				Body: []byte(`a =
 - b
 c =
 - b
 Raw query: c=b&a=b`),
+			},
 		},
-	},
-	{
-		"web3",
-		WebArgs{
-			Url: wurl("/?a=b&a=b"),
-			Method: "GET",
-		},
-		WebRets{
-			StatusCode: 200,
-			Body: []byte(`a =
+		{
+			"web3",
+			WebArgs{
+				Url: wurl("/?a=b&a=b"),
+				Method: "GET",
+			},
+			WebRets{
+				StatusCode: 200,
+				Body: []byte(`a =
 - b
 - b
 Raw query: a=b&a=b`),
+			},
 		},
-	},
-	{
-		"web3",
-		WebArgs{
-			Url: wurl("/?a=c&a=b"),
-			Method: "GET",
-		},
-		WebRets{
-			StatusCode: 200,
-			Body: []byte(`a =
+		{
+			"web3",
+			WebArgs{
+				Url: wurl("/?a=c&a=b"),
+				Method: "GET",
+			},
+			WebRets{
+				StatusCode: 200,
+				Body: []byte(`a =
 - c
 - b
 Raw query: a=c&a=b`),
+			},
 		},
-	},
-	{
-		"web3",
-		WebArgs{
-			Url: wurl("/?a=b&a=c"),
-			Method: "GET",
-		},
-		WebRets{
-			StatusCode: 200,
-			Body: []byte(`a =
+		{
+			"web3",
+			WebArgs{
+				Url: wurl("/?a=b&a=c"),
+				Method: "GET",
+			},
+			WebRets{
+				StatusCode: 200,
+				Body: []byte(`a =
 - b
 - c
 Raw query: a=b&a=c`),
+			},
 		},
-	},
-	{
-		"web3",
-		WebArgs{
-			Url: wurl("/?=b&a=c"),
-			Method: "GET",
-		},
-		WebRets{
-			StatusCode: 200,
-			Body: []byte(` =
+		{
+			"web3",
+			WebArgs{
+				Url: wurl("/?=b&a=c"),
+				Method: "GET",
+			},
+			WebRets{
+				StatusCode: 200,
+				Body: []byte(` =
 - b
 a =
 - c
 Raw query: =b&a=c`),
+			},
 		},
-	},
-	{
-		"web3",
-		WebArgs{
-			Url: wurl("/?=b&=c"),
-			Method: "GET",
-		},
-		WebRets{
-			StatusCode: 200,
-			Body: []byte(` =
+		{
+			"web3",
+			WebArgs{
+				Url: wurl("/?=b&=c"),
+				Method: "GET",
+			},
+			WebRets{
+				StatusCode: 200,
+				Body: []byte(` =
 - b
 - c
 Raw query: =b&=c`),
+			},
 		},
-	},
-}
+	}
 
-func getSampleAddress() (addr keys.Address) {
-	rand.Read(addr[:])
-	return
-}
-
-var (
 	// real secret keys for the purposes of testing
 	sampleKeys = [...]string{
 		"cosec:0aqouiilz3-ynmmxunwx1-7u6e5xppqa-hmz7q8yd3f-5l92e17yos",
@@ -269,6 +255,20 @@ var (
 	}
 	sampleKeysUsed uint8
 )
+
+func getBundled(p string, t *testing.T) (b []byte) {
+	b, err := bundle.Bundle(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return
+}
+
+func getSampleAddress() (addr keys.Address) {
+	rand.Read(addr[:])
+	return
+}
 
 func getSampleKeypair() (kp keys.Keypair) {
 	if skBytes, err := keys.DecodeSK(sampleKeys[sampleKeysUsed]); err != nil {

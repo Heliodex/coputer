@@ -6,6 +6,8 @@ import (
 	. "github.com/Heliodex/coputer/litecode/types"
 )
 
+var Libargs = NewLib([]Function{MakeFn("web", args_web)})
+
 func args_web(args Args) (r []Val, err error) {
 	pargs, ok := args.Co.ProgramArgs.(WebArgs)
 	if !ok {
@@ -60,5 +62,3 @@ func args_web(args Args) (r []Val, err error) {
 
 	return args.Rets(TableVal(webargs)), nil
 }
-
-var Libargs = NewLib([]Function{MakeFn("web", args_web)})

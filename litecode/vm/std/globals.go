@@ -23,33 +23,8 @@ const (
 	kPow10TableMin = -292
 )
 
-func b2i(b bool) uint64 {
-	if b { // damn integer booleans
-		return 1
-	}
-
-	return 0 // nock moment #1
-}
-
-var ipairs = MakeFn("ipairs", ipairs_iter)
-
-func (b *bufPos) Get(i int) byte {
-	return b.buf[b.pos+i]
-}
-
-func (b *bufPos) Get0() byte {
-	return b.buf[b.pos]
-}
-
-func (b *bufPos) Set(i int, v byte) {
-	b.buf[b.pos+i] = v
-}
-
-func (b *bufPos) Set0(v byte) {
-	b.buf[b.pos] = v
-}
-
 var (
+	ipairs = MakeFn("ipairs", ipairs_iter)
 	kPow10Table = [39][3]uint64{
 		{0xff77b1fcbebcdc4f, 0x25e8e89c13bb0f7b, 0x333443443333443b},
 		{0x8dd01fad907ffc3b, 0xae3da7d97f6792e4, 0xbbb3ab3cb3ba3cbc},
@@ -113,7 +88,41 @@ var (
 		0xe35fa931a0000000,
 	}
 	kDigitTable = [200]byte([]byte("00010203040506070809101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899"))
+	Globals = []Function{
+		MakeFn("type", global_type),
+		// MakeFn("typeof", global_type), // same because no metatables
+		MakeFn("ipairs", global_ipairs),
+		MakeFn("pairs", global_pairs),
+		MakeFn("next", global_next),
+		MakeFn("tonumber", global_tonumber),
+		MakeFn("tostring", global_tostring),
+		MakeFn("require", global_require),
+	}
 )
+
+func b2i(b bool) uint64 {
+	if b { // damn integer booleans
+		return 1
+	}
+
+	return 0 // nock moment #1
+}
+
+func (b *bufPos) Get(i int) byte {
+	return b.buf[b.pos+i]
+}
+
+func (b *bufPos) Get0() byte {
+	return b.buf[b.pos]
+}
+
+func (b *bufPos) Set(i int, v byte) {
+	b.buf[b.pos+i] = v
+}
+
+func (b *bufPos) Set0(v byte) {
+	b.buf[b.pos] = v
+}
 
 func (b *bufPos) String() string {
 	return string(b.buf[:b.pos])
@@ -588,15 +597,4 @@ func num2str(n float64) string {
 	}
 
 	return "-" + s
-}
-
-var Globals = []Function{
-	MakeFn("type", global_type),
-	// MakeFn("typeof", global_type), // same because no metatables
-	MakeFn("ipairs", global_ipairs),
-	MakeFn("pairs", global_pairs),
-	MakeFn("next", global_next),
-	MakeFn("tonumber", global_tonumber),
-	MakeFn("tostring", global_tostring),
-	MakeFn("require", global_require),
 }

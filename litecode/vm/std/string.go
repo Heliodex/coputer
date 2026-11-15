@@ -18,6 +18,25 @@ const (
 	// maxcalls       = 200
 )
 
+var Libstring = NewLib([]Function{
+	MakeFn("byte", string_byte),
+	MakeFn("char", string_char),
+	MakeFn("find", string_find),
+	MakeFn("format", string_format),
+	MakeFn("gmatch", string_gmatch),
+	MakeFn("gsub", string_gsub),
+	MakeFn("len", string_len),
+	MakeFn("lower", string_lower),
+	MakeFn("match", string_match),
+	// buffer should be used instead of pack/packsize
+	MakeFn("rep", string_rep),
+	MakeFn("reverse", string_reverse),
+	MakeFn("split", string_split),
+	MakeFn("sub", string_sub),
+	// buffer should be used instead of unpack
+	MakeFn("upper", string_upper),
+})
+
 func addquoted(args Args, b *strings.Builder) {
 	s := args.GetString()
 
@@ -523,22 +542,3 @@ func tolower(c byte) byte {
 
 	return c
 }
-
-var Libstring = NewLib([]Function{
-	MakeFn("byte", string_byte),
-	MakeFn("char", string_char),
-	MakeFn("find", string_find),
-	MakeFn("format", string_format),
-	MakeFn("gmatch", string_gmatch),
-	MakeFn("gsub", string_gsub),
-	MakeFn("len", string_len),
-	MakeFn("lower", string_lower),
-	MakeFn("match", string_match),
-	// buffer should be used instead of pack/packsize
-	MakeFn("rep", string_rep),
-	MakeFn("reverse", string_reverse),
-	MakeFn("split", string_split),
-	MakeFn("sub", string_sub),
-	// buffer should be used instead of unpack
-	MakeFn("upper", string_upper),
-})

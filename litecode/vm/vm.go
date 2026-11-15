@@ -41,6 +41,23 @@ var (
 	errReadonly = errors.New("attempt to modify a readonly table")
 	errNilIndex = errors.New("table index is nil")
 	errCancelled = errors.New("program execution cancelled")
+
+	// The only global environment, never mutated (yes, it only stores string keys)
+	exts = map[string]Val{
+		"args": TableVal(std.Libargs), // custom
+		"bit32": TableVal(std.Libbit32),
+		"buffer": TableVal(std.Libbuffer),
+		"coroutine": TableVal(std.Libcoroutine),
+		"math": TableVal(std.Libmath),
+		"string": TableVal(std.Libstring),
+		"table": TableVal(std.Libtable),
+		"utf8": TableVal(std.Libutf8),
+		"vector": TableVal(std.Libvector),
+		// fuck os
+		// and debug
+
+		"_VERSION": Str("Luau"), // todo: custom
+	}
 )
 
 // Small float helpers for the interpreter's arithmetic fast paths. Every one is trivially inlinable, so the common number-on-number case skips the std call, its interface argument/return plumbing, and the error result.
@@ -56,23 +73,6 @@ func falsy(v Val) bool {
 	b, ok := AsBool(v)
 
 	return ok && !b
-}
-
-// The only global environment, never mutated (yes, it only stores string keys)
-var exts = map[string]Val{
-	"args": TableVal(std.Libargs), // custom
-	"bit32": TableVal(std.Libbit32),
-	"buffer": TableVal(std.Libbuffer),
-	"coroutine": TableVal(std.Libcoroutine),
-	"math": TableVal(std.Libmath),
-	"string": TableVal(std.Libstring),
-	"table": TableVal(std.Libtable),
-	"utf8": TableVal(std.Libutf8),
-	"vector": TableVal(std.Libvector),
-	// fuck os
-	// and debug
-
-	"_VERSION": Str("Luau"), // todo: custom
 }
 
 func init() {

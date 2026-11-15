@@ -7,6 +7,17 @@ import (
 	"unicode"
 )
 
+var escapes = map[byte][]byte{
+	'\a': []byte("\\a"),
+	'\b': []byte("\\b"),
+	'\f': []byte("\\f"),
+	'\n': []byte("\\n"),
+	'\r': []byte("\\r"),
+	'\t': []byte("\\t"),
+	'\v': []byte("\\v"),
+	// idk about \z
+}
+
 func BinopToSource(name string) string {
 	switch name {
 	case "Add":
@@ -86,17 +97,6 @@ func NumberToSource(n Number) string {
 	}
 
 	return rep
-}
-
-var escapes = map[byte][]byte{
-	'\a': []byte("\\a"),
-	'\b': []byte("\\b"),
-	'\f': []byte("\\f"),
-	'\n': []byte("\\n"),
-	'\r': []byte("\\r"),
-	'\t': []byte("\\t"),
-	'\v': []byte("\\v"),
-	// idk about \z
 }
 
 // we're not gonna use `string`s here, to reserve those for only interpolated strings

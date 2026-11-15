@@ -7,6 +7,7 @@ import (
 )
 
 var (
+
 	// kohuept
 	// live in perlingrad
 	kPerlinGrad = [16][3]float32{
@@ -288,6 +289,41 @@ var (
 		180,
 		151,
 	}
+	Libmath = NewLib([]Function{
+		MakeFn("abs", math_abs),
+		MakeFn("acos", math_acos),
+		MakeFn("asin", math_asin),
+		MakeFn("atan", math_atan),
+		MakeFn("atan2", math_atan2),
+		MakeFn("ceil", math_ceil),
+		MakeFn("clamp", math_clamp),
+		MakeFn("cos", math_cos),
+		MakeFn("cosh", math_cosh),
+		MakeFn("deg", math_deg),
+		MakeFn("exp", math_exp),
+		MakeFn("floor", math_floor),
+		MakeFn("fmod", math_fmod),
+		MakeFn("frexp", math_frexp),
+		MakeFn("ldexp", math_ldexp),
+		MakeFn("lerp", math_lerp),
+		MakeFn("log", math_log),
+		// MakeFn("log10", math_log10), // deprecated
+		MakeFn("map", math_map), // w00t
+		MakeFn("max", math_max),
+		MakeFn("min", math_min),
+		MakeFn("modf", math_modf),
+		MakeFn("noise", math_noise),
+		MakeFn("pow", math_pow),
+		MakeFn("rad", math_rad),
+		// math.random and randomseed removed because we want determinism
+		MakeFn("round", math_round),
+		MakeFn("sign", math_sign),
+		MakeFn("sin", math_sin),
+		MakeFn("sinh", math_sinh),
+		MakeFn("sqrt", math_sqrt),
+		MakeFn("tan", math_tan),
+		MakeFn("tanh", math_tanh),
+	}, map[string]Val{"huge": Num(math.Inf(1)), "pi": Num(math.Pi)})
 )
 
 func fade(t float32) float32 {
@@ -551,39 +587,3 @@ func math_noise(args Args) (r []Val, err error) {
 
 	return args.Rets(Num(perlin(float32(x), float32(y), float32(z)))), nil
 }
-
-var Libmath = NewLib([]Function{
-	MakeFn("abs", math_abs),
-	MakeFn("acos", math_acos),
-	MakeFn("asin", math_asin),
-	MakeFn("atan", math_atan),
-	MakeFn("atan2", math_atan2),
-	MakeFn("ceil", math_ceil),
-	MakeFn("clamp", math_clamp),
-	MakeFn("cos", math_cos),
-	MakeFn("cosh", math_cosh),
-	MakeFn("deg", math_deg),
-	MakeFn("exp", math_exp),
-	MakeFn("floor", math_floor),
-	MakeFn("fmod", math_fmod),
-	MakeFn("frexp", math_frexp),
-	MakeFn("ldexp", math_ldexp),
-	MakeFn("lerp", math_lerp),
-	MakeFn("log", math_log),
-	// MakeFn("log10", math_log10), // deprecated
-	MakeFn("map", math_map), // w00t
-	MakeFn("max", math_max),
-	MakeFn("min", math_min),
-	MakeFn("modf", math_modf),
-	MakeFn("noise", math_noise),
-	MakeFn("pow", math_pow),
-	MakeFn("rad", math_rad),
-	// math.random and randomseed removed because we want determinism
-	MakeFn("round", math_round),
-	MakeFn("sign", math_sign),
-	MakeFn("sin", math_sin),
-	MakeFn("sinh", math_sinh),
-	MakeFn("sqrt", math_sqrt),
-	MakeFn("tan", math_tan),
-	MakeFn("tanh", math_tanh),
-}, map[string]Val{"huge": Num(math.Inf(1)), "pi": Num(math.Pi)})

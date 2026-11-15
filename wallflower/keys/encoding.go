@@ -37,6 +37,7 @@ const (
 var (
 	alphabet = [36]byte([]byte("0123456789abcdefghijklmnopqrstuvwxyz"))
 	byteMap = make(map[byte]uint, 36)
+	errInvalidKeyType = errors.New("invalid key type")
 )
 
 func init() {
@@ -123,8 +124,6 @@ func DecodeSKNoPrefix(key string) (bf SK, err error) {
 	slices.Reverse(bf[:])
 	return
 }
-
-var errInvalidKeyType = errors.New("invalid key type")
 
 func DecodeSK(key string) (SK, error) {
 	if key[:len(SecStart)] != SecStart {

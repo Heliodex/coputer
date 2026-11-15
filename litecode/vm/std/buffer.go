@@ -11,6 +11,38 @@ type num interface {
 	int8 | int16 | int32 | int64 | uint8 | uint16 | uint32 | uint64 | float32 | float64
 }
 
+var (
+	oob = []Val{Str("buffer access out of bounds"), Bool(false)}
+	Libbuffer = NewLib([]Function{
+		MakeFn("create", buffer_create),
+		MakeFn("fromstring", buffer_fromstring),
+		MakeFn("tostring", buffer_tostring),
+		MakeFn("len", buffer_len),
+		MakeFn("readi8", buffer_readi8),
+		MakeFn("readu8", buffer_readu8),
+		MakeFn("readi16", buffer_readi16),
+		MakeFn("readu16", buffer_readu16),
+		MakeFn("readi32", buffer_readi32),
+		MakeFn("readu32", buffer_readu32),
+		MakeFn("readf32", buffer_readf32),
+		MakeFn("readf64", buffer_readf64),
+		MakeFn("writei8", buffer_writei8),
+		MakeFn("writeu8", buffer_writeu8),
+		MakeFn("writei16", buffer_writei16),
+		MakeFn("writeu16", buffer_writeu16),
+		MakeFn("writei32", buffer_writei32),
+		MakeFn("writeu32", buffer_writeu32),
+		MakeFn("writef32", buffer_writef32),
+		MakeFn("writef64", buffer_writef64),
+		MakeFn("readbits", buffer_readbits),
+		MakeFn("writebits", buffer_writebits),
+		MakeFn("readstring", buffer_readstring),
+		MakeFn("writestring", buffer_writestring),
+		MakeFn("copy", buffer_copy),
+		MakeFn("fill", buffer_fill),
+	})
+)
+
 func buffer_create(args Args) (r []Val, err error) {
 	size := int(args.GetNumber())
 	b := make(Buffer, size)
@@ -133,8 +165,6 @@ func buffer_readstring(args Args) (r []Val, err error) {
 
 	return args.Rets(Str(string(bl)), Bool(true)), nil
 }
-
-var oob = []Val{Str("buffer access out of bounds"), Bool(false)}
 
 func buffer_readu16(args Args) (r []Val, err error) {
 	b, offset := readValues(&args)
@@ -321,32 +351,3 @@ func buffer_writeu8(args Args) (r []Val, err error) {
 
 	return args.Rets(NilVal, Bool(true)), nil
 }
-
-var Libbuffer = NewLib([]Function{
-	MakeFn("create", buffer_create),
-	MakeFn("fromstring", buffer_fromstring),
-	MakeFn("tostring", buffer_tostring),
-	MakeFn("len", buffer_len),
-	MakeFn("readi8", buffer_readi8),
-	MakeFn("readu8", buffer_readu8),
-	MakeFn("readi16", buffer_readi16),
-	MakeFn("readu16", buffer_readu16),
-	MakeFn("readi32", buffer_readi32),
-	MakeFn("readu32", buffer_readu32),
-	MakeFn("readf32", buffer_readf32),
-	MakeFn("readf64", buffer_readf64),
-	MakeFn("writei8", buffer_writei8),
-	MakeFn("writeu8", buffer_writeu8),
-	MakeFn("writei16", buffer_writei16),
-	MakeFn("writeu16", buffer_writeu16),
-	MakeFn("writei32", buffer_writei32),
-	MakeFn("writeu32", buffer_writeu32),
-	MakeFn("writef32", buffer_writef32),
-	MakeFn("writef64", buffer_writef64),
-	MakeFn("readbits", buffer_readbits),
-	MakeFn("writebits", buffer_writebits),
-	MakeFn("readstring", buffer_readstring),
-	MakeFn("writestring", buffer_writestring),
-	MakeFn("copy", buffer_copy),
-	MakeFn("fill", buffer_fill),
-})
