@@ -184,7 +184,7 @@ func TestSourceConformance(t *testing.T) {
 }
 
 type NumberTest struct {
-	In  float64
+	In float64
 	Out string
 }
 

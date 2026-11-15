@@ -27,7 +27,7 @@ func (a Address) String() string {
 }
 
 type Peer struct {
-	Pk       PK
+	Pk PK
 	MainAddr Address
 	AltAddrs []Address
 	LastSeen time.Time
@@ -93,9 +93,9 @@ func KeypairSK(sk [32]byte) (kp Keypair, err error) {
 var ZeroNonce = new([24]byte)
 
 const (
-	keySize   = 29 + 1
-	keyEnc    = keySize + box.AnonymousOverhead
-	chunkEnc  = 1<<16 - 1
+	keySize = 29 + 1
+	keyEnc = keySize + box.AnonymousOverhead
+	chunkEnc = 1<<16 - 1
 	chunkSize = chunkEnc - box.Overhead
 )
 
@@ -275,7 +275,7 @@ func Decrypt(kp Keypair, emsg []byte) (from Peer, msg []byte, err error) {
 
 const (
 	SignOverhead = box.Overhead
-	HashSigLen   = 32 + box.Overhead
+	HashSigLen = 32 + box.Overhead
 )
 
 type HashSig [HashSigLen]byte

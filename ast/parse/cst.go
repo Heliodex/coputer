@@ -66,7 +66,7 @@ type CstStatRepeat struct {
 func (CstStatRepeat) isCstNode() {}
 
 type CstStatDo struct {
-	StatsStart  lex.Position
+	StatsStart lex.Position
 	EndPosition lex.Position
 }
 
@@ -80,17 +80,17 @@ func (CstStatDo) isCstNode() {}
 
 type CstStatFor struct {
 	AnnotationColonPosition *lex.Position
-	EqualsPosition          lex.Position
-	EndCommaPosition        lex.Position
-	StepCommaPosition       *lex.Position
+	EqualsPosition lex.Position
+	EndCommaPosition lex.Position
+	StepCommaPosition *lex.Position
 }
 
 func (CstStatFor) isCstNode() {}
 
 type CstStatForIn struct {
 	VarsAnnotationColonPositions []*lex.Position
-	VarsCommaPositions           []lex.Position
-	ValuesCommaPositions         []lex.Position
+	VarsCommaPositions []lex.Position
+	ValuesCommaPositions []lex.Position
 }
 
 func (CstStatForIn) isCstNode() {}
@@ -102,7 +102,7 @@ type CstStatFunction struct {
 func (CstStatFunction) isCstNode() {}
 
 type CstStatLocalFunction struct {
-	LocalKeywordPosition    lex.Position
+	LocalKeywordPosition lex.Position
 	FunctionKeywordPosition lex.Position
 }
 
@@ -110,15 +110,15 @@ func (CstStatLocalFunction) isCstNode() {}
 
 type CstStatLocal struct {
 	VarsAnnotationColonPositions []*lex.Position
-	VarsCommaPositions           []lex.Position
-	ValuesCommaPositions         []lex.Position
+	VarsCommaPositions []lex.Position
+	ValuesCommaPositions []lex.Position
 }
 
 func (CstStatLocal) isCstNode() {}
 
 type CstStatAssign struct {
-	VarsCommaPositions   []lex.Position
-	EqualsPosition       lex.Position
+	VarsCommaPositions []lex.Position
+	EqualsPosition lex.Position
 	ValuesCommaPositions []lex.Position
 }
 
@@ -137,31 +137,31 @@ type CstStatReturn struct {
 func (CstStatReturn) isCstNode() {}
 
 type CstStatTypeAlias struct {
-	TypeKeywordPosition    lex.Position
-	GenericsOpenPosition   *lex.Position
+	TypeKeywordPosition lex.Position
+	GenericsOpenPosition *lex.Position
 	GenericsCommaPositions []lex.Position
-	GenericsClosePosition  *lex.Position
-	EqualsPosition         lex.Position
+	GenericsClosePosition *lex.Position
+	EqualsPosition lex.Position
 }
 
 func (CstStatTypeAlias) isCstNode() {}
 
 type CstStatTypeFunction struct {
-	TypeKeywordPosition     lex.Position
+	TypeKeywordPosition lex.Position
 	FunctionKeywordPosition lex.Position
 }
 
 func (CstStatTypeFunction) isCstNode() {}
 
 type CstExprFunction struct {
-	FunctionKeywordPosition       lex.Position
-	OpenGenericsPosition          *lex.Position
-	GenericsCommaPositions        []lex.Position
-	CloseGenericsPosition         *lex.Position
-	ArgsAnnotationColonPositions  []*lex.Position
-	ArgsCommaPositions            []lex.Position
+	FunctionKeywordPosition lex.Position
+	OpenGenericsPosition *lex.Position
+	GenericsCommaPositions []lex.Position
+	CloseGenericsPosition *lex.Position
+	ArgsAnnotationColonPositions []*lex.Position
+	ArgsCommaPositions []lex.Position
 	VarargAnnotationColonPosition *lex.Position
-	ReturnSpecifierPosition       *lex.Position
+	ReturnSpecifierPosition *lex.Position
 }
 
 func (CstExprFunction) isCstNode() {}
@@ -173,11 +173,11 @@ type CstExprTable struct {
 func (CstExprTable) isCstNode() {}
 
 type CstExprTableItem struct {
-	Kind                 ExprTableItemKind
-	EqualsPosition       *lex.Position
-	Separator            *int
-	SeparatorPosition    lex.Position
-	IndexerOpenPosition  *lex.Position
+	Kind ExprTableItemKind
+	EqualsPosition *lex.Position
+	Separator *int
+	SeparatorPosition lex.Position
+	IndexerOpenPosition *lex.Position
 	IndexerClosePosition *lex.Position
 }
 
@@ -186,13 +186,13 @@ func (CstExprTableItem) isCstNode() {}
 type CstExprIfElse struct {
 	ThenPosition lex.Position
 	ElsePosition lex.Position
-	IsElseIf     bool
+	IsElseIf bool
 }
 
 func (CstExprIfElse) isCstNode() {}
 
 type CstExprInterpString struct {
-	SourceStrings   []string
+	SourceStrings []string
 	StringPositions []lex.Position
 }
 
@@ -200,8 +200,8 @@ func (CstExprInterpString) isCstNode() {}
 
 type CstExprConstantString struct {
 	SourceString *string
-	QuoteStyle   int
-	BlockDepth   int
+	QuoteStyle int
+	BlockDepth int
 }
 
 func (CstExprConstantString) isCstNode() {}
@@ -212,22 +212,22 @@ type CstTypeInstantiation struct {
 
 	RightArrow1Position lex.Position
 	RightArrow2Position lex.Position
-	CommaPositions      []lex.Position
+	CommaPositions []lex.Position
 }
 
 func (CstTypeInstantiation) isCstNode() {}
 
 type CstExprCall struct {
-	OpenParens     *lex.Position
-	CloseParens    *lex.Position
+	OpenParens *lex.Position
+	CloseParens *lex.Position
 	CommaPositions []lex.Position
-	ExplicitTypes  *CstTypeInstantiation
+	ExplicitTypes *CstTypeInstantiation
 }
 
 func (CstExprCall) isCstNode() {}
 
 type CstExprIndexExpr struct {
-	OpenBracketPosition  lex.Position
+	OpenBracketPosition lex.Position
 	CloseBracketPosition lex.Position
 }
 
@@ -264,17 +264,17 @@ type CstExprOp struct {
 func (CstExprOp) isCstNode() {}
 
 type CstTypeTypeof struct {
-	OpenPosition  lex.Position
+	OpenPosition lex.Position
 	ClosePosition lex.Position
 }
 
 func (CstTypeTypeof) isCstNode() {}
 
 type CstTypeReference struct {
-	PrefixPointPosition      *lex.Position
-	OpenParametersPosition   *lex.Position
+	PrefixPointPosition *lex.Position
+	OpenParametersPosition *lex.Position
 	ParametersCommaPositions []lex.Position
-	CloseParametersPosition  *lex.Position
+	CloseParametersPosition *lex.Position
 }
 
 func (CstTypeReference) isCstNode() {}
@@ -286,57 +286,57 @@ type CstTypePackGeneric struct {
 func (CstTypePackGeneric) isCstNode() {}
 
 type CstTypePackExplicit struct {
-	OpenParenthesesPosition  *lex.Position
+	OpenParenthesesPosition *lex.Position
 	CloseParenthesesPosition *lex.Position
-	CommaPositions           *[]lex.Position
+	CommaPositions *[]lex.Position
 }
 
 func (CstTypePackExplicit) isCstNode() {}
 
 type CstTypeFunction struct {
-	OpenGenericsPosition       *lex.Position
-	GenericsCommaPositions     []lex.Position
-	CloseGenericsPosition      *lex.Position
-	OpenArgsPosition           lex.Position
+	OpenGenericsPosition *lex.Position
+	GenericsCommaPositions []lex.Position
+	CloseGenericsPosition *lex.Position
+	OpenArgsPosition lex.Position
 	ArgumentNameColonPositions []*lex.Position
-	ArgumentsCommaPositions    []lex.Position
-	CloseArgsPosition          lex.Position
-	ReturnArrowPosition        lex.Position
+	ArgumentsCommaPositions []lex.Position
+	CloseArgsPosition lex.Position
+	ReturnArrowPosition lex.Position
 }
 
 func (CstTypeFunction) isCstNode() {}
 
 type CstTypeUnion struct {
-	LeadingPosition    *lex.Position
+	LeadingPosition *lex.Position
 	SeparatorPositions []lex.Position
 }
 
 func (CstTypeUnion) isCstNode() {}
 
 type CstTypeIntersection struct {
-	LeadingPosition    *lex.Position
+	LeadingPosition *lex.Position
 	SeparatorPositions []lex.Position
 }
 
 func (CstTypeIntersection) isCstNode() {}
 
 type CstTypeTable struct {
-	Items   []CstTypeTableItem
+	Items []CstTypeTableItem
 	IsArray bool
 }
 
 func (CstTypeTable) isCstNode() {}
 
 type CstTypeTableItem struct {
-	Kind                 string // "Property" | "StringProperty" | "Indexer"
-	ColonPosition        *lex.Position
-	Separator            *int
-	SeparatorPosition    *lex.Position
-	IndexerOpenPosition  *lex.Position
+	Kind string // "Property" | "StringProperty" | "Indexer"
+	ColonPosition *lex.Position
+	Separator *int
+	SeparatorPosition *lex.Position
+	IndexerOpenPosition *lex.Position
 	IndexerClosePosition *lex.Position
-	StringInfo           *CstExprConstantString
-	StringPosition       *lex.Location
-	EqualsPosition       *lex.Position
+	StringInfo *CstExprConstantString
+	StringPosition *lex.Location
+	EqualsPosition *lex.Position
 }
 
 func (CstTypeTableItem) isCstNode() {}
@@ -348,7 +348,7 @@ type CstGenericType struct {
 func (CstGenericType) isCstNode() {}
 
 type CstGenericTypePack struct {
-	EllipsisPosition      lex.Position
+	EllipsisPosition lex.Position
 	DefaultEqualsPosition *lex.Position
 }
 
@@ -356,8 +356,8 @@ func (CstGenericTypePack) isCstNode() {}
 
 type CstTypeSingletonString struct {
 	SourceString []string
-	QuoteStyle   int
-	BlockDepth   int
+	QuoteStyle int
+	BlockDepth int
 }
 
 func (CstTypeSingletonString) isCstNode() {}

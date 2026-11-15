@@ -10,7 +10,7 @@ import (
 
 type (
 	EncryptedMsg []byte
-	MessageType  = byte
+	MessageType = byte
 )
 
 const (
@@ -43,9 +43,9 @@ func (m mHi) Serialise() ([]byte, error) {
 
 // TODO: store this in the execution server too so we can retrieve it from there
 type mStore struct {
-	Name    string
-	Pk      keys.PK
-	Sig     keys.HashSig
+	Name string
+	Pk keys.PK
+	Sig keys.HashSig
 	Bundled []byte
 }
 
@@ -74,9 +74,9 @@ func (m mStoreResult) Serialise() ([]byte, error) {
 }
 
 type mRun struct {
-	Type  ProgramType // 1
-	Pk    keys.PK     // 29
-	Name  string      // 1 + length
+	Type ProgramType // 1
+	Pk keys.PK // 29
+	Name string // 1 + length
 	Input ProgramArgs
 }
 
@@ -94,11 +94,11 @@ func (m mRun) Serialise() (s []byte, err error) {
 }
 
 type mRunResult struct {
-	Type      ProgramType // 1
-	Pk        keys.PK     // 29
-	Name      string      // 1 + length
+	Type ProgramType // 1
+	Pk keys.PK // 29
+	Name string // 1 + length
 	InputHash [32]byte
-	Result    *ProgramRets // nil if failed or no program result
+	Result *ProgramRets // nil if failed or no program result
 }
 
 func (m mRunResult) Serialise() (s []byte, err error) {

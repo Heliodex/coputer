@@ -16,12 +16,12 @@ const (
 	// one entrypoint to find them
 	// one entrypoint to bring them all
 	// and in the darkness require() them
-	Entrypoint         = "main"
+	Entrypoint = "main"
 	EntrypointFilename = Entrypoint + ".luau"
 	// (okay, init.luau doesn't work since *that* RFC)
 	InvalidEntrypiont = "init.luau"
-	DataDir           = "./data"
-	ProgramsDir       = DataDir + "/programs"
+	DataDir = "./data"
+	ProgramsDir = DataDir + "/programs"
 )
 
 func Bundle(path string) (b []byte, err error) {

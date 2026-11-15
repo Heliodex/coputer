@@ -83,10 +83,10 @@ func Parse(src string, opts Options) (bool, Result) {
 
 	return len(p.parseErrors) == 0,
 		Result{
-			Root:             rootBlock,
+			Root: rootBlock,
 			CommentLocations: commentLocations,
-			HotComments:      p.hotcomments,
-			CstNodeMap:       p.cstNodes,
-			Errors:           p.parseErrors,
+			HotComments: p.hotcomments,
+			CstNodeMap: p.cstNodes,
+			Errors: p.parseErrors,
 		}
 }

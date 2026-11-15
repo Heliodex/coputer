@@ -13,7 +13,7 @@ import (
 
 // minifyBuilder builds a token stream, inserting a single space only when two adjacent tokens would otherwise merge. Child Minify() results are written as single tokens so that every join is checked.
 type minifyBuilder struct {
-	b    strings.Builder
+	b strings.Builder
 	last byte
 }
 

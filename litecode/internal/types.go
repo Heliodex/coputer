@@ -15,22 +15,22 @@ type Val struct {
 
 type OpInfo struct {
 	Mode, KMode uint8
-	HasAux      bool
+	HasAux bool
 }
 
 type Inst struct {
 	K Val
 	// KI holds the K0, K1, K2 import path components (up to 3 layers deep), used only by GETIMPORT
-	KI                      *[3]string
+	KI *[3]string
 	KC, Opcode, KMode, B, C uint8
-	A, D                    int32
-	Aux                     uint32
-	KN                      bool
+	A, D int32
+	Aux uint32
+	KN bool
 }
 
 type Proto struct {
-	Dbgname              string
-	Code                 []Inst
+	Dbgname string
+	Code []Inst
 	InstLineInfo, Protos []uint32
 
 	MaxStackSize, NumParams, Nups uint8
@@ -64,9 +64,9 @@ const (
 
 // CoError is a custom error type used in coroutines that includes debugging information.
 type CoError struct {
-	Line          uint32
+	Line uint32
 	Dbgname, Path string
-	Sub           error
+	Sub error
 }
 
 func (e *CoError) Error() string {
@@ -77,5 +77,5 @@ func (e *CoError) Error() string {
 // Yield represents a coroutine yield, containing the return values or error if one occurred.
 type Yield struct {
 	Rets []Val
-	Err  error
+	Err error
 }

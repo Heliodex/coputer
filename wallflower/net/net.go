@@ -7,7 +7,7 @@ type (
 		EncryptedMsg
 		*keys.Peer
 	}
-	Sender   chan AddressedMsg
+	Sender chan AddressedMsg
 	Receiver chan EncryptedMsg
 )
 

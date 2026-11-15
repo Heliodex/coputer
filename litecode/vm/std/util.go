@@ -18,7 +18,7 @@ func falsy(v Val) bool {
 
 func fn(name string, f func(*Coroutine, ...Val) ([]Val, error)) Function {
 	return Function{
-		Run:  &f,
+		Run: &f,
 		Name: name,
 	}
 }

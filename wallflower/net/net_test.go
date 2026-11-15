@@ -24,10 +24,10 @@ func wurl(s string) (w WebArgsUrl) {
 	}
 
 	return WebArgsUrl{
-		Rawpath:  url.String(),
-		Path:     url.Path,
+		Rawpath: url.String(),
+		Path: url.Path,
 		Rawquery: url.RawQuery,
-		Query:    url.Query(),
+		Query: url.Query(),
 	}
 }
 
@@ -37,7 +37,7 @@ var webTests = [...]ProgramTest[WebArgs, WebRets]{
 	{
 		"web1",
 		WebArgs{
-			Url:    wurl("/"),
+			Url: wurl("/"),
 			Method: "GET",
 		},
 		WebRets{
@@ -51,7 +51,7 @@ var webTests = [...]ProgramTest[WebArgs, WebRets]{
 	{
 		"web1",
 		WebArgs{
-			Url:    wurl("/submit?"),
+			Url: wurl("/submit?"),
 			Method: "POST",
 		},
 		WebRets{
@@ -65,7 +65,7 @@ var webTests = [...]ProgramTest[WebArgs, WebRets]{
 	{
 		"web2",
 		WebArgs{
-			Url:    wurl("/"),
+			Url: wurl("/"),
 			Method: "POST",
 		},
 		WebRets{
@@ -79,7 +79,7 @@ var webTests = [...]ProgramTest[WebArgs, WebRets]{
 	{
 		"web2",
 		WebArgs{
-			Url:    wurl("/"),
+			Url: wurl("/"),
 			Method: "GET",
 		},
 		WebRets{
@@ -93,7 +93,7 @@ var webTests = [...]ProgramTest[WebArgs, WebRets]{
 	{
 		"web2",
 		WebArgs{
-			Url:    wurl("/hello"),
+			Url: wurl("/hello"),
 			Method: "GET",
 		},
 		WebRets{
@@ -107,7 +107,7 @@ var webTests = [...]ProgramTest[WebArgs, WebRets]{
 	{
 		"web2",
 		WebArgs{
-			Url:    wurl("/error"),
+			Url: wurl("/error"),
 			Method: "GET",
 		},
 		WebRets{
@@ -121,7 +121,7 @@ var webTests = [...]ProgramTest[WebArgs, WebRets]{
 	{
 		"web3",
 		WebArgs{
-			Url:    wurl("/error"),
+			Url: wurl("/error"),
 			Method: "GET",
 		},
 		WebRets{
@@ -135,18 +135,18 @@ var webTests = [...]ProgramTest[WebArgs, WebRets]{
 	{
 		"web3",
 		WebArgs{
-			Url:    wurl("/"),
+			Url: wurl("/"),
 			Method: "GET",
 		},
 		WebRets{
 			StatusCode: 200,
-			Body:       []byte(`Raw query: `),
+			Body: []byte(`Raw query: `),
 		},
 	},
 	{
 		"web3",
 		WebArgs{
-			Url:    wurl("/?a="),
+			Url: wurl("/?a="),
 			Method: "GET",
 		},
 		WebRets{
@@ -159,7 +159,7 @@ Raw query: a=`),
 	{
 		"web3",
 		WebArgs{
-			Url:    wurl("/?a=b&c=b"),
+			Url: wurl("/?a=b&c=b"),
 			Method: "GET",
 		},
 		WebRets{
@@ -174,7 +174,7 @@ Raw query: a=b&c=b`),
 	{
 		"web3",
 		WebArgs{
-			Url:    wurl("/?c=b&a=b"),
+			Url: wurl("/?c=b&a=b"),
 			Method: "GET",
 		},
 		WebRets{
@@ -189,7 +189,7 @@ Raw query: c=b&a=b`),
 	{
 		"web3",
 		WebArgs{
-			Url:    wurl("/?a=b&a=b"),
+			Url: wurl("/?a=b&a=b"),
 			Method: "GET",
 		},
 		WebRets{
@@ -203,7 +203,7 @@ Raw query: a=b&a=b`),
 	{
 		"web3",
 		WebArgs{
-			Url:    wurl("/?a=c&a=b"),
+			Url: wurl("/?a=c&a=b"),
 			Method: "GET",
 		},
 		WebRets{
@@ -217,7 +217,7 @@ Raw query: a=c&a=b`),
 	{
 		"web3",
 		WebArgs{
-			Url:    wurl("/?a=b&a=c"),
+			Url: wurl("/?a=b&a=c"),
 			Method: "GET",
 		},
 		WebRets{
@@ -231,7 +231,7 @@ Raw query: a=b&a=c`),
 	{
 		"web3",
 		WebArgs{
-			Url:    wurl("/?=b&a=c"),
+			Url: wurl("/?=b&a=c"),
 			Method: "GET",
 		},
 		WebRets{
@@ -246,7 +246,7 @@ Raw query: =b&a=c`),
 	{
 		"web3",
 		WebArgs{
-			Url:    wurl("/?=b&=c"),
+			Url: wurl("/?=b&=c"),
 			Method: "GET",
 		},
 		WebRets{

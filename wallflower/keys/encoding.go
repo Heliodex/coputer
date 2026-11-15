@@ -21,7 +21,7 @@ type (
 
 var (
 	alphabet = [36]byte([]byte("0123456789abcdefghijklmnopqrstuvwxyz"))
-	byteMap  = make(map[byte]uint, 36)
+	byteMap = make(map[byte]uint, 36)
 )
 
 func init() {
@@ -31,9 +31,9 @@ func init() {
 }
 
 const (
-	base           = uint(len(alphabet))
-	PubStart       = "copub:"
-	SecStart       = "cosec:" // lel
+	base = uint(len(alphabet))
+	PubStart = "copub:"
+	SecStart = "cosec:" // lel
 	pkStringLength = 5 * 9
 	skStringLength = 5 * 10
 )

@@ -11,10 +11,10 @@ import (
 
 type Binding struct {
 	*NodeLoc
-	Name          lex.AstName
-	Annotation    AstType
+	Name lex.AstName
+	Annotation AstType
 	ColonPosition *lex.Position
-	IsConst       bool
+	IsConst bool
 }
 
 type BindingList []Binding
@@ -25,20 +25,20 @@ type BindingList []Binding
 
 type ParseError struct {
 	Location lex.Location
-	Message  string
+	Message string
 }
 
 type Options struct {
 	// CaptureComments reports the parsed comment locations in Result. Comments are always collected internally so that Source() can reproduce them.
 	CaptureComments bool
-	StoreCstData    bool
+	StoreCstData bool
 }
 
 type Attrs []AstAttr
 
 type HotComment struct {
-	Header   bool
-	Content  string
+	Header bool
+	Content string
 	Location lex.Location
 }
 
@@ -54,16 +54,16 @@ func (c HotComment) String() string {
 }
 
 type FunctionState struct {
-	Vararg    bool
+	Vararg bool
 	LoopDepth int
 }
 
 type Result struct {
-	Root             AstStatBlock
+	Root AstStatBlock
 	CommentLocations []Comment
-	HotComments      []HotComment
-	CstNodeMap       map[AstNode]CstNode
-	Errors           []ParseError
+	HotComments []HotComment
+	CstNodeMap map[AstNode]CstNode
+	Errors []ParseError
 }
 
 func (r Result) String() string {

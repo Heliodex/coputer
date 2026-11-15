@@ -59,9 +59,9 @@ func string_char(args Args) (r []Val, err error) {
 
 const (
 	cap_unfinished = -1
-	cap_position   = -2
-	l_esc          = '%'
-	specials       = "^$*+?.([%-"
+	cap_position = -2
+	l_esc = '%'
+	specials = "^$*+?.([%-"
 	// maxcalls       = 200
 )
 
@@ -73,16 +73,36 @@ func tolower(c byte) byte {
 }
 
 // stole from ctype
-func isalpha(c byte) bool  { return c|32-'a' < 26 }
-func iscntrl(c byte) bool  { return c < ' ' || c == 127 }
-func isdigit(c byte) bool  { return c-'0' < 10 }
-func isgraph(c byte) bool  { return c-'!' < 94 }
-func islower(c byte) bool  { return c-'a' < 26 }
-func isspace(c byte) bool  { return c == ' ' || c-'\t' < 5 }
-func isupper(c byte) bool  { return c-'A' < 26 }
-func isalnum(c byte) bool  { return isalpha(c) || isdigit(c) }
-func ispunct(c byte) bool  { return isgraph(c) && !isalnum(c) }
-func isxdigit(c byte) bool { return isdigit(c) || c|32-'a' < 6 }
+func isalpha(c byte) bool {
+	return c|32-'a' < 26
+}
+func iscntrl(c byte) bool {
+	return c < ' ' || c == 127
+}
+func isdigit(c byte) bool {
+	return c-'0' < 10
+}
+func isgraph(c byte) bool {
+	return c-'!' < 94
+}
+func islower(c byte) bool {
+	return c-'a' < 26
+}
+func isspace(c byte) bool {
+	return c == ' ' || c-'\t' < 5
+}
+func isupper(c byte) bool {
+	return c-'A' < 26
+}
+func isalnum(c byte) bool {
+	return isalpha(c) || isdigit(c)
+}
+func ispunct(c byte) bool {
+	return isgraph(c) && !isalnum(c)
+}
+func isxdigit(c byte) bool {
+	return isdigit(c) || c|32-'a' < 6
+}
 
 func string_find(args Args) (r []Val, err error) {
 	s, p := args.GetString(), args.GetString()

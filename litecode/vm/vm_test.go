@@ -16,8 +16,8 @@ import (
 
 const (
 	conformanceDir = "../../test/conformance"
-	errorsDir      = "../../test/error"
-	benchDir       = "../../test/benchmark"
+	errorsDir = "../../test/error"
+	benchDir = "../../test/benchmark"
 )
 
 func trimext(s string) string {

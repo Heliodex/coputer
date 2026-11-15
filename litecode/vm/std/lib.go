@@ -27,11 +27,13 @@ type Args struct {
 	// List is the list of all arguments passed to the function.
 	List []Val
 	Name string
-	pos  int
+	pos int
 }
 
 // Rets returns a reusable buffer containing vals, so a native function can return a small result list without allocating. The caller must consume it before the next native call.
-func (a *Args) Rets(vals ...Val) []Val { return a.Co.Rets(vals...) }
+func (a *Args) Rets(vals ...Val) []Val {
+	return a.Co.Rets(vals...)
+}
 
 // nextArg advances to the next argument, reporting whether one exists.
 func (a *Args) nextArg() (Val, bool) {
@@ -213,7 +215,7 @@ func NewLib(functions []Function, other ...map[string]Val) *Table {
 
 	return &Table{
 		Readonly: true,
-		Hash:     hash,
+		Hash: hash,
 	}
 }
 
@@ -221,7 +223,7 @@ func NewLib(functions []Function, other ...map[string]Val) *Table {
 func MakeFn(name string, f func(Args) ([]Val, error)) Function {
 	return fn(name, func(co *Coroutine, vargs ...Val) ([]Val, error) {
 		return f(Args{
-			Co:   co,
+			Co: co,
 			List: vargs,
 			Name: name,
 		})

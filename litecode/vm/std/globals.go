@@ -248,9 +248,9 @@ func schubfach(exponent int, c uint64) (uint64, int) {
 
 	// 9.1. Computing k and h
 	const (
-		Q  = 20
-		C  = 315652  // floor(2^Q * log10(2))
-		A  = -131008 // floor(2^Q * log10(3/4))
+		Q = 20
+		C = 315652 // floor(2^Q * log10(2))
+		A = -131008 // floor(2^Q * log10(3/4))
 		C2 = 3483294 // floor(2^Q * log2(10))
 	)
 	var k int

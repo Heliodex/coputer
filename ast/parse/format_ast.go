@@ -144,10 +144,10 @@ func asLocalFunction(n *AstStatLocal) (*AstStatLocalFunction, bool) {
 	}
 
 	return &AstStatLocalFunction{
-		NodeLoc:      n.NodeLoc,
-		Name:         n.Vars[0],
-		Func:         fn,
-		IsConst:      n.IsConst,
+		NodeLoc: n.NodeLoc,
+		Name: n.Vars[0],
+		Func: fn,
+		IsConst: n.IsConst,
 		HasSemicolon: n.HasSemicolon,
 	}, true
 }
@@ -179,9 +179,9 @@ func asStatFunction(n *AstStatAssign) (*AstStatFunction, bool) {
 	}
 
 	return &AstStatFunction{
-		NodeLoc:      n.NodeLoc,
-		Name:         n.Vars[0],
-		Func:         fn,
+		NodeLoc: n.NodeLoc,
+		Name: n.Vars[0],
+		Func: fn,
 		HasSemicolon: n.HasSemicolon,
 	}, true
 }

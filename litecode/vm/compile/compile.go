@@ -20,8 +20,8 @@ func luauCompile(path string, o uint8) (bytecode []byte, err error) {
 
 type Program struct {
 	internal.Deserpath
-	Filepath       string
-	Compiler       Compiler
+	Filepath string
+	Compiler Compiler
 	RequireHistory []string
 }
 
@@ -29,7 +29,7 @@ type Program struct {
 func MakeCompiler(o uint8) Compiler {
 	return Compiler{
 		Cache: make(map[[32]byte]internal.Deserpath),
-		O:     o,
+		O: o,
 	}
 }
 
@@ -40,8 +40,8 @@ func Compile(c Compiler, path string) (p Program, err error) {
 	if dp, ok := c.Cache[hash]; ok {
 		return Program{
 			Deserpath: dp,
-			Filepath:  path,
-			Compiler:  c,
+			Filepath: path,
+			Compiler: c,
 		}, nil
 	}
 
@@ -68,13 +68,13 @@ func Compile(c Compiler, path string) (p Program, err error) {
 
 	dp := internal.Deserpath{
 		Deserialised: d,
-		Dbgpath:      pathext,
+		Dbgpath: pathext,
 	}
 	c.Cache[hash] = dp
 
 	return Program{
 		Deserpath: dp,
-		Filepath:  path,
-		Compiler:  c,
+		Filepath: path,
+		Compiler: c,
 	}, nil
 }

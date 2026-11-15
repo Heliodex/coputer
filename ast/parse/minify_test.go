@@ -98,42 +98,42 @@ func TestMinificationIdempotent(t *testing.T) {
 func TestMinifyStatementSeparators(t *testing.T) {
 	cases := []struct {
 		name string
-		src  string
+		src string
 		want string
 	}{
 		{
 			name: "calls concatenate directly",
-			src:  "f()\ng()\n",
+			src: "f()\ng()\n",
 			want: "f()g()",
 		},
 		{
 			name: "a table value concatenates directly with the next statement",
-			src:  "x = {}\ny = 2\n",
+			src: "x = {}\ny = 2\n",
 			want: "x={}y=2",
 		},
 		{
 			name: "a string value concatenates directly with the next statement",
-			src:  "local s = \"x\"\nlocal b = 1\n",
+			src: "local s = \"x\"\nlocal b = 1\n",
 			want: "local s=\"x\"local b=1",
 		},
 		{
 			name: "word tokens are split by a newline",
-			src:  "local a = 1\nlocal b = 2\n",
+			src: "local a = 1\nlocal b = 2\n",
 			want: "local a=1\nlocal b=2",
 		},
 		{
 			name: "a block end and a name are split by a newline",
-			src:  "if x then end\nz = 2\n",
+			src: "if x then end\nz = 2\n",
 			want: "if x then end\nz=2",
 		},
 		{
 			name: "a callable followed by a parenthesised statement takes a semicolon",
-			src:  "f()\n;(a or b)()\n",
+			src: "f()\n;(a or b)()\n",
 			want: "f();(a or b)()",
 		},
 		{
 			name: "a value followed by a parenthesised statement takes a semicolon",
-			src:  "local x = y\n;(a or b)()\n",
+			src: "local x = y\n;(a or b)()\n",
 			want: "local x=y;(a or b)()",
 		},
 	}
@@ -170,17 +170,19 @@ func TestMinifyDeclareNodes(t *testing.T) {
 	ref := func(name string) AstTypeReference {
 		return AstTypeReference{NodeLoc: &NodeLoc{}, Name: name}
 	}
-	pack := func(p AstTypePack) *AstTypePack { return &p }
+	pack := func(p AstTypePack) *AstTypePack {
+		return &p
+	}
 
 	t.Run("declare function", func(t *testing.T) {
 		node := AstStatDeclareFunction{
-			NodeLoc:    &NodeLoc{},
-			Name:       "foo",
-			Generics:   []AstGenericType{{NodeLoc: &NodeLoc{}, Name: "T"}},
-			Params:     AstTypeList{Types: []AstType{ref("number")}, TailType: pack(AstTypePackVariadic{NodeLoc: &NodeLoc{}, VariadicType: ref("string")})},
+			NodeLoc: &NodeLoc{},
+			Name: "foo",
+			Generics: []AstGenericType{{NodeLoc: &NodeLoc{}, Name: "T"}},
+			Params: AstTypeList{Types: []AstType{ref("number")}, TailType: pack(AstTypePackVariadic{NodeLoc: &NodeLoc{}, VariadicType: ref("string")})},
 			ParamNames: []AstArgumentName{{Name: "a"}},
-			Vararg:     true,
-			RetTypes:   AstTypePackExplicit{NodeLoc: &NodeLoc{}, Types: AstTypeList{Types: []AstType{ref("string"), ref("number")}}},
+			Vararg: true,
+			RetTypes: AstTypePackExplicit{NodeLoc: &NodeLoc{}, Types: AstTypeList{Types: []AstType{ref("string"), ref("number")}}},
 		}
 
 		expected := "declare function foo<T>(a:number,...:string):(string,number)"
@@ -192,15 +194,15 @@ func TestMinifyDeclareNodes(t *testing.T) {
 	t.Run("declare extern type", func(t *testing.T) {
 		super := "Bar"
 		node := AstStatDeclareExternType{
-			NodeLoc:   &NodeLoc{},
-			Name:      "Foo",
+			NodeLoc: &NodeLoc{},
+			Name: "Foo",
 			SuperName: &super,
 			Props: []AstDeclaredExternTypeProperty{
 				{Name: lex.AstName{Value: "prop"}, Ty: ref("number")},
 				{Name: lex.AstName{Value: "method"}, IsMethod: true, Ty: AstTypeFunction{
-					NodeLoc:     &NodeLoc{},
-					ArgTypes:    AstTypeList{Types: []AstType{ref("number")}},
-					ArgNames:    []*AstArgumentName{{Name: "foo"}},
+					NodeLoc: &NodeLoc{},
+					ArgTypes: AstTypeList{Types: []AstType{ref("number")}},
+					ArgNames: []*AstArgumentName{{Name: "foo"}},
 					ReturnTypes: AstTypePackExplicit{NodeLoc: &NodeLoc{}, Types: AstTypeList{Types: []AstType{ref("string")}}},
 				}},
 			},
@@ -314,42 +316,42 @@ func TestMinifyRoundTrip(t *testing.T) {
 func TestMinifyRemovesEmptyDoBlocks(t *testing.T) {
 	cases := []struct {
 		name string
-		src  string
+		src string
 		want string
 	}{
 		{
 			name: "a standalone empty do block is removed",
-			src:  "do end\n",
+			src: "do end\n",
 			want: "",
 		},
 		{
 			name: "an empty do block between statements is removed",
-			src:  "local x = 1\ndo end\nprint(x)\n",
+			src: "local x = 1\ndo end\nprint(x)\n",
 			want: "local x=1\nprint(x)",
 		},
 		{
 			name: "an indented empty do block is removed",
-			src:  "local function f()\n\tdo\n\tend\n\treturn 1\nend\n",
+			src: "local function f()\n\tdo\n\tend\n\treturn 1\nend\n",
 			want: "local function f()return 1 end",
 		},
 		{
 			name: "nested empty do blocks are removed",
-			src:  "do\ndo end\nend\nprint(1)\n",
+			src: "do\ndo end\nend\nprint(1)\n",
 			want: "print(1)",
 		},
 		{
 			name: "an empty do block inside a function value is removed once",
-			src:  "local f = function() do end return 1 end\n",
+			src: "local f = function() do end return 1 end\n",
 			want: "local function f()return 1 end",
 		},
 		{
 			name: "a non-empty do block is kept",
-			src:  "do\n\tprint(1)\nend\n",
+			src: "do\n\tprint(1)\nend\n",
 			want: "do print(1)end",
 		},
 		{
 			name: "a comment-only do block is dropped with its comments",
-			src:  "local x = 1\ndo\n\t-- note\nend\nprint(x)\n",
+			src: "local x = 1\ndo\n\t-- note\nend\nprint(x)\n",
 			want: "local x=1\nprint(x)",
 		},
 	}

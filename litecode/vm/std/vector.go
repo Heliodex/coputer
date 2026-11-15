@@ -202,6 +202,6 @@ var Libvector = NewLib([]Function{
 	MakeFn("max", vector_max),
 	MakeFn("min", vector_min),
 }, map[string]Val{
-	"one":  VecVal(Vector{1, 1, 1, 0}), // 3-wide otherwise it breaks
+	"one": VecVal(Vector{1, 1, 1, 0}), // 3-wide otherwise it breaks
 	"zero": VecVal(Vector{0, 0, 0, 0}),
 })

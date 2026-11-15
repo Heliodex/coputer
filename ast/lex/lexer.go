@@ -51,7 +51,7 @@ func (l Location) Contains(other Location) bool {
 func LocationLen(start Position, l uint32) Location {
 	return Location{
 		Begin: start,
-		End:   Position{Line: start.Line, Column: start.Column + l},
+		End: Position{Line: start.Line, Column: start.Column + l},
 	}
 }
 
@@ -114,13 +114,13 @@ type Lexer struct {
 	buffer []byte
 
 	offset, line, lineOffset uint32
-	lexeme                   Lexeme
-	prevLocation             Location
+	lexeme Lexeme
+	prevLocation Location
 
 	names AstNameTable
 
 	skipComments bool
-	readNames    bool
+	readNames bool
 
 	braceStack []BraceType
 }
@@ -248,9 +248,9 @@ func (l *Lexer) readCommentBody() Lexeme {
 
 	return Lexeme{
 		Location: Location{start, l.position()},
-		Type:     Comment,
-		Data:     l.buffer[startOffset:l.offset],
-		rest:     l.buffer[l.offset:],
+		Type: Comment,
+		Data: l.buffer[startOffset:l.offset],
+		rest: l.buffer[l.offset:],
 	}
 }
 
@@ -296,10 +296,10 @@ func (l *Lexer) readLongString(start Position, sep int, ok, broken LexemeType) L
 
 				return Lexeme{
 					Location: Location{start, l.position()},
-					Type:     ok,
-					Data:     l.buffer[startOffset:endOffset],
-					rest:     l.buffer[endOffset:],
-					Aux:      &sep,
+					Type: ok,
+					Data: l.buffer[startOffset:endOffset],
+					rest: l.buffer[endOffset:],
+					Aux: &sep,
 				}
 			}
 		} else {
@@ -309,7 +309,7 @@ func (l *Lexer) readLongString(start Position, sep int, ok, broken LexemeType) L
 
 	return Lexeme{
 		Location: Location{start, l.position()},
-		Type:     broken,
+		Type: broken,
 	}
 }
 
@@ -350,7 +350,7 @@ func (l *Lexer) readQuotedString() Lexeme {
 		case 0, '\r', '\n':
 			return Lexeme{
 				Location: Location{start, l.position()},
-				Type:     BrokenString,
+				Type: BrokenString,
 			}
 
 		case '\\':
@@ -370,10 +370,10 @@ func (l *Lexer) readQuotedString() Lexeme {
 
 	return Lexeme{
 		Location: Location{start, l.position()},
-		Type:     QuotedString,
-		Data:     l.buffer[startOffset : l.offset-1],
-		rest:     l.buffer[l.offset-1:],
-		Aux:      &aux,
+		Type: QuotedString,
+		Data: l.buffer[startOffset : l.offset-1],
+		rest: l.buffer[l.offset-1:],
+		Aux: &aux,
 	}
 }
 
@@ -394,7 +394,7 @@ func (l *Lexer) readInterpolatedStringSection(start Position, formatType, endTyp
 		case 0, '\r', '\n':
 			return Lexeme{
 				Location: Location{start, l.position()},
-				Type:     BrokenString,
+				Type: BrokenString,
 			}
 
 		case '\\':
@@ -414,9 +414,9 @@ func (l *Lexer) readInterpolatedStringSection(start Position, formatType, endTyp
 			if l.peekch(1) == '{' {
 				brokenDoubleBrace := Lexeme{
 					Location: Location{start, l.position()},
-					Type:     BrokenInterpDoubleBrace,
-					Data:     l.buffer[startOffset:l.offset],
-					rest:     l.buffer[l.offset:],
+					Type: BrokenInterpDoubleBrace,
+					Data: l.buffer[startOffset:l.offset],
+					rest: l.buffer[l.offset:],
 				}
 				l.consume()
 				l.consume()
@@ -426,9 +426,9 @@ func (l *Lexer) readInterpolatedStringSection(start Position, formatType, endTyp
 			l.consume()
 			return Lexeme{
 				Location: Location{start, l.position()},
-				Type:     formatType,
-				Data:     l.buffer[startOffset : l.offset-1],
-				rest:     l.buffer[l.offset-1:],
+				Type: formatType,
+				Data: l.buffer[startOffset : l.offset-1],
+				rest: l.buffer[l.offset-1:],
 			}
 
 		default:
@@ -440,9 +440,9 @@ func (l *Lexer) readInterpolatedStringSection(start Position, formatType, endTyp
 
 	return Lexeme{
 		Location: Location{start, l.position()},
-		Type:     endType,
-		Data:     l.buffer[startOffset : l.offset-1],
-		rest:     l.buffer[l.offset-1:],
+		Type: endType,
+		Data: l.buffer[startOffset : l.offset-1],
+		rest: l.buffer[l.offset-1:],
 	}
 }
 
@@ -473,9 +473,9 @@ func (l *Lexer) readNumber(start Position, startOffset uint32) Lexeme {
 
 	return Lexeme{
 		Location: Location{start, l.position()},
-		Type:     Number,
-		Data:     l.buffer[startOffset:l.offset],
-		rest:     l.buffer[l.offset:],
+		Type: Number,
+		Data: l.buffer[startOffset:l.offset],
+		rest: l.buffer[l.offset:],
 	}
 }
 
@@ -504,7 +504,7 @@ func (l *Lexer) readNext() Lexeme {
 	case 0:
 		return Lexeme{
 			Location: LocationLen(start, 0),
-			Type:     Eof,
+			Type: Eof,
 		}
 
 	case '-':
@@ -514,7 +514,7 @@ func (l *Lexer) readNext() Lexeme {
 			l.consume()
 			return Lexeme{
 				Location: LocationLen(start, 2),
-				Type:     SkinnyArrow,
+				Type: SkinnyArrow,
 			}
 
 		case '=':
@@ -522,7 +522,7 @@ func (l *Lexer) readNext() Lexeme {
 			l.consume()
 			return Lexeme{
 				Location: LocationLen(start, 2),
-				Type:     SubAssign,
+				Type: SubAssign,
 			}
 
 		case '-':
@@ -532,7 +532,7 @@ func (l *Lexer) readNext() Lexeme {
 		l.consume()
 		return Lexeme{
 			Location: LocationLen(start, 1),
-			Type:     '-',
+			Type: '-',
 		}
 
 	case '[':
@@ -544,13 +544,13 @@ func (l *Lexer) readNext() Lexeme {
 		if sep == -1 {
 			return Lexeme{
 				Location: LocationLen(start, 1),
-				Type:     '[',
+				Type: '[',
 			}
 		}
 
 		return Lexeme{
 			Location: LocationLen(start, 1),
-			Type:     BrokenString,
+			Type: BrokenString,
 		}
 
 	case '{':
@@ -562,7 +562,7 @@ func (l *Lexer) readNext() Lexeme {
 
 		return Lexeme{
 			Location: LocationLen(start, 1),
-			Type:     '{',
+			Type: '{',
 		}
 
 	case '}':
@@ -571,7 +571,7 @@ func (l *Lexer) readNext() Lexeme {
 		if len(l.braceStack) == 0 {
 			return Lexeme{
 				Location: LocationLen(start, 1),
-				Type:     '}',
+				Type: '}',
 			}
 		}
 
@@ -581,7 +581,7 @@ func (l *Lexer) readNext() Lexeme {
 		if braceStackTop != InterpolatedString {
 			return Lexeme{
 				Location: LocationLen(start, 1),
-				Type:     '}',
+				Type: '}',
 			}
 		}
 
@@ -594,13 +594,13 @@ func (l *Lexer) readNext() Lexeme {
 			l.consume()
 			return Lexeme{
 				Location: LocationLen(start, 2),
-				Type:     Equal,
+				Type: Equal,
 			}
 		}
 
 		return Lexeme{
 			Location: LocationLen(start, 1),
-			Type:     '=',
+			Type: '=',
 		}
 
 	case '<':
@@ -610,13 +610,13 @@ func (l *Lexer) readNext() Lexeme {
 			l.consume()
 			return Lexeme{
 				Location: LocationLen(start, 2),
-				Type:     LessEqual,
+				Type: LessEqual,
 			}
 		}
 
 		return Lexeme{
 			Location: LocationLen(start, 1),
-			Type:     '<',
+			Type: '<',
 		}
 
 	case '>':
@@ -626,13 +626,13 @@ func (l *Lexer) readNext() Lexeme {
 			l.consume()
 			return Lexeme{
 				Location: LocationLen(start, 2),
-				Type:     GreaterEqual,
+				Type: GreaterEqual,
 			}
 		}
 
 		return Lexeme{
 			Location: LocationLen(start, 1),
-			Type:     '>',
+			Type: '>',
 		}
 
 	case '~':
@@ -642,13 +642,13 @@ func (l *Lexer) readNext() Lexeme {
 			l.consume()
 			return Lexeme{
 				Location: LocationLen(start, 2),
-				Type:     NotEqual,
+				Type: NotEqual,
 			}
 		}
 
 		return Lexeme{
 			Location: LocationLen(start, 1),
-			Type:     '~', // is this even a valid luau token
+			Type: '~', // is this even a valid luau token
 		}
 
 	case '"', '\'':
@@ -668,20 +668,20 @@ func (l *Lexer) readNext() Lexeme {
 				l.consume()
 				return Lexeme{
 					Location: LocationLen(start, 3),
-					Type:     Dot3,
+					Type: Dot3,
 				}
 
 			case '=':
 				l.consume()
 				return Lexeme{
 					Location: LocationLen(start, 3),
-					Type:     ConcatAssign,
+					Type: ConcatAssign,
 				}
 			}
 
 			return Lexeme{
 				Location: LocationLen(start, 2),
-				Type:     Dot2,
+				Type: Dot2,
 			}
 
 		} else {
@@ -691,7 +691,7 @@ func (l *Lexer) readNext() Lexeme {
 
 			return Lexeme{
 				Location: LocationLen(start, 1),
-				Type:     '.',
+				Type: '.',
 			}
 		}
 
@@ -702,13 +702,13 @@ func (l *Lexer) readNext() Lexeme {
 			l.consume()
 			return Lexeme{
 				Location: LocationLen(start, 2),
-				Type:     AddAssign,
+				Type: AddAssign,
 			}
 		}
 
 		return Lexeme{
 			Location: LocationLen(start, 1),
-			Type:     '+',
+			Type: '+',
 		}
 
 	case '/':
@@ -719,7 +719,7 @@ func (l *Lexer) readNext() Lexeme {
 			l.consume()
 			return Lexeme{
 				Location: LocationLen(start, 2),
-				Type:     DivAssign,
+				Type: DivAssign,
 			}
 
 		case '/':
@@ -728,19 +728,19 @@ func (l *Lexer) readNext() Lexeme {
 				l.consume()
 				return Lexeme{
 					Location: LocationLen(start, 3),
-					Type:     FloorDivAssign,
+					Type: FloorDivAssign,
 				}
 			}
 
 			return Lexeme{
 				Location: LocationLen(start, 2),
-				Type:     FloorDiv,
+				Type: FloorDiv,
 			}
 		}
 
 		return Lexeme{
 			Location: LocationLen(start, 1),
-			Type:     '/',
+			Type: '/',
 		}
 
 	case '*':
@@ -749,13 +749,13 @@ func (l *Lexer) readNext() Lexeme {
 			l.consume()
 			return Lexeme{
 				Location: LocationLen(start, 2),
-				Type:     MulAssign,
+				Type: MulAssign,
 			}
 		}
 
 		return Lexeme{
 			Location: LocationLen(start, 1),
-			Type:     '*',
+			Type: '*',
 		}
 
 	case '%':
@@ -764,13 +764,13 @@ func (l *Lexer) readNext() Lexeme {
 			l.consume()
 			return Lexeme{
 				Location: LocationLen(start, 2),
-				Type:     ModAssign,
+				Type: ModAssign,
 			}
 		}
 
 		return Lexeme{
 			Location: LocationLen(start, 1),
-			Type:     '%',
+			Type: '%',
 		}
 
 	case '^':
@@ -779,13 +779,13 @@ func (l *Lexer) readNext() Lexeme {
 			l.consume()
 			return Lexeme{
 				Location: LocationLen(start, 2),
-				Type:     PowAssign,
+				Type: PowAssign,
 			}
 		}
 
 		return Lexeme{
 			Location: LocationLen(start, 1),
-			Type:     '^',
+			Type: '^',
 		}
 
 	case ':':
@@ -794,13 +794,13 @@ func (l *Lexer) readNext() Lexeme {
 			l.consume()
 			return Lexeme{
 				Location: LocationLen(start, 2),
-				Type:     DoubleColon,
+				Type: DoubleColon,
 			}
 		}
 
 		return Lexeme{
 			Location: LocationLen(start, 1),
-			Type:     ':',
+			Type: ':',
 		}
 
 	case '(', ')', ']', ';', ',', '#', '?', '&', '|':
@@ -809,7 +809,7 @@ func (l *Lexer) readNext() Lexeme {
 
 		return Lexeme{
 			Location: LocationLen(start, 1),
-			Type:     LexemeType(ch),
+			Type: LexemeType(ch),
 		}
 
 	case '@':
@@ -817,9 +817,9 @@ func (l *Lexer) readNext() Lexeme {
 		attribute := l.readName()
 		return Lexeme{
 			Location: Location{start, l.position()},
-			Type:     Attribute,
-			name:     &attribute.Name.Value,
-			Data:     l.buffer[startOffset+1 : l.offset],
+			Type: Attribute,
+			name: &attribute.Name.Value,
+			Data: l.buffer[startOffset+1 : l.offset],
 		}
 
 	default:
@@ -831,9 +831,9 @@ func (l *Lexer) readNext() Lexeme {
 
 			return Lexeme{
 				Location: Location{start, l.position()},
-				Type:     name.Type,
-				name:     &name.Name.Value,
-				Data:     l.buffer[l.offset-uint32(len(name.Name.Value)) : l.offset], // whatever3
+				Type: name.Type,
+				name: &name.Name.Value,
+				Data: l.buffer[l.offset-uint32(len(name.Name.Value)) : l.offset], // whatever3
 			}
 		}
 		if (l.peekch0() & 0x80) != 0 {
@@ -845,7 +845,7 @@ func (l *Lexer) readNext() Lexeme {
 
 		return Lexeme{
 			Location: LocationLen(start, 1),
-			Type:     LexemeType(ch),
+			Type: LexemeType(ch),
 		}
 	}
 }
@@ -871,7 +871,7 @@ func (l *Lexer) readUtf8Error() Lexeme {
 		l.consume()
 		return Lexeme{
 			Location: Location{start, l.position()},
-			Type:     BrokenUnicode,
+			Type: BrokenUnicode,
 		}
 	}
 
@@ -881,7 +881,7 @@ func (l *Lexer) readUtf8Error() Lexeme {
 		if (l.peekch0() & 0b11000000) != 0b10000000 {
 			return Lexeme{
 				Location: Location{start, l.position()},
-				Type:     BrokenUnicode,
+				Type: BrokenUnicode,
 			}
 		}
 
@@ -892,8 +892,8 @@ func (l *Lexer) readUtf8Error() Lexeme {
 
 	// ?
 	return Lexeme{
-		Location:  Location{start, l.position()},
-		Type:      BrokenUnicode,
+		Location: Location{start, l.position()},
+		Type: BrokenUnicode,
 		Codepoint: &codepoint,
 	}
 }

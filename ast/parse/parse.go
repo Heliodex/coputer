@@ -15,14 +15,14 @@ import (
 
 const (
 	LuauExplicitTypeInstantiationSyntax = true
-	DesugaredArrayTypeReferenceIsEmpty  = true
+	DesugaredArrayTypeReferenceIsEmpty = true
 	// LuauCstStatDoWithStatsStart         = true
 )
 
 const (
 	TypeLengthLimit = 1000
-	RecursionLimit  = 1000
-	ErrorLimit      = 100
+	RecursionLimit = 1000
+	ErrorLimit = 100
 )
 
 type QuoteStyle uint8
@@ -151,33 +151,33 @@ func (b BinaryOp) String() string {
 }
 
 var BinaryPriority = map[BinaryOp][2]int{
-	BinaryOp_Add:       {6, 6},
-	BinaryOp_Sub:       {6, 6},
-	BinaryOp_Mul:       {7, 7},
-	BinaryOp_Div:       {7, 7},
-	BinaryOp_FloorDiv:  {7, 7},
-	BinaryOp_Mod:       {7, 7},
-	BinaryOp_Pow:       {10, 9},
-	BinaryOp_Concat:    {5, 4},
+	BinaryOp_Add: {6, 6},
+	BinaryOp_Sub: {6, 6},
+	BinaryOp_Mul: {7, 7},
+	BinaryOp_Div: {7, 7},
+	BinaryOp_FloorDiv: {7, 7},
+	BinaryOp_Mod: {7, 7},
+	BinaryOp_Pow: {10, 9},
+	BinaryOp_Concat: {5, 4},
 	BinaryOp_CompareNe: {3, 3},
 	BinaryOp_CompareEq: {3, 3},
 	BinaryOp_CompareLt: {3, 3},
 	BinaryOp_CompareLe: {3, 3},
 	BinaryOp_CompareGt: {3, 3},
 	BinaryOp_CompareGe: {3, 3},
-	BinaryOp_And:       {2, 2},
-	BinaryOp_Or:        {1, 1},
+	BinaryOp_And: {2, 2},
+	BinaryOp_Or: {1, 1},
 }
 
 var CompoundLookup = map[lex.LexemeType]BinaryOp{
 	lex.FloorDivAssign: BinaryOp_FloorDiv,
-	lex.ConcatAssign:   BinaryOp_Concat,
-	lex.ModAssign:      BinaryOp_Mod,
-	lex.PowAssign:      BinaryOp_Pow,
-	lex.AddAssign:      BinaryOp_Add,
-	lex.SubAssign:      BinaryOp_Sub,
-	lex.MulAssign:      BinaryOp_Mul,
-	lex.DivAssign:      BinaryOp_Div,
+	lex.ConcatAssign: BinaryOp_Concat,
+	lex.ModAssign: BinaryOp_Mod,
+	lex.PowAssign: BinaryOp_Pow,
+	lex.AddAssign: BinaryOp_Add,
+	lex.SubAssign: BinaryOp_Sub,
+	lex.MulAssign: BinaryOp_Mul,
+	lex.DivAssign: BinaryOp_Div,
 }
 
 var BinaryOpLookup = map[lex.LexemeType]BinaryOp{
@@ -191,9 +191,9 @@ var BinaryOpLookup = map[lex.LexemeType]BinaryOp{
 	37: BinaryOp_Mod,
 	94: BinaryOp_Pow,
 
-	lex.Dot2:     BinaryOp_Concat,
+	lex.Dot2: BinaryOp_Concat,
 	lex.NotEqual: BinaryOp_CompareNe,
-	lex.Equal:    BinaryOp_CompareEq,
+	lex.Equal: BinaryOp_CompareEq,
 
 	60: BinaryOp_CompareLt,
 
@@ -202,22 +202,22 @@ var BinaryOpLookup = map[lex.LexemeType]BinaryOp{
 	62: BinaryOp_CompareGt,
 
 	lex.GreaterEqual: BinaryOp_CompareGe,
-	lex.ReservedAnd:  BinaryOp_And,
-	lex.ReservedOr:   BinaryOp_Or,
+	lex.ReservedAnd: BinaryOp_And,
+	lex.ReservedOr: BinaryOp_Or,
 }
 
 var UnaryOpLookup = map[lex.LexemeType]UnaryOp{
 	lex.ReservedNot: UnaryOp_Not,
-	45:              UnaryOp_Minus,
-	35:              UnaryOp_Len,
+	45: UnaryOp_Minus,
+	35: UnaryOp_Len,
 }
 
 var BlockFollow = map[lex.LexemeType]bool{
 	lex.ReservedElseif: true,
-	lex.ReservedUntil:  true,
-	lex.ReservedElse:   true,
-	lex.ReservedEnd:    true,
-	lex.Eof:            true,
+	lex.ReservedUntil: true,
+	lex.ReservedElse: true,
+	lex.ReservedEnd: true,
+	lex.Eof: true,
 }
 
 // var ConstantLiteral = map[string]bool{
@@ -271,9 +271,9 @@ func isEnoughValues(values []AstExpr, expected int) bool {
 
 var (
 	HexDigits = map[int]bool{}
-	HexVal    = map[int]int{}
-	Digits    = map[int]bool{}
-	Alpha     = map[int]bool{}
+	HexVal = map[int]int{}
+	Digits = map[int]bool{}
+	Alpha = map[int]bool{}
 )
 
 // var Spaces = map[int]bool{
@@ -329,10 +329,10 @@ func init() {
 // Parser Constants
 
 const (
-	nameError  = "%error-id%"
+	nameError = "%error-id%"
 	nameNumber = "number"
-	nameSelf   = "self"
-	nameNil    = "nil"
+	nameSelf = "self"
+	nameNil = "nil"
 )
 
 // Lexer helpers
@@ -371,7 +371,7 @@ func deprecatedArgsValidator(attrLoc lex.Location, args []AstExpr) (errors []Par
 	if len(args) > 1 {
 		errors = append(errors, ParseError{
 			Location: attrLoc,
-			Message:  "@deprecated can be parametrized only by 1 argument",
+			Message: "@deprecated can be parametrized only by 1 argument",
 		})
 		return errors
 	}
@@ -381,7 +381,7 @@ func deprecatedArgsValidator(attrLoc lex.Location, args []AstExpr) (errors []Par
 	if !ok {
 		errors = append(errors, ParseError{
 			Location: attrLoc,
-			Message:  "Unknown argument type for @deprecated",
+			Message: "Unknown argument type for @deprecated",
 		})
 		return errors
 	}
@@ -395,7 +395,7 @@ func deprecatedArgsValidator(attrLoc lex.Location, args []AstExpr) (errors []Par
 						errors = append(errors,
 							ParseError{
 								Location: item.Value.GetLocation(),
-								Message:  fmt.Sprintf("Unknown key '%s' for @deprecated. Only string constants for 'use' and 'reason' are allowed", keyString),
+								Message: fmt.Sprintf("Unknown key '%s' for @deprecated. Only string constants for 'use' and 'reason' are allowed", keyString),
 							},
 						)
 					}
@@ -403,7 +403,7 @@ func deprecatedArgsValidator(attrLoc lex.Location, args []AstExpr) (errors []Par
 					errors = append(errors,
 						ParseError{
 							Location: item.Value.GetLocation(),
-							Message:  fmt.Sprintf("Only constant string allowed as value for '%s'", keyString),
+							Message: fmt.Sprintf("Only constant string allowed as value for '%s'", keyString),
 						},
 					)
 				}
@@ -413,7 +413,7 @@ func deprecatedArgsValidator(attrLoc lex.Location, args []AstExpr) (errors []Par
 		errors = append(errors,
 			ParseError{
 				Location: item.Value.GetLocation(),
-				Message:  "Only constants keys 'use' and 'reason' are allowed for @deprecated attribute",
+				Message: "Only constants keys 'use' and 'reason' are allowed for @deprecated attribute",
 			},
 		)
 	}
@@ -423,7 +423,7 @@ func deprecatedArgsValidator(attrLoc lex.Location, args []AstExpr) (errors []Par
 type ArgsValidator func(lex.Location, []AstExpr) []ParseError
 
 type AttributeEntry struct {
-	Type          string
+	Type string
 	ArgsValidator ArgsValidator
 }
 
@@ -435,7 +435,7 @@ var kAttributeEntries = map[string]AttributeEntry{
 		Type: "Native",
 	},
 	"deprecated": {
-		Type:          "Deprecated",
+		Type: "Deprecated",
 		ArgsValidator: deprecatedArgsValidator,
 	},
 }
@@ -467,7 +467,7 @@ func (p *Parser) fillNext() {
 			// comments are always collected: they're attached to the blocks
 			// they appear in so that Source() can reproduce them
 			comment := Comment{
-				Type:    next.Type,
+				Type: next.Type,
 				Content: nstr,
 				NodeLoc: &NodeLoc{next.Location},
 			}
@@ -476,9 +476,9 @@ func (p *Parser) fillNext() {
 
 			if next.Type == lex.Comment && p.next_string != nil && len(*p.next_string) > 0 && (*p.next_string)[0] == '!' {
 				p.hotcomments = append(p.hotcomments, HotComment{
-					Header:   p.hotcommentHeader,
+					Header: p.hotcommentHeader,
 					Location: next.Location,
-					Content:  *p.next_string,
+					Content: *p.next_string,
 				})
 			}
 
@@ -522,7 +522,7 @@ func (p *Parser) snapshot() lex.Location {
 
 func (p *Parser) get_lexeme() lex.Lexeme {
 	return lex.Lexeme{
-		Type:     p.token_type,
+		Type: p.token_type,
 		Location: p.token_location,
 	}
 }
@@ -674,9 +674,9 @@ func (p *Parser) reportStatError(location lex.Location, exprs []AstExpr, stats [
 	p.report(location, msg)
 
 	return &AstStatError{
-		NodeLoc:      &NodeLoc{location},
-		Expressions:  exprs,
-		Statements:   stats,
+		NodeLoc: &NodeLoc{location},
+		Expressions: exprs,
+		Statements: stats,
 		MessageIndex: len(p.parseErrors) - 1,
 	}
 }
@@ -685,8 +685,8 @@ func (p *Parser) reportExprError(location lex.Location, exprs []AstExpr, msg str
 	p.report(location, msg)
 
 	return &AstExprError{
-		NodeLoc:      &NodeLoc{location},
-		Expressions:  exprs,
+		NodeLoc: &NodeLoc{location},
+		Expressions: exprs,
 		MessageIndex: len(p.parseErrors) - 1,
 	}
 }
@@ -695,8 +695,8 @@ func (p *Parser) reportTypeError(location lex.Location, types []AstType, msg str
 	p.report(location, msg)
 
 	return &AstTypeError{
-		NodeLoc:      &NodeLoc{location},
-		Types:        types,
+		NodeLoc: &NodeLoc{location},
+		Types: types,
 		MessageIndex: len(p.parseErrors) - 1,
 	}
 }
@@ -733,13 +733,13 @@ func (p *Parser) pushLocal(binding Binding) *AstLocal {
 	shadow := p.localMap[name]
 
 	local := &AstLocal{
-		Name:          name,
-		NodeLoc:       binding.NodeLoc,
-		Shadow:        shadow,
+		Name: name,
+		NodeLoc: binding.NodeLoc,
+		Shadow: shadow,
 		FunctionDepth: len(p.functionStack) - 1,
-		LoopDepth:     p.functionStack[len(p.functionStack)-1].LoopDepth,
-		Annotation:    binding.Annotation,
-		IsConst:       binding.IsConst,
+		LoopDepth: p.functionStack[len(p.functionStack)-1].LoopDepth,
+		Annotation: binding.Annotation,
+		IsConst: binding.IsConst,
 	}
 
 	p.localMap[name] = local
@@ -768,7 +768,7 @@ func (p *Parser) parseBinding(isConst bool) Binding {
 		bindingName = *nameOpt
 	} else {
 		bindingName = Binding{
-			Name:    lex.AstName{Value: nameError},
+			Name: lex.AstName{Value: nameError},
 			NodeLoc: &NodeLoc{p.snapshot()},
 		}
 	}
@@ -777,11 +777,11 @@ func (p *Parser) parseBinding(isConst bool) Binding {
 	annotation := p.parseOptionalType()
 
 	return Binding{
-		Name:          bindingName.Name,
-		NodeLoc:       bindingName.NodeLoc,
-		Annotation:    annotation,
+		Name: bindingName.Name,
+		NodeLoc: bindingName.NodeLoc,
+		Annotation: annotation,
 		ColonPosition: &colonPos,
-		IsConst:       isConst,
+		IsConst: isConst,
 	}
 }
 
@@ -884,7 +884,7 @@ func (p *Parser) parseStat() AstStat {
 	if e, ok := expr.(AstExprCall); ok {
 		return &AstStatExpr{
 			NodeLoc: e.NodeLoc,
-			Expr:    e,
+			Expr: e,
 		}
 	}
 
@@ -961,7 +961,7 @@ func (p *Parser) parseBlockNoScope() *AstStatBlock {
 			// the fact that a table assignment isn't used here in the Luau implementation makes me suspicious that it's intended to be modified later on after returning
 			stat.SetLocation(lex.Location{
 				Begin: loc.Begin,
-				End:   prevPos,
+				End: prevPos,
 			})
 		}
 
@@ -982,10 +982,10 @@ func (p *Parser) parseBlockNoScope() *AstStatBlock {
 		NodeLoc: &NodeLoc{
 			lex.Location{
 				Begin: prevPos,
-				End:   p.token_location.Begin,
+				End: p.token_location.Begin,
 			},
 		},
-		Body:   body,
+		Body: body,
 		HasEnd: false,
 	}
 
@@ -1129,7 +1129,7 @@ func (p *Parser) parseIfTail(start lex.Location, cond AstExpr, condLocal *AstLoc
 		// do we intend to copy it here or smth or what??
 		thenLocation = &lex.Location{
 			Begin: Then_begin,
-			End:   Then_end,
+			End: Then_end,
 		}
 	}
 
@@ -1190,16 +1190,16 @@ func (p *Parser) parseIfTail(start lex.Location, cond AstExpr, condLocal *AstLoc
 	}
 
 	return &AstStatIf{
-		NodeLoc:                  &NodeLoc{lex.Location{Begin: start.Begin, End: end.End}},
-		Condition:                cond, // sorry, it's my cawndishawn
-		ThenBody:                 *thenBody,
-		ElseBody:                 elsebody,
-		ThenLocation:             thenLocation,
-		ElseLocation:             elseLocation,
-		ConditionLocal:           condLocal,
-		ConditionIsConst:         condIsConst,
+		NodeLoc: &NodeLoc{lex.Location{Begin: start.Begin, End: end.End}},
+		Condition: cond, // sorry, it's my cawndishawn
+		ThenBody: *thenBody,
+		ElseBody: elsebody,
+		ThenLocation: thenLocation,
+		ElseLocation: elseLocation,
+		ConditionLocal: condLocal,
+		ConditionIsConst: condIsConst,
 		ConditionKeywordLocation: condKeyword,
-		ConditionEqualsLocation:  condEquals,
+		ConditionEqualsLocation: condEquals,
 	}
 }
 
@@ -1226,13 +1226,13 @@ func (p *Parser) parseWhile() *AstStatWhile {
 	body.HasEnd = hasEnd
 
 	return &AstStatWhile{
-		NodeLoc:   &NodeLoc{lex.Location{Begin: start.Begin, End: end.End}},
+		NodeLoc: &NodeLoc{lex.Location{Begin: start.Begin, End: end.End}},
 		Condition: cond,
-		Body:      body,
-		HasDo:     hasDo,
+		Body: body,
+		HasDo: hasDo,
 		DoLocation: lex.Location{
 			Begin: Do_begin,
-			End:   Do_end,
+			End: Do_end,
 		},
 	}
 }
@@ -1260,10 +1260,10 @@ func (p *Parser) parseRepeat() *AstStatRepeat {
 	p.restoreLocals(localsBegin)
 
 	node := &AstStatRepeat{
-		NodeLoc:   &NodeLoc{lex.Location{Begin: start.Begin, End: cond.GetLocation().End}},
+		NodeLoc: &NodeLoc{lex.Location{Begin: start.Begin, End: cond.GetLocation().End}},
 		Condition: cond,
-		Body:      body,
-		HasUntil:  hasUntil,
+		Body: body,
+		HasUntil: hasUntil,
 	}
 
 	if p.storeCstData {
@@ -1388,24 +1388,24 @@ func (p *Parser) parseFor() AstStatForOrForIn {
 
 		node := &AstStatFor{
 			NodeLoc: &NodeLoc{lex.Location{Begin: start.Begin, End: end}},
-			Var:     var_,
-			From:    from,
-			To:      to,
-			Step:    step,
-			Body:    body,
-			HasDo:   hasDo,
+			Var: var_,
+			From: from,
+			To: to,
+			Step: step,
+			Body: body,
+			HasDo: hasDo,
 			DoLocation: lex.Location{
 				Begin: Do_begin,
-				End:   Do_end,
+				End: Do_end,
 			},
 		}
 
 		if p.storeCstData {
 			p.cstNodes[node] = CstStatFor{
 				AnnotationColonPosition: varname.ColonPosition,
-				EqualsPosition:          equalsPosition,
-				EndCommaPosition:        endCommaPosition,
-				StepCommaPosition:       stepCommaPosition,
+				EqualsPosition: equalsPosition,
+				EndCommaPosition: endCommaPosition,
+				StepCommaPosition: stepCommaPosition,
 			}
 		}
 
@@ -1457,24 +1457,24 @@ func (p *Parser) parseFor() AstStatForOrForIn {
 		body.HasEnd = hasEnd
 
 		node := &AstStatForIn{
-			NodeLoc:    &NodeLoc{lex.Location{Begin: start.Begin, End: end}},
-			Vars:       vars,
-			Values:     values,
-			Body:       body,
-			HasIn:      hasIn,
+			NodeLoc: &NodeLoc{lex.Location{Begin: start.Begin, End: end}},
+			Vars: vars,
+			Values: values,
+			Body: body,
+			HasIn: hasIn,
 			InLocation: inLocation,
-			HasDo:      hasDo,
+			HasDo: hasDo,
 			DoLocation: lex.Location{
 				Begin: Do_begin,
-				End:   Do_end,
+				End: Do_end,
 			},
 		}
 
 		if p.storeCstData {
 			p.cstNodes[node] = CstStatForIn{
 				VarsAnnotationColonPositions: extractAnnotationColonPositions(*names),
-				VarsCommaPositions:           *varsCommaPosition,
-				ValuesCommaPositions:         *varsCommaPosition, // TODO: check lel
+				VarsCommaPositions: *varsCommaPosition,
+				ValuesCommaPositions: *varsCommaPosition, // TODO: check lel
 			}
 		}
 
@@ -1503,12 +1503,12 @@ func (p *Parser) parseFunctionName(hasRef []bool, debugNameRef *[]*string) AstEx
 		(*debugNameRef)[0] = &name.Name.Value
 
 		expr = &AstExprIndexName{
-			NodeLoc:       &NodeLoc{lex.Location{Begin: expr.GetLocation().Begin, End: name.Location.End}},
-			Expr:          expr,
-			Index:         name.Name.Value,
+			NodeLoc: &NodeLoc{lex.Location{Begin: expr.GetLocation().Begin, End: name.Location.End}},
+			Expr: expr,
+			Index: name.Name.Value,
 			IndexLocation: name.Location,
-			OpPosition:    opPosition,
-			Op:            '.',
+			OpPosition: opPosition,
+			Op: '.',
 		}
 
 		// note: while the parser isn't recursive here, we're generating recursive structures of unbounded depth
@@ -1528,12 +1528,12 @@ func (p *Parser) parseFunctionName(hasRef []bool, debugNameRef *[]*string) AstEx
 		(*debugNameRef)[0] = &name.Name.Value
 
 		expr = &AstExprIndexName{
-			NodeLoc:       &NodeLoc{lex.Location{Begin: expr.GetLocation().Begin, End: name.Location.End}},
-			Expr:          expr,
-			Index:         name.Name.Value,
+			NodeLoc: &NodeLoc{lex.Location{Begin: expr.GetLocation().Begin, End: name.Location.End}},
+			Expr: expr,
+			Index: name.Name.Value,
 			IndexLocation: name.Location,
-			OpPosition:    opPosition,
-			Op:            ':',
+			OpPosition: opPosition,
+			Op: ':',
 		}
 
 		hasRef[0] = true // again, todo bounds check
@@ -1564,8 +1564,8 @@ func (p *Parser) parseFunctionStat(attributes Attrs) *AstStatFunction {
 
 	node := &AstStatFunction{
 		NodeLoc: &NodeLoc{lex.Location{Begin: start.Begin, End: body.GetLocation().End}},
-		Name:    expr,
-		Func:    body,
+		Name: expr,
+		Func: body,
 	}
 
 	if p.storeCstData {
@@ -1631,9 +1631,9 @@ func (p *Parser) parseAttribute(attributes *Attrs) {
 		nameCopy := name
 		*attributes = append(*attributes, AstAttr{
 			NodeLoc: &NodeLoc{loc},
-			Type:    typ,
-			Args:    nil,
-			Name:    &nameCopy,
+			Type: typ,
+			Args: nil,
+			Name: &nameCopy,
 		})
 	} else {
 		// AttributeOpen case
@@ -1666,9 +1666,9 @@ func (p *Parser) parseAttribute(attributes *Attrs) {
 				attrNameCopy := attrName
 				*attributes = append(*attributes, AstAttr{
 					NodeLoc: &NodeLoc{nameLoc},
-					Type:    "Unknown",
-					Args:    args,
-					Name:    &attrNameCopy,
+					Type: "Unknown",
+					Args: args,
+					Name: &attrNameCopy,
 				})
 
 				if p.token_type == ',' {
@@ -1860,14 +1860,14 @@ func (p *Parser) parseLocal(start lex.Location, keywordPosition lex.Position, at
 
 		node := &AstStatLocalFunction{
 			NodeLoc: &NodeLoc{lex.Location{Begin: start.Begin, End: body.GetLocation().End}},
-			Name:    varLocal,
-			Func:    body,
+			Name: varLocal,
+			Func: body,
 			IsConst: isConst,
 		}
 
 		if p.storeCstData {
 			p.cstNodes[node] = CstStatLocalFunction{
-				LocalKeywordPosition:    localKeywordPosition,
+				LocalKeywordPosition: localKeywordPosition,
 				FunctionKeywordPosition: functionKeywordPosition,
 			}
 		}
@@ -1926,18 +1926,18 @@ func (p *Parser) parseLocal(start lex.Location, keywordPosition lex.Position, at
 		}
 
 		node := &AstStatLocal{
-			NodeLoc:            &NodeLoc{lex.Location{Begin: start.Begin, End: end}},
-			Vars:               vars,
-			Values:             values,
+			NodeLoc: &NodeLoc{lex.Location{Begin: start.Begin, End: end}},
+			Vars: vars,
+			Values: values,
 			EqualsSignLocation: equalsSignLocation,
-			IsConst:            isConst,
+			IsConst: isConst,
 		}
 
 		if p.storeCstData {
 			p.cstNodes[node] = CstStatLocal{
 				VarsAnnotationColonPositions: extractAnnotationColonPositions(names),
-				VarsCommaPositions:           varsCommaPositions,
-				ValuesCommaPositions:         valuesCommaPositions,
+				VarsCommaPositions: varsCommaPositions,
+				ValuesCommaPositions: valuesCommaPositions,
 			}
 		}
 
@@ -1981,7 +1981,7 @@ func (p *Parser) parseReturn() *AstStatReturn {
 
 	node := &AstStatReturn{
 		NodeLoc: &NodeLoc{lex.Location{Begin: start.Begin, End: end}},
-		List:    list,
+		List: list,
 	}
 
 	if p.storeCstData {
@@ -2012,7 +2012,7 @@ func (p *Parser) parseTypeAlias(start lex.Location, exported bool, typeKeywordPo
 		name = *nameOpt
 	} else {
 		name = Binding{
-			Name:    lex.AstName{Value: nameError},
+			Name: lex.AstName{Value: nameError},
 			NodeLoc: &NodeLoc{p.snapshot()},
 		}
 	}
@@ -2038,22 +2038,22 @@ func (p *Parser) parseTypeAlias(start lex.Location, exported bool, typeKeywordPo
 	typeLoc := type_.GetLocation()
 
 	node := &AstStatTypeAlias{
-		NodeLoc:      &NodeLoc{lex.Location{Begin: start.Begin, End: typeLoc.End}},
-		Name:         name.Name.Value,
+		NodeLoc: &NodeLoc{lex.Location{Begin: start.Begin, End: typeLoc.End}},
+		Name: name.Name.Value,
 		NameLocation: name.Location,
-		Generics:     generics,
+		Generics: generics,
 		GenericPacks: genericPacks,
-		Type:         type_,
-		Exported:     exported,
+		Type: type_,
+		Exported: exported,
 	}
 
 	if p.storeCstData {
 		p.cstNodes[node] = CstStatTypeAlias{
-			TypeKeywordPosition:    typeKeywordPosition,
-			GenericsOpenPosition:   genericsOpenPosRef,
+			TypeKeywordPosition: typeKeywordPosition,
+			GenericsOpenPosition: genericsOpenPosRef,
 			GenericsCommaPositions: genericsCommaPos,
-			GenericsClosePosition:  genericsClosePosRef,
-			EqualsPosition:         equalsPosition,
+			GenericsClosePosition: genericsClosePosRef,
+			EqualsPosition: equalsPosition,
 		}
 	}
 
@@ -2074,7 +2074,7 @@ func (p *Parser) parseTypeFunction(start lex.Location, exported bool, typeKeywor
 		fnName = *fnNameOpt
 	} else {
 		fnName = Binding{
-			Name:    lex.AstName{Value: nameError},
+			Name: lex.AstName{Value: nameError},
 			NodeLoc: &NodeLoc{p.snapshot()},
 		}
 	}
@@ -2093,17 +2093,17 @@ func (p *Parser) parseTypeFunction(start lex.Location, exported bool, typeKeywor
 	hasErrors := len(p.parseErrors) > errorsAtStart
 
 	node := &AstStatTypeFunction{
-		NodeLoc:      &NodeLoc{lex.Location{Begin: start.Begin, End: body.GetLocation().End}},
-		Name:         fnName.Name.Value,
+		NodeLoc: &NodeLoc{lex.Location{Begin: start.Begin, End: body.GetLocation().End}},
+		Name: fnName.Name.Value,
 		NameLocation: fnName.Location,
-		Body:         body,
-		Exported:     exported,
-		HasErrors:    hasErrors,
+		Body: body,
+		Exported: exported,
+		HasErrors: hasErrors,
 	}
 
 	if p.storeCstData {
 		p.cstNodes[node] = CstStatTypeFunction{
-			TypeKeywordPosition:     typeKeywordPosition,
+			TypeKeywordPosition: typeKeywordPosition,
 			FunctionKeywordPosition: matchFn.Location.Begin,
 		}
 	}
@@ -2124,7 +2124,7 @@ func (p *Parser) parseNameOpt(context *string) *Binding {
 	}
 
 	result := &Binding{
-		Name:    lex.AstName{Value: value},
+		Name: lex.AstName{Value: value},
 		NodeLoc: &NodeLoc{p.snapshot()},
 	}
 
@@ -2139,7 +2139,7 @@ func (p *Parser) parseName(context *string) Binding {
 		return *name
 	}
 	return Binding{
-		Name:    lex.AstName{Value: nameError},
+		Name: lex.AstName{Value: nameError},
 		NodeLoc: &NodeLoc{p.snapshot()},
 	}
 }
@@ -2147,7 +2147,7 @@ func (p *Parser) parseName(context *string) Binding {
 // pzero and pone are immutable sentinel values returned by tableSeparator.
 var (
 	pzero int
-	pone  = 1
+	pone = 1
 )
 
 func (p *Parser) tableSeparator() *int {
@@ -2220,14 +2220,14 @@ func (p *Parser) parseAssignment(initial AstExpr) *AstStatAssign {
 
 	node := &AstStatAssign{
 		NodeLoc: &NodeLoc{lex.Location{Begin: initial.GetLocation().Begin, End: endLoc.End}},
-		Vars:    vars,
-		Values:  values,
+		Vars: vars,
+		Values: values,
 	}
 
 	if p.storeCstData {
 		p.cstNodes[node] = CstStatAssign{
-			VarsCommaPositions:   varsCommaPositions,
-			EqualsPosition:       equalsPosition,
+			VarsCommaPositions: varsCommaPositions,
+			EqualsPosition: equalsPosition,
 			ValuesCommaPositions: valuesCommaPositions,
 		}
 	}
@@ -2248,9 +2248,9 @@ func (p *Parser) parseCompoundAssignment(initial AstExpr, op BinaryOp) *AstStatC
 
 	node := &AstStatCompoundAssign{
 		NodeLoc: &NodeLoc{lex.Location{Begin: initial.GetLocation().Begin, End: value.GetLocation().End}},
-		Op:      op,
-		Var:     initial,
-		Value:   value,
+		Op: op,
+		Var: initial,
+		Value: value,
 	}
 
 	if p.storeCstData {
@@ -2267,7 +2267,7 @@ func (p *Parser) prepareFunctionArguments(start lex.Location, hasself bool, args
 	var selfLocal *AstLocal
 	if hasself {
 		selfLocal = p.pushLocal(Binding{
-			Name:    lex.AstName{Value: nameSelf},
+			Name: lex.AstName{Value: nameSelf},
 			NodeLoc: &NodeLoc{start},
 		})
 	}
@@ -2367,7 +2367,7 @@ func (p *Parser) parseFunctionBody(hasself bool, matchFunction lex.Lexeme, debug
 	if parenType == '(' && p.token_type == ')' {
 		loc := lex.Location{
 			Begin: parenBegin,
-			End:   p.token_location.End,
+			End: p.token_location.End,
 		}
 		argLocation = &loc
 	}
@@ -2391,7 +2391,7 @@ func (p *Parser) parseFunctionBody(hasself bool, matchFunction lex.Lexeme, debug
 	var funLocal *AstLocal
 	if localName != nil {
 		funLocal = p.pushLocal(Binding{
-			Name:    lex.AstName{Value: *localName},
+			Name: lex.AstName{Value: *localName},
 			NodeLoc: &NodeLoc{start},
 			IsConst: isConst,
 		})
@@ -2430,19 +2430,19 @@ func (p *Parser) parseFunctionBody(hasself bool, matchFunction lex.Lexeme, debug
 	}
 
 	node := AstExprFunction{
-		NodeLoc:          &NodeLoc{lex.Location{Begin: start.Begin, End: p.prev_location.End}},
-		Attributes:       []AstAttr(attributes),
-		Generics:         generics,
-		GenericPacks:     genericPacks,
-		Self:             selfLocal,
-		Args:             argLocals,
-		Vararg:           vararg,
-		VarargLocation:   varargLoc,
-		Body:             *body,
-		FunctionDepth:    len(p.functionStack),
+		NodeLoc: &NodeLoc{lex.Location{Begin: start.Begin, End: p.prev_location.End}},
+		Attributes: []AstAttr(attributes),
+		Generics: generics,
+		GenericPacks: genericPacks,
+		Self: selfLocal,
+		Args: argLocals,
+		Vararg: vararg,
+		VarargLocation: varargLoc,
+		Body: *body,
+		FunctionDepth: len(p.functionStack),
 		ReturnAnnotation: typelist,
 		VarargAnnotation: varargAnn,
-		ArgLocation:      argLocation,
+		ArgLocation: argLocation,
 	}
 
 	if debugname != nil {
@@ -2506,8 +2506,8 @@ func (p *Parser) parseGenericTypeList(withDefaultValues bool, openPosRef *lex.Po
 					}
 
 					node := AstGenericTypePack{
-						NodeLoc:      &NodeLoc{nameLoc},
-						Name:         name,
+						NodeLoc: &NodeLoc{nameLoc},
+						Name: name,
 						DefaultValue: &typePack,
 					}
 
@@ -2520,8 +2520,8 @@ func (p *Parser) parseGenericTypeList(withDefaultValues bool, openPosRef *lex.Po
 					}
 
 					node := AstGenericTypePack{
-						NodeLoc:      &NodeLoc{nameLoc},
-						Name:         name,
+						NodeLoc: &NodeLoc{nameLoc},
+						Name: name,
 						DefaultValue: nil,
 					}
 
@@ -2537,8 +2537,8 @@ func (p *Parser) parseGenericTypeList(withDefaultValues bool, openPosRef *lex.Po
 					defaultType := p.parseType(false)
 
 					node := AstGenericType{
-						NodeLoc:      &NodeLoc{nameLoc},
-						Name:         name,
+						NodeLoc: &NodeLoc{nameLoc},
+						Name: name,
 						DefaultValue: &defaultType,
 					}
 					names = append(names, node)
@@ -2549,8 +2549,8 @@ func (p *Parser) parseGenericTypeList(withDefaultValues bool, openPosRef *lex.Po
 					}
 
 					node := AstGenericType{
-						NodeLoc:      &NodeLoc{nameLoc},
-						Name:         name,
+						NodeLoc: &NodeLoc{nameLoc},
+						Name: name,
 						DefaultValue: nil,
 					}
 					names = append(names, node)
@@ -2614,7 +2614,7 @@ func (p *Parser) parseTypeList(result *[]AstType, resultNames *[]*AstArgumentNam
 				nameStr = *p.token_string
 			}
 			argName := &AstArgumentName{
-				Name:     nameStr,
+				Name: nameStr,
 				Location: p.snapshot(),
 			}
 
@@ -2701,12 +2701,12 @@ func (p *Parser) parseReturnType() AstTypePack {
 		var closePos *lex.Position
 		node := AstTypePackExplicit{
 			NodeLoc: &NodeLoc{typeLoc},
-			Types:   AstTypeList{Types: []AstType{type_}},
+			Types: AstTypeList{Types: []AstType{type_}},
 		}
 
 		if p.storeCstData {
 			p.cstNodes[node] = CstTypePackExplicit{
-				OpenParenthesesPosition:  openPos,
+				OpenParenthesesPosition: openPos,
 				CloseParenthesesPosition: closePos,
 			}
 		}
@@ -2743,7 +2743,7 @@ func (p *Parser) parseReturnType() AstTypePack {
 			if varargAnnotation == nil {
 				inner = AstTypeGroup{
 					NodeLoc: &NodeLoc{lex.Location{Begin: begin.Location.Begin, End: closeParenPos}},
-					Type:    result[0],
+					Type: result[0],
 				}
 			} else {
 				inner = result[0]
@@ -2762,15 +2762,15 @@ func (p *Parser) parseReturnType() AstTypePack {
 			openPos := begin.Location.Begin
 			node := AstTypePackExplicit{
 				NodeLoc: &NodeLoc{lex.Location{Begin: begin.Location.Begin, End: endPos}},
-				Types:   AstTypeList{Types: []AstType{returnType}, TailType: tailTypePtr},
+				Types: AstTypeList{Types: []AstType{returnType}, TailType: tailTypePtr},
 			}
 
 			if p.storeCstData {
 				cp := commaPositions
 				p.cstNodes[node] = CstTypePackExplicit{
-					OpenParenthesesPosition:  &openPos,
+					OpenParenthesesPosition: &openPos,
 					CloseParenthesesPosition: &closeParenPos,
-					CommaPositions:           &cp,
+					CommaPositions: &cp,
 				}
 			}
 			return node
@@ -2790,15 +2790,15 @@ func (p *Parser) parseReturnType() AstTypePack {
 
 		node := AstTypePackExplicit{
 			NodeLoc: &NodeLoc{lex.Location{Begin: begin.Location.Begin, End: endPos}},
-			Types:   AstTypeList{Types: result, TailType: tailPtr},
+			Types: AstTypeList{Types: result, TailType: tailPtr},
 		}
 
 		if p.storeCstData {
 			cp := commaPositions
 			p.cstNodes[node] = CstTypePackExplicit{
-				OpenParenthesesPosition:  &openPos,
+				OpenParenthesesPosition: &openPos,
 				CloseParenthesesPosition: &closeParenPos,
-				CommaPositions:           &cp,
+				CommaPositions: &cp,
 			}
 		}
 		return node
@@ -2817,24 +2817,24 @@ func (p *Parser) parseReturnType() AstTypePack {
 	openPos := begin.Location.Begin
 	node := AstTypePackExplicit{
 		NodeLoc: &NodeLoc{lex.Location{Begin: begin.Location.Begin, End: tailLoc.End}},
-		Types:   AstTypeList{Types: []AstType{tail}},
+		Types: AstTypeList{Types: []AstType{tail}},
 	}
 
 	if p.storeCstData {
 		cp := commaPositions
 		p.cstNodes[node] = CstTypePackExplicit{
-			OpenParenthesesPosition:  &openPos,
+			OpenParenthesesPosition: &openPos,
 			CloseParenthesesPosition: &closeParenPos,
-			CommaPositions:           &cp,
+			CommaPositions: &cp,
 		}
 
 		// Override function type CST with return-type position info
 		p.cstNodes[tail] = CstTypeFunction{
-			OpenArgsPosition:           begin.Location.Begin,
+			OpenArgsPosition: begin.Location.Begin,
 			ArgumentNameColonPositions: nameColonPositions,
-			ArgumentsCommaPositions:    commaPositions,
-			CloseArgsPosition:          closeParenPos,
-			ReturnArrowPosition:        returnArrowPosition,
+			ArgumentsCommaPositions: commaPositions,
+			CloseArgsPosition: closeParenPos,
+			ReturnArrowPosition: returnArrowPosition,
 		}
 	}
 
@@ -2877,18 +2877,18 @@ func (p *Parser) parseTableIndexer(access string, accessLoc *lex.Location, begin
 	resultLoc := result.GetLocation()
 
 	node := AstTableIndexer{
-		Location:       lex.Location{Begin: begin.Location.Begin, End: resultLoc.End},
-		IndexType:      index,
-		ResultType:     result,
-		Access:         access,
+		Location: lex.Location{Begin: begin.Location.Begin, End: resultLoc.End},
+		IndexType: index,
+		ResultType: result,
+		Access: access,
 		AccessLocation: accessLoc,
 	}
 
 	return parseTableIndexerResult{
-		node:                 node,
-		indexerOpenPosition:  begin.Location.Begin,
+		node: node,
+		indexerOpenPosition: begin.Location.Begin,
 		indexerClosePosition: indexerClosePos,
-		colonPosition:        colonPos,
+		colonPosition: colonPos,
 	}
 }
 
@@ -2936,8 +2936,8 @@ func (p *Parser) parseTableType(inDeclarationContext bool) AstTypeTable {
 					stringPos = &sp
 					cstStr = &CstExprConstantString{
 						SourceString: p.token_string,
-						QuoteStyle:   int(style),
-						BlockDepth:   depth,
+						QuoteStyle: int(style),
+						BlockDepth: depth,
 					}
 				}
 
@@ -2955,10 +2955,10 @@ func (p *Parser) parseTableType(inDeclarationContext bool) AstTypeTable {
 
 				if chars != nil {
 					props = append(props, AstTableProp{
-						Name:           lex.AstName{Value: *chars},
-						NodeLoc:        &NodeLoc{begin.Location},
-						Type:           type_,
-						Access:         access,
+						Name: lex.AstName{Value: *chars},
+						NodeLoc: &NodeLoc{begin.Location},
+						Type: type_,
+						Access: access,
 						AccessLocation: accessLoc,
 					})
 
@@ -2967,14 +2967,14 @@ func (p *Parser) parseTableType(inDeclarationContext bool) AstTypeTable {
 						openPos := begin.Location.Begin
 						closePos := indexerClosePos
 						cstItems = append(cstItems, CstTypeTableItem{
-							Kind:                 "StringProperty",
-							IndexerOpenPosition:  &openPos,
+							Kind: "StringProperty",
+							IndexerOpenPosition: &openPos,
 							IndexerClosePosition: &closePos,
-							ColonPosition:        &colonPos,
-							Separator:            p.tableSeparator(),
-							SeparatorPosition:    &sepPos,
-							StringInfo:           cstStr,
-							StringPosition:       stringPos,
+							ColonPosition: &colonPos,
+							Separator: p.tableSeparator(),
+							SeparatorPosition: &sepPos,
+							StringInfo: cstStr,
+							StringPosition: stringPos,
 						})
 					}
 					_ = typeLoc
@@ -2995,12 +2995,12 @@ func (p *Parser) parseTableType(inDeclarationContext bool) AstTypeTable {
 						closePos := idxRes.indexerClosePosition
 						colonPos := idxRes.colonPosition
 						cstItems = append(cstItems, CstTypeTableItem{
-							Kind:                 "Indexer",
-							IndexerOpenPosition:  &openPos,
+							Kind: "Indexer",
+							IndexerOpenPosition: &openPos,
 							IndexerClosePosition: &closePos,
-							ColonPosition:        &colonPos,
-							Separator:            p.tableSeparator(),
-							SeparatorPosition:    &sepPos,
+							ColonPosition: &colonPos,
+							Separator: p.tableSeparator(),
+							SeparatorPosition: &sepPos,
 						})
 					}
 				}
@@ -3016,17 +3016,17 @@ func (p *Parser) parseTableType(inDeclarationContext bool) AstTypeTable {
 			}
 
 			index := AstTypeReference{
-				NodeLoc:          &NodeLoc{indexLocation},
+				NodeLoc: &NodeLoc{indexLocation},
 				HasParameterList: false,
-				Name:             nameNumber,
-				NameLocation:     indexLocation,
+				Name: nameNumber,
+				NameLocation: indexLocation,
 			}
 
 			idxVal := AstTableIndexer{
-				Location:       typeLoc,
-				IndexType:      index,
-				ResultType:     type_,
-				Access:         access,
+				Location: typeLoc,
+				IndexType: index,
+				ResultType: type_,
+				Access: access,
 				AccessLocation: accessLoc,
 			}
 			indexer = &idxVal
@@ -3047,19 +3047,19 @@ func (p *Parser) parseTableType(inDeclarationContext bool) AstTypeTable {
 			_ = typeLoc
 
 			props = append(props, AstTableProp{
-				Name:           nameOpt.Name,
-				NodeLoc:        nameOpt.NodeLoc,
-				Type:           type_,
-				Access:         access,
+				Name: nameOpt.Name,
+				NodeLoc: nameOpt.NodeLoc,
+				Type: type_,
+				Access: access,
 				AccessLocation: accessLoc,
 			})
 
 			if p.storeCstData {
 				sepPos := p.token_location.Begin
 				cstItems = append(cstItems, CstTypeTableItem{
-					Kind:              "Property",
-					ColonPosition:     &colonPos,
-					Separator:         p.tableSeparator(),
+					Kind: "Property",
+					ColonPosition: &colonPos,
+					Separator: p.tableSeparator(),
 					SeparatorPosition: &sepPos,
 				})
 			}
@@ -3078,14 +3078,14 @@ func (p *Parser) parseTableType(inDeclarationContext bool) AstTypeTable {
 
 	node := AstTypeTable{
 		NodeLoc: &NodeLoc{lex.Location{Begin: start.Begin, End: endLoc.End}},
-		Props:   props,
+		Props: props,
 		Indexer: indexer,
 	}
 	p.attachTypeTableComments(&node)
 
 	if p.storeCstData {
 		p.cstNodes[node] = CstTypeTable{
-			Items:   cstItems,
+			Items: cstItems,
 			IsArray: indexer != nil && len(props) == 0,
 		}
 	}
@@ -3150,14 +3150,14 @@ func (p *Parser) parseFunctionType(allowPack bool, attributes Attrs) (AstType, A
 			cp := argCommaPos
 			node := AstTypePackExplicit{
 				NodeLoc: &NodeLoc{lex.Location{Begin: paramStart.Location.Begin, End: closeArgsPos}},
-				Types:   AstTypeList{Types: params},
+				Types: AstTypeList{Types: params},
 			}
 
 			if p.storeCstData {
 				p.cstNodes[node] = CstTypePackExplicit{
-					OpenParenthesesPosition:  &openPos,
+					OpenParenthesesPosition: &openPos,
 					CloseParenthesesPosition: &closeArgsPos,
-					CommaPositions:           &cp,
+					CommaPositions: &cp,
 				}
 			}
 
@@ -3166,7 +3166,7 @@ func (p *Parser) parseFunctionType(allowPack bool, attributes Attrs) (AstType, A
 
 		return AstTypeGroup{
 			NodeLoc: &NodeLoc{lex.Location{Begin: paramStart.Location.Begin, End: closeArgsPos}},
-			Type:    params[0],
+			Type: params[0],
 		}, nil
 	}
 
@@ -3180,14 +3180,14 @@ func (p *Parser) parseFunctionType(allowPack bool, attributes Attrs) (AstType, A
 		cp := argCommaPos
 		node := AstTypePackExplicit{
 			NodeLoc: &NodeLoc{lex.Location{Begin: paramStart.Location.Begin, End: closeArgsPos}},
-			Types:   AstTypeList{Types: params, TailType: tailPtr},
+			Types: AstTypeList{Types: params, TailType: tailPtr},
 		}
 
 		if p.storeCstData {
 			p.cstNodes[node] = CstTypePackExplicit{
-				OpenParenthesesPosition:  &openPos,
+				OpenParenthesesPosition: &openPos,
 				CloseParenthesesPosition: &closeArgsPos,
-				CommaPositions:           &cp,
+				CommaPositions: &cp,
 			}
 		}
 
@@ -3205,14 +3205,14 @@ func (p *Parser) parseFunctionType(allowPack bool, attributes Attrs) (AstType, A
 
 	if p.storeCstData {
 		p.cstNodes[node] = CstTypeFunction{
-			OpenGenericsPosition:       openGenPosRef,
-			GenericsCommaPositions:     genCommaPos,
-			CloseGenericsPosition:      closeGenPosRef,
-			OpenArgsPosition:           paramStart.Location.Begin,
+			OpenGenericsPosition: openGenPosRef,
+			GenericsCommaPositions: genCommaPos,
+			CloseGenericsPosition: closeGenPosRef,
+			OpenArgsPosition: paramStart.Location.Begin,
 			ArgumentNameColonPositions: nameColonPos,
-			ArgumentsCommaPositions:    argCommaPos,
-			CloseArgsPosition:          closeArgsPos,
-			ReturnArrowPosition:        returnArrowPosition,
+			ArgumentsCommaPositions: argCommaPos,
+			CloseArgsPosition: closeArgsPos,
+			ReturnArrowPosition: returnArrowPosition,
 		}
 	}
 
@@ -3231,10 +3231,10 @@ func (p *Parser) parseFunctionTypeTail(begin lex.Lexeme, attributes Attrs, gener
 			"Expected '->' after '()' when parsing function type; did you mean 'nil'?")
 
 		return AstTypeReference{
-			NodeLoc:          &NodeLoc{begin.Location},
+			NodeLoc: &NodeLoc{begin.Location},
 			HasParameterList: false,
-			Name:             nameNil,
-			NameLocation:     begin.Location,
+			Name: nameNil,
+			NameLocation: begin.Location,
 		}
 	} else {
 		p.expectAndConsume(lex.SkinnyArrow, new("function type"))
@@ -3244,18 +3244,18 @@ func (p *Parser) parseFunctionTypeTail(begin lex.Lexeme, attributes Attrs, gener
 	retTypeLoc := returnType.GetLocation()
 
 	return AstTypeFunction{
-		NodeLoc:      &NodeLoc{lex.Location{Begin: begin.Location.Begin, End: retTypeLoc.End}},
-		Attributes:   []AstAttr(attributes),
-		Generics:     generics,
+		NodeLoc: &NodeLoc{lex.Location{Begin: begin.Location.Begin, End: retTypeLoc.End}},
+		Attributes: []AstAttr(attributes),
+		Generics: generics,
 		GenericPacks: genericPacks,
-		ArgTypes:     AstTypeList{Types: params, TailType: varargAnnotation},
-		ArgNames:     paramNames,
-		ReturnTypes:  returnType,
+		ArgTypes: AstTypeList{Types: params, TailType: varargAnnotation},
+		ArgNames: paramNames,
+		ReturnTypes: returnType,
 	}
 }
 
 type parseTableIndexerResult struct {
-	node                                                     AstTableIndexer
+	node AstTableIndexer
 	indexerOpenPosition, indexerClosePosition, colonPosition lex.Position
 }
 
@@ -3358,8 +3358,8 @@ loop:
 
 	if len(parts) == 0 {
 		return AstTypeError{
-			NodeLoc:      &NodeLoc{begin},
-			IsMissing:    true,
+			NodeLoc: &NodeLoc{begin},
+			IsMissing: true,
 			MessageIndex: len(p.parseErrors),
 		}
 	}
@@ -3370,7 +3370,7 @@ loop:
 		node := AstTypeUnion{NodeLoc: &NodeLoc{loc}, Types: parts}
 		if p.storeCstData {
 			p.cstNodes[node] = CstTypeUnion{
-				LeadingPosition:    leadingPosition,
+				LeadingPosition: leadingPosition,
 				SeparatorPositions: separatorPositions,
 			}
 		}
@@ -3380,7 +3380,7 @@ loop:
 	node := AstTypeIntersection{NodeLoc: &NodeLoc{loc}, Types: parts}
 	if p.storeCstData {
 		p.cstNodes[node] = CstTypeIntersection{
-			LeadingPosition:    leadingPosition,
+			LeadingPosition: leadingPosition,
 			SeparatorPositions: separatorPositions,
 		}
 	}
@@ -3423,10 +3423,10 @@ func (p *Parser) parseSimpleType(allowPack bool, inDeclarationContext bool) (Ast
 	case lex.ReservedNil:
 		p.nextLexeme()
 		return AstTypeReference{
-			NodeLoc:          &NodeLoc{start},
+			NodeLoc: &NodeLoc{start},
 			HasParameterList: false,
-			Name:             nameNil,
-			NameLocation:     start,
+			Name: nameNil,
+			NameLocation: start,
 		}, nil
 
 	case lex.ReservedTrue:
@@ -3482,12 +3482,12 @@ func (p *Parser) parseSimpleType(allowPack bool, inDeclarationContext bool) (Ast
 
 			node := AstTypeTypeof{
 				NodeLoc: &NodeLoc{lex.Location{Begin: start.Begin, End: endLoc.End}},
-				Expr:    expr,
+				Expr: expr,
 			}
 
 			if p.storeCstData {
 				p.cstNodes[node] = CstTypeTypeof{
-					OpenPosition:  typeofBegin.Location.Begin,
+					OpenPosition: typeofBegin.Location.Begin,
 					ClosePosition: endLoc.Begin,
 				}
 			}
@@ -3513,21 +3513,21 @@ func (p *Parser) parseSimpleType(allowPack bool, inDeclarationContext bool) (Ast
 		}
 
 		node := AstTypeReference{
-			NodeLoc:          &NodeLoc{lex.Location{Begin: start.Begin, End: p.prev_location.End}},
+			NodeLoc: &NodeLoc{lex.Location{Begin: start.Begin, End: p.prev_location.End}},
 			HasParameterList: hasParams,
-			Prefix:           prefix,
-			PrefixLocation:   prefixLoc,
-			Name:             name.Name.Value,
-			NameLocation:     name.Location,
-			Parameters:       params,
+			Prefix: prefix,
+			PrefixLocation: prefixLoc,
+			Name: name.Name.Value,
+			NameLocation: name.Location,
+			Parameters: params,
 		}
 
 		if p.storeCstData {
 			p.cstNodes[node] = CstTypeReference{
-				PrefixPointPosition:      prefixPointPos,
-				OpenParametersPosition:   openPosRef,
+				PrefixPointPosition: prefixPointPos,
+				OpenParametersPosition: openPosRef,
 				ParametersCommaPositions: commaPos,
-				CloseParametersPosition:  closePosRef,
+				CloseParametersPosition: closePosRef,
 			}
 		}
 
@@ -3552,9 +3552,9 @@ func (p *Parser) parseSimpleType(allowPack bool, inDeclarationContext bool) (Ast
 	p.report(start, fmt.Sprintf("Expected type, got %s", currLex.String()))
 
 	return AstTypeError{
-		NodeLoc:      &NodeLoc{start},
-		Types:        nil,
-		IsMissing:    true,
+		NodeLoc: &NodeLoc{start},
+		Types: nil,
+		IsMissing: true,
 		MessageIndex: len(p.parseErrors),
 	}, nil
 }
@@ -3568,7 +3568,7 @@ func (p *Parser) parseVariadicArgumentTypePack() AstTypePackVariadicOrGeneric {
 		p.nextLexeme() // consume ...
 
 		node := AstTypePackGeneric{
-			NodeLoc:     &NodeLoc{lex.Location{Begin: name.Location.Begin, End: p.prev_location.End}},
+			NodeLoc: &NodeLoc{lex.Location{Begin: name.Location.Begin, End: p.prev_location.End}},
 			GenericName: name.Name.Value,
 		}
 
@@ -3584,7 +3584,7 @@ func (p *Parser) parseVariadicArgumentTypePack() AstTypePackVariadicOrGeneric {
 	varTy := p.parseType(false)
 	varLoc := varTy.GetLocation()
 	return AstTypePackVariadic{
-		NodeLoc:      &NodeLoc{varLoc},
+		NodeLoc: &NodeLoc{varLoc},
 		VariadicType: varTy,
 	}
 }
@@ -3597,7 +3597,7 @@ func (p *Parser) parseTypePack() AstTypePackVariadicOrGeneric {
 		varTy := p.parseType(false)
 		varLoc := varTy.GetLocation()
 		return AstTypePackVariadic{
-			NodeLoc:      &NodeLoc{lex.Location{Begin: start.Begin, End: varLoc.End}},
+			NodeLoc: &NodeLoc{lex.Location{Begin: start.Begin, End: varLoc.End}},
 			VariadicType: varTy,
 		}
 	} else if p.token_type == lex.Name && p.next_type == lex.Dot3 {
@@ -3607,7 +3607,7 @@ func (p *Parser) parseTypePack() AstTypePackVariadicOrGeneric {
 		p.nextLexeme() // consume ...
 
 		node := AstTypePackGeneric{
-			NodeLoc:     &NodeLoc{lex.Location{Begin: name.Location.Begin, End: p.prev_location.End}},
+			NodeLoc: &NodeLoc{lex.Location{Begin: name.Location.Begin, End: p.prev_location.End}},
 			GenericName: name.Name.Value,
 		}
 
@@ -3653,7 +3653,7 @@ func (p *Parser) parseTypeParams(openingPosRef *lex.Position, commaPosRef *[]lex
 
 						inner := AstTypeGroup{
 							NodeLoc: &NodeLoc{parenTy.GetLocation()},
-							Type:    parenTy,
+							Type: parenTy,
 						}
 
 						t2 := p.parseTypeSuffix(inner, beginParen)
@@ -3765,8 +3765,8 @@ func (p *Parser) parseExpr(limit int) AstExpr {
 
 		node := AstExprUnary{
 			NodeLoc: &NodeLoc{lex.Location{Begin: start.Begin, End: subexpr.GetLocation().End}},
-			Op:      uop,
-			Expr:    subexpr,
+			Op: uop,
+			Expr: subexpr,
 		}
 
 		if p.storeCstData {
@@ -3794,9 +3794,9 @@ func (p *Parser) parseExpr(limit int) AstExpr {
 
 		node := AstExprBinary{
 			NodeLoc: &NodeLoc{lex.Location{Begin: start.Begin, End: nextExpr.GetLocation().End}},
-			Op:      int(op),
-			Left:    expr,
-			Right:   nextExpr,
+			Op: int(op),
+			Left: expr,
+			Right: nextExpr,
 		}
 
 		if p.storeCstData {
@@ -3826,8 +3826,8 @@ func (p *Parser) parseNameExpr(context string) AstExprLocalOrGlobalOrError {
 
 	if nameOpt == nil {
 		return AstExprError{
-			NodeLoc:      &NodeLoc{p.snapshot()},
-			Expressions:  nil,
+			NodeLoc: &NodeLoc{p.snapshot()},
+			Expressions: nil,
 			MessageIndex: len(p.parseErrors),
 		}
 	}
@@ -3842,14 +3842,14 @@ func (p *Parser) parseNameExpr(context string) AstExprLocalOrGlobalOrError {
 
 		return AstExprLocal{
 			NodeLoc: &NodeLoc{name.Location},
-			Local:   *local_,
+			Local: *local_,
 			Upvalue: local_.FunctionDepth != len(p.functionStack)-1,
 		}
 	}
 
 	return AstExprGlobal{
 		NodeLoc: &NodeLoc{name.Location},
-		Name:    name.Name.Value,
+		Name: name.Name.Value,
 	}
 }
 
@@ -3877,7 +3877,7 @@ func (p *Parser) parsePrefixExpr() AstExpr {
 
 		return AstExprGroup{
 			NodeLoc: &NodeLoc{lex.Location{Begin: start, End: end}},
-			Expr:    expr,
+			Expr: expr,
 		}
 	}
 
@@ -3901,9 +3901,9 @@ func (p *Parser) parseTypeInstantiationExpr() ([]AstTypeOrPack, CstTypeInstantia
 	p.expectMatchAndConsume('>', beginType, beginPos, nil)
 
 	cstData := CstTypeInstantiation{
-		LeftArrow1Position:  leftArrow1,
-		LeftArrow2Position:  leftArrow2,
-		CommaPositions:      commaPositions,
+		LeftArrow1Position: leftArrow1,
+		LeftArrow2Position: leftArrow2,
+		CommaPositions: commaPositions,
 		RightArrow1Position: rightArrow1,
 		RightArrow2Position: rightArrow2,
 	}
@@ -3916,8 +3916,8 @@ func (p *Parser) parseExplicitTypeInstantiationExpr(start lex.Position, basedOnE
 	typesOrPacks, cstInstantiation := p.parseTypeInstantiationExpr()
 
 	expr := AstExprInstantiate{
-		NodeLoc:       &NodeLoc{lex.Location{Begin: start, End: p.prev_location.End}},
-		Expr:          basedOnExpr,
+		NodeLoc: &NodeLoc{lex.Location{Begin: start, End: p.prev_location.End}},
+		Expr: basedOnExpr,
 		TypeArguments: typesOrPacks,
 	}
 
@@ -3950,12 +3950,12 @@ func (p *Parser) parsePrimaryExpr(asStatement bool) AstExpr {
 			index := p.parseIndexName(&ctx, opPosition)
 
 			expr = AstExprIndexName{
-				NodeLoc:       &NodeLoc{lex.Location{Begin: start, End: index.Location.End}},
-				Expr:          expr,
-				Index:         index.Name.Value,
+				NodeLoc: &NodeLoc{lex.Location{Begin: start, End: index.Location.End}},
+				Expr: expr,
+				Index: index.Name.Value,
 				IndexLocation: index.Location,
-				OpPosition:    opPosition,
-				Op:            '.',
+				OpPosition: opPosition,
+				Op: '.',
 			}
 		} else if p.token_type == '[' {
 			bracketType := p.token_type
@@ -3969,13 +3969,13 @@ func (p *Parser) parsePrimaryExpr(asStatement bool) AstExpr {
 
 			e := AstExprIndexExpr{
 				NodeLoc: &NodeLoc{lex.Location{Begin: start, End: p.prev_location.End}},
-				Expr:    expr,
-				Index:   index,
+				Expr: expr,
+				Index: index,
 			}
 
 			if p.storeCstData {
 				p.cstNodes[e] = CstExprIndexExpr{
-					OpenBracketPosition:  openBracket,
+					OpenBracketPosition: openBracket,
 					CloseBracketPosition: closeBracket,
 				}
 			}
@@ -3989,12 +3989,12 @@ func (p *Parser) parsePrimaryExpr(asStatement bool) AstExpr {
 			index := p.parseIndexName(&ctx, opPosition)
 
 			funcExpr := AstExprIndexName{
-				NodeLoc:       &NodeLoc{lex.Location{Begin: start, End: index.Location.End}},
-				Expr:          expr,
-				Index:         index.Name.Value,
+				NodeLoc: &NodeLoc{lex.Location{Begin: start, End: index.Location.End}},
+				Expr: expr,
+				Index: index.Name.Value,
 				IndexLocation: index.Location,
-				OpPosition:    opPosition,
-				Op:            ':',
+				OpPosition: opPosition,
+				Op: ':',
 			}
 
 			if LuauExplicitTypeInstantiationSyntax {
@@ -4059,8 +4059,8 @@ func (p *Parser) parseAssertionExpr() AstExpr {
 		annotLoc := annotation.GetLocation()
 
 		node := AstExprTypeAssertion{
-			NodeLoc:    &NodeLoc{lex.Location{Begin: start.Begin, End: annotLoc.End}},
-			Expr:       expr,
+			NodeLoc: &NodeLoc{lex.Location{Begin: start.Begin, End: annotLoc.End}},
+			Expr: expr,
 			Annotation: annotation,
 		}
 
@@ -4158,17 +4158,17 @@ func (p *Parser) parseFunctionArgs(funcExpr AstExpr, selfCall bool) AstExpr {
 		p.expectMatchAndConsume(')', parenType, parenBegin, nil)
 
 		result := AstExprCall{
-			NodeLoc:     &NodeLoc{lex.Location{Begin: funcExpr.GetLocation().Begin, End: end.End}},
-			Func:        funcExpr,
-			Args:        args,
-			Self:        selfCall,
+			NodeLoc: &NodeLoc{lex.Location{Begin: funcExpr.GetLocation().Begin, End: end.End}},
+			Func: funcExpr,
+			Args: args,
+			Self: selfCall,
 			ArgLocation: lex.Location{Begin: argStart, End: end.End},
 		}
 
 		if p.storeCstData {
 			p.cstNodes[result] = CstExprCall{
-				OpenParens:     &parenBegin,
-				CloseParens:    &closeParen,
+				OpenParens: &parenBegin,
+				CloseParens: &closeParen,
 				CommaPositions: commaPositions,
 			}
 		}
@@ -4181,10 +4181,10 @@ func (p *Parser) parseFunctionArgs(funcExpr AstExpr, selfCall bool) AstExpr {
 		argEnd := p.prev_location.End
 
 		result := AstExprCall{
-			NodeLoc:     &NodeLoc{lex.Location{Begin: funcExpr.GetLocation().Begin, End: tableExpr.GetLocation().End}},
-			Func:        funcExpr,
-			Args:        []AstExpr{tableExpr},
-			Self:        selfCall,
+			NodeLoc: &NodeLoc{lex.Location{Begin: funcExpr.GetLocation().Begin, End: tableExpr.GetLocation().End}},
+			Func: funcExpr,
+			Args: []AstExpr{tableExpr},
+			Self: selfCall,
 			ArgLocation: lex.Location{Begin: argStart, End: argEnd},
 		}
 
@@ -4199,10 +4199,10 @@ func (p *Parser) parseFunctionArgs(funcExpr AstExpr, selfCall bool) AstExpr {
 		strExpr := p.parseString()
 
 		result := AstExprCall{
-			NodeLoc:     &NodeLoc{lex.Location{Begin: funcExpr.GetLocation().Begin, End: strExpr.GetLocation().End}},
-			Func:        funcExpr,
-			Args:        []AstExpr{strExpr},
-			Self:        selfCall,
+			NodeLoc: &NodeLoc{lex.Location{Begin: funcExpr.GetLocation().Begin, End: strExpr.GetLocation().End}},
+			Func: funcExpr,
+			Args: []AstExpr{strExpr},
+			Self: selfCall,
 			ArgLocation: argLocation,
 		}
 
@@ -4247,7 +4247,7 @@ func (p *Parser) parseIndexName(context *string, prev lex.Position) Binding {
 			nameStr = *p.token_string
 		}
 		result := Binding{
-			Name:    lex.AstName{Value: nameStr},
+			Name: lex.AstName{Value: nameStr},
 			NodeLoc: &NodeLoc{p.snapshot()},
 		}
 
@@ -4256,7 +4256,7 @@ func (p *Parser) parseIndexName(context *string, prev lex.Position) Binding {
 	}
 
 	return Binding{
-		Name:    lex.AstName{Value: nameError},
+		Name: lex.AstName{Value: nameError},
 		NodeLoc: &NodeLoc{p.snapshot()},
 	}
 }
@@ -4333,20 +4333,20 @@ func (p *Parser) parseTableConstructor() AstExprTable {
 
 			items = append(items, AstExprTableItem{
 				NodeLoc: &NodeLoc{lex.Location{}},
-				Kind:    General,
-				Key:     &key,
-				Value:   value,
+				Kind: General,
+				Key: &key,
+				Value: value,
 			})
 
 			if p.storeCstData {
 				sepPos := p.token_location.Begin
 				cstItems = append(cstItems, CstExprTableItem{
-					Kind:                 General,
-					IndexerOpenPosition:  &indexerOpenPos,
+					Kind: General,
+					IndexerOpenPosition: &indexerOpenPos,
 					IndexerClosePosition: &indexerClosePos,
-					EqualsPosition:       &equalsPos,
-					Separator:            p.tableSeparator(),
-					SeparatorPosition:    sepPos,
+					EqualsPosition: &equalsPos,
+					Separator: p.tableSeparator(),
+					SeparatorPosition: sepPos,
 				})
 			}
 		} else if p.token_type == lex.Name && p.next_type == '=' {
@@ -4359,7 +4359,7 @@ func (p *Parser) parseTableConstructor() AstExprTable {
 
 			keyExpr := AstExpr(AstExprConstantString{
 				NodeLoc: &NodeLoc{name.Location},
-				Value:   name.Name.Value,
+				Value: name.Name.Value,
 			})
 
 			value := p.parseExpr(0)
@@ -4371,17 +4371,17 @@ func (p *Parser) parseTableConstructor() AstExprTable {
 
 			items = append(items, AstExprTableItem{
 				NodeLoc: &NodeLoc{lex.Location{}},
-				Kind:    Record,
-				Key:     &keyExpr,
-				Value:   value,
+				Kind: Record,
+				Key: &keyExpr,
+				Value: value,
 			})
 
 			if p.storeCstData {
 				sepPos := p.token_location.Begin
 				cstItems = append(cstItems, CstExprTableItem{
-					Kind:              Record,
-					EqualsPosition:    &equalsPos,
-					Separator:         p.tableSeparator(),
+					Kind: Record,
+					EqualsPosition: &equalsPos,
+					Separator: p.tableSeparator(),
 					SeparatorPosition: sepPos,
 				})
 			}
@@ -4389,15 +4389,15 @@ func (p *Parser) parseTableConstructor() AstExprTable {
 			expr := p.parseExpr(0)
 			items = append(items, AstExprTableItem{
 				NodeLoc: &NodeLoc{lex.Location{}},
-				Kind:    List,
-				Value:   expr,
+				Kind: List,
+				Value: expr,
 			})
 
 			if p.storeCstData {
 				sepPos := p.token_location.Begin
 				cstItems = append(cstItems, CstExprTableItem{
-					Kind:              List,
-					Separator:         p.tableSeparator(),
+					Kind: List,
+					Separator: p.tableSeparator(),
 					SeparatorPosition: sepPos,
 				})
 			}
@@ -4419,7 +4419,7 @@ func (p *Parser) parseTableConstructor() AstExprTable {
 
 	node := AstExprTable{
 		NodeLoc: &NodeLoc{lex.Location{Begin: start.Begin, End: end.End}},
-		Items:   items,
+		Items: items,
 	}
 	p.attachTableComments(&node)
 
@@ -4459,11 +4459,11 @@ func (p *Parser) parseIfElseExpr() AstExprIfElse {
 	}
 
 	node := AstExprIfElse{
-		NodeLoc:   &NodeLoc{lex.Location{Begin: start.Begin, End: falseEnd}},
+		NodeLoc: &NodeLoc{lex.Location{Begin: start.Begin, End: falseEnd}},
 		Condition: condition,
-		HasThen:   hasThen,
-		TrueExpr:  trueExpr,
-		HasElse:   hasElse,
+		HasThen: hasThen,
+		TrueExpr: trueExpr,
+		HasElse: hasElse,
 		FalseExpr: falseExpr,
 	}
 
@@ -4471,7 +4471,7 @@ func (p *Parser) parseIfElseExpr() AstExprIfElse {
 		p.cstNodes[node] = CstExprIfElse{
 			ThenPosition: thenPosition,
 			ElsePosition: elsePosition,
-			IsElseIf:     isElseIf,
+			IsElseIf: isElseIf,
 		}
 	}
 
@@ -4523,23 +4523,23 @@ func (p *Parser) parseIfElseExprLocalCondition(start lex.Location) AstExprIfElse
 	}
 
 	node := AstExprIfElse{
-		NodeLoc:                  &NodeLoc{lex.Location{Begin: start.Begin, End: falseEnd}},
-		Condition:                condition,
-		HasThen:                  hasThen,
-		TrueExpr:                 trueExpr,
-		HasElse:                  hasElse,
-		FalseExpr:                falseExpr,
-		ConditionLocal:           condLocal,
-		ConditionIsConst:         condIsConst,
+		NodeLoc: &NodeLoc{lex.Location{Begin: start.Begin, End: falseEnd}},
+		Condition: condition,
+		HasThen: hasThen,
+		TrueExpr: trueExpr,
+		HasElse: hasElse,
+		FalseExpr: falseExpr,
+		ConditionLocal: condLocal,
+		ConditionIsConst: condIsConst,
 		ConditionKeywordLocation: &keywordLocation,
-		ConditionEqualsLocation:  equalsPosition,
+		ConditionEqualsLocation: equalsPosition,
 	}
 
 	if p.storeCstData {
 		p.cstNodes[node] = CstExprIfElse{
 			ThenPosition: thenPosition,
 			ElsePosition: elsePosition,
-			IsElseIf:     isElseIf,
+			IsElseIf: isElseIf,
 		}
 	}
 
@@ -4633,14 +4633,14 @@ func (p *Parser) parseInterpString() AstExprInterpStringOrError {
 			}
 
 			node := AstExprInterpString{
-				NodeLoc:     &NodeLoc{lex.Location{Begin: startLocation.Begin, End: p.prev_location.End}},
-				Strings:     strs,
+				NodeLoc: &NodeLoc{lex.Location{Begin: startLocation.Begin, End: p.prev_location.End}},
+				Strings: strs,
 				Expressions: expressions,
 			}
 
 			if p.storeCstData {
 				p.cstNodes[node] = CstExprInterpString{
-					SourceStrings:   sourceStrings,
+					SourceStrings: sourceStrings,
 					StringPositions: stringPositions,
 				}
 			}
@@ -4663,14 +4663,14 @@ func (p *Parser) parseInterpString() AstExprInterpStringOrError {
 	}
 
 	node := AstExprInterpString{
-		NodeLoc:     &NodeLoc{lex.Location{Begin: startLocation.Begin, End: endLocation.End}},
-		Strings:     strs,
+		NodeLoc: &NodeLoc{lex.Location{Begin: startLocation.Begin, End: endLocation.End}},
+		Strings: strs,
 		Expressions: expressions,
 	}
 
 	if p.storeCstData {
 		p.cstNodes[node] = CstExprInterpString{
-			SourceStrings:   sourceStrings,
+			SourceStrings: sourceStrings,
 			StringPositions: stringPositions,
 		}
 	}
@@ -4741,16 +4741,16 @@ func (p *Parser) parseString() AstExprConstantStringOrError {
 
 	if value != nil {
 		node := AstExprConstantString{
-			NodeLoc:    &NodeLoc{location},
-			Value:      *value,
+			NodeLoc: &NodeLoc{location},
+			Value: *value,
 			QuoteStyle: quoteStyle,
 		}
 
 		if p.storeCstData {
 			p.cstNodes[node] = CstExprConstantString{
 				SourceString: originalString,
-				QuoteStyle:   int(fullStyle),
-				BlockDepth:   blockDepth,
+				QuoteStyle: int(fullStyle),
+				BlockDepth: blockDepth,
 			}
 		}
 
@@ -4835,8 +4835,8 @@ func (p *Parser) parseNumber() AstExprConstantNumberOrError {
 		}
 
 		node := AstExprConstantInteger{
-			NodeLoc:     &NodeLoc{start},
-			Value:       intValue,
+			NodeLoc: &NodeLoc{start},
+			Value: intValue,
 			ParseResult: intResult,
 		}
 
@@ -4953,7 +4953,7 @@ func (p *Parser) parseNumber() AstExprConstantNumberOrError {
 
 	node := AstExprConstantNumber{
 		NodeLoc: &NodeLoc{start},
-		Value:   value,
+		Value: value,
 	}
 
 	if p.storeCstData {

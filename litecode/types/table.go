@@ -99,8 +99,8 @@ func iterList(l []Val, y func(Val, Val) bool) (completed bool) {
 // Table represents a Luau table, with resizeable list and hash parts. Luau type `table`
 // As tables are compared by reference, this type must always be used as a pointer.
 type Table struct {
-	List     []Val
-	Hash     map[Val]Val
+	List []Val
+	Hash map[Val]Val
 	Readonly bool
 	// orderedHash caches the hash part's deterministic key order. It is nil when it must be rebuilt.
 	orderedHash []orderedKey

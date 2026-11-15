@@ -16,7 +16,7 @@ import (
 func addrToUdp(addr keys.Address) (udpAddr *gnet.UDPAddr) {
 	// Convert keys.Address to net.UDPAddr
 	udpAddr = &gnet.UDPAddr{
-		IP:   gnet.IP(addr[:]),
+		IP: gnet.IP(addr[:]),
 		Port: PortCommunication,
 	}
 	return
@@ -27,11 +27,11 @@ func addrToReadable(addr keys.Address) (readable string) {
 }
 
 type QuicNet struct {
-	tr       *quic.Transport
-	tlsConf  *tls.Config
+	tr *quic.Transport
+	tlsConf *tls.Config
 	quicConf *quic.Config
 	listener *quic.Listener
-	streams  map[keys.Address]*quic.SendStream
+	streams map[keys.Address]*quic.SendStream
 }
 
 func NewQuicNet(tlsConf *tls.Config, quicConf *quic.Config) (n net.Net, err error) {
@@ -54,11 +54,11 @@ func NewQuicNet(tlsConf *tls.Config, quicConf *quic.Config) (n net.Net, err erro
 	}
 
 	return &QuicNet{
-		tr:       tr,
-		tlsConf:  tlsConf,
+		tr: tr,
+		tlsConf: tlsConf,
 		quicConf: quicConf,
 		listener: ln,
-		streams:  make(map[keys.Address]*quic.SendStream),
+		streams: make(map[keys.Address]*quic.SendStream),
 	}, nil
 }
 
@@ -169,7 +169,7 @@ func readMsgs(chunkChan <-chan []byte, msgChan chan<- net.EncryptedMsg) {
 		}
 
 		msgChan <- b[:il] // send it off!!!!!!!
-		b = b[il:]        // remaining bytes are for the next message
+		b = b[il:] // remaining bytes are for the next message
 	}
 }
 

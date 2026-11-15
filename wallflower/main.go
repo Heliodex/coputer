@@ -205,7 +205,7 @@ func getPeers() (peers []*keys.Peer) {
 }
 
 type loadedProgram struct {
-	Name    string
+	Name string
 	Bundled []byte
 }
 
@@ -270,17 +270,17 @@ func start() {
 	}
 
 	tlsConf := &tls.Config{
-		Certificates:       []tls.Certificate{tlsCert},
-		NextProtos:         []string{"quic"},
-		MinVersion:         tls.VersionTLS13,
+		Certificates: []tls.Certificate{tlsCert},
+		NextProtos: []string{"quic"},
+		MinVersion: tls.VersionTLS13,
 		InsecureSkipVerify: true, // "tls: failed to verify certificate: x509: certificate signed by unknown authority"
 		// i've been in TLS hell for long enough today
 	}
 
 	quicConf := &quic.Config{
-		Versions:             []quic.Version{quic.Version2},
-		Allow0RTT:            true,
-		KeepAlivePeriod:      15 * time.Second,
+		Versions: []quic.Version{quic.Version2},
+		Allow0RTT: true,
+		KeepAlivePeriod: 15 * time.Second,
 		HandshakeIdleTimeout: time.Second, // just 4 speed
 	}
 

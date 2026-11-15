@@ -86,10 +86,10 @@ func serveWeb(w http.ResponseWriter, r *http.Request, pk keys.PK, name string) {
 	}
 
 	url := WebArgsUrl{
-		Rawpath:  r.URL.String(),
-		Path:     r.URL.Path, // always absolute, I think
+		Rawpath: r.URL.String(),
+		Path: r.URL.Path, // always absolute, I think
 		Rawquery: r.URL.RawQuery,
-		Query:    r.URL.Query(),
+		Query: r.URL.Query(),
 	}
 
 	headers := make(map[string]string, len(r.Header))
@@ -98,10 +98,10 @@ func serveWeb(w http.ResponseWriter, r *http.Request, pk keys.PK, name string) {
 	}
 
 	args := WebArgs{
-		Url:     url,
-		Method:  r.Method,
+		Url: url,
+		Method: r.Method,
 		Headers: headers,
-		Body:    body,
+		Body: body,
 	}
 
 	rets, err := StartWebProgram(pk, name, args)

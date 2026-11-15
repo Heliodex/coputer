@@ -159,16 +159,24 @@ func benchFind(b *testing.B, p string) {
 }
 
 // Anchored greedy star that succeeds: expands to the whole run, then backs off once.
-func BenchmarkFindAnchoredStar(b *testing.B) { benchFind(b, "^a*.?$") }
+func BenchmarkFindAnchoredStar(b *testing.B) {
+	benchFind(b, "^a*.?$")
+}
 
 // Anchored greedy star that fails: expands to the whole run, then backs off over every position.
-func BenchmarkFindAnchoredStarMiss(b *testing.B) { benchFind(b, "^a*.?b$") }
+func BenchmarkFindAnchoredStarMiss(b *testing.B) {
+	benchFind(b, "^a*.?b$")
+}
 
 // Anchored lazy star: expands one byte at a time from the start.
-func BenchmarkFindAnchoredLazy(b *testing.B) { benchFind(b, "^a-.?$") }
+func BenchmarkFindAnchoredLazy(b *testing.B) {
+	benchFind(b, "^a-.?$")
+}
 
 // No special characters, so it takes the plain search path.
-func BenchmarkFindPlain(b *testing.B) { benchFind(b, "b") }
+func BenchmarkFindPlain(b *testing.B) {
+	benchFind(b, "b")
+}
 
 // A capture forces the pattern engine and pushCaptures.
 func BenchmarkFindCaptures(b *testing.B) {

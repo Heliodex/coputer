@@ -365,8 +365,8 @@ func sourceStat(stat AstStat) string {
 
 // sourceStatUnit is a statement together with the comments that belong to it: leading comments render above the statement and trailing comments stay on its last line.
 type sourceStatUnit struct {
-	stat     AstStat
-	leading  []Comment
+	stat AstStat
+	leading []Comment
 	trailing []Comment
 }
 
@@ -769,7 +769,7 @@ func directiveCategory(comment Comment) (int, bool) {
 func sortDirectives(comments []Comment) []Comment {
 	type rankedDirective struct {
 		comment Comment
-		rank    int
+		rank int
 	}
 
 	directives := make([]rankedDirective, 0, len(comments))
@@ -886,12 +886,12 @@ func appendEnd(body string) string {
 
 // Expression precedence levels, mirroring the parser's binding powers. A group can be dropped when its contents bind at least as tightly as the context.
 const (
-	precIfElse       = 0
+	precIfElse = 0
 	precUnaryOperand = 8
-	precUnary        = 9
-	precAssert       = 11
-	precFunction     = 11
-	precPrimary      = 12
+	precUnary = 9
+	precAssert = 11
+	precFunction = 11
+	precPrimary = 12
 )
 
 // sourceExprPrecedence returns the binding power of an expression, used to decide whether a parenthesised group can be dropped.
@@ -2510,11 +2510,11 @@ func (n AstTypeTable) Source() string {
 
 // sourceTypeTableEntry is a member of a type table (the indexer or a prop) together with the comments attributed to it.
 type sourceTypeTableEntry struct {
-	start    lex.Position
-	end      lex.Position
-	src      string
-	indexer  bool
-	leading  []Comment
+	start lex.Position
+	end lex.Position
+	src string
+	indexer bool
+	leading []Comment
 	trailing []Comment
 }
 
@@ -2539,17 +2539,17 @@ func sourceTypeTableItems(indexer *AstTableIndexer, props []AstTableProp, commen
 	entries := make([]sourceTypeTableEntry, 0, len(props)+1)
 	if indexer != nil {
 		entries = append(entries, sourceTypeTableEntry{
-			start:   indexer.Location.Begin,
-			end:     indexer.Location.End,
-			src:     indexer.Source(),
+			start: indexer.Location.Begin,
+			end: indexer.Location.End,
+			src: indexer.Source(),
 			indexer: true,
 		})
 	}
 	for i := range props {
 		entries = append(entries, sourceTypeTableEntry{
 			start: sourceTypeTableStart(props[i]),
-			end:   sourceTypeTableEnd(props[i]),
-			src:   props[i].Source(),
+			end: sourceTypeTableEnd(props[i]),
+			src: props[i].Source(),
 		})
 	}
 

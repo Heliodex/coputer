@@ -69,24 +69,24 @@ func (e EncryptedMsg) Decode(kp keys.Keypair) (am AnyMsg, err error) {
 
 // struct keys > nested maps
 type InputName struct {
-	Pk        keys.PK
-	Name      string
+	Pk keys.PK
+	Name string
 	InputHash [32]byte
 }
 
 type Node struct {
 	keys.ThisPeer
 
-	Peers              map[keys.PK]*keys.Peer // known peers
-	SendRaw            Sender
-	ReceiveRaw         Receiver
+	Peers map[keys.PK]*keys.Peer // known peers
+	SendRaw Sender
+	ReceiveRaw Receiver
 	resultsWaitingName map[InputName]chan *ProgramRets
-	running            bool
+	running bool
 }
 
 func NewNode(kp keys.Keypair, mainAddr keys.Address, altAddrs ...keys.Address) (node *Node) {
 	peer := keys.Peer{
-		Pk:       kp.Pk,
+		Pk: kp.Pk,
 		MainAddr: mainAddr,
 		AltAddrs: altAddrs,
 	}
@@ -94,11 +94,11 @@ func NewNode(kp keys.Keypair, mainAddr keys.Address, altAddrs ...keys.Address) (
 	return &Node{
 		ThisPeer: keys.ThisPeer{
 			Peer: peer,
-			Kp:   kp,
+			Kp: kp,
 		},
-		Peers:              make(map[keys.PK]*keys.Peer),
-		SendRaw:            make(Sender),
-		ReceiveRaw:         make(Receiver),
+		Peers: make(map[keys.PK]*keys.Peer),
+		SendRaw: make(Sender),
+		ReceiveRaw: make(Receiver),
 		resultsWaitingName: make(map[InputName]chan *ProgramRets),
 	}
 }
@@ -126,7 +126,7 @@ func (n *Node) send(p *keys.Peer, sm SentMsg) (err error) {
 
 	n.SendRaw <- AddressedMsg{
 		EncryptedMsg: ct,
-		Peer:         p,
+		Peer: p,
 	}
 	return
 }
@@ -141,7 +141,7 @@ func (n Node) FindString() string {
 		copy(addrs[(i+1)*keys.AddressLen:], addr[:])
 	}
 
-	signedAddrs := n.Kp.Sk.Sign(addrs)                                // yes, actually works now
+	signedAddrs := n.Kp.Sk.Sign(addrs) // yes, actually works now
 	encodedAddrs := base64.RawURLEncoding.EncodeToString(signedAddrs) // we might do ipv6/libp2p/port enocding or smth later
 	return fmt.Sprintf("cofind:%s.%s", pk, encodedAddrs)
 }

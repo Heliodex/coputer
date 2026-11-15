@@ -15,12 +15,12 @@ type debugging struct {
 type Coroutine struct {
 	Function
 	Env
-	Filepath, Dbgpath string   // actually does well here
-	RequireHistory    []string // prevents cyclic module dependencies
-	YieldChan         chan internal.Yield
-	ResumeChan        chan []Val
-	Dbg               debugging
-	Compiler          // for require()
+	Filepath, Dbgpath string // actually does well here
+	RequireHistory []string // prevents cyclic module dependencies
+	YieldChan chan internal.Yield
+	ResumeChan chan []Val
+	Dbg debugging
+	Compiler // for require()
 	internal.Status
 	ProgramArgs // idk how
 
@@ -39,10 +39,10 @@ func (co *Coroutine) Error(err error) {
 	co.YieldChan <- internal.Yield{
 		Rets: nil,
 		Err: &internal.CoError{
-			Line:    co.Dbg.Line,
+			Line: co.Dbg.Line,
 			Dbgname: co.Dbg.Name,
-			Path:    co.Dbgpath,
-			Sub:     err,
+			Path: co.Dbgpath,
+			Sub: err,
 		},
 	}
 
@@ -57,7 +57,7 @@ func startCoroutine(co *Coroutine, args []Val) {
 	// fmt.Println("RG  yielding", r)
 	co.YieldChan <- internal.Yield{
 		Rets: r,
-		Err:  err,
+		Err: err,
 	}
 	// fmt.Println("RG  yielded", r)
 }

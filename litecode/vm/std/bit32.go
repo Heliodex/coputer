@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	nbits   = 32
+	nbits = 32
 	allones = ^uint32(0)
 )
 

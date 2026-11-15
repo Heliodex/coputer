@@ -324,5 +324,5 @@ var Libmath = NewLib([]Function{
 	MakeFn("tanh", math_tanh),
 }, map[string]Val{
 	"huge": Num(math.Inf(1)),
-	"pi":   Num(math.Pi),
+	"pi": Num(math.Pi),
 })

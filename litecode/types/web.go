@@ -10,18 +10,18 @@ import (
 
 // WebArgsUrl represents a parsed URL and its properties.
 type WebArgsUrl struct {
-	Rawpath  string              `json:"rawpath"`
-	Path     string              `json:"path"`
-	Rawquery string              `json:"rawquery"`
-	Query    map[string][]string `json:"query"`
+	Rawpath string `json:"rawpath"`
+	Path string `json:"path"`
+	Rawquery string `json:"rawquery"`
+	Query map[string][]string `json:"query"`
 }
 
 // WebArgs stores the arguments passed to a web program.
 type WebArgs struct {
-	Url     WebArgsUrl        `json:"url"`
-	Method  string            `json:"method"`
+	Url WebArgsUrl `json:"url"`
+	Method string `json:"method"`
 	Headers map[string]string `json:"headers"`
-	Body    []byte            `json:"body"`
+	Body []byte `json:"body"`
 }
 
 // Type returns WebProgramType.
@@ -39,7 +39,7 @@ type WebRets struct {
 	StatusCode int `json:"statuscode"`
 	// StatusMessage string            `json:"statusmessage"` // removed 3 now
 	Headers map[string]string `json:"headers"`
-	Body    []byte            `json:"body"`
+	Body []byte `json:"body"`
 }
 
 func (r1 WebRets) Equal(r2 WebRets) (err error) {

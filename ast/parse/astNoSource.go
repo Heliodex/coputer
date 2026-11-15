@@ -8,11 +8,11 @@ import (
 )
 
 const (
-	Ext            = ".luau"
-	AstDir         = "../test/ast"
-	BenchmarkDir   = "../test/benchmark"
+	Ext = ".luau"
+	AstDir = "../test/ast"
+	BenchmarkDir = "../test/benchmark"
 	ConformanceDir = "../test/conformance"
-	FormattingDir  = "../test/formatting"
+	FormattingDir = "../test/formatting"
 	// FormattingOutSuffix is appended to a formatting test's name to get the file containing its expected formatted output.
 	FormattingOutSuffix = "_out"
 )
@@ -327,7 +327,7 @@ func (n AstAttr) String() string {
 }
 
 type AstArgumentName struct {
-	Name     string
+	Name string
 	Location lex.Location
 }
 
@@ -343,8 +343,8 @@ func (n AstArgumentName) String() string {
 
 type AstExprBinary struct {
 	*NodeLoc
-	Op    int
-	Left  AstExpr
+	Op int
+	Left AstExpr
 	Right AstExpr
 }
 
@@ -368,10 +368,10 @@ func (n AstExprBinary) String() string {
 
 type AstExprCall struct {
 	*NodeLoc
-	Func          AstExpr
-	Args          []AstExpr
-	Self          bool
-	ArgLocation   lex.Location
+	Func AstExpr
+	Args []AstExpr
+	Self bool
+	ArgLocation lex.Location
 	TypeArguments *[]AstTypeOrPack
 }
 
@@ -442,8 +442,8 @@ type AstExprConstantNumber struct {
 	Value float64
 }
 
-func (AstExprConstantNumber) isAstNode()                      {}
-func (AstExprConstantNumber) isAstExpr()                      {}
+func (AstExprConstantNumber) isAstNode() {}
+func (AstExprConstantNumber) isAstExpr() {}
 func (AstExprConstantNumber) isAstExprConstantNumberOrError() {}
 func (n AstExprConstantNumber) String() string {
 	var b strings.Builder
@@ -457,12 +457,12 @@ func (n AstExprConstantNumber) String() string {
 
 type AstExprConstantInteger struct {
 	*NodeLoc
-	Value       int64
+	Value int64
 	ParseResult NumberParseResult
 }
 
-func (AstExprConstantInteger) isAstNode()                      {}
-func (AstExprConstantInteger) isAstExpr()                      {}
+func (AstExprConstantInteger) isAstNode() {}
+func (AstExprConstantInteger) isAstExpr() {}
 func (AstExprConstantInteger) isAstExprConstantNumberOrError() {}
 func (n AstExprConstantInteger) String() string {
 	var b strings.Builder
@@ -476,12 +476,12 @@ func (n AstExprConstantInteger) String() string {
 
 type AstExprConstantString struct {
 	*NodeLoc
-	Value      string
+	Value string
 	QuoteStyle QuoteStyle
 }
 
-func (AstExprConstantString) isAstNode()                      {}
-func (AstExprConstantString) isAstExpr()                      {}
+func (AstExprConstantString) isAstNode() {}
+func (AstExprConstantString) isAstExpr() {}
 func (AstExprConstantString) isAstExprConstantStringOrError() {}
 func (n AstExprConstantString) String() string {
 	var b strings.Builder
@@ -496,14 +496,14 @@ func (n AstExprConstantString) String() string {
 
 type AstExprError struct {
 	*NodeLoc
-	Expressions  []AstExpr
+	Expressions []AstExpr
 	MessageIndex int
 }
 
-func (AstExprError) isAstNode()                      {}
-func (AstExprError) isAstExpr()                      {}
-func (AstExprError) isAstExprLocalOrGlobalOrError()  {}
-func (AstExprError) isAstExprInterpStringOrError()   {}
+func (AstExprError) isAstNode() {}
+func (AstExprError) isAstExpr() {}
+func (AstExprError) isAstExprLocalOrGlobalOrError() {}
+func (AstExprError) isAstExprInterpStringOrError() {}
 func (AstExprError) isAstExprConstantStringOrError() {}
 func (AstExprError) isAstExprConstantNumberOrError() {}
 func (n AstExprError) String() string {
@@ -523,19 +523,19 @@ func (n AstExprError) String() string {
 
 type AstExprFunction struct {
 	*NodeLoc
-	Attributes       []AstAttr
-	Generics         []AstGenericType
-	GenericPacks     []AstGenericTypePack
-	Self             *AstLocal
-	Args             []AstLocal
+	Attributes []AstAttr
+	Generics []AstGenericType
+	GenericPacks []AstGenericTypePack
+	Self *AstLocal
+	Args []AstLocal
 	ReturnAnnotation *AstTypePack
-	Vararg           bool
-	VarargLocation   lex.Location
+	Vararg bool
+	VarargLocation lex.Location
 	VarargAnnotation *AstTypePack
-	Body             AstStatBlock
-	FunctionDepth    int
-	Debugname        string
-	ArgLocation      *lex.Location
+	Body AstStatBlock
+	FunctionDepth int
+	Debugname string
+	ArgLocation *lex.Location
 }
 
 func (AstExprFunction) isAstNode() {}
@@ -607,8 +607,8 @@ type AstExprGlobal struct {
 	Name string
 }
 
-func (AstExprGlobal) isAstNode()                     {}
-func (AstExprGlobal) isAstExpr()                     {}
+func (AstExprGlobal) isAstNode() {}
+func (AstExprGlobal) isAstExpr() {}
 func (AstExprGlobal) isAstExprLocalOrGlobalOrError() {}
 func (n AstExprGlobal) String() string {
 	var b strings.Builder
@@ -641,15 +641,15 @@ func (n AstExprGroup) String() string {
 type AstExprIfElse struct {
 	*NodeLoc
 	Condition AstExpr
-	HasThen   bool
-	TrueExpr  AstExpr
-	HasElse   bool
+	HasThen bool
+	TrueExpr AstExpr
+	HasElse bool
 	FalseExpr AstExpr
 	// Active for `if local` / `if const` expressions; ConditionLocal is in scope for TrueExpr only
-	ConditionLocal           *AstLocal
-	ConditionIsConst         bool
+	ConditionLocal *AstLocal
+	ConditionIsConst bool
 	ConditionKeywordLocation *lex.Location
-	ConditionEqualsLocation  *lex.Location
+	ConditionEqualsLocation *lex.Location
 }
 
 func (AstExprIfElse) isAstNode() {}
@@ -676,7 +676,7 @@ func (n AstExprIfElse) String() string {
 
 type AstExprIndexExpr struct {
 	*NodeLoc
-	Expr  AstExpr
+	Expr AstExpr
 	Index AstExpr
 }
 
@@ -699,11 +699,11 @@ func (n AstExprIndexExpr) String() string {
 
 type AstExprIndexName struct {
 	*NodeLoc
-	Expr          AstExpr
-	Index         string
+	Expr AstExpr
+	Index string
 	IndexLocation lex.Location
-	OpPosition    lex.Position
-	Op            rune
+	OpPosition lex.Position
+	Op rune
 }
 
 func (AstExprIndexName) isAstNode() {}
@@ -725,12 +725,12 @@ func (n AstExprIndexName) String() string {
 
 type AstExprInterpString struct {
 	*NodeLoc
-	Strings     []string
+	Strings []string
 	Expressions []AstExpr
 }
 
-func (AstExprInterpString) isAstNode()                    {}
-func (AstExprInterpString) isAstExpr()                    {}
+func (AstExprInterpString) isAstNode() {}
+func (AstExprInterpString) isAstExpr() {}
 func (AstExprInterpString) isAstExprInterpStringOrError() {}
 func (n AstExprInterpString) String() string {
 	var b strings.Builder
@@ -757,7 +757,7 @@ func (n AstExprInterpString) String() string {
 
 type AstExprInstantiate struct {
 	*NodeLoc
-	Expr          AstExpr
+	Expr AstExpr
 	TypeArguments []AstTypeOrPack
 }
 
@@ -784,12 +784,12 @@ func (n AstExprInstantiate) String() string {
 
 type AstExprLocal struct {
 	*NodeLoc
-	Local   AstLocal
+	Local AstLocal
 	Upvalue bool
 }
 
-func (AstExprLocal) isAstNode()                     {}
-func (AstExprLocal) isAstExpr()                     {}
+func (AstExprLocal) isAstNode() {}
+func (AstExprLocal) isAstExpr() {}
 func (AstExprLocal) isAstExprLocalOrGlobalOrError() {}
 func (n AstExprLocal) String() string {
 	var b strings.Builder
@@ -851,8 +851,8 @@ func (e ExprTableItemKind) String() string {
 
 type AstExprTableItem struct {
 	*NodeLoc
-	Kind  ExprTableItemKind
-	Key   *AstExpr
+	Kind ExprTableItemKind
+	Key *AstExpr
 	Value AstExpr
 }
 
@@ -876,7 +876,7 @@ func (n AstExprTableItem) String() string {
 
 type AstExprTypeAssertion struct {
 	*NodeLoc
-	Expr       AstExpr
+	Expr AstExpr
 	Annotation AstType
 }
 
@@ -914,7 +914,7 @@ func (n AstExprVarargs) String() string {
 
 type AstExprUnary struct {
 	*NodeLoc
-	Op   UnaryOp
+	Op UnaryOp
 	Expr AstExpr
 }
 
@@ -935,7 +935,7 @@ func (n AstExprUnary) String() string {
 
 type AstGenericType struct {
 	*NodeLoc
-	Name         string
+	Name string
 	DefaultValue *AstType
 }
 
@@ -956,7 +956,7 @@ func (n AstGenericType) String() string {
 
 type AstGenericTypePack struct {
 	*NodeLoc
-	Name         string
+	Name string
 	DefaultValue *AstTypePack
 }
 
@@ -977,13 +977,13 @@ func (n AstGenericTypePack) String() string {
 
 type AstLocal struct {
 	*NodeLoc
-	Name          string
-	Shadow        *AstLocal
+	Name string
+	Shadow *AstLocal
 	FunctionDepth int
-	LoopDepth     int
-	Annotation    AstType
-	IsConst       bool
-	IsExported    bool
+	LoopDepth int
+	Annotation AstType
+	IsConst bool
+	IsExported bool
 }
 
 func (n AstLocal) String() string {
@@ -1014,8 +1014,8 @@ func (n AstLocal) String() string {
 
 type AstStatAssign struct {
 	*NodeLoc
-	Vars         []AstExpr
-	Values       []AstExpr
+	Vars []AstExpr
+	Values []AstExpr
 	HasSemicolon *bool
 }
 
@@ -1048,8 +1048,8 @@ func (n AstStatAssign) String() string {
 
 type AstStatBlock struct {
 	*NodeLoc
-	Body         []AstStat
-	HasEnd       bool
+	Body []AstStat
+	HasEnd bool
 	HasSemicolon *bool
 	// Comments contains the comments lexed within this block, in source order.
 	Comments []Comment
@@ -1083,8 +1083,8 @@ type AstStatBreak struct {
 	HasSemicolon *bool
 }
 
-func (AstStatBreak) isAstNode()             {}
-func (AstStatBreak) isAstStat()             {}
+func (AstStatBreak) isAstNode() {}
+func (AstStatBreak) isAstStat() {}
 func (AstStatBreak) isAstStatBreakOrError() {}
 func (n *AstStatBreak) SetHasSemicolon() {
 	n.HasSemicolon = &tru
@@ -1101,9 +1101,9 @@ func (n AstStatBreak) String() string {
 
 type AstStatCompoundAssign struct {
 	*NodeLoc
-	Op           BinaryOp
-	Var          AstExpr
-	Value        AstExpr
+	Op BinaryOp
+	Var AstExpr
+	Value AstExpr
 	HasSemicolon *bool
 }
 
@@ -1134,8 +1134,8 @@ type AstStatContinue struct {
 	HasSemicolon *bool
 }
 
-func (AstStatContinue) isAstNode()                {}
-func (AstStatContinue) isAstStat()                {}
+func (AstStatContinue) isAstNode() {}
+func (AstStatContinue) isAstStat() {}
 func (AstStatContinue) isAstStatContinueOrError() {}
 func (n *AstStatContinue) SetHasSemicolon() {
 	n.HasSemicolon = &tru
@@ -1152,17 +1152,17 @@ func (n AstStatContinue) String() string {
 
 type AstStatDeclareFunction struct {
 	*NodeLoc
-	Attributes     []AstAttr
-	Name           string
-	NameLocation   lex.Location
-	Generics       []AstGenericType
-	GenericPacks   []AstGenericTypePack
-	Params         AstTypeList
-	ParamNames     []AstArgumentName
-	Vararg         bool
+	Attributes []AstAttr
+	Name string
+	NameLocation lex.Location
+	Generics []AstGenericType
+	GenericPacks []AstGenericTypePack
+	Params AstTypeList
+	ParamNames []AstArgumentName
+	Vararg bool
 	VarargLocation lex.Location
-	RetTypes       AstTypePack
-	HasSemicolon   *bool
+	RetTypes AstTypePack
+	HasSemicolon *bool
 }
 
 func (AstStatDeclareFunction) isAstNode() {}
@@ -1222,9 +1222,9 @@ func (n AstStatDeclareFunction) String() string {
 
 type AstStatDeclareGlobal struct {
 	*NodeLoc
-	Name         string
+	Name string
 	NameLocation lex.Location
-	Type         AstType
+	Type AstType
 	HasSemicolon *bool
 }
 
@@ -1250,10 +1250,10 @@ func (n AstStatDeclareGlobal) String() string {
 
 type AstStatDeclareExternType struct {
 	*NodeLoc
-	Name         string
-	SuperName    *string
-	Props        []AstDeclaredExternTypeProperty
-	Indexer      *AstTableIndexer
+	Name string
+	SuperName *string
+	Props []AstDeclaredExternTypeProperty
+	Indexer *AstTableIndexer
 	HasSemicolon *bool
 }
 
@@ -1289,11 +1289,11 @@ func (n AstStatDeclareExternType) String() string {
 }
 
 type AstDeclaredExternTypeProperty struct {
-	Location     lex.Location
-	Name         lex.AstName
+	Location lex.Location
+	Name lex.AstName
 	NameLocation lex.Location
-	Ty           AstType
-	IsMethod     bool
+	Ty AstType
+	IsMethod bool
 }
 
 func (n AstDeclaredExternTypeProperty) String() string {
@@ -1313,15 +1313,15 @@ func (n AstDeclaredExternTypeProperty) String() string {
 
 type AstStatError struct {
 	*NodeLoc
-	Expressions  []AstExpr
-	Statements   []AstStat
+	Expressions []AstExpr
+	Statements []AstStat
 	MessageIndex int
 	HasSemicolon *bool
 }
 
-func (AstStatError) isAstNode()                {}
-func (AstStatError) isAstStat()                {}
-func (AstStatError) isAstStatBreakOrError()    {}
+func (AstStatError) isAstNode() {}
+func (AstStatError) isAstStat() {}
+func (AstStatError) isAstStatBreakOrError() {}
 func (AstStatError) isAstStatContinueOrError() {}
 func (n *AstStatError) SetHasSemicolon() {
 	n.HasSemicolon = &tru
@@ -1353,7 +1353,7 @@ func (n AstStatError) String() string {
 
 type AstStatExpr struct {
 	*NodeLoc
-	Expr         AstExpr
+	Expr AstExpr
 	HasSemicolon *bool
 }
 
@@ -1377,18 +1377,18 @@ func (n AstStatExpr) String() string {
 
 type AstStatFor struct {
 	*NodeLoc
-	Var          *AstLocal
-	From         AstExpr
-	To           AstExpr
-	Step         AstExpr
-	Body         *AstStatBlock
-	HasDo        bool
-	DoLocation   lex.Location
+	Var *AstLocal
+	From AstExpr
+	To AstExpr
+	Step AstExpr
+	Body *AstStatBlock
+	HasDo bool
+	DoLocation lex.Location
 	HasSemicolon *bool
 }
 
-func (AstStatFor) isAstNode()           {}
-func (AstStatFor) isAstStat()           {}
+func (AstStatFor) isAstNode() {}
+func (AstStatFor) isAstStat() {}
 func (AstStatFor) isAstStatForOrForIn() {}
 func (n *AstStatFor) SetHasSemicolon() {
 	n.HasSemicolon = &tru
@@ -1428,18 +1428,18 @@ func (n AstStatFor) String() string {
 
 type AstStatForIn struct {
 	*NodeLoc
-	Vars         []*AstLocal
-	Values       []AstExpr
-	Body         *AstStatBlock
-	HasIn        bool
-	InLocation   lex.Location
-	HasDo        bool
-	DoLocation   lex.Location
+	Vars []*AstLocal
+	Values []AstExpr
+	Body *AstStatBlock
+	HasIn bool
+	InLocation lex.Location
+	HasDo bool
+	DoLocation lex.Location
 	HasSemicolon *bool
 }
 
-func (AstStatForIn) isAstNode()           {}
-func (AstStatForIn) isAstStat()           {}
+func (AstStatForIn) isAstNode() {}
+func (AstStatForIn) isAstStat() {}
 func (AstStatForIn) isAstStatForOrForIn() {}
 func (n *AstStatForIn) SetHasSemicolon() {
 	n.HasSemicolon = &tru
@@ -1479,8 +1479,8 @@ func (n AstStatForIn) String() string {
 
 type AstStatFunction struct {
 	*NodeLoc
-	Name         AstExpr
-	Func         AstExprFunction
+	Name AstExpr
+	Func AstExprFunction
 	HasSemicolon *bool
 }
 
@@ -1509,17 +1509,17 @@ func (n AstStatFunction) String() string {
 
 type AstStatIf struct {
 	*NodeLoc
-	Condition    AstExpr
-	ThenBody     AstStatBlock
-	ElseBody     AstStat
+	Condition AstExpr
+	ThenBody AstStatBlock
+	ElseBody AstStat
 	ThenLocation *lex.Location
 	ElseLocation *lex.Location
 	// Active for `if local` and `if const` statements
-	ConditionLocal           *AstLocal
-	ConditionIsConst         bool
+	ConditionLocal *AstLocal
+	ConditionIsConst bool
 	ConditionKeywordLocation *lex.Location
-	ConditionEqualsLocation  *lex.Location
-	HasSemicolon             *bool
+	ConditionEqualsLocation *lex.Location
+	HasSemicolon *bool
 }
 
 func (AstStatIf) isAstNode() {}
@@ -1556,13 +1556,13 @@ func (n AstStatIf) String() string {
 
 type AstStatLocal struct {
 	*NodeLoc
-	Vars               []AstLocal
-	Values             []AstExpr
+	Vars []AstLocal
+	Values []AstExpr
 	EqualsSignLocation *lex.Location
-	IsConst            bool
-	IsExported         bool
-	KeywordLocation    *lex.Location
-	HasSemicolon       *bool
+	IsConst bool
+	IsExported bool
+	KeywordLocation *lex.Location
+	HasSemicolon *bool
 }
 
 func (AstStatLocal) isAstNode() {}
@@ -1597,9 +1597,9 @@ func (n AstStatLocal) String() string {
 
 type AstStatLocalFunction struct {
 	*NodeLoc
-	Name         AstLocal
-	Func         AstExprFunction
-	IsConst      bool
+	Name AstLocal
+	Func AstExprFunction
+	IsConst bool
 	HasSemicolon *bool
 }
 
@@ -1626,9 +1626,9 @@ func (n AstStatLocalFunction) String() string {
 
 type AstStatRepeat struct {
 	*NodeLoc
-	Condition    AstExpr
-	Body         *AstStatBlock
-	HasUntil     bool
+	Condition AstExpr
+	Body *AstStatBlock
+	HasUntil bool
 	HasSemicolon *bool
 }
 
@@ -1658,7 +1658,7 @@ func (n AstStatRepeat) String() string {
 
 type AstStatReturn struct {
 	*NodeLoc
-	List         []AstExpr
+	List []AstExpr
 	HasSemicolon *bool
 }
 
@@ -1686,17 +1686,17 @@ func (n AstStatReturn) String() string {
 
 type AstStatTypeAlias struct {
 	*NodeLoc
-	Name         string
+	Name string
 	NameLocation lex.Location
-	Generics     []AstGenericType
+	Generics []AstGenericType
 	GenericPacks []AstGenericTypePack
-	Type         AstType
-	Exported     bool
+	Type AstType
+	Exported bool
 	HasSemicolon *bool
 }
 
-func (AstStatTypeAlias) isAstNode()                        {}
-func (AstStatTypeAlias) isAstStat()                        {}
+func (AstStatTypeAlias) isAstNode() {}
+func (AstStatTypeAlias) isAstStat() {}
 func (AstStatTypeAlias) isAstStatTypeAliasOrTypeFunction() {}
 func (n *AstStatTypeAlias) SetHasSemicolon() {
 	n.HasSemicolon = &tru
@@ -1733,16 +1733,16 @@ func (n AstStatTypeAlias) String() string {
 
 type AstStatTypeFunction struct {
 	*NodeLoc
-	Name         string
+	Name string
 	NameLocation lex.Location
-	Body         AstExprFunction
-	Exported     bool
-	HasErrors    bool
+	Body AstExprFunction
+	Exported bool
+	HasErrors bool
 	HasSemicolon *bool
 }
 
-func (AstStatTypeFunction) isAstNode()                        {}
-func (AstStatTypeFunction) isAstStat()                        {}
+func (AstStatTypeFunction) isAstNode() {}
+func (AstStatTypeFunction) isAstStat() {}
 func (AstStatTypeFunction) isAstStatTypeAliasOrTypeFunction() {}
 func (n *AstStatTypeFunction) SetHasSemicolon() {
 	n.HasSemicolon = &tru
@@ -1766,10 +1766,10 @@ func (n AstStatTypeFunction) String() string {
 
 type AstStatWhile struct {
 	*NodeLoc
-	Condition    AstExpr
-	Body         *AstStatBlock
-	HasDo        bool
-	DoLocation   lex.Location
+	Condition AstExpr
+	Body *AstStatBlock
+	HasDo bool
+	DoLocation lex.Location
 	HasSemicolon *bool
 }
 
@@ -1799,10 +1799,10 @@ func (n AstStatWhile) String() string {
 }
 
 type AstTableIndexer struct {
-	Location       lex.Location
-	IndexType      AstType
-	ResultType     AstType
-	Access         string
+	Location lex.Location
+	IndexType AstType
+	ResultType AstType
+	Access string
 	AccessLocation *lex.Location
 }
 
@@ -1828,8 +1828,8 @@ func (n AstTableIndexer) String() string {
 type AstTableProp struct {
 	Name lex.AstName
 	*NodeLoc
-	Type           AstType
-	Access         string
+	Type AstType
+	Access string
 	AccessLocation *lex.Location
 }
 
@@ -1852,8 +1852,8 @@ func (n AstTableProp) String() string {
 
 type AstTypeError struct {
 	*NodeLoc
-	Types        []AstType
-	IsMissing    bool
+	Types []AstType
+	IsMissing bool
 	MessageIndex int
 }
 
@@ -1879,12 +1879,12 @@ func (n AstTypeError) String() string {
 
 type AstTypeFunction struct {
 	*NodeLoc
-	Attributes   []AstAttr
-	Generics     []AstGenericType
+	Attributes []AstAttr
+	Generics []AstGenericType
 	GenericPacks []AstGenericTypePack
-	ArgTypes     AstTypeList
-	ArgNames     []*AstArgumentName
-	ReturnTypes  AstTypePack
+	ArgTypes AstTypeList
+	ArgNames []*AstArgumentName
+	ReturnTypes AstTypePack
 }
 
 func (AstTypeFunction) isAstNode() {}
@@ -1975,7 +1975,7 @@ func (n AstTypeIntersection) String() string {
 }
 
 type AstTypeList struct {
-	Types    []AstType
+	Types []AstType
 	TailType *AstTypePack
 }
 
@@ -2040,7 +2040,7 @@ func (n AstTypeOrPack) String() string {
 
 type AstTypePackExplicit struct {
 	*NodeLoc
-	Types    AstTypeList
+	Types AstTypeList
 	TailType *AstTypePack
 }
 
@@ -2067,7 +2067,7 @@ type AstTypePackGeneric struct {
 	GenericName string
 }
 
-func (AstTypePackGeneric) isAstNode()                      {}
+func (AstTypePackGeneric) isAstNode() {}
 func (AstTypePackGeneric) isAstTypePackVariadicOrGeneric() {}
 func (n AstTypePackGeneric) String() string {
 	var b strings.Builder
@@ -2084,7 +2084,7 @@ type AstTypePackVariadic struct {
 	VariadicType AstType
 }
 
-func (AstTypePackVariadic) isAstNode()                      {}
+func (AstTypePackVariadic) isAstNode() {}
 func (AstTypePackVariadic) isAstTypePackVariadicOrGeneric() {}
 func (n AstTypePackVariadic) String() string {
 	var b strings.Builder
@@ -2100,11 +2100,11 @@ func (n AstTypePackVariadic) String() string {
 type AstTypeReference struct {
 	*NodeLoc
 	HasParameterList bool
-	Prefix           *string
-	PrefixLocation   *lex.Location
-	Name             string
-	NameLocation     lex.Location
-	Parameters       []AstTypeOrPack
+	Prefix *string
+	PrefixLocation *lex.Location
+	Name string
+	NameLocation lex.Location
+	Parameters []AstTypeOrPack
 }
 
 func (AstTypeReference) isAstNode() {}
@@ -2170,7 +2170,7 @@ func (n AstTypeSingletonString) String() string {
 
 type AstTypeTable struct {
 	*NodeLoc
-	Props   []AstTableProp
+	Props []AstTableProp
 	Indexer *AstTableIndexer
 	// Comments contains the comments lexed within this table, in source order.
 	Comments []Comment

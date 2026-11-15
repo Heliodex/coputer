@@ -37,10 +37,10 @@ func (sk SK) TLS() (cert tls.Certificate, err error) {
 		Subject: pkix.Name{
 			Organization: []string{"wallflower"},
 		},
-		NotBefore:             notBefore,
-		NotAfter:              notAfter,
-		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		NotBefore: notBefore,
+		NotAfter: notAfter,
+		KeyUsage: x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
 
 		IPAddresses: []net.IP{net.IPv6loopback},

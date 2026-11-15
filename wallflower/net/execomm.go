@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	addr      = "http://localhost:2505"
+	addr = "http://localhost:2505"
 	storeAddr = addr + "/store"
 )
 

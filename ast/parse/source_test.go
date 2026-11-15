@@ -125,57 +125,57 @@ end`
 func TestSourceServiceSorting(t *testing.T) {
 	cases := []struct {
 		name string
-		src  string
+		src string
 		want string
 	}{
 		{
 			name: "sorts locals by service name",
-			src:  "local Workspace = game:GetService \"Workspace\"\nlocal Players = game:GetService \"Players\"\nlocal RunService = game:GetService \"RunService\"\n",
+			src: "local Workspace = game:GetService \"Workspace\"\nlocal Players = game:GetService \"Players\"\nlocal RunService = game:GetService \"RunService\"\n",
 			want: "local Players = game:GetService \"Players\"\nlocal RunService = game:GetService \"RunService\"\nlocal Workspace = game:GetService \"Workspace\"",
 		},
 		{
 			name: "comments move with their declaration but a file header stays put",
-			src:  "--!strict\n-- header\nlocal Zed = game:GetService \"Zed\"\n-- players\nlocal Players = game:GetService \"Players\" -- the players\n",
+			src: "--!strict\n-- header\nlocal Zed = game:GetService \"Zed\"\n-- players\nlocal Players = game:GetService \"Players\" -- the players\n",
 			want: "--!strict\n-- header\n-- players\n\nlocal Players = game:GetService \"Players\" -- the players\nlocal Zed = game:GetService \"Zed\"",
 		},
 		{
 			name: "parenthesised calls and sugar are both recognised",
-			src:  "local C = game:GetService(\"Camera\")\nlocal A = game:GetService \"Accessory\"\nlocal B = game:GetService(\"Body\")\n",
+			src: "local C = game:GetService(\"Camera\")\nlocal A = game:GetService \"Accessory\"\nlocal B = game:GetService(\"Body\")\n",
 			want: "local A = game:GetService \"Accessory\"\nlocal B = game:GetService \"Body\"\nlocal C = game:GetService \"Camera\"",
 		},
 		{
 			name: "type annotations do not disqualify",
-			src:  "local B: Instance = game:GetService \"B\"\nlocal A: Instance = game:GetService \"A\"\n",
+			src: "local B: Instance = game:GetService \"B\"\nlocal A: Instance = game:GetService \"A\"\n",
 			want: "local A: Instance = game:GetService \"A\"\nlocal B: Instance = game:GetService \"B\"",
 		},
 		{
 			name: "the run stops at the first non-service statement",
-			src:  "local B = game:GetService \"B\"\nlocal A = game:GetService \"A\"\nlocal C = game:GetService \"C\"\n",
+			src: "local B = game:GetService \"B\"\nlocal A = game:GetService \"A\"\nlocal C = game:GetService \"C\"\n",
 			want: "local A = game:GetService \"A\"\nlocal B = game:GetService \"B\"\nlocal C = game:GetService \"C\"",
 		},
 		{
 			name: "duplicate names still sort by service name",
-			src:  "local A = game:GetService \"Zed\"\nlocal A = game:GetService \"Apple\"\n",
+			src: "local A = game:GetService \"Zed\"\nlocal A = game:GetService \"Apple\"\n",
 			want: "local A = game:GetService \"Apple\"\nlocal A = game:GetService \"Zed\"",
 		},
 		{
 			name: "a non-game base is left unsorted",
-			src:  "local B = Client:GetService \"B\"\nlocal A = Client:GetService \"A\"\n",
+			src: "local B = Client:GetService \"B\"\nlocal A = Client:GetService \"A\"\n",
 			want: "local B = Client:GetService \"B\"\nlocal A = Client:GetService \"A\"",
 		},
 		{
 			name: "a non-string argument is left unsorted",
-			src:  "local B = game:GetService(name)\nlocal A = game:GetService(other)\n",
+			src: "local B = game:GetService(name)\nlocal A = game:GetService(other)\n",
 			want: "local B = game:GetService(name)\nlocal A = game:GetService(other)",
 		},
 		{
 			name: "multiple declared variables are left unsorted",
-			src:  "local B, C = game:GetService \"B\", 1\nlocal A = game:GetService \"A\"\n",
+			src: "local B, C = game:GetService \"B\", 1\nlocal A = game:GetService \"A\"\n",
 			want: "local B, C = game:GetService \"B\", 1\nlocal A = game:GetService \"A\"",
 		},
 		{
 			name: "only the leading same-kind run sorts",
-			src:  "local B = game:GetService \"B\"\nlocal A = game:GetService \"A\"\nconst D = game:GetService \"D\"\nconst C = game:GetService \"C\"\n",
+			src: "local B = game:GetService \"B\"\nlocal A = game:GetService \"A\"\nconst D = game:GetService \"D\"\nconst C = game:GetService \"C\"\n",
 			want: "local A = game:GetService \"A\"\nlocal B = game:GetService \"B\"\n\nconst D = game:GetService \"D\"\nconst C = game:GetService \"C\"",
 		},
 	}
@@ -208,52 +208,52 @@ func TestSourceServiceSorting(t *testing.T) {
 func TestSourceDirectiveSorting(t *testing.T) {
 	cases := []struct {
 		name string
-		src  string
+		src string
 		want string
 	}{
 		{
 			name: "sorts directives by category",
-			src:  "--!strict\n--!nonstrict\n--!nocheck\n--!native\n--!nolint\n--!optimize 2\n\ntable.clear()\n",
+			src: "--!strict\n--!nonstrict\n--!nocheck\n--!native\n--!nolint\n--!optimize 2\n\ntable.clear()\n",
 			want: "--!strict\n--!nolint\n--!native\n--!optimize 2\n\ntable.clear()",
 		},
 		{
 			name: "pulls interleaved directives above a normal comment",
-			src:  "-- normal\n--!native\n--!strict\nlocal x = 1\n",
+			src: "-- normal\n--!native\n--!strict\nlocal x = 1\n",
 			want: "--!strict\n--!native\n-- normal\n\nlocal x = 1",
 		},
 		{
 			name: "keeps the first type-check directive",
-			src:  "--!nocheck\n--!strict\nlocal x = 1\n",
+			src: "--!nocheck\n--!strict\nlocal x = 1\n",
 			want: "--!nocheck\n\nlocal x = 1",
 		},
 		{
 			name: "leaves directives after the first statement alone",
-			src:  "local x = 1\n--!native\n--!strict\nlocal y = 2\n",
+			src: "local x = 1\n--!native\n--!strict\nlocal y = 2\n",
 			want: "local x = 1\n--!native\n--!strict\nlocal y = 2",
 		},
 		{
 			name: "sorts directives when the file has no statements",
-			src:  "--!native\n--!strict\n--!nolint\n",
+			src: "--!native\n--!strict\n--!nolint\n",
 			want: "--!strict\n--!nolint\n--!native",
 		},
 		{
 			name: "keeps unknown directives after the known ones",
-			src:  "--!wat\n--!native\n--!strict\nlocal x = 1\n",
+			src: "--!wat\n--!native\n--!strict\nlocal x = 1\n",
 			want: "--!strict\n--!native\n--!wat\n\nlocal x = 1",
 		},
 		{
 			name: "keeps repeated lint and native directives",
-			src:  "--!native\n--!native\n--!nolint UnknownGlobal\n--!strict\nlocal x = 1\n",
+			src: "--!native\n--!native\n--!nolint UnknownGlobal\n--!strict\nlocal x = 1\n",
 			want: "--!strict\n--!nolint UnknownGlobal\n--!native\n--!native\n\nlocal x = 1",
 		},
 		{
 			name: "a space after the bang is not a directive",
-			src:  "--! strict\n--!nocheck\nlocal x = 1\n",
+			src: "--! strict\n--!nocheck\nlocal x = 1\n",
 			want: "--!nocheck\n--! strict\n\nlocal x = 1",
 		},
 		{
 			name: "block and trailing comments are not directives",
-			src:  "--[[!strict]]\nlocal x = 1 --!native\n",
+			src: "--[[!strict]]\nlocal x = 1 --!native\n",
 			want: "--[[!strict]]\nlocal x = 1 --!native",
 		},
 	}
@@ -285,42 +285,42 @@ func TestSourceDirectiveSorting(t *testing.T) {
 func TestSourceRequireSorting(t *testing.T) {
 	cases := []struct {
 		name string
-		src  string
+		src string
 		want string
 	}{
 		{
 			name: "sorts string requires by filename",
-			src:  "local Types = require \"../Types\"\nlocal logError = require \"../Logging/logError\"\nlocal isSimilar = require \"../Utility/isSimilar\"\n",
+			src: "local Types = require \"../Types\"\nlocal logError = require \"../Logging/logError\"\nlocal isSimilar = require \"../Utility/isSimilar\"\n",
 			want: "local logError = require \"../Logging/logError\"\nlocal Types = require \"../Types\"\nlocal isSimilar = require \"../Utility/isSimilar\"",
 		},
 		{
 			name: "string requires come before instance requires",
-			src:  "local inst = require(script.Parent.Services)\nlocal a = require \"../A\"\nlocal b = require(script.Parent.Alpha)\n",
+			src: "local inst = require(script.Parent.Services)\nlocal a = require \"../A\"\nlocal b = require(script.Parent.Alpha)\n",
 			want: "local a = require \"../A\"\nlocal b = require(script.Parent.Alpha)\nlocal inst = require(script.Parent.Services)",
 		},
 		{
 			name: "sorts instance requires by path",
-			src:  "local z = require(script.Parent.Zed)\nlocal a = require(script.Parent.Alpha)\n",
+			src: "local z = require(script.Parent.Zed)\nlocal a = require(script.Parent.Alpha)\n",
 			want: "local a = require(script.Parent.Alpha)\nlocal z = require(script.Parent.Zed)",
 		},
 		{
 			name: "a single require is left alone",
-			src:  "local A = require \"../A\"\nlocal B = 2\n",
+			src: "local A = require \"../A\"\nlocal B = 2\n",
 			want: "local A = require \"../A\"\n\nlocal B = 2",
 		},
 		{
 			name: "requires after a non-require statement are left alone",
-			src:  "local B = require \"../B\"\nlocal A = require \"../A\"\nlocal x = 1\nlocal D = require \"../D\"\nlocal C = require \"../C\"\n",
+			src: "local B = require \"../B\"\nlocal A = require \"../A\"\nlocal x = 1\nlocal D = require \"../D\"\nlocal C = require \"../C\"\n",
 			want: "local A = require \"../A\"\nlocal B = require \"../B\"\n\nlocal x = 1\nlocal D = require \"../D\"\nlocal C = require \"../C\"",
 		},
 		{
 			name: "composes after the sorted service section",
-			src:  "local Players = game:GetService \"Players\"\nlocal Workspace = game:GetService \"Workspace\"\nlocal B = require \"../B\"\nlocal A = require \"../A\"\nlocal rest = 1\n",
+			src: "local Players = game:GetService \"Players\"\nlocal Workspace = game:GetService \"Workspace\"\nlocal B = require \"../B\"\nlocal A = require \"../A\"\nlocal rest = 1\n",
 			want: "local Players = game:GetService \"Players\"\nlocal Workspace = game:GetService \"Workspace\"\n\nlocal A = require \"../A\"\nlocal B = require \"../B\"\n\nlocal rest = 1",
 		},
 		{
 			name: "a shadowed require local is not sorted",
-			src:  "local require = function(x)\n\treturn x\nend\nlocal B = require \"../B\"\nlocal A = require \"../A\"\n",
+			src: "local require = function(x)\n\treturn x\nend\nlocal B = require \"../B\"\nlocal A = require \"../A\"\n",
 			want: "local function require(\n\tx\n)\n\treturn x\nend\n\nlocal B = require \"../B\"\nlocal A = require \"../A\"",
 		},
 	}
@@ -390,42 +390,42 @@ func TestSourceComments(t *testing.T) {
 func TestSourceFunctionSpacing(t *testing.T) {
 	cases := []struct {
 		name string
-		src  string
+		src string
 		want string
 	}{
 		{
 			name: "blank lines around a function between statements",
-			src:  "local x = 1\nlocal function f()\n\treturn x\nend\nlocal y = 2\n",
+			src: "local x = 1\nlocal function f()\n\treturn x\nend\nlocal y = 2\n",
 			want: "local x = 1\n\nlocal function f()\n\treturn x\nend\n\nlocal y = 2",
 		},
 		{
 			name: "a sole function in a scope gets no blank lines",
-			src:  "local function f()\n\treturn 1\nend\n",
+			src: "local function f()\n\treturn 1\nend\n",
 			want: "local function f()\n\treturn 1\nend",
 		},
 		{
 			name: "consecutive functions are separated by one blank line",
-			src:  "local function a() end\nfunction b() end\n",
+			src: "local function a() end\nfunction b() end\n",
 			want: "local function a()\nend\n\nfunction b()\nend",
 		},
 		{
 			name: "a comment above a function stays hugging it",
-			src:  "local x = 1\n-- doc\nlocal function f()\n\treturn x\nend\nlocal y = 2\n",
+			src: "local x = 1\n-- doc\nlocal function f()\n\treturn x\nend\nlocal y = 2\n",
 			want: "local x = 1\n\n-- doc\nlocal function f()\n\treturn x\nend\n\nlocal y = 2",
 		},
 		{
 			name: "a function value assignment is not set off",
-			src:  "local x = 1\nlocal f = function()\n\treturn x\nend\nlocal y = 2\n",
+			src: "local x = 1\nlocal f = function()\n\treturn x\nend\nlocal y = 2\n",
 			want: "local x = 1\nlocal f = function()\n\treturn x\nend\nlocal y = 2",
 		},
 		{
 			name: "function declarations inside a block are set off",
-			src:  "do\n\tlocal x = 1\n\tlocal function f()\n\t\treturn x\n\tend\n\tlocal y = 2\nend\n",
+			src: "do\n\tlocal x = 1\n\tlocal function f()\n\t\treturn x\n\tend\n\tlocal y = 2\nend\n",
 			want: "do\n\tlocal x = 1\n\n\tlocal function f()\n\t\treturn x\n\tend\n\n\tlocal y = 2\nend",
 		},
 		{
 			name: "an attributed function is set off",
-			src:  "local x = 1\n@native\nfunction f() end\nlocal y = 2\n",
+			src: "local x = 1\n@native\nfunction f() end\nlocal y = 2\n",
 			want: "local x = 1\n\n@native\nfunction f()\nend\n\nlocal y = 2",
 		},
 	}
@@ -457,82 +457,82 @@ func TestSourceFunctionSpacing(t *testing.T) {
 func TestSourceMethodCalls(t *testing.T) {
 	cases := []struct {
 		name string
-		src  string
+		src string
 		want string
 	}{
 		{
 			name: "repeated local receiver becomes a method call",
-			src:  "x.func(x, whatever)",
+			src: "x.func(x, whatever)",
 			want: "x:func(whatever)",
 		},
 		{
 			name: "a method with no remaining arguments",
-			src:  "x.func(x)",
+			src: "x.func(x)",
 			want: "x:func()",
 		},
 		{
 			name: "sugar is preserved for a single string argument",
-			src:  "x.func(x, \"str\")",
+			src: "x.func(x, \"str\")",
 			want: "x:func \"str\"",
 		},
 		{
 			name: "sugar is preserved for a single table argument",
-			src:  "x.func(x, { a = 1 })",
+			src: "x.func(x, { a = 1 })",
 			want: "x:func {\n\ta = 1,\n}",
 		},
 		{
 			name: "self is treated like any other identifier",
-			src:  "self.method(self, 1, 2)",
+			src: "self.method(self, 1, 2)",
 			want: "self:method(1, 2)",
 		},
 		{
 			name: "a global receiver is rewritten too",
-			src:  "instance.func(instance, 1)",
+			src: "instance.func(instance, 1)",
 			want: "instance:func(1)",
 		},
 		{
 			name: "a grouped receiver is unwrapped",
-			src:  "x.func((x), 1)",
+			src: "x.func((x), 1)",
 			want: "x:func(1)",
 		},
 		{
 			name: "an explicit type instantiation moves onto the method name",
-			src:  "x.func<<number>>(x, 1)",
+			src: "x.func<<number>>(x, 1)",
 			want: "x:func<<number>>(1)",
 		},
 		{
 			name: "a different first argument is left alone",
-			src:  "x.func(y, whatever)",
+			src: "x.func(y, whatever)",
 			want: "x.func(y, whatever)",
 		},
 		{
 			name: "an indexed first argument is left alone",
-			src:  "x.func(x.y, whatever)",
+			src: "x.func(x.y, whatever)",
 			want: "x.func(x.y, whatever)",
 		},
 		{
 			name: "an indexed receiver is left alone even when the argument repeats it",
-			src:  "x.y.func(x.y, whatever)",
+			src: "x.y.func(x.y, whatever)",
 			want: "x.y.func(x.y, whatever)",
 		},
 		{
 			name: "a call receiver is left alone so it is still evaluated twice",
-			src:  "f().func(f(), whatever)",
+			src: "f().func(f(), whatever)",
 			want: "f().func(f(), whatever)",
 		},
 		{
 			name: "a type-asserted first argument is left alone",
-			src:  "x.func(x :: T, 1)",
+			src: "x.func(x :: T, 1)",
 			want: "x.func(x :: T, 1)",
 		},
 		{
 			name: "an existing method call is unchanged",
-			src:  "x:func(1)",
+			src: "x:func(1)",
 			want: "x:func(1)",
 		},
 		{
 			name: "an existing method call with type arguments is unchanged",
-			src:  "x:func<<number>>(1)",
+			src: "x:func<<number>>(1)",
 			want: "x:func<<number>>(1)",
 		},
 	}
@@ -564,7 +564,7 @@ func TestSourceMethodCalls(t *testing.T) {
 func TestSourceNumberLiterals(t *testing.T) {
 	cases := []struct {
 		name string
-		lit  string
+		lit string
 		want string
 	}{
 		{name: "small hex", lit: "0xff", want: "255"},
@@ -645,17 +645,19 @@ func TestSourceDeclareNodes(t *testing.T) {
 	ref := func(name string) AstTypeReference {
 		return AstTypeReference{NodeLoc: &NodeLoc{}, Name: name}
 	}
-	pack := func(p AstTypePack) *AstTypePack { return &p }
+	pack := func(p AstTypePack) *AstTypePack {
+		return &p
+	}
 
 	t.Run("declare function", func(t *testing.T) {
 		node := AstStatDeclareFunction{
-			NodeLoc:    &NodeLoc{},
-			Name:       "foo",
-			Generics:   []AstGenericType{{NodeLoc: &NodeLoc{}, Name: "T"}},
-			Params:     AstTypeList{Types: []AstType{ref("number")}, TailType: pack(AstTypePackVariadic{NodeLoc: &NodeLoc{}, VariadicType: ref("string")})},
+			NodeLoc: &NodeLoc{},
+			Name: "foo",
+			Generics: []AstGenericType{{NodeLoc: &NodeLoc{}, Name: "T"}},
+			Params: AstTypeList{Types: []AstType{ref("number")}, TailType: pack(AstTypePackVariadic{NodeLoc: &NodeLoc{}, VariadicType: ref("string")})},
 			ParamNames: []AstArgumentName{{Name: "a"}},
-			Vararg:     true,
-			RetTypes:   AstTypePackExplicit{NodeLoc: &NodeLoc{}, Types: AstTypeList{Types: []AstType{ref("string"), ref("number")}}},
+			Vararg: true,
+			RetTypes: AstTypePackExplicit{NodeLoc: &NodeLoc{}, Types: AstTypeList{Types: []AstType{ref("string"), ref("number")}}},
 		}
 
 		expected := "declare function foo<T>(a: number, ...: string): (string, number)"
@@ -667,15 +669,15 @@ func TestSourceDeclareNodes(t *testing.T) {
 	t.Run("declare extern type", func(t *testing.T) {
 		super := "Bar"
 		node := AstStatDeclareExternType{
-			NodeLoc:   &NodeLoc{},
-			Name:      "Foo",
+			NodeLoc: &NodeLoc{},
+			Name: "Foo",
 			SuperName: &super,
 			Props: []AstDeclaredExternTypeProperty{
 				{Name: lex.AstName{Value: "prop"}, Ty: ref("number")},
 				{Name: lex.AstName{Value: "method"}, IsMethod: true, Ty: AstTypeFunction{
-					NodeLoc:     &NodeLoc{},
-					ArgTypes:    AstTypeList{Types: []AstType{ref("number")}},
-					ArgNames:    []*AstArgumentName{{Name: "foo"}},
+					NodeLoc: &NodeLoc{},
+					ArgTypes: AstTypeList{Types: []AstType{ref("number")}},
+					ArgNames: []*AstArgumentName{{Name: "foo"}},
 					ReturnTypes: AstTypePackExplicit{NodeLoc: &NodeLoc{}, Types: AstTypeList{Types: []AstType{ref("string")}}},
 				}},
 			},
@@ -716,42 +718,42 @@ func TestSourceDeclareNodes(t *testing.T) {
 func TestSourceEmptyDoBlocks(t *testing.T) {
 	cases := []struct {
 		name string
-		src  string
+		src string
 		want string
 	}{
 		{
 			name: "a standalone empty do block is removed",
-			src:  "do end\n",
+			src: "do end\n",
 			want: "",
 		},
 		{
 			name: "an empty do block between statements is removed",
-			src:  "local x = 1\ndo end\nprint(x)\n",
+			src: "local x = 1\ndo end\nprint(x)\n",
 			want: "local x = 1\nprint(x)",
 		},
 		{
 			name: "nested empty do blocks are removed",
-			src:  "do\ndo end\nend\nprint(1)\n",
+			src: "do\ndo end\nend\nprint(1)\n",
 			want: "print(1)",
 		},
 		{
 			name: "inner comments move out to the parent block",
-			src:  "local x = 1\ndo\n\t-- kept\nend\nprint(x)\n",
+			src: "local x = 1\ndo\n\t-- kept\nend\nprint(x)\n",
 			want: "local x = 1\n-- kept\nprint(x)",
 		},
 		{
 			name: "a non-empty do block is kept",
-			src:  "do\n\tprint(1)\nend\n",
+			src: "do\n\tprint(1)\nend\n",
 			want: "do\n\tprint(1)\nend",
 		},
 		{
 			name: "an empty do block inside a function is removed",
-			src:  "local function f()\n\tdo end\n\treturn 1\nend\n",
+			src: "local function f()\n\tdo end\n\treturn 1\nend\n",
 			want: "local function f()\n\treturn 1\nend",
 		},
 		{
 			name: "an empty do block inside a function value is removed once",
-			src:  "local f = function() do end return 1 end\n",
+			src: "local f = function() do end return 1 end\n",
 			want: "local function f()\n\treturn 1\nend",
 		},
 	}

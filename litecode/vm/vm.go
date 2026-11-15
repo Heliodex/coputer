@@ -16,8 +16,8 @@ import (
 )
 
 var (
-	errReadonly  = errors.New("attempt to modify a readonly table")
-	errNilIndex  = errors.New("table index is nil")
+	errReadonly = errors.New("attempt to modify a readonly table")
+	errNilIndex = errors.New("table index is nil")
 	errCancelled = errors.New("program execution cancelled")
 )
 
@@ -25,9 +25,9 @@ var (
 
 func fn(name string, co *Coroutine, f func(*Coroutine, ...Val) (r []Val, err error)) Function {
 	return Function{
-		Run:  &f,
+		Run: &f,
 		Name: name,
-		Co:   co,
+		Co: co,
 	}
 }
 
@@ -50,15 +50,15 @@ func namecallHandler(co *Coroutine, kv string, stack *[]Val, c1, c2 int32) (ok b
 
 // The only global environment, never mutated (yes, it only stores string keys)
 var exts = map[string]Val{
-	"args":      TableVal(std.Libargs), // custom
-	"bit32":     TableVal(std.Libbit32),
-	"buffer":    TableVal(std.Libbuffer),
+	"args": TableVal(std.Libargs), // custom
+	"bit32": TableVal(std.Libbit32),
+	"buffer": TableVal(std.Libbuffer),
 	"coroutine": TableVal(std.Libcoroutine),
-	"math":      TableVal(std.Libmath),
-	"string":    TableVal(std.Libstring),
-	"table":     TableVal(std.Libtable),
-	"utf8":      TableVal(std.Libutf8),
-	"vector":    TableVal(std.Libvector),
+	"math": TableVal(std.Libmath),
+	"string": TableVal(std.Libstring),
+	"table": TableVal(std.Libtable),
+	"utf8": TableVal(std.Libutf8),
+	"vector": TableVal(std.Libvector),
 	// fuck os
 	// and debug
 
@@ -88,12 +88,24 @@ func falsy(v Val) bool {
 }
 
 // Small float helpers for the interpreter's arithmetic fast paths. Every one is trivially inlinable, so the common number-on-number case skips the std call, its interface argument/return plumbing, and the error result.
-func fadd(a, b float64) float64  { return a + b }
-func fsub(a, b float64) float64  { return a - b }
-func fmul(a, b float64) float64  { return a * b }
-func fdiv(a, b float64) float64  { return a / b }
-func fmod(a, b float64) float64  { return a - b*math.Floor(a/b) }
-func fidiv(a, b float64) float64 { return math.Floor(a / b) }
+func fadd(a, b float64) float64 {
+	return a + b
+}
+func fsub(a, b float64) float64 {
+	return a - b
+}
+func fmul(a, b float64) float64 {
+	return a * b
+}
+func fdiv(a, b float64) float64 {
+	return a / b
+}
+func fmod(a, b float64) float64 {
+	return a - b*math.Floor(a/b)
+}
+func fidiv(a, b float64) float64 {
+	return math.Floor(a / b)
+}
 
 func uncallableType(v string) error {
 	return fmt.Errorf("attempt to call a %s value", v)
@@ -154,11 +166,11 @@ func gettable(k, v Val) (Val, error) {
 }
 
 type toWrap struct {
-	proto     *internal.Proto
+	proto *internal.Proto
 	protoList []*internal.Proto
-	upvals    []*upval
-	alive     *bool
-	env       Env
+	upvals []*upval
+	alive *bool
+	env Env
 	// Store the last return, as it's the only one that's relevant
 	requireCache map[string]Val
 }
@@ -1184,10 +1196,10 @@ func wrapclosure(towrap toWrap, existingCo *Coroutine) Function {
 		if err != nil {
 			// fmt.Println("BAM!  error coroutine", co.Dbgpath, "with args", args)
 			return nil, &internal.CoError{
-				Line:    co.Dbg.Line,
+				Line: co.Dbg.Line,
 				Dbgname: co.Dbg.Name,
-				Path:    co.Dbgpath,
-				Sub:     err,
+				Path: co.Dbgpath,
+				Sub: err,
 			}
 		}
 		return
@@ -1198,24 +1210,26 @@ func loadmodule(p compile.Program, env Env, requireCache map[string]Val, args Pr
 	alive := true
 
 	towrap := toWrap{
-		proto:        p.MainProto,
-		protoList:    p.ProtoList,
-		alive:        &alive,
-		env:          env,
+		proto: p.MainProto,
+		protoList: p.ProtoList,
+		alive: &alive,
+		env: env,
 		requireCache: requireCache,
 	}
 
 	return Coroutine{
-		Function:       wrapclosure(towrap, nil),
-		Env:            env,
-		Filepath:       p.Filepath,
-		Dbgpath:        p.Dbgpath,
+		Function: wrapclosure(towrap, nil),
+		Env: env,
+		Filepath: p.Filepath,
+		Dbgpath: p.Dbgpath,
 		RequireHistory: p.RequireHistory,
-		YieldChan:      make(chan internal.Yield, 1),
-		ResumeChan:     make(chan []Val, 1),
-		Compiler:       p.Compiler,
-		ProgramArgs:    args,
-	}, func() { alive = false }
+		YieldChan: make(chan internal.Yield, 1),
+		ResumeChan: make(chan []Val, 1),
+		Compiler: p.Compiler,
+		ProgramArgs: args,
+	}, func() {
+		alive = false
+	}
 }
 
 func Load(p compile.Program, env Env, args ProgramArgs) (co Coroutine, cancel func()) {

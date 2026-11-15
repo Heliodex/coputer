@@ -10,10 +10,10 @@ import (
 func newCoroutine(body Function, currentCo *Coroutine) *Coroutine {
 	// first time i actually ran into the channel axiom issues
 	return &Coroutine{
-		Function:   body,
-		Filepath:   currentCo.Filepath,
-		Dbgpath:    currentCo.Dbgpath,
-		YieldChan:  make(chan internal.Yield, 1),
+		Function: body,
+		Filepath: currentCo.Filepath,
+		Dbgpath: currentCo.Dbgpath,
+		YieldChan: make(chan internal.Yield, 1),
 		ResumeChan: make(chan []Val, 1),
 	}
 }

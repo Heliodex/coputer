@@ -22,7 +22,7 @@ import (
 const max_captures = 32
 
 var (
-	errMalformedEsc     = fmt.Errorf("malformed pattern (ends with '%c')", l_esc)
+	errMalformedEsc = fmt.Errorf("malformed pattern (ends with '%c')", l_esc)
 	errMalformedBracket = errors.New("malformed pattern (missing ']')")
 )
 
@@ -303,7 +303,7 @@ type capture struct {
 }
 
 type captures struct {
-	level    int
+	level int
 	captures []capture
 }
 
@@ -401,7 +401,7 @@ func optSuffix(s, p string, si, pi, epi int, caps *captures) (cont bool, si2, pi
 		// dlog("optional done", si, si2)
 		si = si2
 	case '+': // 1 or more repetitions
-		si++        // 1 match already done
+		si++ // 1 match already done
 		fallthrough // go through
 	case '*': // 0 or more repetitions
 		if si, err = maxExpand(s, p, si, pi, epi, caps); err != nil {

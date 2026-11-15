@@ -5,7 +5,7 @@ import "fmt"
 type LexemeType uint16
 
 const (
-	Eof      LexemeType = 0
+	Eof LexemeType = 0
 	Char_END LexemeType = iota + 255
 	Equal
 
@@ -81,13 +81,13 @@ const (
 )
 
 type Lexeme struct {
-	Type     LexemeType
+	Type LexemeType
 	Location Location
 
 	Data, rest []byte
-	name       *string
-	Codepoint  *uint32
-	Aux        *int // bruh (equivalent to next_aux)
+	name *string
+	Codepoint *uint32
+	Aux *int // bruh (equivalent to next_aux)
 }
 
 func (l Lexeme) String() string {

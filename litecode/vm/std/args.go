@@ -20,7 +20,7 @@ func args_web(args Args) (r []Val, err error) {
 		}
 
 		query[Str(k)] = TableVal(&Table{
-			List:     params,
+			List: params,
 			Readonly: true,
 		})
 	}
@@ -36,11 +36,11 @@ func args_web(args Args) (r []Val, err error) {
 		Hash: map[Val]Val{
 			Str("url"): TableVal(&Table{
 				Hash: map[Val]Val{
-					Str("rawpath"):  Str(pargs.Url.Rawpath),
-					Str("path"):     Str(pargs.Url.Path),
+					Str("rawpath"): Str(pargs.Url.Rawpath),
+					Str("path"): Str(pargs.Url.Path),
 					Str("rawquery"): Str(pargs.Url.Rawquery),
 					Str("query"): TableVal(&Table{
-						Hash:     query,
+						Hash: query,
 						Readonly: true,
 					}),
 				},
@@ -48,7 +48,7 @@ func args_web(args Args) (r []Val, err error) {
 			}),
 			Str("method"): Str(pargs.Method),
 			Str("headers"): TableVal(&Table{
-				Hash:     headers,
+				Hash: headers,
 				Readonly: true,
 			}),
 			Str("body"): BufVal(&bb),

@@ -37,32 +37,32 @@ var opList = [90]internal.OpInfo{
 	{Mode: 4, KMode: 0, HasAux: false}, // LOADN
 	{Mode: 4, KMode: 3, HasAux: false}, // LOADK
 	{Mode: 2, KMode: 0, HasAux: false}, // MOVE
-	{Mode: 1, KMode: 1, HasAux: true},  // GETGLOBAL
-	{Mode: 1, KMode: 1, HasAux: true},  // SETGLOBAL
+	{Mode: 1, KMode: 1, HasAux: true}, // GETGLOBAL
+	{Mode: 1, KMode: 1, HasAux: true}, // SETGLOBAL
 	{Mode: 2, KMode: 0, HasAux: false}, // GETUPVAL
 	{Mode: 2, KMode: 0, HasAux: false}, // SETUPVAL
 	{Mode: 1, KMode: 0, HasAux: false}, // CLOSEUPVALS
-	{Mode: 4, KMode: 4, HasAux: true},  // GETIMPORT
+	{Mode: 4, KMode: 4, HasAux: true}, // GETIMPORT
 	{Mode: 3, KMode: 0, HasAux: false}, // GETTABLE
 	{Mode: 3, KMode: 0, HasAux: false}, // SETTABLE
-	{Mode: 3, KMode: 1, HasAux: true},  // GETTABLEKS
-	{Mode: 3, KMode: 1, HasAux: true},  // SETTABLEKS
+	{Mode: 3, KMode: 1, HasAux: true}, // GETTABLEKS
+	{Mode: 3, KMode: 1, HasAux: true}, // SETTABLEKS
 	{Mode: 3, KMode: 0, HasAux: false}, // GETTABLEN
 	{Mode: 3, KMode: 0, HasAux: false}, // SETTABLEN
 	{Mode: 4, KMode: 0, HasAux: false}, // NEWCLOSURE
-	{Mode: 3, KMode: 1, HasAux: true},  // NAMECALL
+	{Mode: 3, KMode: 1, HasAux: true}, // NAMECALL
 	{Mode: 3, KMode: 0, HasAux: false}, // CALL
 	{Mode: 2, KMode: 0, HasAux: false}, // RETURN
 	{Mode: 4, KMode: 0, HasAux: false}, // JUMP
 	{Mode: 4, KMode: 0, HasAux: false}, // JUMPBACK
 	{Mode: 4, KMode: 0, HasAux: false}, // JUMPIF
 	{Mode: 4, KMode: 0, HasAux: false}, // JUMPIFNOT
-	{Mode: 4, KMode: 0, HasAux: true},  // JUMPIFEQ
-	{Mode: 4, KMode: 0, HasAux: true},  // JUMPIFLE
-	{Mode: 4, KMode: 0, HasAux: true},  // JUMPIFLT
-	{Mode: 4, KMode: 0, HasAux: true},  // JUMPIFNOTEQ
-	{Mode: 4, KMode: 0, HasAux: true},  // JUMPIFNOTLE
-	{Mode: 4, KMode: 0, HasAux: true},  // JUMPIFNOTLT
+	{Mode: 4, KMode: 0, HasAux: true}, // JUMPIFEQ
+	{Mode: 4, KMode: 0, HasAux: true}, // JUMPIFLE
+	{Mode: 4, KMode: 0, HasAux: true}, // JUMPIFLT
+	{Mode: 4, KMode: 0, HasAux: true}, // JUMPIFNOTEQ
+	{Mode: 4, KMode: 0, HasAux: true}, // JUMPIFNOTLE
+	{Mode: 4, KMode: 0, HasAux: true}, // JUMPIFNOTLT
 	{Mode: 3, KMode: 0, HasAux: false}, // ADD
 	{Mode: 3, KMode: 0, HasAux: false}, // SUB
 	{Mode: 3, KMode: 0, HasAux: false}, // MUL
@@ -83,20 +83,20 @@ var opList = [90]internal.OpInfo{
 	{Mode: 2, KMode: 0, HasAux: false}, // NOT
 	{Mode: 2, KMode: 0, HasAux: false}, // MINUS
 	{Mode: 2, KMode: 0, HasAux: false}, // LENGTH
-	{Mode: 2, KMode: 0, HasAux: true},  // NEWTABLE
+	{Mode: 2, KMode: 0, HasAux: true}, // NEWTABLE
 	{Mode: 4, KMode: 3, HasAux: false}, // DUPTABLE
-	{Mode: 3, KMode: 0, HasAux: true},  // SETLIST
+	{Mode: 3, KMode: 0, HasAux: true}, // SETLIST
 	{Mode: 4, KMode: 0, HasAux: false}, // FORNPREP
 	{Mode: 4, KMode: 0, HasAux: false}, // FORNLOOP
-	{Mode: 4, KMode: 8, HasAux: true},  // FORGLOOP
+	{Mode: 4, KMode: 8, HasAux: true}, // FORGLOOP
 	{Mode: 4, KMode: 0, HasAux: false}, // FORGPREP_INEXT
-	{Mode: 3, KMode: 1, HasAux: true},  // FASTCALL3
+	{Mode: 3, KMode: 1, HasAux: true}, // FASTCALL3
 	{Mode: 4, KMode: 0, HasAux: false}, // FORGPREP_NEXT
 	{Mode: 0, KMode: 0, HasAux: false}, // FORGLOOP_NEXT (deprecated)
 	{Mode: 2, KMode: 0, HasAux: false}, // GETVARARGS
 	{Mode: 4, KMode: 3, HasAux: false}, // DUPCLOSURE
 	{Mode: 1, KMode: 0, HasAux: false}, // PREPVARARGS
-	{Mode: 1, KMode: 1, HasAux: true},  // LOADKX
+	{Mode: 1, KMode: 1, HasAux: true}, // LOADKX
 	{Mode: 5, KMode: 0, HasAux: false}, // JUMPX
 	{Mode: 3, KMode: 0, HasAux: false}, // FASTCALL
 	{Mode: 5, KMode: 0, HasAux: false}, // COVERAGE
@@ -104,21 +104,21 @@ var opList = [90]internal.OpInfo{
 	{Mode: 3, KMode: 7, HasAux: false}, // SUBRK
 	{Mode: 3, KMode: 7, HasAux: false}, // DIVRK
 	{Mode: 3, KMode: 0, HasAux: false}, // FASTCALL1
-	{Mode: 3, KMode: 0, HasAux: true},  // FASTCALL2
-	{Mode: 3, KMode: 1, HasAux: true},  // FASTCALL2K
+	{Mode: 3, KMode: 0, HasAux: true}, // FASTCALL2
+	{Mode: 3, KMode: 1, HasAux: true}, // FASTCALL2K
 	{Mode: 4, KMode: 0, HasAux: false}, // FORGPREP
-	{Mode: 4, KMode: 5, HasAux: true},  // JUMPXEQKNIL
-	{Mode: 4, KMode: 5, HasAux: true},  // JUMPXEQKB
-	{Mode: 4, KMode: 6, HasAux: true},  // JUMPXEQKN
-	{Mode: 4, KMode: 6, HasAux: true},  // JUMPXEQKS
+	{Mode: 4, KMode: 5, HasAux: true}, // JUMPXEQKNIL
+	{Mode: 4, KMode: 5, HasAux: true}, // JUMPXEQKB
+	{Mode: 4, KMode: 6, HasAux: true}, // JUMPXEQKN
+	{Mode: 4, KMode: 6, HasAux: true}, // JUMPXEQKS
 	{Mode: 3, KMode: 0, HasAux: false}, // IDIV
 	{Mode: 3, KMode: 2, HasAux: false}, // IDIVK
-	{Mode: 3, KMode: 1, HasAux: true},  // GETUDATAKS
-	{Mode: 3, KMode: 1, HasAux: true},  // SETUDATAKS
-	{Mode: 3, KMode: 1, HasAux: true},  // NAMECALLUDATA
-	{Mode: 3, KMode: 1, HasAux: true},  // NEWCLASSMEMBER
-	{Mode: 3, KMode: 0, HasAux: true},  // CALLFB
-	{Mode: 4, KMode: 0, HasAux: true},  // CMPPROTO
+	{Mode: 3, KMode: 1, HasAux: true}, // GETUDATAKS
+	{Mode: 3, KMode: 1, HasAux: true}, // SETUDATAKS
+	{Mode: 3, KMode: 1, HasAux: true}, // NAMECALLUDATA
+	{Mode: 3, KMode: 1, HasAux: true}, // NEWCLASSMEMBER
+	{Mode: 3, KMode: 0, HasAux: true}, // CALLFB
+	{Mode: 4, KMode: 0, HasAux: true}, // CMPPROTO
 	{Mode: 3, KMode: 0, HasAux: false}, // FASTPCALL
 }
 
@@ -197,8 +197,8 @@ func checkkmode(i *internal.Inst, k []Val) error {
 }
 
 type stream struct {
-	data    []byte
-	pos     uint32
+	data []byte
+	pos uint32
 	version uint8
 }
 
@@ -296,7 +296,7 @@ func (s *stream) readInst(code *[]internal.Inst) (bool, error) {
 
 	i := internal.Inst{
 		Opcode: opcode,
-		KMode:  opinfo.KMode,
+		KMode: opinfo.KMode,
 	}
 
 	// value >>= 8 // uint24 I guess
@@ -368,7 +368,7 @@ func (s *stream) skipDebugInfo() {
 		s.skipVarInt() // varname
 		s.skipVarInt() // startpc
 		s.skipVarInt() // endpc
-		s.pos++        // reg
+		s.pos++ // reg
 		// startpc := s.rVarInt()
 		// fmt.Println("startpc:", startpc)
 		// endpc := s.rVarInt()
@@ -394,8 +394,8 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 
 	p = &internal.Proto{
 		MaxStackSize: s.rByte(),
-		NumParams:    s.rByte(),
-		Nups:         s.rByte(),
+		NumParams: s.rByte(),
+		Nups: s.rByte(),
 	}
 	// fmt.Println("maxstacksize", p.MaxStackSize, "numparams", p.NumParams, "nups", p.Nups)
 
@@ -574,13 +574,13 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 }
 
 var (
-	errUnsupportedVersion      = errors.New("bytecode version mismatch")
+	errUnsupportedVersion = errors.New("bytecode version mismatch")
 	errUnsupportedTypesVersion = errors.New("bytecode type version mismatch")
 )
 
 const (
 	expectedBytecodeVersion = 14
-	expectedTypesVersion    = 3
+	expectedTypesVersion = 3
 )
 
 func Deserialise(b []byte) (d internal.Deserialised, err error) {

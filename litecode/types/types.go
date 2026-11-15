@@ -6,7 +6,7 @@ import "github.com/Heliodex/coputer/litecode/internal"
 // Compiler allows programs to be compiled and deserialised with a cache and given optimisation level.
 type Compiler struct {
 	Cache map[[32]byte]internal.Deserpath
-	O     uint8
+	O uint8
 }
 
 // Luau types
@@ -17,9 +17,9 @@ type (
 	// Function represents a native or wrapped Luau function. Luau type `function`
 	Function struct {
 		// Run is the native body of the function. Its coroutine argument is used to run the function in a coroutine.
-		Run  *func(*Coroutine, ...Val) ([]Val, error)
+		Run *func(*Coroutine, ...Val) ([]Val, error)
 		Name string
-		Co   *Coroutine // if in a different coroutine
+		Co *Coroutine // if in a different coroutine
 	}
 
 	// Buffer represents a Luau byte buffer. Luau type`buffer`
