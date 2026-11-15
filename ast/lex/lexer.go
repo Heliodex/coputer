@@ -683,15 +683,15 @@ func (l *Lexer) readNext() Lexeme {
 				Location: LocationLen(start, 2),
 				Type: Dot2,
 			}
-		} else {
-			if isDigit(l.peekch0()) {
-				return l.readNumber(start, l.offset-1)
-			}
+		}
 
-			return Lexeme{
-				Location: LocationLen(start, 1),
-				Type: '.',
-			}
+		if isDigit(l.peekch0()) {
+			return l.readNumber(start, l.offset-1)
+		}
+
+		return Lexeme{
+			Location: LocationLen(start, 1),
+			Type: '.',
 		}
 	case '+':
 		l.consume()
@@ -810,33 +810,34 @@ func (l *Lexer) readNext() Lexeme {
 			name: &attribute.Name.Value,
 			Data: l.buffer[startOffset+1 : l.offset],
 		}
-	default:
-		if isDigit(l.peekch0()) {
-			return l.readNumber(start, l.offset)
-		}
+		// whatever3
+	}
 
-		if isAlpha(l.peekch0()) || l.peekch0() == '_' {
-			name := l.readName()
+	if isDigit(l.peekch0()) {
+		return l.readNumber(start, l.offset)
+	}
 
-			return Lexeme{
-				Location: Location{start, l.position()},
-				Type: name.Type,
-				name: &name.Name.Value,
-				Data: l.buffer[l.offset-uint32(len(name.Name.Value)) : l.offset], // whatever3
-			}
-		}
+	if isAlpha(l.peekch0()) || l.peekch0() == '_' {
+		name := l.readName()
 
-		if l.peekch0()&0x80 != 0 {
-			return l.readUtf8Error()
-		}
-
-		ch := l.peekch0()
-
-		l.consume()
 		return Lexeme{
-			Location: LocationLen(start, 1),
-			Type: LexemeType(ch),
+			Location: Location{start, l.position()},
+			Type: name.Type,
+			name: &name.Name.Value,
+			Data: l.buffer[l.offset-uint32(len(name.Name.Value)) : l.offset],
 		}
+	}
+
+	if l.peekch0()&0x80 != 0 {
+		return l.readUtf8Error()
+	}
+
+	ch := l.peekch0()
+
+	l.consume()
+	return Lexeme{
+		Location: LocationLen(start, 1),
+		Type: LexemeType(ch),
 	}
 }
 

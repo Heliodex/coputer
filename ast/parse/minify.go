@@ -269,9 +269,9 @@ func minifyRoot(block AstStatBlock) string {
 		return body
 	case body == "":
 		return directives
-	default:
-		return directives + "\n" + body
 	}
+
+	return directives + "\n" + body
 }
 
 // minifyExpr renders expr in a context requiring at least minPrec, mirroring sourceExpr.

@@ -322,7 +322,7 @@ func unescape(ch byte) byte {
 		return '\t'
 	case 'v':
 		return '\v'
-	default:
-		return ch
 	}
+
+	return ch
 }

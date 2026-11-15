@@ -2107,78 +2107,78 @@ func (p *Parser) parseFor() AstStatForOrForIn {
 		}
 
 		return node
-	} else {
-		names := &[]Binding{varname}
-		varsCommaPosition := &[]lex.Position{}
-
-		if p.token_type == ',' {
-			initialCommaPos := &p.token_location.Begin
-
-			p.nextLexeme()
-			p.parseBindingList(names, false, varsCommaPosition, initialCommaPos, nil, false)
-		}
-
-		inLocation := p.snapshot()
-		context := "for loop"
-		hasIn := p.expectAndConsume(lex.ReservedIn, &context)
-		values := []AstExpr{}
-
-		if valuesCommaPositions := []lex.Position{}; p.storeCstData {
-			p.parseExprList(&values, &valuesCommaPositions)
-		} else {
-			p.parseExprList(&values, nil)
-		}
-
-		Do_begin := p.token_location.Begin
-		Do_end := p.token_location.End
-		Do_type := p.token_type
-		hasDo := p.expectAndConsume(lex.ReservedDo, &context)
-		localsBegin := len(p.localStack)
-		p.functionStack[len(p.functionStack)-1].LoopDepth++
-
-		var vars []*AstLocal
-
-		for _, binding := range *names {
-			vars = append(vars, p.pushLocal(binding))
-		}
-
-		body := p.parseBlock()
-		p.functionStack[len(p.functionStack)-1].LoopDepth--
-
-		p.restoreLocals(localsBegin)
-
-		end := p.token_location.End
-		hasEnd := p.expectMatchEndAndConsume(lex.ReservedEnd, Do_type, Do_begin)
-		body.HasEnd = hasEnd
-		node := &AstStatForIn{
-			NodeLoc: &NodeLoc{
-				lex.Location{
-					Begin: start.Begin,
-					End: end,
-				},
-			},
-			Vars: vars,
-			Values: values,
-			Body: body,
-			HasIn: hasIn,
-			InLocation: inLocation,
-			HasDo: hasDo,
-			DoLocation: lex.Location{
-				Begin: Do_begin,
-				End: Do_end,
-			},
-		}
-
-		if p.storeCstData {
-			p.cstNodes[node] = CstStatForIn{
-				VarsAnnotationColonPositions: extractAnnotationColonPositions(*names),
-				VarsCommaPositions: *varsCommaPosition,
-				ValuesCommaPositions: *varsCommaPosition, // TODO: check lel
-			}
-		}
-
-		return node
 	}
+
+	names := &[]Binding{varname}
+	varsCommaPosition := &[]lex.Position{}
+
+	if p.token_type == ',' {
+		initialCommaPos := &p.token_location.Begin
+
+		p.nextLexeme()
+		p.parseBindingList(names, false, varsCommaPosition, initialCommaPos, nil, false)
+	}
+
+	inLocation := p.snapshot()
+	context := "for loop"
+	hasIn := p.expectAndConsume(lex.ReservedIn, &context)
+	values := []AstExpr{}
+
+	if valuesCommaPositions := []lex.Position{}; p.storeCstData {
+		p.parseExprList(&values, &valuesCommaPositions)
+	} else {
+		p.parseExprList(&values, nil)
+	}
+
+	Do_begin := p.token_location.Begin
+	Do_end := p.token_location.End
+	Do_type := p.token_type
+	hasDo := p.expectAndConsume(lex.ReservedDo, &context)
+	localsBegin := len(p.localStack)
+	p.functionStack[len(p.functionStack)-1].LoopDepth++
+
+	var vars []*AstLocal
+
+	for _, binding := range *names {
+		vars = append(vars, p.pushLocal(binding))
+	}
+
+	body := p.parseBlock()
+	p.functionStack[len(p.functionStack)-1].LoopDepth--
+
+	p.restoreLocals(localsBegin)
+
+	end := p.token_location.End
+	hasEnd := p.expectMatchEndAndConsume(lex.ReservedEnd, Do_type, Do_begin)
+	body.HasEnd = hasEnd
+	node := &AstStatForIn{
+		NodeLoc: &NodeLoc{
+			lex.Location{
+				Begin: start.Begin,
+				End: end,
+			},
+		},
+		Vars: vars,
+		Values: values,
+		Body: body,
+		HasIn: hasIn,
+		InLocation: inLocation,
+		HasDo: hasDo,
+		DoLocation: lex.Location{
+			Begin: Do_begin,
+			End: Do_end,
+		},
+	}
+
+	if p.storeCstData {
+		p.cstNodes[node] = CstStatForIn{
+			VarsAnnotationColonPositions: extractAnnotationColonPositions(*names),
+			VarsCommaPositions: *varsCommaPosition,
+			ValuesCommaPositions: *varsCommaPosition, // TODO: check lel
+		}
+	}
+
+	return node
 }
 
 // function funcname funcbody
@@ -2510,102 +2510,102 @@ func (p *Parser) parseLocal(start lex.Location, keywordPosition lex.Position, at
 		}
 
 		return node
-	} else {
-		if len(attributes) != 0 {
-			currLex := lex.Lexeme{
-				Type: p.token_type,
-				Codepoint: p.token_codepoint,
-			}
-
-			if p.token_string != nil {
-				currLex.Data = []byte(*p.token_string)
-			}
-
-			return p.reportStatError(p.snapshot(), nil, nil, fmt.Sprintf("Expected 'function' after local declaration with attribute, but got %s instead", currLex.String()))
-		}
-
-		p.matchRecovery['=']++
-
-		var (
-			names []Binding
-			varsCommaPositions []lex.Position
-		)
-
-		if p.storeCstData {
-			p.parseBindingList(&names, false, &varsCommaPositions, nil, nil, isConst)
-		} else {
-			p.parseBindingList(&names, false, nil, nil, nil, isConst)
-		}
-
-		p.matchRecovery['=']--
-
-		var (
-			values []AstExpr
-			valuesCommaPositions []lex.Position
-			equalsSignLocation *lex.Location
-		)
-
-		if p.token_type == '=' {
-			loc := p.snapshot()
-			equalsSignLocation = &loc
-
-			p.nextLexeme()
-			if p.storeCstData {
-				p.parseExprList(&values, &valuesCommaPositions)
-			} else {
-				p.parseExprList(&values, nil)
-			}
-		}
-
-		// Push all locals after parsing values (correct scoping)
-		var vars []AstLocal
-
-		for _, binding := range names {
-			vars = append(vars, *p.pushLocal(binding))
-		}
-
-		end := p.prev_location.End
-
-		if len(values) > 0 {
-			end = values[len(values)-1].GetLocation().End
-		}
-
-		node := &AstStatLocal{
-			NodeLoc: &NodeLoc{
-				lex.Location{
-					Begin: start.Begin,
-					End: end,
-				},
-			},
-			Vars: vars,
-			Values: values,
-			EqualsSignLocation: equalsSignLocation,
-			IsConst: isConst,
-		}
-
-		if p.storeCstData {
-			p.cstNodes[node] = CstStatLocal{
-				VarsAnnotationColonPositions: extractAnnotationColonPositions(names),
-				VarsCommaPositions: varsCommaPositions,
-				ValuesCommaPositions: valuesCommaPositions,
-			}
-		}
-
-		// It is a syntax error when a const declaration *definitely* does
-		// not have enough values, for example:
-		//
-		//  const foo
-		//  const bar, baz = 42
-		//
-		// Both error as there's probably user error (`foo` and `baz` can
-		// only ever be `nil`). We report an error but return the
-		// declaration as-is, as it's still reasonable syntactically.
-		if isConst && !isEnoughValues(values, len(vars)) {
-			p.report(node.GetLocation(), "Missing initializer in const declaration")
-		}
-
-		return node
 	}
+
+	if len(attributes) != 0 {
+		currLex := lex.Lexeme{
+			Type: p.token_type,
+			Codepoint: p.token_codepoint,
+		}
+
+		if p.token_string != nil {
+			currLex.Data = []byte(*p.token_string)
+		}
+
+		return p.reportStatError(p.snapshot(), nil, nil, fmt.Sprintf("Expected 'function' after local declaration with attribute, but got %s instead", currLex.String()))
+	}
+
+	p.matchRecovery['=']++
+
+	var (
+		names []Binding
+		varsCommaPositions []lex.Position
+	)
+
+	if p.storeCstData {
+		p.parseBindingList(&names, false, &varsCommaPositions, nil, nil, isConst)
+	} else {
+		p.parseBindingList(&names, false, nil, nil, nil, isConst)
+	}
+
+	p.matchRecovery['=']--
+
+	var (
+		values []AstExpr
+		valuesCommaPositions []lex.Position
+		equalsSignLocation *lex.Location
+	)
+
+	if p.token_type == '=' {
+		loc := p.snapshot()
+		equalsSignLocation = &loc
+
+		p.nextLexeme()
+		if p.storeCstData {
+			p.parseExprList(&values, &valuesCommaPositions)
+		} else {
+			p.parseExprList(&values, nil)
+		}
+	}
+
+	// Push all locals after parsing values (correct scoping)
+	var vars []AstLocal
+
+	for _, binding := range names {
+		vars = append(vars, *p.pushLocal(binding))
+	}
+
+	end := p.prev_location.End
+
+	if len(values) > 0 {
+		end = values[len(values)-1].GetLocation().End
+	}
+
+	node := &AstStatLocal{
+		NodeLoc: &NodeLoc{
+			lex.Location{
+				Begin: start.Begin,
+				End: end,
+			},
+		},
+		Vars: vars,
+		Values: values,
+		EqualsSignLocation: equalsSignLocation,
+		IsConst: isConst,
+	}
+
+	if p.storeCstData {
+		p.cstNodes[node] = CstStatLocal{
+			VarsAnnotationColonPositions: extractAnnotationColonPositions(names),
+			VarsCommaPositions: varsCommaPositions,
+			ValuesCommaPositions: valuesCommaPositions,
+		}
+	}
+
+	// It is a syntax error when a const declaration *definitely* does
+	// not have enough values, for example:
+	//
+	//  const foo
+	//  const bar, baz = 42
+	//
+	// Both error as there's probably user error (`foo` and `baz` can
+	// only ever be `nil`). We report an error but return the
+	// declaration as-is, as it's still reasonable syntactically.
+	if isConst && !isEnoughValues(values, len(vars)) {
+		p.report(node.GetLocation(), "Missing initializer in const declaration")
+	}
+
+	return node
 }
 
 // parseReturn parses `return [explist]'
@@ -4882,9 +4882,9 @@ func (p *Parser) parseSimpleExpr() AstExpr {
 		return p.parseTableConstructor()
 	case lex.ReservedIf:
 		return p.parseIfElseExpr()
-	default:
-		return p.parsePrimaryExpr(false)
 	}
+
+	return p.parsePrimaryExpr(false)
 }
 
 // parseFunctionArgs parses `(' [explist] `)' | tableconstructor | String
