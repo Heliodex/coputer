@@ -35,14 +35,14 @@ func compress(n string, f []byte) (cf File, err error) {
 }
 
 func bundleFile(p string, depth int) (bf File, err error) {
+	// trim ../ or ..\ from p
+	const fps string = string(filepath.Separator)
+
 	// read
 	f, err := os.ReadFile(p)
 	if err != nil {
 		return
 	}
-
-	// trim ../ or ..\ from p
-	const fps string = string(filepath.Separator)
 
 	p = strings.TrimPrefix(p, ".."+fps)
 	// remove walked directory from p (everything before first /)

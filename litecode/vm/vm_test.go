@@ -122,6 +122,7 @@ func TestBenchmark(t *testing.T) {
 
 	for _, f := range files {
 		name := trimext(f.Name())
+
 		// if name != onlyBench {
 		// 	continue
 		// }
@@ -156,6 +157,7 @@ func TestConformance(t *testing.T) {
 		}
 
 		name := trimext(f.Name())
+
 		// if name != onlyTest {
 		// 	continue
 		// }

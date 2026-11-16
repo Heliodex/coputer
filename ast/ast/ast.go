@@ -3325,6 +3325,7 @@ func (n AstExprFunction[T]) SourceMain(og string, indent int, isExpr bool) (stri
 	if !ok {
 		return "", fmt.Errorf("expected ExprFunction[INode], got %T", n)
 	}
+
 	// return in.Location.GetFromSource(og)
 	l := len(in.Args)
 
@@ -3372,6 +3373,7 @@ func (n AstExprFunction[T]) SourceMain(og string, indent int, isExpr bool) (stri
 	if isExpr {
 		b.WriteString("function")
 	}
+
 	// if in.Debugname != "" {
 	// 	b.WriteByte(' ')
 	// 	b.WriteString(in.Debugname)
@@ -4153,6 +4155,7 @@ func (n AstStatWhile[T]) Source(og string, indent int) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("expected StatWhile[INode], got %T", n)
 	}
+
 	// return in.Location.GetFromSource(og)
 
 	scond, err := in.Condition.Source(og, indent)

@@ -166,6 +166,7 @@ func formatBlock(block *AstStatBlock) {
 	}
 
 	block.Body = block.Body[:kept]
+
 	// hoisted comments arrive at the end; restore source order so comment attachment re-derives identically when rendering
 	sort.SliceStable(block.Comments, func(i, j int) bool {
 		return block.Comments[i].Location.Begin.Before(block.Comments[j].Location.Begin)

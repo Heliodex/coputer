@@ -60,6 +60,7 @@ func processFile(filepath string, stdout bool) error {
 	if err != nil {
 		return fmt.Errorf("encode AST: %w", err)
 	}
+
 	// fmt.Println(new)
 
 	if stdout {

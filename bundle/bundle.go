@@ -25,10 +25,10 @@ const (
 )
 
 func Bundle(path string) (b []byte, err error) {
-	var cFiles []File
-
 	// count the number of file separators in path
 	const fps string = string(filepath.Separator)
+
+	var cFiles []File
 
 	depth := strings.Count(path, fps)
 

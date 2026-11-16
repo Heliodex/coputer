@@ -223,6 +223,7 @@ func compareOrderedKeys(a, b orderedKey) int {
 	if c := strings.Compare(a.s, b.s); c != 0 {
 		return c
 	}
+
 	// Printed forms can collide (the number 1 and the string "1"), so break ties by kind to keep the order total for binary search.
 	return keyKind(a.k) - keyKind(b.k)
 }

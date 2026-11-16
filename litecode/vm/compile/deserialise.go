@@ -529,12 +529,14 @@ func checkkmode(i *internal.Inst, k []Val) error {
 		id0 := aux >> 20 & 0x3ff
 
 		var ok bool
+
 		// don't lmk if this panics
 		kid0 := k[id0]
 
 		if ki[0], ok = AsString(kid0); !ok {
 			return fmt.Errorf("invalid constant type for K0: %T", kid0)
 		}
+
 		// fmt.Println("AUX", ki[0])
 
 		if count < 2 {
@@ -690,6 +692,7 @@ func (s *stream) readInst(code *[]internal.Inst) (bool, error) {
 	default:
 		return false, fmt.Errorf("unknown instruction mode %d", opinfo.Mode)
 	}
+
 	// fmt.Println("Opcode:", opcode, "A:", i.A, "B:", i.B, "C:", i.C, "D:", i.D)
 
 	if !opinfo.HasAux {
@@ -800,6 +803,7 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 	s.pos += s.rVarInt() // typesize
 
 	sizecode := s.rVarInt()
+
 	// fmt.Println("Sizecode:", sizecode)
 	// MUST BE A NON-RANGE FOR LOOP
 	// because i is incremented if the instruction has aux
@@ -826,6 +830,7 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 
 	for i := range sizek {
 		kt := s.rByte()
+
 		// fmt.Println("Ktype", i, kt)
 		switch kt {
 		case 0: // Nil
@@ -953,6 +958,7 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 	// new in v11
 
 	feedbackvecsize := s.rVarInt()
+
 	// fmt.Println("feedbackvecsize", feedbackvecsize)
 	// feedbackvec := make([]uint32, feedbackvecsize)
 

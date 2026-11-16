@@ -114,6 +114,7 @@ func matchCapture(s string, si, l int, caps *captures) (i int, err error) {
 	if l, err = checkCapture(l, caps); err != nil {
 		return
 	}
+
 	// fmt.Println("matching catching", s, si, l)
 	c := caps.captures[l]
 
@@ -260,6 +261,7 @@ func pushCapture(caps *captures, s string, start, end, i int) (Val, error) {
 		// fmt.Println("    adding cap position")
 		return Num(float64(i + 1)), nil
 	}
+
 	// fmt.Println("    adding normal")
 	return Str(s[i:][:l]), nil
 }
@@ -422,6 +424,7 @@ func optSuffix(s, p string, si, pi, epi int, caps *captures) (cont bool, si2, pi
 			// dlog("pi is", pi, epi+1)
 			return true, si, epi, nil
 		}
+
 		// dlog("optional done", si, si2)
 		si = si2
 	case '+': // 1 or more repetitions
@@ -532,6 +535,7 @@ func matchPos(s, p string, si, pi int, caps *captures) (si2 int, err error) {
 				if err != nil {
 					return 0, err
 				}
+
 				// dlog(" P", pi)
 				// dlog("EP", ep)
 
@@ -540,6 +544,7 @@ func matchPos(s, p string, si, pi int, caps *captures) (si2 int, err error) {
 				if si != 0 {
 					previous = s[si-1]
 				}
+
 				// dlog("previous", previous, fmt.Sprint(previous))
 
 				// the frontier thing
@@ -558,6 +563,7 @@ func matchPos(s, p string, si, pi int, caps *captures) (si2 int, err error) {
 						continue
 					}
 				}
+
 				// dlog("  frontIer failed")
 				return -1, nil // match failed
 			case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9': // capture results (%0-%9)?
@@ -573,6 +579,7 @@ func matchPos(s, p string, si, pi int, caps *captures) (si2 int, err error) {
 
 				return si, nil
 			}
+
 			// go to default (escaped character)
 			fallthrough
 		default:
@@ -596,6 +603,7 @@ func matchPos(s, p string, si, pi int, caps *captures) (si2 int, err error) {
 						pi = epi - 1
 						continue
 					}
+
 					// Also inline optSuffix's '?' case, which is what a per-position optional costs.
 					if p[epi] == '?' {
 						ns, e := matchPos(s, p, si+1, epi+1, caps)

@@ -495,6 +495,7 @@ func (p *Parser) parseCharArray() *string {
 	if p.token_string != nil {
 		data = *p.token_string
 	}
+
 	// fmt.Println("Parsing char array data", data)
 
 	var result string
@@ -839,6 +840,7 @@ func (p *Parser) parseNumber() AstExprConstantNumberOrError {
 		// }
 		content := cleanData[2:]
 		significant := "0"
+
 		// get all characters after the leading zeros
 		for i, c := range content {
 			if c != '0' {
@@ -873,6 +875,7 @@ func (p *Parser) parseNumber() AstExprConstantNumberOrError {
 		// }
 		content := cleanData[2:]
 		significant := "0"
+
 		// get all characters after the leading zeros
 		for i, c := range content {
 			if c != '0' {
@@ -1734,6 +1737,7 @@ func (p *Parser) parseBlockNoScope() *AstStatBlock {
 			stat.SetHasSemicolon()
 
 			loc := stat.GetLocation()
+
 			// the fact that a table assignment isn't used here in the Luau implementation makes me suspicious that it's intended to be modified later on after returning
 			stat.SetLocation(lex.Location{
 				Begin: loc.Begin,
@@ -2909,6 +2913,7 @@ func (p *Parser) parseFunctionBody(hasself bool, matchFunction lex.Lexeme, debug
 	}
 
 	var (
+
 		// Parse generic type list
 		openGenPos lex.Position
 		closeGenPos lex.Position
@@ -2991,6 +2996,7 @@ func (p *Parser) parseFunctionBody(hasself bool, matchFunction lex.Lexeme, debug
 	p.matchRecovery[')']--
 
 	var (
+
 		// Return type
 		retSpecPos lex.Position
 		retSpecPosRef *lex.Position
@@ -4176,11 +4182,11 @@ func (p *Parser) parseSimpleType(allowPack, inDeclarationContext bool) (AstType,
 
 			p.nextLexeme()
 
+			ctx2 := "field name"
 			nameCopy := name.Name.Value
 			prefix = &nameCopy
 			loc := name.Location
 			prefixLoc = &loc
-			ctx2 := "field name"
 			name = p.parseIndexName(&ctx2, pos)
 		} else if p.token_type == lex.Dot3 {
 			p.report(p.snapshot(), "Unexpected '...' after type name; type pack is not allowed in this context")

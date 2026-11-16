@@ -51,6 +51,7 @@ func watchPath(n *net.Node, path string) {
 		if timer != nil {
 			return timer.C
 		}
+
 		// Block forever if timer is nil
 		return make(chan time.Time)
 	}

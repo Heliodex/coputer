@@ -114,6 +114,7 @@ func utf8_codepoint(args Args) (cps []Val, err error) {
 	if pose-posi >= int_max { // (int -> int) overflow?
 		return nil, errors.New("string slice too long")
 	}
+
 	// n := pose - posi + 1
 	// luaL_checkstack(L, n, "string slice too long");
 	// n := 0
@@ -156,6 +157,7 @@ func utf8_offset(args Args) (r []Val, err error) {
 	}
 
 	posi = utf8_posrelat(posi, len(s)) - 1
+
 	// luaL_argcheck(L, 1 <= posi && --posi <= (int)len, 3, "position out of range");
 
 	if n == 0 {

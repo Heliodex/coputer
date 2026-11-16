@@ -106,6 +106,8 @@ func TestMinifyDeclareNodes(t *testing.T) {
 	}
 
 	t.Run("declare function", func(t *testing.T) {
+		const expected string = "declare function foo<T>(a:number,...:string):(string,number)"
+
 		node := AstStatDeclareFunction{
 			NodeLoc: &NodeLoc{},
 			Name: "foo",
@@ -136,13 +138,13 @@ func TestMinifyDeclareNodes(t *testing.T) {
 			},
 		}
 
-		const expected string = "declare function foo<T>(a:number,...:string):(string,number)"
-
 		if got := node.Minify(); got != expected {
 			t.Errorf("unexpected minified code:\n-- Expected\n%s\n-- Got\n%s\n", expected, got)
 		}
 	})
 	t.Run("declare extern type", func(t *testing.T) {
+		const expected string = "declare extern type Foo extends Bar with prop:number function method(self,foo:number):string [string]:number end"
+
 		super := "Bar"
 		node := AstStatDeclareExternType{
 			NodeLoc: &NodeLoc{},
@@ -186,20 +188,18 @@ func TestMinifyDeclareNodes(t *testing.T) {
 			},
 		}
 
-		const expected string = "declare extern type Foo extends Bar with prop:number function method(self,foo:number):string [string]:number end"
-
 		if got := node.Minify(); got != expected {
 			t.Errorf("unexpected minified code:\n-- Expected\n%s\n-- Got\n%s\n", expected, got)
 		}
 	})
 	t.Run("declare global", func(t *testing.T) {
+		const expected string = "declare x:number"
+
 		node := AstStatDeclareGlobal{
 			NodeLoc: &NodeLoc{},
 			Name: "x",
 			Type: ref("number"),
 		}
-
-		const expected string = "declare x:number"
 
 		if got := node.Minify(); got != expected {
 			t.Errorf("unexpected minified code:\n-- Expected\n%s\n-- Got\n%s\n", expected, got)
@@ -389,6 +389,7 @@ func TestMinifyStatementSeparators(t *testing.T) {
 			if got2 := res2.Root.Minify(); got2 != got {
 				t.Errorf("minified output is not stable:\n-- First\n%s\n-- Second\n%s\n", got, got2)
 			}
+
 			// without comments, Source() should be identical if minification preserved the parse
 			if res.Root.Source() != res2.Root.Source() {
 				t.Errorf("minification changed the parse:\n-- Original\n%s\n-- Reparsed\n%s\n", res.Root.Source(), res2.Root.Source())

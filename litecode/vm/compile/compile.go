@@ -48,11 +48,13 @@ func Compile(c Compiler, path string) (p Program, err error) {
 	}
 
 	pathext := path + Ext
+
 	// find if file at path exists
 	if _, err := os.Stat(pathext); err != nil {
 		if _, err := os.Stat(path); err != nil {
 			return p, errors.New("error finding file")
 		}
+
 		// main.luau directory
 		pathext = path + "/main" + Ext
 	}

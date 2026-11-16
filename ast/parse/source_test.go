@@ -64,6 +64,8 @@ func TestSourceDeclareNodes(t *testing.T) {
 	}
 
 	t.Run("declare function", func(t *testing.T) {
+		const expected string = "declare function foo<T>(a: number, ...: string): (string, number)"
+
 		node := AstStatDeclareFunction{
 			NodeLoc: &NodeLoc{},
 			Name: "foo",
@@ -94,13 +96,13 @@ func TestSourceDeclareNodes(t *testing.T) {
 			},
 		}
 
-		const expected string = "declare function foo<T>(a: number, ...: string): (string, number)"
-
 		if got := node.Source(); got != expected {
 			t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", expected, got)
 		}
 	})
 	t.Run("declare extern type", func(t *testing.T) {
+		const expected string = "declare extern type Foo extends Bar with\n" + "\tprop: number\n" + "\tfunction method(self, foo: number): string\n" + "\t[string]: number\n" + "end"
+
 		super := "Bar"
 		node := AstStatDeclareExternType{
 			NodeLoc: &NodeLoc{},
@@ -144,20 +146,18 @@ func TestSourceDeclareNodes(t *testing.T) {
 			},
 		}
 
-		const expected string = "declare extern type Foo extends Bar with\n" + "\tprop: number\n" + "\tfunction method(self, foo: number): string\n" + "\t[string]: number\n" + "end"
-
 		if got := node.Source(); got != expected {
 			t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", expected, got)
 		}
 	})
 	t.Run("declare global", func(t *testing.T) {
+		const expected string = "declare x: number"
+
 		node := AstStatDeclareGlobal{
 			NodeLoc: &NodeLoc{},
 			Name: "x",
 			Type: ref("number"),
 		}
-
-		const expected string = "declare x: number"
 
 		if got := node.Source(); got != expected {
 			t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", expected, got)

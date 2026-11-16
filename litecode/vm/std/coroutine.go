@@ -46,6 +46,7 @@ func coroutine_resume(args Args) (r []Val, err error) {
 	args.Co.Status = internal.CoNormal
 	res, err := co.Resume(a...)
 	args.Co.Status = internal.CoRunning
+
 	// fmt.Println("C.R resumed", r)
 	if err != nil {
 		return
@@ -83,6 +84,7 @@ func coroutine_yield(args Args) (r []Val, err error) {
 	co.YieldChan <- internal.Yield{
 		Rets: args.List,
 	}
+
 	// fmt.Println("C.Y yielded", "waiting for resume")
 	return <-co.ResumeChan, nil
 	// fmt.Println("C.Y resumed")

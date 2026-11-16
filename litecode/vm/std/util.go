@@ -54,6 +54,7 @@ func ToString(a Val) string {
 	if b, ok := AsBuffer(a); ok {
 		return fmt.Sprintf("buffer: %v", *b)
 	}
+
 	// panic("tostring bad type")
 	return "userdata"
 }
@@ -96,6 +97,7 @@ func TypeOf(v Val) string {
 	if IsVector(v) {
 		return "vector"
 	}
+
 	// panic("typeof bad type")
 	return "userdata"
 }

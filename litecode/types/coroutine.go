@@ -77,8 +77,10 @@ func (co *Coroutine) Resume(args ...Val) (r []Val, err error) {
 		co.ResumeChan <- args
 		// fmt.Println("RM  resumed", args)
 	}
+
 	// fmt.Println("RM  waiting for yield")
 	y := <-co.YieldChan
+
 	// fmt.Println("RM  waited for yield", y.rets)
 	return y.Rets, y.Err
 }

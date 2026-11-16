@@ -147,6 +147,7 @@ func getImport(A, count uint8, ki *[3]string, towrap toWrap, stack *[]Val) (err 
 	}
 
 	imp = t1.GetHash(Str(ki[1]))
+
 	// fmt.Println("GETIMPORT2", i.A, (*stack)[i.A])
 
 	if count < 3 {
@@ -161,6 +162,7 @@ func getImport(A, count uint8, ki *[3]string, towrap toWrap, stack *[]Val) (err 
 	}
 
 	(*stack)[A] = t2.GetHash(Str(ki[2]))
+
 	// fmt.Println("GETIMPORT3", i.A, (*stack)[i.A])
 
 	return
@@ -357,6 +359,7 @@ func enclose(pc *int32, A uint8, towrap toWrap, code []internal.Inst, stack *[]V
 	nups := towrap.proto.Nups
 	towrap.upvals = make([]*upval, nups)
 	(*stack)[A] = FnVal(wrapclosure(towrap, co))
+
 	// fmt.Println("WRAPPING WITH", uvs)
 
 	// fmt.Println("nups", nups)
@@ -369,6 +372,7 @@ func enclose(pc *int32, A uint8, towrap toWrap, code []internal.Inst, stack *[]V
 		case 1: // -- reference
 			// -- references dont get handled by DUPCLOSURE
 			idx := pseudo.B
+
 			// fmt.Println("index", idx, len(openUpvals))
 			// for si, sv := range *stack {
 			// 	fmt.Printf("  [%d] = %v\n", si, sv)
@@ -508,6 +512,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 	p, upvals := towrap.proto, towrap.upvals
 
 	var (
+
 		// int32 > uint32 lel
 		pc, top int32
 		openUpvals []*upval
@@ -537,6 +542,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 
 		// Take a pointer rather than copying the whole 48-byte instruction on every dispatch; the code slice is immutable during execution.
 		i := &code[pc]
+
 		// fmt.Println("OP", i.Opcode, "at pc", pc)
 		switch op := i.Opcode; op {
 		case 0: // NOP
@@ -564,6 +570,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			if !ok {
 				return nil, fmt.Errorf("invalid constant type for GETGLOBAL: %T", i.K)
 			}
+
 			// fmt.Println("GETTING GLOBAL", kv, "from", towrap.env)
 
 			if e, ok := exts[kv]; ok {
@@ -609,6 +616,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 				if uv == nil {
 					continue
 				}
+
 				// fmt.Println("closing upvalue", uv)
 				uv.Val = *uv.store
 				uv.store = nil
@@ -1128,6 +1136,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			for n, v := range stack[i.B:min(B+c, int32(len(stack)))] {
 				s.SetInt(n+int(i.Aux), v)
 			}
+
 			// stack[A] = s // in-place
 
 			pc += 2 // -- adjust for aux
@@ -1156,6 +1165,7 @@ func execute(towrap toWrap, stack, vargsList []Val, co *Coroutine) (r []Val, err
 			if !*towrap.alive {
 				return nil, errCancelled
 			}
+
 			// all checked in FORNPREP
 			init := MustNum(stack[i.A+2])
 			limit := MustNum(stack[i.A])
@@ -1300,6 +1310,7 @@ func wrapclosure(towrap toWrap, existingCo *Coroutine) Function {
 		// fmt.Println("starting in coroutine", co.Dbgpath, "with args", args)
 		// fmt.Println("started on", co.Dbg.Line)
 		r, err = execute(towrap, stack, list, co)
+
 		// fmt.Println("ended on", co.Dbg.Line)
 		if !*towrap.alive {
 			return

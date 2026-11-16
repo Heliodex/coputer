@@ -251,6 +251,7 @@ func global_require(args Args) (r []Val, err error) {
 	fp := args.Co.Filepath
 	path := filepath.Join(filepath.Dir(args.Co.Dbgpath), name)
 	path = strings.ReplaceAll(path, "\\", "/")
+
 	// fmt.Println("REQUIRING", path)
 
 	if path == fp {
@@ -394,6 +395,14 @@ func roundodd(ghi, glo, cp uint64) uint64 {
 }
 
 func schubfach(exponent int, c uint64) (uint64, int) {
+	// 9.1. Computing k and h
+	const (
+		Q = 20
+		C = 315652 // floor(2^Q * log10(2))
+		A = -131008 // floor(2^Q * log10(3/4))
+		C2 = 3483294 // floor(2^Q * log2(10))
+	)
+
 	// Extract c & q such that c*2^q == |v|
 	q := exponent - 1023 - 51
 
@@ -415,14 +424,6 @@ func schubfach(exponent int, c uint64) (uint64, int) {
 	cbl := 4*c - 2 + b2i(irr)
 	cb := 4 * c
 	cbr := 4*c + 2
-
-	// 9.1. Computing k and h
-	const (
-		Q = 20
-		C = 315652 // floor(2^Q * log10(2))
-		A = -131008 // floor(2^Q * log10(3/4))
-		C2 = 3483294 // floor(2^Q * log2(10))
-	)
 
 	var k int
 
@@ -483,12 +484,11 @@ func trimzero(end *bufPos) {
 }
 
 func num2str2(exponent int, fraction uint64, buf *bufPos) string {
+	// print the decimal to a temporary buffer; we'll need to insert the decimal point and figure out the format
+	const decend = 20 // significand needs at most 17 digits; the rest of the buffer may be copied using fixed length memcpy
 	// convert binary to decimal using Schubfach
 	// fmt.Print("Schubfach: ", exponent, fraction, "\n")
 	s, k := schubfach(exponent, fraction)
-
-	// print the decimal to a temporary buffer; we'll need to insert the decimal point and figure out the format
-	const decend = 20 // significand needs at most 17 digits; the rest of the buffer may be copied using fixed length memcpy
 	dec := &bufPos{[48]byte{}, decend}
 
 	printunsignedrev(dec, s)
