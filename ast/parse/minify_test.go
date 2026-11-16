@@ -135,7 +135,9 @@ func TestMinifyDeclareNodes(t *testing.T) {
 				},
 			},
 		}
-		expected := "declare function foo<T>(a:number,...:string):(string,number)"
+
+		const expected string = "declare function foo<T>(a:number,...:string):(string,number)"
+
 		if got := node.Minify(); got != expected {
 			t.Errorf("unexpected minified code:\n-- Expected\n%s\n-- Got\n%s\n", expected, got)
 		}
@@ -183,7 +185,9 @@ func TestMinifyDeclareNodes(t *testing.T) {
 				Access: "ReadWrite",
 			},
 		}
-		expected := "declare extern type Foo extends Bar with prop:number function method(self,foo:number):string [string]:number end"
+
+		const expected string = "declare extern type Foo extends Bar with prop:number function method(self,foo:number):string [string]:number end"
+
 		if got := node.Minify(); got != expected {
 			t.Errorf("unexpected minified code:\n-- Expected\n%s\n-- Got\n%s\n", expected, got)
 		}
@@ -194,13 +198,16 @@ func TestMinifyDeclareNodes(t *testing.T) {
 			Name: "x",
 			Type: ref("number"),
 		}
-		expected := "declare x:number"
+
+		const expected string = "declare x:number"
+
 		if got := node.Minify(); got != expected {
 			t.Errorf("unexpected minified code:\n-- Expected\n%s\n-- Got\n%s\n", expected, got)
 		}
 	})
 	t.Run("attribute with args", func(t *testing.T) {
-		expected := `@[deprecated("use")]`
+		const expected string = `@[deprecated("use")]`
+
 		name := "deprecated"
 		node := AstAttr{
 			NodeLoc: &NodeLoc{},
@@ -221,7 +228,8 @@ func TestMinifyDeclareNodes(t *testing.T) {
 
 // TestMinifyDirectives checks that directive comments survive minification (including inside a block) while ordinary comments are removed.
 func TestMinifyDirectives(t *testing.T) {
-	src := "--!strict\n-- ordinary\nlocal x = 1\nlocal function f()\n\t--!native\n\treturn 2\nend\n"
+	const src string = "--!strict\n-- ordinary\nlocal x = 1\nlocal function f()\n\t--!native\n\treturn 2\nend\n"
+
 	ok, res := Parse(src, Options{})
 	if !ok {
 		t.Fatal("error parsing source:", res.Errors)

@@ -33,9 +33,8 @@ func Div(a, b Val) (Val, error) {
 	}
 
 	va, ok3 := AsVector(a)
-	vb, ok4 := AsVector(b)
 
-	switch {
+	switch vb, ok4 := AsVector(b); {
 	case ok3 && ok4:
 		return VecVal(Vector{va[0] / vb[0], va[1] / vb[1], va[2] / vb[2], va[3] / vb[3]}), nil
 	case ok1 && ok4:
@@ -59,9 +58,8 @@ func Idiv(a, b Val) (Val, error) {
 	}
 
 	va, ok3 := AsVector(a)
-	vb, ok4 := AsVector(b)
 
-	switch {
+	switch vb, ok4 := AsVector(b); {
 	case ok3 && ok4:
 		return VecVal(Vector{
 			f32Floor(va[0] / vb[0]),
@@ -99,9 +97,8 @@ func Mul(a, b Val) (Val, error) {
 	}
 
 	va, ok3 := AsVector(a)
-	vb, ok4 := AsVector(b)
 
-	switch {
+	switch vb, ok4 := AsVector(b); {
 	case ok3 && ok4:
 		return VecVal(Vector{va[0] * vb[0], va[1] * vb[1], va[2] * vb[2], va[3] * vb[3]}), nil
 	case ok1 && ok4:

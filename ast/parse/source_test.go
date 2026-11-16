@@ -10,8 +10,11 @@ import (
 
 // TestSourceComments checks that comments are rendered near their original positions: leading comments stay above the statement they precede, trailing comments stay on the same line, and comments inside a block stay inside it.
 func TestSourceComments(t *testing.T) {
-	expected := "-- leading comment\n" + "local x = 1 -- trailing comment\n" + "\n" + "--[[ block comment ]]\n" + "local function f()\n" + "\t-- inner comment\n" + "\treturn x -- return comment\n" + "end\n" + "\n" + "do\n" + "\t--[[ multi\n" + "\tline ]]\n" + "end"
-	src := "-- leading comment\n" + "local x = 1 -- trailing comment\n" + "--[[ block comment ]]\n" + "local function f()\n" + "\t-- inner comment\n" + "\treturn x -- return comment\n" + "end\n" + "do\n" + "\t--[[ multi\n" + "\tline ]]\n" + "end\n"
+	const (
+		expected string = "-- leading comment\n" + "local x = 1 -- trailing comment\n" + "\n" + "--[[ block comment ]]\n" + "local function f()\n" + "\t-- inner comment\n" + "\treturn x -- return comment\n" + "end\n" + "\n" + "do\n" + "\t--[[ multi\n" + "\tline ]]\n" + "end"
+		src string = "-- leading comment\n" + "local x = 1 -- trailing comment\n" + "--[[ block comment ]]\n" + "local function f()\n" + "\t-- inner comment\n" + "\treturn x -- return comment\n" + "end\n" + "do\n" + "\t--[[ multi\n" + "\tline ]]\n" + "end\n"
+	)
+
 	ok, res := Parse(src, Options{})
 	if !ok {
 		t.Fatal("error parsing source:", res.Errors)
@@ -24,7 +27,8 @@ func TestSourceComments(t *testing.T) {
 
 // TestSourceCommentsOption checks that comments are always rendered by Source(), while Result.CommentLocations still respects CaptureComments.
 func TestSourceCommentsOption(t *testing.T) {
-	src := "-- comment\nlocal x = 1\n"
+	const src string = "-- comment\nlocal x = 1\n"
+
 	_, res := Parse(src, Options{})
 	if len(res.CommentLocations) != 0 {
 		t.Errorf("expected no comment locations without CaptureComments, got %d", len(res.CommentLocations))
@@ -89,7 +93,9 @@ func TestSourceDeclareNodes(t *testing.T) {
 				},
 			},
 		}
-		expected := "declare function foo<T>(a: number, ...: string): (string, number)"
+
+		const expected string = "declare function foo<T>(a: number, ...: string): (string, number)"
+
 		if got := node.Source(); got != expected {
 			t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", expected, got)
 		}
@@ -137,7 +143,9 @@ func TestSourceDeclareNodes(t *testing.T) {
 				Access: "ReadWrite",
 			},
 		}
-		expected := "declare extern type Foo extends Bar with\n" + "\tprop: number\n" + "\tfunction method(self, foo: number): string\n" + "\t[string]: number\n" + "end"
+
+		const expected string = "declare extern type Foo extends Bar with\n" + "\tprop: number\n" + "\tfunction method(self, foo: number): string\n" + "\t[string]: number\n" + "end"
+
 		if got := node.Source(); got != expected {
 			t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", expected, got)
 		}
@@ -148,13 +156,16 @@ func TestSourceDeclareNodes(t *testing.T) {
 			Name: "x",
 			Type: ref("number"),
 		}
-		expected := "declare x: number"
+
+		const expected string = "declare x: number"
+
 		if got := node.Source(); got != expected {
 			t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", expected, got)
 		}
 	})
 	t.Run("attribute with args", func(t *testing.T) {
-		expected := `@[deprecated("use")]`
+		const expected string = `@[deprecated("use")]`
+
 		name := "deprecated"
 		node := AstAttr{
 			NodeLoc: &NodeLoc{},
@@ -321,7 +332,8 @@ func TestSourceEmptyDoBlocks(t *testing.T) {
 
 // TestSourceFormatting checks the formatted output for a representative mix of declarations, functions, tables, if-local statements and types.
 func TestSourceFormatting(t *testing.T) {
-	expected := `export type Point = {
+	const (
+		expected string = `export type Point = {
 	x: number,
 	y: number,
 }
@@ -352,7 +364,7 @@ elseif false then
 else
 	print("n is " .. tostring(t.a))
 end`
-	src := `export type Point = { x: number, y: number }
+		src string = `export type Point = { x: number, y: number }
 type Callback<T> = (T) -> ()
 local function map<T, U>(list: {T}, f: (T) -> U): {U}
 	local out = table.create(#list)
@@ -373,6 +385,8 @@ else
 	print("n is " .. tostring(t.a))
 end
 `
+	)
+
 	ok, res := Parse(src, Options{})
 	if !ok {
 		t.Fatal("error parsing source:", res.Errors)

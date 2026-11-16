@@ -7,7 +7,6 @@ import (
 )
 
 var (
-
 	// kohuept
 	// live in perlingrad
 	kPerlinGrad = [16][3]float32{

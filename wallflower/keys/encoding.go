@@ -93,7 +93,9 @@ func parseKey[T PK | SK](bs []byte) (bf T, err error) {
 
 // Takes a string representation of a public key and returns the byte representation of it
 func DecodePKNoPrefix(key string) (bf PK, err error) {
-	if expectedLength := pkStringLength + 4; len(key) != expectedLength {
+	const expectedLength int = pkStringLength + 4
+
+	if len(key) != expectedLength {
 		return PK{}, fmt.Errorf("invalid length: expected %d, got %d", expectedLength, len(key))
 	}
 
@@ -114,7 +116,9 @@ func DecodePK(key string) (PK, error) {
 
 // Takes a string representation of a secret key and returns the byte representation of it
 func DecodeSKNoPrefix(key string) (bf SK, err error) {
-	if expectedLength := skStringLength + 4; len(key) != expectedLength {
+	const expectedLength int = skStringLength + 4
+
+	if len(key) != expectedLength {
 		return SK{}, fmt.Errorf("invalid length: expected %d, got %d", expectedLength, len(key))
 	}
 

@@ -3,6 +3,7 @@ package types
 import (
 	"fmt"
 	"iter"
+	"maps"
 	"slices"
 	"strings"
 )
@@ -46,9 +47,7 @@ func (t *Table) Clone() *Table {
 	if t.Hash != nil {
 		n.Hash = make(map[Val]Val, len(t.Hash))
 
-		for k, v := range t.Hash {
-			n.Hash[k] = v
-		}
+		maps.Copy(n.Hash, t.Hash)
 	}
 
 	return n

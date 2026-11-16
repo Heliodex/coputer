@@ -584,9 +584,7 @@ func sourceIsIdentifier(s string) bool {
 	}
 
 	for i := range s {
-		ch := s[i]
-
-		switch {
+		switch ch := s[i]; {
 		case ch == '_' || ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z', i > 0 && ch >= '0' && ch <= '9':
 		default:
 			return false
@@ -1450,13 +1448,14 @@ func unitLines(unit sourceStatUnit) []string {
 		return lines
 	}
 
-	src := sourceStat(unit.stat)
+	var src strings.Builder
 
+	src.WriteString(sourceStat(unit.stat))
 	for _, c := range unit.trailing {
-		src += " " + sourceComment(c)
+		src.WriteString(" " + sourceComment(c))
 	}
 
-	return append(lines, src)
+	return append(lines, src.String())
 }
 
 // renderRoot renders the top-level chunk, separating each present section (directives, services, requires and the remaining code, ordered beforehand by formatAST) with a blank line.
@@ -1766,15 +1765,18 @@ func sourceTableItems(items []AstExprTableItem, comments []Comment) string {
 			ci++
 		}
 
-		src := sourceTableItem(item, i == len(items)-1 && item.Kind == List) + ","
+		var src strings.Builder
+
+		src.WriteString(sourceTableItem(item, i == len(items)-1 && item.Kind == List) + ",")
 
 		// comments on the same line as the end of the item stay there
 		for ci < len(comments) && comments[ci].Location.Begin.Line == end.Line && (i+1 >= len(items) || comments[ci].Location.Begin.Before(sourceTableItemStart(items[i+1]))) {
-			src += " " + sourceComment(comments[ci])
+			src.WriteString(" " + sourceComment(comments[ci]))
+
 			ci++
 		}
 
-		lines = append(lines, src)
+		lines = append(lines, src.String())
 	}
 
 	// comments after the last item
@@ -2340,10 +2342,7 @@ func (n AstStatIf) sourceIf(keyword string) string {
 	}
 	b.WriteString(sourceExprPrec(n.Condition, 0))
 	b.WriteString(" then")
-
-	thenBody := sourceBlockBody(n.ThenBody)
-
-	switch {
+	switch thenBody := sourceBlockBody(n.ThenBody); {
 	case n.ElseBody == nil:
 		b.WriteString(appendEnd(thenBody))
 	case isIfStat(n.ElseBody):
@@ -2735,13 +2734,14 @@ func sourceTypeTableItems(indexer *AstTableIndexer, props []AstTableProp, commen
 			lines = append(lines, sourceComment(c))
 		}
 
-		src := entry.src + ","
+		var src strings.Builder
 
+		src.WriteString(entry.src + ",")
 		for _, c := range entry.trailing {
-			src += " " + sourceComment(c)
+			src.WriteString(" " + sourceComment(c))
 		}
 
-		lines = append(lines, src)
+		lines = append(lines, src.String())
 	}
 
 	// comments after the last entry

@@ -773,9 +773,7 @@ func (p *Parser) parseNumber() AstExprConstantNumberOrError {
 
 		switch {
 		case strings.HasPrefix(integerData, "0x") || strings.HasPrefix(integerData, "0X"):
-			u, err := strconv.ParseUint(integerData[2:], 16, 64)
-
-			switch {
+			switch u, err := strconv.ParseUint(integerData[2:], 16, 64); {
 			case err == nil:
 				intValue = int64(u)
 			case errors.Is(err, strconv.ErrRange):
@@ -784,9 +782,7 @@ func (p *Parser) parseNumber() AstExprConstantNumberOrError {
 				intResult = NumberParseResult_Malformed
 			}
 		case strings.HasPrefix(integerData, "0b") || strings.HasPrefix(integerData, "0B"):
-			u, err := strconv.ParseUint(integerData[2:], 2, 64)
-
-			switch {
+			switch u, err := strconv.ParseUint(integerData[2:], 2, 64); {
 			case err == nil:
 				intValue = int64(u)
 			case errors.Is(err, strconv.ErrRange):
@@ -795,9 +791,7 @@ func (p *Parser) parseNumber() AstExprConstantNumberOrError {
 				intResult = NumberParseResult_Malformed
 			}
 		default:
-			v, err := strconv.ParseInt(integerData, 10, 64)
-
-			switch {
+			switch v, err := strconv.ParseInt(integerData, 10, 64); {
 			case err == nil:
 				intValue = v
 			case errors.Is(err, strconv.ErrRange):
@@ -1636,9 +1630,7 @@ func (p *Parser) parseBindingList(result *[]Binding, allowDot3 bool, commaPositi
 // local namelist [`=' explist]
 // laststat ::= return [explist] | break
 func (p *Parser) parseStat() AstStat {
-	type_ := p.token_type
-
-	switch type_ {
+	switch type_ := p.token_type; type_ {
 	case lex.Attribute, lex.AttributeOpen:
 		return p.parseAttributeStat()
 	case lex.ReservedBreak:
@@ -3979,9 +3971,8 @@ func (p *Parser) parseTypeSuffix(type_ AstType, begin lex.Location) AstType {
 loop:
 	for {
 		separatorPosition := p.token_location.Begin
-		t := p.token_type
 
-		switch t {
+		switch t := p.token_type; t {
 		case '|':
 			p.nextLexeme()
 
@@ -5048,10 +5039,7 @@ func (p *Parser) parseTableConstructor() AstExprTable {
 	braceType := p.token_type
 
 	p.expectAndConsume('{', new("table literal"))
-
-	var lastElementIndent uint32
-
-	for p.token_type != '}' {
+	for lastElementIndent := uint32(0); p.token_type != '}'; {
 		lastElementIndent = p.token_location.Begin.Column
 
 		if p.token_type == '[' {

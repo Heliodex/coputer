@@ -12,18 +12,14 @@ var (
 
 // BenchmarkListKeyFloat measures the check every number-keyed table access runs to decide whether the key is a list index.
 func BenchmarkListKeyFloat(b *testing.B) {
-	var i int
-
-	for b.Loop() {
+	for i := 0; b.Loop(); {
 		i = i%1024 + 1
 		_, keySink = listKeyFloat(float64(i))
 	}
 }
 
 func BenchmarkListKeyNum(b *testing.B) {
-	var i int
-
-	for b.Loop() {
+	for i := 0; b.Loop(); {
 		i = i%1024 + 1
 		_, keySink = listKey(Num(float64(i)))
 	}

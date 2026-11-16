@@ -11,7 +11,7 @@ func BenchmarkBitmask(b *testing.B) {
 }
 
 func BenchmarkBshift(b *testing.B) {
-	var r uint32
+	const r uint32 = uint32(0)
 
 	for b.Loop() {
 		b_shift(r, -5)

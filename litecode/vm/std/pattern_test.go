@@ -11,9 +11,7 @@ var findSink []Val
 
 // A capture forces the pattern engine and pushCaptures.
 func BenchmarkFindCaptures(b *testing.B) {
-	s := strings.Repeat("ab", 1<<16)
-
-	for b.Loop() {
+	for s := strings.Repeat("ab", 1<<16); b.Loop(); {
 		r, err := stringFindAux(s, "a(b)a", 1, false, true)
 		if err != nil {
 			b.Fatal(err)
