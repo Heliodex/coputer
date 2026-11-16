@@ -35,6 +35,7 @@ func TestEncode(t *testing.T) {
 	pk, err := DecodePK(pkf1)
 
 	Assert(t, err)
+
 	if pk.Encode() != pkf1 {
 		t.Fatal("public key encoding mismatch")
 	}
@@ -42,6 +43,7 @@ func TestEncode(t *testing.T) {
 	sk, err := DecodeSK(skf1)
 
 	Assert(t, err)
+
 	if sk.Encode() != skf1 {
 		t.Fatal("secret key encoding mismatch")
 	}
@@ -49,6 +51,7 @@ func TestEncode(t *testing.T) {
 	pkn, err := DecodePKNoPrefix(pkf1[6:])
 
 	Assert(t, err)
+
 	if pkn.Encode() != pkf1 {
 		t.Fatal("public key no prefix encoding mismatch")
 	}
@@ -56,6 +59,7 @@ func TestEncode(t *testing.T) {
 	skn, err := DecodeSKNoPrefix(skf1[6:])
 
 	Assert(t, err)
+
 	if skn.Encode() != skf1 {
 		t.Fatal("secret key no prefix encoding mismatch")
 	}
@@ -63,6 +67,7 @@ func TestEncode(t *testing.T) {
 	kp, err := KeypairSK(sk)
 
 	Assert(t, err)
+
 	if kp.Pk.Encode() != pkf1 {
 		t.Fatal("public key generated from secret key encoding mismatch")
 	}
@@ -81,6 +86,7 @@ func TestSign(t *testing.T) {
 	sig := kp1.Sk.Sign(message)
 
 	fmt.Println(len(sig), len(message))
+
 	if len(sig) != len(message)+16 { // hey wouldya look at that, 16 bytes of overhead, i'm a genuis
 		t.Fatal("signature length mismatch")
 	}
@@ -88,6 +94,7 @@ func TestSign(t *testing.T) {
 	ver, ok := kp1.Pk.Verify(sig)
 
 	fmt.Println(string(ver))
+
 	if !ok {
 		t.Fatal("signature verification failed")
 	}

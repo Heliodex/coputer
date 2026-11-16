@@ -44,6 +44,7 @@ func (sk SK) TLS() (cert tls.Certificate, err error) {
 		BasicConstraintsValid: true,
 		IPAddresses: []net.IP{net.IPv6loopback},
 	}
+
 	der, err := x509.CreateCertificate(rand.Reader, template, template, &esk.PublicKey, esk)
 	if err != nil {
 		return tls.Certificate{}, fmt.Errorf("create X.509 certificate: %v", err)
@@ -53,6 +54,7 @@ func (sk SK) TLS() (cert tls.Certificate, err error) {
 		Type: "CERTIFICATE",
 		Bytes: der,
 	})
+
 	skBytes, err := x509.MarshalECPrivateKey(esk)
 	if err != nil {
 		return tls.Certificate{}, fmt.Errorf("marshal ECDSA private key: %v", err)

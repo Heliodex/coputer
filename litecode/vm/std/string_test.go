@@ -21,6 +21,7 @@ func BenchmarkStringByte(b *testing.B) {
 
 	for b.Loop() {
 		args.pos = 0
+
 		r, err := string_byte(args)
 		if err != nil {
 			b.Fatal(err)
@@ -39,6 +40,7 @@ func BenchmarkStringChar(b *testing.B) {
 
 	for b.Loop() {
 		args.pos = 0
+
 		r, err := string_char(args)
 		if err != nil {
 			b.Fatal(err)
@@ -57,6 +59,7 @@ func BenchmarkStringFormat(b *testing.B) {
 
 	for b.Loop() {
 		args.pos = 0
+
 		r, err := string_format(args)
 		if err != nil {
 			b.Fatal(err)
@@ -76,6 +79,7 @@ func BenchmarkStringSub(b *testing.B) {
 
 	for b.Loop() {
 		args.pos = 0
+
 		r, err := string_sub(args)
 		if err != nil {
 			b.Fatal(err)

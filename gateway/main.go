@@ -42,7 +42,9 @@ func serveProfile(w http.ResponseWriter, r *http.Request, pk keys.PK) {
 		fmt.Fprintf(w, "No programs found for public key %s\n", pk.Encode())
 		return
 	}
+
 	fmt.Fprintf(w, "Programs for public key %s:\n", pk.Encode())
+
 	for _, prog := range programs {
 		fmt.Fprintf(w, "- %s-%s.%s\n", prog, pk.EncodeNoPrefix(), host)
 	}
@@ -73,6 +75,7 @@ func serveWeb(w http.ResponseWriter, r *http.Request, pk keys.PK, name string) {
 		Headers: headers,
 		Body: body,
 	}
+
 	rets, err := StartWebProgram(pk, name, args)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to start web program: %v", err), http.StatusInternalServerError)
@@ -82,6 +85,7 @@ func serveWeb(w http.ResponseWriter, r *http.Request, pk keys.PK, name string) {
 	for k, v := range rets.Headers {
 		w.Header().Set(k, v)
 	}
+
 	w.WriteHeader(rets.StatusCode)
 	w.Write(rets.Body)
 }
@@ -100,6 +104,7 @@ func validateSubdomain(hn string) (pk keys.PK, name string, err error) {
 	}
 
 	pks := sub[ls-49:] // last 49 characters are the public key
+
 	if ls > 50 {
 		if sub[ls-50] != '-' {
 			return keys.PK{}, "", fmt.Errorf("invalid subdomain format: %s", sub)
@@ -109,7 +114,6 @@ func validateSubdomain(hn string) (pk keys.PK, name string, err error) {
 	}
 
 	pk, err = keys.DecodePKNoPrefix(pks)
-
 	if err != nil {
 		return keys.PK{}, "", fmt.Errorf("decode public key: %v", err)
 	}
@@ -151,11 +155,13 @@ func main() {
 	if len(os.Args) > 1 {
 		host = os.Args[1]
 	}
+
 	fmt.Println("Starting")
 
 	// match any route as a subdomain of localhost
 	http.HandleFunc("/", handleRoute)
 	fmt.Println("Hosting on port", hostPort)
+
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", hostPort), nil); err != nil {
 		fmt.Println("Failed to start server:", err)
 		os.Exit(1)

@@ -77,6 +77,7 @@ func flattenStatUnits(header []Comment, units []sourceStatUnit) ([]AstStat, []Co
 
 	for i := range units {
 		placeLeading(units[i].leading)
+
 		if units[i].stat != nil {
 			statLine := nextLine()
 			loc := units[i].stat.GetLocation()
@@ -226,11 +227,13 @@ func formatStatFunctionDecl(stat AstStat) AstStat {
 		if n.Step != nil {
 			n.Step = formatExprFunctionDecls(n.Step)
 		}
+
 		formatBlock(n.Body)
 	case *AstStatForIn:
 		for i := range n.Values {
 			n.Values[i] = formatExprFunctionDecls(n.Values[i])
 		}
+
 		formatBlock(n.Body)
 	case *AstStatFunction:
 		n.Name = formatExprFunctionDecls(n.Name)
@@ -429,6 +432,7 @@ func formatFuncValueBodies(attrs *[]AstAttr, body *AstStatBlock) {
 			(*attrs)[i].Args[j] = formatExprFunctionDecls((*attrs)[i].Args[j])
 		}
 	}
+
 	formatBlock(body)
 }
 
@@ -482,6 +486,7 @@ func formatAST(result Result) Result {
 		sort.SliceStable(run, func(i, j int) bool {
 			ak, as, _ := requireDeclaration(run[i].stat)
 			bk, bs, _ := requireDeclaration(run[j].stat)
+
 			if as != bs {
 				return as
 			}

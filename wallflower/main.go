@@ -55,15 +55,18 @@ func gatewayServer(n *net.Node) {
 			http.Error(w, fmt.Sprintf("Failed to get programs: %v", err), http.StatusInternalServerError)
 			return
 		}
+
 		fmt.Println("Serving profile for", pk.Encode())
 		fmt.Println("Found", len(programs), "programs for", pk.Encode())
 		w.WriteHeader(http.StatusOK)
+
 		for _, p := range programs {
 			w.Write(append([]byte(p), '\n'))
 		}
 	})
 	mux.HandleFunc("POST /web/{pk}/{name}", func(w http.ResponseWriter, r *http.Request) {
 		pks, name := r.PathValue("pk"), r.PathValue("name")
+
 		pk, err := keys.DecodePKNoPrefix(pks)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to decode public key: %v", err), http.StatusBadRequest)
@@ -87,6 +90,7 @@ func gatewayServer(n *net.Node) {
 			http.Error(w, fmt.Sprintf("Failed to run web program: %v", err), http.StatusInternalServerError)
 			return
 		}
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write(rets.Encode())
@@ -170,6 +174,7 @@ func getPeers() (peers []*keys.Peer) {
 			fmt.Printf(`Failed to parse peer from line "%s": %v\n`, line, err)
 			continue
 		}
+
 		fmt.Println("Found peer", peer.Pk.Encode())
 
 		peers = append(peers, peer)
@@ -209,6 +214,7 @@ func getPrograms() (programs []loadedProgram) {
 	for path := range strings.SplitSeq(strings.TrimSpace(string(b)), "\n") {
 		// split line into path and name
 		name := filepath.Base(path)
+
 		b, err := bundle.Bundle(path)
 		if err != nil {
 			fmt.Printf("Failed to bundle program %s: %v\n", name, err)
@@ -302,6 +308,7 @@ func start() {
 		InsecureSkipVerify: true, // "tls: failed to verify certificate: x509: certificate signed by unknown authority"
 		// i've been in TLS hell for long enough today
 	}
+
 	qnet, err := NewQuicNet(tlsConf, quicConf)
 	if err != nil {
 		fmt.Println("Failed to create QUIC network:", err)
@@ -313,11 +320,14 @@ func start() {
 	for _, peer := range peers {
 		n.AddPeer(peer)
 	}
+
 	fmt.Println("Public key", kp.Pk.Encode())
 	fmt.Println(len(addrs), "public network addresses found")
+
 	for _, addr := range addrs {
 		fmt.Println("    ", gnet.IP(addr[:]).String())
 	}
+
 	fmt.Println("Find string", n.FindString())
 	fmt.Println("Communication system listening on port", PortCommunication)
 	qnet.AddNode(n)
@@ -328,10 +338,12 @@ func start() {
 
 	for _, prog := range programs {
 		fmt.Printf("Loading program %s (%d bytes)...\n", prog.Name, len(prog.Bundled))
+
 		if err := n.StoreProgram(kp.Pk, prog.Name, kp.Sk.SignHash(prog.Bundled), prog.Bundled); err != nil {
 			fmt.Printf("Failed to store program %s: %v\n", prog.Name, err)
 			continue
 		}
+
 		fmt.Printf("Stored program %s (%d bytes)\n", prog.Name, len(prog.Bundled))
 	}
 
@@ -356,6 +368,7 @@ func main() {
 
 		// get cpu cores
 		fmt.Printf("Using %d-threaded key generation.\n", threads)
+
 		if multiple {
 			fmt.Println("Generating keypairs...")
 
@@ -373,6 +386,7 @@ func main() {
 
 			return
 		}
+
 		fmt.Println("Generating keypair...")
 
 		start := time.Now()

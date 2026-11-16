@@ -28,6 +28,7 @@ func benchmarkScript(b *testing.B, name string, o uint8) {
 	env.AddFn(luau_print)
 	b.ReportAllocs()
 	b.ResetTimer()
+
 	for b.Loop() {
 		b.StopTimer()
 

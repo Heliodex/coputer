@@ -28,6 +28,7 @@ func Add(a, b Val) (Val, error) {
 func Div(a, b Val) (Val, error) {
 	fa, ok1 := AsNum(a)
 	fb, ok2 := AsNum(b)
+
 	if ok1 && ok2 {
 		return Num(fa / fb), nil
 	}
@@ -53,6 +54,7 @@ func Div(a, b Val) (Val, error) {
 func Idiv(a, b Val) (Val, error) {
 	fa, ok1 := AsNum(a)
 	fb, ok2 := AsNum(b)
+
 	if ok1 && ok2 {
 		return Num(math.Floor(fa / fb)), nil
 	}
@@ -92,6 +94,7 @@ func Mod(a, b Val) (Val, error) {
 func Mul(a, b Val) (Val, error) {
 	fa, ok1 := AsNum(a)
 	fb, ok2 := AsNum(b)
+
 	if ok1 && ok2 {
 		return Num(fa * fb), nil
 	}
@@ -144,12 +147,14 @@ func invalidCompare(op, ta, tb string) error {
 func Ge(a, b Val) (bool, error) {
 	fa, ok1 := AsNum(a)
 	fb, ok2 := AsNum(b)
+
 	if ok1 && ok2 {
 		return fa >= fb, nil
 	}
 
 	sa, ok1 := AsString(a)
 	sb, ok2 := AsString(b)
+
 	if ok1 && ok2 {
 		return sa >= sb, nil
 	}
@@ -160,12 +165,14 @@ func Ge(a, b Val) (bool, error) {
 func Gt(a, b Val) (bool, error) {
 	fa, ok1 := AsNum(a)
 	fb, ok2 := AsNum(b)
+
 	if ok1 && ok2 {
 		return fa > fb, nil
 	}
 
 	sa, ok1 := AsString(a)
 	sb, ok2 := AsString(b)
+
 	if ok1 && ok2 {
 		return sa > sb, nil
 	}
@@ -177,12 +184,14 @@ func Gt(a, b Val) (bool, error) {
 func Le(a, b Val) (bool, error) {
 	fa, ok1 := AsNum(a)
 	fb, ok2 := AsNum(b)
+
 	if ok1 && ok2 {
 		return fa <= fb, nil
 	}
 
 	sa, ok1 := AsString(a)
 	sb, ok2 := AsString(b)
+
 	if ok1 && ok2 {
 		return sa <= sb, nil
 	}
@@ -193,12 +202,14 @@ func Le(a, b Val) (bool, error) {
 func Lt(a, b Val) (bool, error) {
 	fa, ok1 := AsNum(a)
 	fb, ok2 := AsNum(b)
+
 	if ok1 && ok2 {
 		return fa < fb, nil
 	}
 
 	sa, ok1 := AsString(a)
 	sb, ok2 := AsString(b)
+
 	if ok1 && ok2 {
 		return sa < sb, nil
 	}

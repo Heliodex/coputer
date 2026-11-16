@@ -23,6 +23,7 @@ type (
 
 	Node struct {
 		keys.ThisPeer
+
 		Peers map[keys.PK]*keys.Peer // known peers
 		SendRaw Sender
 		ReceiveRaw Receiver
@@ -81,12 +82,14 @@ func (n Node) FindString() string {
 	addrs := make([]byte, (len(n.AltAddrs)+1)*keys.AddressLen)
 
 	copy(addrs[:keys.AddressLen], n.MainAddr[:]) // main address is always first
+
 	for i, addr := range n.AltAddrs {
 		copy(addrs[(i+1)*keys.AddressLen:], addr[:])
 	}
 
 	signedAddrs := n.Kp.Sk.Sign(addrs) // yes, actually works now
 	encodedAddrs := base64.RawURLEncoding.EncodeToString(signedAddrs) // we might do ipv6/libp2p/port enocding or smth later
+
 	return fmt.Sprintf("cofind:%s.%s", pk, encodedAddrs)
 }
 
@@ -181,6 +184,7 @@ func (n *Node) handleMessage(am AnyMsg) {
 		n.log("Program storage successful\n", "Hash: ", hex.EncodeToString(m.Hash[:]))
 	case mRun:
 		n.log("Running program\n", "PK: ", m.Pk.Encode(), "\n", "Name: ", m.Name)
+
 		switch tin := m.Input.(type) {
 		case WebArgs:
 			// serialise
@@ -188,6 +192,7 @@ func (n *Node) handleMessage(am AnyMsg) {
 			if err != nil {
 				n.log("Failed to run web program\n", err)
 				n.send(am.From, mRunResult{WebProgramType, m.Pk, m.Name, sha3.Sum256(tin.Encode()), nil})
+
 				break
 			}
 
@@ -233,8 +238,10 @@ func (n *Node) peerRunName(pk keys.PK, name string, inputhash [32]byte, ptype Pr
 		if pres == nil {
 			continue
 		}
+
 		delete(n.resultsWaitingName, h)
 		close(ch)
+
 		return *pres, nil
 	}
 
@@ -244,10 +251,10 @@ func (n *Node) peerRunName(pk keys.PK, name string, inputhash [32]byte, ptype Pr
 func (n *Node) RunWebProgram(pk keys.PK, name string, input WebArgs, useLocal bool) (res WebRets, err error) {
 	if useLocal { // testing; to prevent 2 communication servers (from realising they're) using the same execution server
 		res, err = StartWebProgram(pk, name, input)
-
 		if err == nil {
 			return // we have the program!
 		}
+
 		fmt.Println("Failed to run web program locally:", err)
 	}
 
@@ -276,6 +283,7 @@ func (n *Node) receive() {
 			n.log("Failed to decode message\n", err)
 			continue
 		}
+
 		n.seenPeer(msg.From)
 		n.handleMessage(msg)
 	}
@@ -292,6 +300,7 @@ func (n *Node) Start() {
 
 	for _, peer := range n.Peers {
 		n.log("Sending hi message to peer\n", peer.Pk.Encode())
+
 		if err := n.send(peer, mHi{}); err != nil {
 			n.log("Failed to send hi message to peer\n", err)
 		}

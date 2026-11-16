@@ -12,7 +12,6 @@ import (
 
 func changed(n *net.Node, path, name string) {
 	// fmt.Println("Updating program  ", path)
-
 	b, err := bundle.Bundle(path)
 	if err != nil {
 		fmt.Println("Failed to bundle dev program:", err)

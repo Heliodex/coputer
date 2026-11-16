@@ -81,10 +81,13 @@ func buffer_copy(args Args) (r []Val, err error) {
 	source := *args.GetBuffer()
 	sourceOffset := int(args.GetNumber(0))
 	count := int(args.GetNumber(float64(len(source))))
+
 	if sourceOffset+count > len(source) || sourceOffset < 0 || targetOffset+count > len(target) || targetOffset < 0 {
 		return oob, nil
 	}
+
 	copy(target[targetOffset:][:count], source[sourceOffset:][:count])
+
 	return args.Rets(NilVal, Bool(true)), nil
 }
 
@@ -145,6 +148,7 @@ func buffer_readi16(args Args) (r []Val, err error) {
 func buffer_readi32(args Args) (r []Val, err error) {
 	b, offset := readValues(&args)
 	b4 := b[offset:][:4] // we are inb4
+
 	return args.Rets(Num(float64(int32(binary.LittleEndian.Uint32(b4))))), nil
 }
 
@@ -157,6 +161,7 @@ func buffer_readi8(args Args) (r []Val, err error) {
 func buffer_readstring(args Args) (r []Val, err error) {
 	b, offset := readValues(&args)
 	count := int(args.GetNumber())
+
 	if offset+count > len(b) || offset < 0 {
 		return oob, nil
 	}
@@ -223,6 +228,7 @@ func buffer_writebits(args Args) (r []Val, err error) {
 
 	binary.LittleEndian.PutUint64(dataa2[:], data)
 	copy(bs, dataa2[:])
+
 	return args.Rets(NilVal, Bool(true)), nil
 }
 
@@ -230,10 +236,13 @@ func buffer_writestring(args Args) (r []Val, err error) {
 	b, offset := readValues(&args)
 	value := args.GetString()
 	count := int(args.GetNumber(float64(len(value))))
+
 	if offset+count > len(b) || offset < 0 {
 		return oob, nil
 	}
+
 	copy(b[offset:][:count], value)
+
 	return args.Rets(NilVal, Bool(true)), nil
 }
 
@@ -247,6 +256,7 @@ func writeValues[V num](args *Args) (b Buffer, offset int, value V) {
 func buffer_fill(args Args) (r []Val, err error) {
 	b, offset, value := writeValues[byte](&args)
 	count := int(args.GetNumber(float64(len(b))))
+
 	if offset+count > len(b) || offset < 0 {
 		return oob, nil
 	}
@@ -267,6 +277,7 @@ func buffer_writef32(args Args) (r []Val, err error) {
 	b4 := b[offset:][:4]
 
 	binary.LittleEndian.PutUint32(b4, math.Float32bits(value))
+
 	return args.Rets(NilVal, Bool(true)), nil
 }
 
@@ -279,6 +290,7 @@ func buffer_writef64(args Args) (r []Val, err error) {
 	b8 := b[offset:][:8]
 
 	binary.LittleEndian.PutUint64(b8, math.Float64bits(value))
+
 	return args.Rets(NilVal, Bool(true)), nil
 }
 
@@ -291,6 +303,7 @@ func buffer_writei16(args Args) (r []Val, err error) {
 	b2 := b[offset:][:2]
 
 	binary.LittleEndian.PutUint16(b2, uint16(value))
+
 	return args.Rets(NilVal, Bool(true)), nil
 }
 
@@ -303,6 +316,7 @@ func buffer_writei32(args Args) (r []Val, err error) {
 	b4 := b[offset:][:4]
 
 	binary.LittleEndian.PutUint32(b4, uint32(value))
+
 	return args.Rets(NilVal, Bool(true)), nil
 }
 
@@ -326,6 +340,7 @@ func buffer_writeu16(args Args) (r []Val, err error) {
 	b2 := b[offset:][:2]
 
 	binary.LittleEndian.PutUint16(b2, value)
+
 	return args.Rets(NilVal, Bool(true)), nil
 }
 
@@ -338,6 +353,7 @@ func buffer_writeu32(args Args) (r []Val, err error) {
 	b4 := b[offset:][:4]
 
 	binary.LittleEndian.PutUint32(b4, value)
+
 	return args.Rets(NilVal, Bool(true)), nil
 }
 

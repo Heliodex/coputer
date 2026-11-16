@@ -416,7 +416,6 @@ func (p *Parser) fillNext() {
 		next := p.lexer.Next0()
 
 		// fmt.Println("lexed next type", lex.Lexeme{Type: next.Type}.String())
-
 		p.next_type = next.Type
 		p.next_location = next.Location
 		p.next_codepoint = next.Codepoint
@@ -497,7 +496,6 @@ func (p *Parser) parseCharArray() *string {
 	}
 
 	// fmt.Println("Parsing char array data", data)
-
 	var result string
 
 	if t == lex.QuotedString || t == lex.InterpStringSimple {
@@ -512,7 +510,9 @@ func (p *Parser) parseCharArray() *string {
 	} else {
 		result = string(p.lexer.FixupMultilineString([]byte(data)))
 	}
+
 	p.nextLexeme()
+
 	return &result
 }
 
@@ -535,9 +535,7 @@ func (p *Parser) pushLocal(binding Binding) *AstLocal {
 }
 
 // prepareFunctionArguments sets up self and regular args as locals
-func (p *Parser) prepareFunctionArguments(start lex.Location, hasself bool, args []Binding) (*AstLocal, []*AstLocal) {
-	var selfLocal *AstLocal
-
+func (p *Parser) prepareFunctionArguments(start lex.Location, hasself bool, args []Binding) (selfLocal *AstLocal, vars []*AstLocal) {
 	if hasself {
 		selfLocal = p.pushLocal(Binding{
 			NodeLoc: &NodeLoc{start},
@@ -547,13 +545,11 @@ func (p *Parser) prepareFunctionArguments(start lex.Location, hasself bool, args
 		})
 	}
 
-	var vars []*AstLocal
-
 	for _, arg := range args {
 		vars = append(vars, p.pushLocal(arg))
 	}
 
-	return selfLocal, vars
+	return
 }
 
 // Error reports
@@ -621,6 +617,7 @@ func (p *Parser) checkBinaryConfusables(limit int) *BinaryOp {
 
 func (p *Parser) reportExprError(location lex.Location, exprs []AstExpr, msg string) *AstExprError {
 	p.report(location, msg)
+
 	return &AstExprError{
 		NodeLoc: &NodeLoc{location},
 		Expressions: exprs,
@@ -641,6 +638,7 @@ func (p *Parser) reportLValueError(expr AstExpr) *AstExprError {
 
 func (p *Parser) reportStatError(location lex.Location, exprs []AstExpr, stats []AstStat, msg string) *AstStatError {
 	p.report(location, msg)
+
 	return &AstStatError{
 		NodeLoc: &NodeLoc{location},
 		Expressions: exprs,
@@ -660,7 +658,6 @@ func (p *Parser) parseContinue(start lex.Location) AstStatContinueOrError {
 	}
 
 	// note: the token is already parsed for us!
-
 	return &AstStatContinue{
 		NodeLoc: &NodeLoc{start},
 	}
@@ -668,6 +665,7 @@ func (p *Parser) parseContinue(start lex.Location) AstStatContinueOrError {
 
 func (p *Parser) reportTypeError(location lex.Location, types []AstType, msg string) *AstTypeError {
 	p.report(location, msg)
+
 	return &AstTypeError{
 		NodeLoc: &NodeLoc{location},
 		Types: types,
@@ -712,7 +710,9 @@ func (p *Parser) checkUnaryConfusables() *UnaryOp {
 	if p.token_type != '!' {
 		return nil
 	}
+
 	p.report(p.snapshot(), "Unexpected '!'; did you mean 'not'?")
+
 	return &unaryOpNot
 }
 
@@ -732,6 +732,7 @@ func (p *Parser) parseBreak() AstStatBreakOrError {
 	start := p.snapshot()
 
 	p.nextLexeme()
+
 	if p.functionStack[len(p.functionStack)-1].LoopDepth == 0 {
 		return p.reportStatError(start, nil, []AstStat{
 			&AstStatContinue{
@@ -801,7 +802,9 @@ func (p *Parser) parseNumber() AstExprConstantNumberOrError {
 				intResult = NumberParseResult_Malformed
 			}
 		}
+
 		p.nextLexeme()
+
 		if intResult == NumberParseResult_Malformed {
 			return p.reportExprError(start, nil, "Malformed integer")
 		}
@@ -928,7 +931,9 @@ func (p *Parser) parseNumber() AstExprConstantNumberOrError {
 			}
 		}
 	}
+
 	p.nextLexeme()
+
 	if parseResult == NumberParseResult_Malformed {
 		return p.reportExprError(start, nil, "Malformed number")
 	}
@@ -1108,6 +1113,7 @@ func (p *Parser) expectAndConsumeFail(type_ lex.LexemeType, context *string) {
 func (p *Parser) expectAndConsume(type_ lex.LexemeType, context *string) bool {
 	if p.token_type != type_ {
 		p.expectAndConsumeFail(type_, context)
+
 		if p.next_type == type_ {
 			p.nextLexeme()
 			p.nextLexeme()
@@ -1115,7 +1121,9 @@ func (p *Parser) expectAndConsume(type_ lex.LexemeType, context *string) bool {
 
 		return false
 	}
+
 	p.nextLexeme()
+
 	return true
 }
 
@@ -1153,6 +1161,7 @@ func (p *Parser) expectMatchAndConsumeFail(type_, begin_type lex.LexemeType, pos
 func (p *Parser) expectMatchAndConsume(value, begin_type lex.LexemeType, position lex.Position, seachForMissing *bool) bool {
 	if p.token_type != value {
 		p.expectMatchAndConsumeFail(value, begin_type, position)
+
 		if seachForMissing != nil && *seachForMissing {
 			currentLine := p.prev_location.End.Line
 			type_ := p.token_type
@@ -1171,13 +1180,16 @@ func (p *Parser) expectMatchAndConsume(value, begin_type lex.LexemeType, positio
 			if p.next_type == value {
 				p.nextLexeme()
 				p.nextLexeme()
+
 				return true
 			}
 		}
 
 		return false
 	}
+
 	p.nextLexeme()
+
 	return true
 }
 
@@ -1204,6 +1216,7 @@ func (p *Parser) expectMatchEndAndConsume(type_, begin_type lex.LexemeType, posi
 		if p.next_type == type_ {
 			p.nextLexeme()
 			p.nextLexeme()
+
 			return true
 		}
 
@@ -1214,7 +1227,9 @@ func (p *Parser) expectMatchEndAndConsume(type_, begin_type lex.LexemeType, posi
 		p.suspect_line = position.Line
 		p.suspect_type = begin_type
 	}
+
 	p.nextLexeme()
+
 	return true
 }
 
@@ -1277,6 +1292,7 @@ func (p *Parser) parseNameOpt(context *string) *Binding {
 	}
 
 	p.nextLexeme()
+
 	return result
 }
 
@@ -1301,6 +1317,7 @@ func (p *Parser) parseIndexName(context *string, prev lex.Position) Binding {
 		}
 
 		p.nextLexeme()
+
 		return result
 	}
 
@@ -1443,6 +1460,7 @@ func deprecatedArgsValidator(attrLoc lex.Location, args []AstExpr) (errors []Par
 
 	aarg := args[0]
 	arg, ok := aarg.(AstExprTable)
+
 	if !ok {
 		errors = append(errors, ParseError{
 			Location: attrLoc,
@@ -1586,6 +1604,7 @@ func (p *Parser) parseBindingList(result *[]Binding, allowDot3 bool, commaPositi
 				if varargAnnotColonPos != nil {
 					(*varargAnnotColonPos)[0] = &p.token_location.Begin
 				}
+
 				p.nextLexeme()
 
 				tailAnnotation = p.parseVariadicArgumentTypePack()
@@ -1607,6 +1626,7 @@ func (p *Parser) parseBindingList(result *[]Binding, allowDot3 bool, commaPositi
 		if commaPositions != nil {
 			localCommaPositions = append(localCommaPositions, p.token_location.Begin)
 		}
+
 		p.nextLexeme()
 	}
 
@@ -1699,6 +1719,7 @@ func (p *Parser) parseStat() AstStat {
 			typeKeywordPos := p.token_location.Begin
 
 			p.nextLexeme()
+
 			return p.parseTypeAlias(expr.GetLocation(), true, typeKeywordPos)
 		}
 	}
@@ -1757,7 +1778,6 @@ func (p *Parser) parseBlockNoScope() *AstStatBlock {
 	}
 
 	// fmt.Println("Parsed block with body:", body)
-
 	block := &AstStatBlock{
 		NodeLoc: &NodeLoc{
 			lex.Location{
@@ -1771,6 +1791,7 @@ func (p *Parser) parseBlockNoScope() *AstStatBlock {
 
 	// attach the comments contained in this block; nested blocks are finished first, so comments end up on the deepest block containing them
 	p.attachBlockComments(block)
+
 	return block
 }
 
@@ -1780,6 +1801,7 @@ func (p *Parser) parseBlock() *AstStatBlock {
 	result := p.parseBlockNoScope()
 
 	p.restoreLocals(localsBegin)
+
 	return result
 }
 
@@ -1788,6 +1810,7 @@ func (p *Parser) parseIf() *AstStatIf {
 	start := p.snapshot()
 
 	p.nextLexeme()
+
 	if p.token_type == lex.ReservedLocal {
 		return p.parseIfLocalCondition(start)
 	}
@@ -1821,6 +1844,7 @@ func (p *Parser) parseIfLocalCondition(start lex.Location) *AstStatIf {
 		loc := p.snapshot()
 		equalsPosition = &loc
 	}
+
 	p.expectAndConsume('=', new("if local declaration"))
 
 	cond := p.parseExpr(0)
@@ -2190,7 +2214,6 @@ func (p *Parser) parseFunctionStat(attributes Attrs) *AstStatFunction {
 	p.nextLexeme()
 
 	debugnameRef := []*string{nil} // todo length check bruh
-
 	hasRef := []bool{false}
 	expr := p.parseFunctionName(hasRef, &debugnameRef)
 	p.matchRecovery[lex.ReservedEnd]++
@@ -2251,6 +2274,7 @@ func (p *Parser) parseAttribute(attributes *Attrs) {
 		open_type := p.token_type
 
 		p.nextLexeme()
+
 		if p.token_type != ']' {
 			for {
 				ctx := "attribute name"
@@ -2275,6 +2299,7 @@ func (p *Parser) parseAttribute(attributes *Attrs) {
 						}
 					}
 				}
+
 				p.validateAttribute(nameLoc, attrName, *attributes, args)
 
 				attrNameCopy := attrName
@@ -2297,19 +2322,18 @@ func (p *Parser) parseAttribute(attributes *Attrs) {
 				End: open_end,
 			}, "Attribute list cannot be empty")
 		}
+
 		p.expectMatchAndConsume(']', open_type, open_begin, nil)
 	}
 }
 
 // attributes ::= {attribute}
-func (p *Parser) parseAttributes() Attrs {
-	var attributes Attrs
-
+func (p *Parser) parseAttributes() (attributes Attrs) {
 	for p.token_type == lex.Attribute || p.token_type == lex.AttributeOpen {
 		p.parseAttribute(&attributes)
 	}
 
-	return attributes
+	return
 }
 
 // attributes local function Name funcbody
@@ -2326,6 +2350,7 @@ func (p *Parser) parseAttributeStat() AstStat {
 			keywordPosition := p.token_location.Begin
 
 			p.nextLexeme() // consume 'export'
+
 			return p.parseExportValue(p.snapshot(), keywordPosition, attributes)
 		}
 
@@ -2333,6 +2358,7 @@ func (p *Parser) parseAttributeStat() AstStat {
 			keywordPosition := p.token_location.Begin
 
 			p.nextLexeme() // consume 'const'
+
 			return p.parseLocal(p.snapshot(), keywordPosition, attributes, true)
 		}
 	case lex.ReservedFunction:
@@ -2403,6 +2429,7 @@ func (p *Parser) parseExportValue(start lex.Location, keywordPosition lex.Positi
 		if p.token_string != nil {
 			currLex.Data = []byte(*p.token_string)
 		}
+
 		p.report(p.token_location, fmt.Sprintf("Expected 'function' after export declaration with attribute, but got %s instead", currLex.String()))
 	}
 
@@ -2420,6 +2447,7 @@ func (p *Parser) parseExportValue(start lex.Location, keywordPosition lex.Positi
 	case p.token_type == lex.ReservedFunction:
 		funcStat := p.parseLocal(start, keywordPosition, attributes, true)
 		localFunc, ok := funcStat.(*AstStatLocalFunction)
+
 		if !ok {
 			// parseLocal returned a parse error
 			return funcStat
@@ -2547,6 +2575,7 @@ func (p *Parser) parseLocal(start lex.Location, keywordPosition lex.Position, at
 		equalsSignLocation = &loc
 
 		p.nextLexeme()
+
 		if p.storeCstData {
 			p.parseExprList(&values, &valuesCommaPositions)
 		} else {
@@ -2609,6 +2638,7 @@ func (p *Parser) parseReturn() *AstStatReturn {
 	start := p.snapshot()
 
 	p.nextLexeme()
+
 	var (
 		list []AstExpr
 		commaPositions []lex.Position
@@ -2788,7 +2818,9 @@ func (p *Parser) parseExprList(result *[]AstExpr, commaPositions *[]lex.Position
 		if commaPositions != nil {
 			*commaPositions = append(*commaPositions, p.token_location.Begin)
 		}
+
 		p.nextLexeme()
+
 		if p.token_type == ')' {
 			p.report(p.snapshot(), "Expected expression after ',' but got ')' instead")
 			break
@@ -2812,6 +2844,7 @@ func (p *Parser) parseAssignment(initial AstExpr) *AstStatAssign {
 		if p.storeCstData {
 			varsCommaPositions = append(varsCommaPositions, p.token_location.Begin)
 		}
+
 		p.nextLexeme()
 
 		expr := p.parsePrimaryExpr(true)
@@ -2825,6 +2858,7 @@ func (p *Parser) parseAssignment(initial AstExpr) *AstStatAssign {
 	equalsPosition := p.token_location.Begin
 
 	p.expectAndConsume('=', new("assignment"))
+
 	var (
 		values []AstExpr
 		valuesCommaPositions []lex.Position
@@ -2913,7 +2947,6 @@ func (p *Parser) parseFunctionBody(hasself bool, matchFunction lex.Lexeme, debug
 	}
 
 	var (
-
 		// Parse generic type list
 		openGenPos lex.Position
 		closeGenPos lex.Position
@@ -2996,7 +3029,6 @@ func (p *Parser) parseFunctionBody(hasself bool, matchFunction lex.Lexeme, debug
 	p.matchRecovery[')']--
 
 	var (
-
 		// Return type
 		retSpecPos lex.Position
 		retSpecPosRef *lex.Position
@@ -3108,6 +3140,7 @@ func (p *Parser) parseGenericTypeList(withDefaultValues bool, openPosRef *lex.Po
 		if openPosRef != nil {
 			*openPosRef = beginPos
 		}
+
 		p.nextLexeme()
 
 		var seenDefault, seenPack bool
@@ -3198,6 +3231,7 @@ func (p *Parser) parseGenericTypeList(withDefaultValues bool, openPosRef *lex.Po
 				localCommaPositions = append(localCommaPositions, p.token_location.Begin)
 
 				p.nextLexeme()
+
 				if p.token_type == '>' {
 					p.report(p.snapshot(), "Expected type after ',' but got '>' instead")
 					break
@@ -3210,6 +3244,7 @@ func (p *Parser) parseGenericTypeList(withDefaultValues bool, openPosRef *lex.Po
 		if closePosRef != nil {
 			*closePosRef = p.token_location.Begin
 		}
+
 		p.expectMatchAndConsume('>', beginType, beginPos, nil)
 	}
 
@@ -3260,10 +3295,12 @@ func (p *Parser) parseTypeList(result *[]AstType, resultNames *[]*AstArgumentNam
 			*resultNames = append(*resultNames, argName)
 
 			p.nextLexeme()
+
 			if nameColonPositions != nil {
 				colonPos := p.token_location.Begin
 				*nameColonPositions = append(*nameColonPositions, &colonPos)
 			}
+
 			p.expectAndConsume(':', new(""))
 		} else if len(*resultNames) > 0 {
 			*resultNames = append(*resultNames, nil)
@@ -3282,7 +3319,9 @@ func (p *Parser) parseTypeList(result *[]AstType, resultNames *[]*AstArgumentNam
 		if commaPositions != nil {
 			*commaPositions = append(*commaPositions, p.token_location.Begin)
 		}
+
 		p.nextLexeme()
+
 		if p.token_type == ')' {
 			p.report(p.snapshot(), "Expected type after ',' but got ')' instead")
 			break
@@ -3302,6 +3341,7 @@ func (p *Parser) parseOptionalReturnType(returnSpecifierPosRef *lex.Position) *A
 		if returnSpecifierPosRef != nil {
 			*returnSpecifierPosRef = p.token_location.Begin
 		}
+
 		p.nextLexeme()
 
 		oldRecursion := p.recursionCounter
@@ -3353,6 +3393,7 @@ func (p *Parser) parseReturnType() AstTypePack {
 
 		return node
 	}
+
 	p.nextLexeme()
 
 	p.matchRecovery[lex.SkinnyArrow]++
@@ -3550,6 +3591,7 @@ func (p *Parser) parseTableIndexer(access string, accessLoc *lex.Location, begin
 // parseTableType parses `{' PropList `}'
 func (p *Parser) parseTableType(inDeclarationContext bool) AstTypeTable {
 	p.incrementRecursionCounter("type annotation")
+
 	var (
 		props []AstTableProp
 		cstItems []CstTypeTableItem
@@ -3560,6 +3602,7 @@ func (p *Parser) parseTableType(inDeclarationContext bool) AstTypeTable {
 	matchBrace := p.get_lexeme()
 
 	p.expectAndConsume('{', new("table type"))
+
 	for p.token_type != '}' {
 		access := "ReadWrite"
 
@@ -3586,6 +3629,7 @@ func (p *Parser) parseTableType(inDeclarationContext bool) AstTypeTable {
 			begin := p.get_lexeme()
 
 			p.nextLexeme()
+
 			if (p.token_type == lex.RawString || p.token_type == lex.QuotedString) && p.next_type == ']' {
 				var (
 					cstStr *CstExprConstantString
@@ -3698,10 +3742,12 @@ func (p *Parser) parseTableType(inDeclarationContext bool) AstTypeTable {
 				AccessLocation: accessLoc,
 			}
 			indexer = &idxVal
+
 			break
 		} else {
 			ctx := "table field"
 			nameOpt := p.parseNameOpt(&ctx)
+
 			if nameOpt == nil {
 				break
 			}
@@ -3714,6 +3760,7 @@ func (p *Parser) parseTableType(inDeclarationContext bool) AstTypeTable {
 			type_ := p.parseType(inDeclarationContext)
 			typeLoc := type_.GetLocation()
 			_ = typeLoc
+
 			props = append(props, AstTableProp{
 				Name: nameOpt.Name,
 				NodeLoc: nameOpt.NodeLoc,
@@ -3757,6 +3804,7 @@ func (p *Parser) parseTableType(inDeclarationContext bool) AstTypeTable {
 	}
 
 	p.attachTypeTableComments(&node)
+
 	if p.storeCstData {
 		p.cstNodes[node] = CstTypeTable{
 			Items: cstItems,
@@ -3919,6 +3967,7 @@ func (p *Parser) parseFunctionType(allowPack bool, attributes Attrs) (AstType, A
 // parseFunctionTypeTail completes a function type after params are parsed
 func (p *Parser) parseFunctionTypeTail(begin lex.Lexeme, attributes Attrs, generics []AstGenericType, genericPacks []AstGenericTypePack, params []AstType, paramNames []*AstArgumentName, varargAnnotation *AstTypePack) AstType {
 	p.incrementRecursionCounter("type annotation")
+
 	if p.token_type == ':' {
 		p.report(p.snapshot(), "Return types in function type annotations are written after '->' instead of ':'")
 		p.nextLexeme()
@@ -3927,6 +3976,7 @@ func (p *Parser) parseFunctionTypeTail(begin lex.Lexeme, attributes Attrs, gener
 			Begin: begin.Location.Begin,
 			End: p.prev_location.End,
 		}, "Expected '->' after '()' when parsing function type; did you mean 'nil'?")
+
 		return AstTypeReference{
 			NodeLoc: &NodeLoc{begin.Location},
 			HasParameterList: false,
@@ -3966,7 +4016,9 @@ func (p *Parser) parseTypeSuffix(type_ AstType, begin lex.Location) AstType {
 	if type_ != nil {
 		parts = append(parts, type_)
 	}
+
 	p.incrementRecursionCounter("type annotation")
+
 	var (
 		isIntersection, isUnion bool
 		optionalCount int
@@ -4100,6 +4152,7 @@ loop:
 func (p *Parser) parseSimpleTypeOrPack() (AstType, AstTypePack) {
 	begin := p.snapshot()
 	type_, typePack := p.parseSimpleType(true, false)
+
 	if typePack != nil {
 		return nil, typePack
 	}
@@ -4133,6 +4186,7 @@ func (p *Parser) parseSimpleType(allowPack, inDeclarationContext bool) (AstType,
 		return p.parseFunctionType(allowPack, attributes)
 	case lex.ReservedNil:
 		p.nextLexeme()
+
 		return AstTypeReference{
 			NodeLoc: &NodeLoc{start},
 			HasParameterList: false,
@@ -4141,12 +4195,14 @@ func (p *Parser) parseSimpleType(allowPack, inDeclarationContext bool) (AstType,
 		}, nil
 	case lex.ReservedTrue:
 		p.nextLexeme()
+
 		return AstTypeSingletonBool{
 			NodeLoc: &NodeLoc{start},
 			Value: true,
 		}, nil
 	case lex.ReservedFalse:
 		p.nextLexeme()
+
 		return AstTypeSingletonBool{
 			NodeLoc: &NodeLoc{start},
 			Value: false,
@@ -4285,7 +4341,9 @@ func (p *Parser) parseSimpleType(allowPack, inDeclarationContext bool) (AstType,
 	if p.token_string != nil {
 		currLex.Data = []byte(*p.token_string)
 	}
+
 	p.report(start, fmt.Sprintf("Expected type, got %s", currLex.String()))
+
 	return AstTypeError{
 		NodeLoc: &NodeLoc{start},
 		Types: nil,
@@ -4375,20 +4433,21 @@ func (p *Parser) parseTypePack() AstTypePackVariadicOrGeneric {
 
 		return node
 	}
+
 	panic("parseTypePack called when shouldParseTypePack() is false")
 }
 
 // parseTypeParams parses `<' TypeOrPack `>'
-func (p *Parser) parseTypeParams(openingPosRef *lex.Position, commaPosRef *[]lex.Position, closingPosRef *lex.Position) []AstTypeOrPack {
-	var params []AstTypeOrPack
-
+func (p *Parser) parseTypeParams(openingPosRef *lex.Position, commaPosRef *[]lex.Position, closingPosRef *lex.Position) (params []AstTypeOrPack) {
 	if p.token_type == '<' {
 		begin := p.get_lexeme()
 
 		if openingPosRef != nil {
 			*openingPosRef = begin.Location.Begin
 		}
+
 		p.nextLexeme()
+
 		for {
 			if p.shouldParseTypePack() {
 				pack := p.parseTypePack()
@@ -4434,6 +4493,7 @@ func (p *Parser) parseTypeParams(openingPosRef *lex.Position, commaPosRef *[]lex
 				if commaPosRef != nil {
 					*commaPosRef = append(*commaPosRef, p.token_location.Begin)
 				}
+
 				p.nextLexeme()
 			} else {
 				break
@@ -4443,23 +4503,22 @@ func (p *Parser) parseTypeParams(openingPosRef *lex.Position, commaPosRef *[]lex
 		if closingPosRef != nil {
 			*closingPosRef = p.token_location.Begin
 		}
+
 		p.expectMatchAndConsume('>', begin.Type, begin.Location.Begin, nil)
 	}
 
-	return params
+	return
 }
 
 // parseExpr parses binary expressions at priority > limit
-func (p *Parser) parseExpr(limit int) AstExpr {
+func (p *Parser) parseExpr(limit int) (expr AstExpr) {
 	oldRecursion := p.recursionCounter
 
 	p.incrementRecursionCounter("expression")
 
 	start := p.snapshot()
-
-	var expr AstExpr
-
 	uop, hasUop := UnaryOpLookup[p.token_type]
+
 	if !hasUop {
 		if confusable := p.checkUnaryConfusables(); confusable != nil {
 			uop = *confusable
@@ -4536,12 +4595,13 @@ func (p *Parser) parseExpr(limit int) AstExpr {
 				hasOp = true
 			}
 		}
+
 		p.incrementRecursionCounter("expression")
 	}
 
 	p.recursionCounter = oldRecursion
 
-	return expr
+	return
 }
 
 // parsePrefixExpr parses NAME | `(' expr `)'
@@ -4562,6 +4622,7 @@ func (p *Parser) parsePrefixExpr() AstExpr {
 			if p.token_type == '=' {
 				extra = "; did you mean to use '{' when defining a table?"
 			}
+
 			p.expectMatchAndConsumeFail(')', parenType, parenBegin, extra)
 
 			end = p.prev_location.End
@@ -4590,6 +4651,7 @@ func (p *Parser) parseTypeInstantiationExpr() ([]AstTypeOrPack, CstTypeInstantia
 	leftArrow1 := p.token_location.Begin
 
 	p.nextLexeme()
+
 	var (
 		leftArrow2 lex.Position
 		commaPositions []lex.Position
@@ -4762,6 +4824,7 @@ func (p *Parser) parsePrimaryExpr(asStatement bool) AstExpr {
 		} else {
 			break
 		}
+
 		p.incrementRecursionCounter("expression")
 	}
 
@@ -4831,17 +4894,20 @@ func (p *Parser) parseSimpleExpr() AstExpr {
 	switch p.token_type {
 	case lex.ReservedNil:
 		p.nextLexeme()
+
 		return AstExprConstantNil{
 			NodeLoc: &NodeLoc{start},
 		}
 	case lex.ReservedTrue:
 		p.nextLexeme()
+
 		return AstExprConstantBool{
 			NodeLoc: &NodeLoc{start},
 			Value: true,
 		}
 	case lex.ReservedFalse:
 		p.nextLexeme()
+
 		return AstExprConstantBool{
 			NodeLoc: &NodeLoc{start},
 			Value: false,
@@ -4869,11 +4935,14 @@ func (p *Parser) parseSimpleExpr() AstExpr {
 	case lex.Dot3:
 		if len(p.functionStack) > 0 && p.functionStack[len(p.functionStack)-1].Vararg {
 			p.nextLexeme()
+
 			return AstExprVarargs{
 				NodeLoc: &NodeLoc{start},
 			}
 		}
+
 		p.nextLexeme()
+
 		return p.reportExprError(start, nil, "Cannot use '...' outside of a vararg function")
 	case '{':
 		return p.parseTableConstructor()
@@ -4897,6 +4966,7 @@ func (p *Parser) parseFunctionArgs(funcExpr AstExpr, selfCall bool) AstExpr {
 		parenType := p.token_type
 
 		p.nextLexeme()
+
 		var (
 			args []AstExpr
 			commaPositions []lex.Position
@@ -5010,6 +5080,7 @@ func (p *Parser) parseCallList(commaPositions *[]lex.Position) ([]AstExpr, lex.L
 		end := p.snapshot()
 
 		p.expectMatchAndConsume(')', parenType, parenBegin, nil)
+
 		return args, lex.Location{
 			Begin: argStart,
 			End: end.End,
@@ -5045,6 +5116,7 @@ func (p *Parser) parseTableConstructor() AstExprTable {
 	braceType := p.token_type
 
 	p.expectAndConsume('{', new("table literal"))
+
 	for lastElementIndent := uint32(0); p.token_type != '}'; {
 		lastElementIndent = p.token_location.Begin.Column
 
@@ -5163,6 +5235,7 @@ func (p *Parser) parseTableConstructor() AstExprTable {
 	}
 
 	p.attachTableComments(&node)
+
 	if p.storeCstData {
 		p.cstNodes[node] = CstExprTable{
 			Items: cstItems,
@@ -5244,6 +5317,7 @@ func (p *Parser) parseIfElseExprLocalCondition(start lex.Location) AstExprIfElse
 		loc := p.snapshot()
 		equalsPosition = &loc
 	}
+
 	p.expectAndConsume('=', new("if local declaration"))
 
 	condition := p.parseExpr(0)
@@ -5346,11 +5420,13 @@ func (p *Parser) parseInterpString() AstExprInterpStringOrError {
 		ok, fixedData := p.lexer.FixupQuotedString([]byte(data))
 		if !ok {
 			p.nextLexeme()
+
 			return p.reportExprError(lex.Location{
 				Begin: startLocation.Begin,
 				End: endLocation.End,
 			}, nil, "Interpolated string literal contains malformed escape sequence")
 		}
+
 		p.nextLexeme()
 
 		strs = append(strs, string(fixedData))
@@ -5364,11 +5440,13 @@ func (p *Parser) parseInterpString() AstExprInterpStringOrError {
 			p.nextLexeme()
 
 			expressions = append(expressions, p.reportExprError(endLocation, nil, "Malformed interpolated string, expected expression inside '{}'"))
+
 			break
 		} else if t == lex.BrokenString {
 			p.nextLexeme()
 
 			expressions = append(expressions, p.reportExprError(endLocation, nil, "Malformed interpolated string; did you forget to add a '`'?"))
+
 			break
 		} else {
 			expressions = append(expressions, p.parseExpr(0))
@@ -5377,7 +5455,6 @@ func (p *Parser) parseInterpString() AstExprInterpStringOrError {
 		switch t = p.token_type; t {
 		case lex.InterpStringBegin, lex.InterpStringMid, lex.InterpStringEnd:
 			// continue reading
-
 		case lex.BrokenInterpDoubleBrace:
 			p.nextLexeme()
 			return p.reportExprError(endLocation, nil, "Double braces are not permitted within interpolated strings; did you mean '\\{'?")

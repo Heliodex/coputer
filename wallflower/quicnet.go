@@ -29,6 +29,7 @@ func NewQuicNet(tlsConf *tls.Config, quicConf *quic.Config) (n net.Net, err erro
 	tr := &quic.Transport{
 		Conn: server,
 	}
+
 	ln, err := tr.Listen(tlsConf, quicConf)
 	if err != nil {
 		return nil, fmt.Errorf("start QUIC server: %w", err)
@@ -87,6 +88,7 @@ func readChunks(stream *quic.ReceiveStream, chunkChan chan<- []byte) {
 	for {
 		b := make([]byte, msgChunk)
 		n, err := stream.Read(b)
+
 		if err != nil || n == 0 {
 			continue
 		}
@@ -108,6 +110,7 @@ func readMsgs(chunkChan <-chan []byte, msgChan chan<- net.EncryptedMsg) {
 
 		l := binary.BigEndian.Uint32(b[:4])
 		b = b[4:] // remove the length bytes
+
 		if l == 0 {
 			continue
 		}
@@ -120,6 +123,7 @@ func readMsgs(chunkChan <-chan []byte, msgChan chan<- net.EncryptedMsg) {
 		}
 
 		msgChan <- b[:il] // send it off!!!!!!!
+
 		b = b[il:] // remaining bytes are for the next message
 	}
 }
@@ -138,6 +142,7 @@ func (n *QuicNet) serveToReceiver(ln *quic.Listener, r net.Receiver) {
 			fmt.Println("Error accepting connection:", err)
 			continue
 		}
+
 		fmt.Println("Accepted connection from", qc.RemoteAddr())
 
 		stream, err := qc.AcceptUniStream(context.TODO())
@@ -171,6 +176,7 @@ func (n *QuicNet) sendTo(addr keys.Address, msg net.EncryptedMsg) (ok bool) {
 		fmt.Println("No stream for   ", addrToReadable(addr))
 		return // no stream for this address
 	}
+
 	fmt.Println("Sending message ", addrToReadable(addr), "(existing)  length", len(msg))
 
 	// send message on existing stream
@@ -202,6 +208,7 @@ mainloop:
 				continue mainloop // sent message on newly created stream
 			}
 		}
+
 		fmt.Println("Failed to send message to any address", addrToReadable(msg.MainAddr))
 	}
 }

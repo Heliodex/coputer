@@ -62,6 +62,7 @@ func BenchmarkNextFirst(b *testing.B) {
 
 	for b.Loop() {
 		args.pos = 0
+
 		r, err := global_next(args)
 		if err != nil {
 			b.Fatal(err)
@@ -89,6 +90,7 @@ func BenchmarkNextHash(b *testing.B) {
 
 	for b.Loop() {
 		args.pos = 0
+
 		r, err := global_next(args)
 		if err != nil {
 			b.Fatal(err)
@@ -116,6 +118,7 @@ func BenchmarkNextLast(b *testing.B) {
 
 	for b.Loop() {
 		args.pos = 0
+
 		r, err := global_next(args)
 		if err != nil {
 			b.Fatal(err)

@@ -32,11 +32,14 @@ func litecode(t *testing.T, f string, c Compiler) (string, time.Duration) {
 		// b.WriteString(fmt.Sprint(args...))
 		for i, arg := range args.List {
 			b.WriteString(std.ToString(arg))
+
 			if i < len(args.List)-1 {
 				b.WriteString("\t")
 			}
 		}
+
 		b.WriteString("\n") // yeah2
+
 		return
 	})
 
@@ -46,8 +49,8 @@ func litecode(t *testing.T, f string, c Compiler) (string, time.Duration) {
 
 	co, _ := Load(p, env, TestArgs{})
 	startTime := time.Now()
-	_, err = co.Resume()
 
+	_, err = co.Resume()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,11 +72,14 @@ func litecodeE(t *testing.T, f string, c Compiler) (string, error) {
 		// b.WriteString(fmt.Sprint(args...))
 		for i, arg := range args.List {
 			b.WriteString(std.ToString(arg))
+
 			if i < len(args.List)-1 {
 				b.WriteString("\t")
 			}
 		}
+
 		b.WriteString("\n")
+
 		return
 	})
 
@@ -89,6 +95,7 @@ func litecodeE(t *testing.T, f string, c Compiler) (string, error) {
 
 func luau(f string) (string, error) {
 	cmd := exec.Command("luau", f+compile.Ext)
+
 	o, err := cmd.Output()
 	if err != nil {
 		return "", err
@@ -112,12 +119,12 @@ func TestBenchmark(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	pprof.StartCPUProfile(f)
 
 	defer pprof.StopCPUProfile()
 
 	// const onlyBench = "luauception"
-
 	compilers := []Compiler{compile.MakeCompiler(0), compile.MakeCompiler(1), compile.MakeCompiler(2)}
 
 	for _, f := range files {
@@ -126,7 +133,6 @@ func TestBenchmark(t *testing.T) {
 		// if name != onlyBench {
 		// 	continue
 		// }
-
 		fmt.Println()
 		t.Log("-- Benchmarking", name, "--")
 
@@ -148,7 +154,6 @@ func TestConformance(t *testing.T) {
 	}
 
 	// const onlyTest = "doubleloop"
-
 	compilers := []Compiler{compile.MakeCompiler(0), compile.MakeCompiler(1), compile.MakeCompiler(2)}
 
 	for _, f := range files {
@@ -161,10 +166,10 @@ func TestConformance(t *testing.T) {
 		// if name != onlyTest {
 		// 	continue
 		// }
-
 		t.Log(" -- Testing", name, "--")
 
 		filename := fmt.Sprintf("%s/%s", conformanceDir, name)
+
 		og, err := luau(filename)
 		if err != nil {
 			fmt.Println("failed on filename", filename)
@@ -191,9 +196,11 @@ func TestConformance(t *testing.T) {
 						t.Errorf("mismatched line: \n%s\n%v\n%s\n%v\n", line, []byte(line), oLines[i], []byte(oLines[i]))
 					}
 				}
+
 				os.Exit(1)
 			}
 		}
+
 		fmt.Println(og)
 	}
 }
@@ -219,16 +226,17 @@ func TestErrors(t *testing.T) {
 		// if name != onlyTest {
 		// 	continue
 		// }
-
 		t.Log(" -- Testing", name, "--\n")
 
 		filename := fmt.Sprintf("%s/%s", errorsDir, name)
+
 		_, lerr := litecodeE(t, filename, c1)
 		if lerr == nil {
 			t.Fatal("expected error, got nil")
 		}
 
 		errorname := fmt.Sprintf("%s/%s.txt", errorsDir, name)
+
 		og, err := os.ReadFile(errorname)
 		if err != nil {
 			t.Fatal("error reading error file (meta lol):", err)
@@ -239,6 +247,7 @@ func TestErrors(t *testing.T) {
 
 		fmt.Println(lerr)
 		fmt.Println()
+
 		if lerr.Error() != strog {
 			t.Fatalf("error mismatch:\n-- Expected\n%s\n-- Got\n%s", strog, lerr)
 		}

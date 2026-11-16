@@ -293,6 +293,7 @@ func TestWeb(t *testing.T) {
 		n1.Start()
 
 		fs1 := n1.FindString()
+
 		p1, err := PeerFromFindString(fs1)
 		if err != nil {
 			t.Fatal(err)
@@ -318,6 +319,7 @@ func TestWeb(t *testing.T) {
 		if err := test.Rets.Equal(resn); err != nil {
 			t.Fatal("hash return value not equal:", err)
 		}
+
 		n1.Stop()
 		n2.Stop()
 		t.Log(string(resn.Body))

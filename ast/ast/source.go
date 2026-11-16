@@ -53,6 +53,7 @@ func BinopToSource(name string) string {
 	case "Concat":
 		return ".."
 	}
+
 	panic("bad binop: " + name)
 }
 
@@ -112,6 +113,7 @@ func StringToSource(str string) string {
 		for eqCount := 0; ; eqCount++ {
 			eqs := strings.Repeat("=", eqCount)
 			endDelimiter := "]" + eqs + "]"
+
 			if strings.Contains(str, endDelimiter) {
 				continue
 			}
@@ -131,7 +133,6 @@ func StringToSource(str string) string {
 	// UTF-8 MANGLING!!!!
 
 	// fmt.Println("StringToSource", str)
-
 	sbs := []byte(str)
 
 	var bs []byte
@@ -140,7 +141,6 @@ func StringToSource(str string) string {
 		b := sbs[i]
 
 		// fmt.Println(str, "b", b, string(b))
-
 		if esc, ok := escapes[b]; ok {
 			bs = append(bs, esc...)
 			continue
@@ -150,6 +150,7 @@ func StringToSource(str string) string {
 		if unicode.IsControl(r) {
 			bs = append(bs, fmt.Appendf(nil, "\\%d", r)...)
 			i += len(string(r)) - 1
+
 			continue
 		}
 
@@ -197,5 +198,6 @@ func UnopToSource(name string) string {
 	case "Len":
 		return "#"
 	}
+
 	panic("bad unop: " + name)
 }

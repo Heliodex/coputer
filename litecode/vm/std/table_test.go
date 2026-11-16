@@ -24,6 +24,7 @@ func BenchmarkTableCloneHash(b *testing.B) {
 	t := &Table{}
 
 	t.Set(Str("key"), Str("value"))
+
 	for b.Loop() {
 		clone(t)
 	}
@@ -45,6 +46,7 @@ func BenchmarkTableCloneList(b *testing.B) {
 	t := &Table{}
 
 	t.SetInt(1, Str("a"))
+
 	for b.Loop() {
 		clone(t)
 	}
@@ -89,6 +91,7 @@ func BenchmarkTableCreate(b *testing.B) {
 
 	for b.Loop() {
 		args.pos = 0
+
 		r, err := table_create(args)
 		if err != nil {
 			b.Fatal(err)

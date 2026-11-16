@@ -272,12 +272,14 @@ func (l Lexeme) getQuoteStyle() QuoteStyle {
 
 	// If we have a well-formed string, we are guaranteed to see a closing delimiter after the string
 	LUAU_ASSERT(len(l.Data) > 0)
+
 	switch quote := l.rest[0]; quote {
 	case '\'':
 		return Single
 	case '"':
 		return Double
 	}
+
 	panic("unknown quote style")
 }
 

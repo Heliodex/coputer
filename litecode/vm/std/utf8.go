@@ -35,6 +35,7 @@ func iter_aux(args Args) (cps []Val, err error) {
 		n = 0 // start from here
 	} else if n < len {
 		n++ // skip current byte
+
 		for n < len && iscont(s[uint(n)]) {
 			n++ // and its continuations
 		}
@@ -118,7 +119,6 @@ func utf8_codepoint(args Args) (cps []Val, err error) {
 	// n := pose - posi + 1
 	// luaL_checkstack(L, n, "string slice too long");
 	// n := 0
-
 	for si := posi - 1; si < pose; {
 		s, size := utf8.DecodeRuneInString(s[si:])
 		if s == utf8.RuneError {
@@ -126,6 +126,7 @@ func utf8_codepoint(args Args) (cps []Val, err error) {
 		}
 
 		si += size
+
 		cps = append(cps, Num(float64(s)))
 	}
 
@@ -159,7 +160,6 @@ func utf8_offset(args Args) (r []Val, err error) {
 	posi = utf8_posrelat(posi, len(s)) - 1
 
 	// luaL_argcheck(L, 1 <= posi && --posi <= (int)len, 3, "position out of range");
-
 	if n == 0 {
 		// find beginning of current byte sequence
 		for posi > 0 && iscont(s[posi]) {

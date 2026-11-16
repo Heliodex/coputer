@@ -96,6 +96,7 @@ func runWeb(w http.ResponseWriter, r *http.Request, hexhash string, c Compiler /
 		b := res.Encode()
 
 		w.Write(b)
+
 		return
 	}
 
@@ -109,6 +110,7 @@ func runWeb(w http.ResponseWriter, r *http.Request, hexhash string, c Compiler /
 		errCache[hash][inputhash] = err
 
 		http.Error(w, err.Error(), http.StatusBadRequest)
+
 		return
 	}
 
@@ -175,6 +177,7 @@ func main() {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+
 		w.WriteHeader(http.StatusCreated)
 	})
 	http.HandleFunc("GET /{pk}", func(w http.ResponseWriter, r *http.Request) {
@@ -188,7 +191,9 @@ func main() {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
+
 		w.WriteHeader(http.StatusOK)
+
 		for _, f := range hashFiles {
 			w.Write(append([]byte(f.Name()), '\n'))
 		}
@@ -211,6 +216,7 @@ func main() {
 		if _, ok := checkHash(w, hexhash); !ok {
 			return
 		}
+
 		findExists(w, hexhash)
 	})
 	http.HandleFunc("POST /web/{pk}/{name}", func(w http.ResponseWriter, r *http.Request) {
@@ -231,6 +237,7 @@ func main() {
 		if _, ok := checkHash(w, hexhash); !ok {
 			return
 		}
+
 		runWeb(w, r, hexhash, c, errCache, runCache)
 	})
 	fmt.Println("Listening on port 2505")

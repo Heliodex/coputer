@@ -172,6 +172,7 @@ func (m AnyMsg) Deserialise() (SentMsg, error) {
 		var hash [32]byte
 
 		copy(hash[:], m.Body)
+
 		return mStoreResult{hash}, nil
 	case tRun:
 		ptype := ProgramType(m.Body[0])
@@ -186,6 +187,7 @@ func (m AnyMsg) Deserialise() (SentMsg, error) {
 		}
 
 		name, rest := string(rest[:nl]), rest[nl:]
+
 		in, err := unmarshalInput(ptype, rest)
 		if err != nil {
 			return nil, fmt.Errorf("unmarshal program args: %w", err)

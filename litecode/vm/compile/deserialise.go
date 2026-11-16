@@ -538,7 +538,6 @@ func checkkmode(i *internal.Inst, k []Val) error {
 		}
 
 		// fmt.Println("AUX", ki[0])
-
 		if count < 2 {
 			break
 		}
@@ -659,7 +658,6 @@ func (s *stream) rVector() (r Vector) {
 func (s *stream) readInst(code *[]internal.Inst) (bool, error) {
 	value := s.rUint32()
 	// fmt.Println(": ", value)
-
 	opcode := uint8(value)
 	if int(opcode) >= len(opList) {
 		return false, fmt.Errorf("invalid opcode %d", opcode)
@@ -694,7 +692,6 @@ func (s *stream) readInst(code *[]internal.Inst) (bool, error) {
 	}
 
 	// fmt.Println("Opcode:", opcode, "A:", i.A, "B:", i.B, "C:", i.C, "D:", i.D)
-
 	if !opinfo.HasAux {
 		*code = append(*code, i)
 
@@ -760,6 +757,7 @@ func (s *stream) skipDebugInfo() {
 		s.skipVarInt() // varname
 		s.skipVarInt() // startpc
 		s.skipVarInt() // endpc
+
 		s.pos++ // reg
 		// startpc := s.rVarInt()
 		// fmt.Println("startpc:", startpc)
@@ -798,10 +796,8 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 	// if (native&1) != 0 || (native&4) != 0 {
 	// 	return nil, fmt.Errorf("native function not supported")
 	// }
-
 	s.pos += 2
 	s.pos += s.rVarInt() // typesize
-
 	sizecode := s.rVarInt()
 
 	// fmt.Println("Sizecode:", sizecode)
@@ -867,6 +863,7 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 			for range s.rVarInt() {
 				key := s.rVarInt()
 				cidx := int32(s.rUint32())
+
 				if cidx < 0 {
 					continue
 				}
@@ -921,7 +918,6 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 
 	sizep := s.rVarInt()
 	// fmt.Println("sizep", sizep)
-
 	p.Protos = make([]uint32, sizep)
 
 	for i := range sizep {
@@ -931,6 +927,7 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 
 	// p.LineDefined = s.rVarInt()
 	s.skipVarInt()
+
 	if dbgnamei := s.rVarInt(); dbgnamei == 0 {
 		p.Dbgname = "(??)"
 	} else {
@@ -956,12 +953,10 @@ func (s *stream) readProto(stringList []string) (p *internal.Proto, err error) {
 	}
 
 	// new in v11
-
 	feedbackvecsize := s.rVarInt()
 
 	// fmt.Println("feedbackvecsize", feedbackvecsize)
 	// feedbackvec := make([]uint32, feedbackvecsize)
-
 	for i := range feedbackvecsize {
 		if slottype := s.rByte(); slottype != 0 {
 			return nil, fmt.Errorf("unexpected feedback slot %d type %d", i, slottype)
@@ -987,7 +982,6 @@ func Deserialise(b []byte) (d internal.Deserialised, err error) {
 	}
 	version := s.rByte()
 	// fmt.Println("version", version)
-
 	if version == 0 {
 		return d, errors.New("the provided bytecode is an error message")
 	}
@@ -1003,7 +997,6 @@ func Deserialise(b []byte) (d internal.Deserialised, err error) {
 	}
 
 	// fmt.Println("Rest:", s.data[s.pos:])
-
 	stringCount := s.rVarInt()
 	// fmt.Println("String count:", stringCount)
 	stringList := make([]string, stringCount)
@@ -1029,11 +1022,9 @@ func Deserialise(b []byte) (d internal.Deserialised, err error) {
 	}
 
 	// fmt.Println("Rest:", s.data[s.pos:])
-
 	protoCount := s.rVarInt()
 	// fmt.Println("protos", protoCount)
 	// fmt.Println("Rest:", s.data[s.pos:])
-
 	protoList := make([]*internal.Proto, protoCount)
 
 	for i := range protoCount {
@@ -1044,7 +1035,6 @@ func Deserialise(b []byte) (d internal.Deserialised, err error) {
 	}
 
 	// fmt.Println("Rest:", s.data[s.pos:])
-
 	mainProto := protoList[s.rVarInt()]
 	mainProto.Dbgname = "(main)"
 

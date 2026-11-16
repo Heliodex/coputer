@@ -184,6 +184,7 @@ func (m *minifyBuilder) write(s string) {
 	if m.b.Len() > 0 && minifyNeedsSpace(m.last, s[0]) {
 		m.b.WriteByte(' ')
 	}
+
 	m.b.WriteString(s)
 
 	m.last = s[len(s)-1]
@@ -193,6 +194,7 @@ func (m *minifyBuilder) writeByte(c byte) {
 	if m.b.Len() > 0 && minifyNeedsSpace(m.last, c) {
 		m.b.WriteByte(' ')
 	}
+
 	m.b.WriteByte(c)
 
 	m.last = c
@@ -236,6 +238,7 @@ func minifyStatList(stats []AstStat) string {
 	prev := stats[0].Minify()
 
 	b.WriteString(prev)
+
 	for _, stat := range stats[1:] {
 		next := stat.Minify()
 
@@ -252,6 +255,7 @@ func minifyStatList(stats []AstStat) string {
 func minifyBlockBody(block AstStatBlock) string {
 	body := minifyStatList(block.Body)
 	directives := minifyDirectives(block.Comments)
+
 	if directives == "" {
 		return body
 	}
@@ -426,6 +430,7 @@ func minifyFunctionRest(n AstExprFunction) string {
 		b.write(generics)
 		b.writeByte('>')
 	}
+
 	b.writeByte('(')
 
 	args := make([]string, 0, len(n.Args)+1)
@@ -441,14 +446,18 @@ func minifyFunctionRest(n AstExprFunction) string {
 			args = append(args, "...")
 		}
 	}
+
 	b.write(strings.Join(args, ","))
 	b.writeByte(')')
+
 	if n.ReturnAnnotation != nil {
 		b.writeByte(':')
 		b.write((*n.ReturnAnnotation).Minify())
 	}
+
 	b.write(minifyBlockBody(n.Body))
 	b.write("end")
+
 	return b.String()
 }
 
@@ -489,6 +498,7 @@ func minifyTableItem(item AstExprTableItem, expand bool) string {
 			b.write(key)
 			b.writeByte('=')
 			b.write(value)
+
 			return b.String()
 		}
 
@@ -499,6 +509,7 @@ func minifyTableItem(item AstExprTableItem, expand bool) string {
 		b.writeByte(']')
 		b.writeByte('=')
 		b.write(value)
+
 		return b.String()
 	case Record:
 		var key string
@@ -515,6 +526,7 @@ func minifyTableItem(item AstExprTableItem, expand bool) string {
 		b.write(key)
 		b.writeByte('=')
 		b.write(value)
+
 		return b.String()
 	}
 
@@ -566,6 +578,7 @@ func minifyUnionIntersection(types []AstType, op string) string {
 		if i > 0 {
 			b.write(op)
 		}
+
 		b.write(part)
 	}
 
@@ -600,6 +613,7 @@ func (n AstExprBinary) Minify() string {
 	b.write(minifyExpr(n.Left, leftMin, false))
 	b.write(sourceBinaryOp(op))
 	b.write(minifyExpr(n.Right, rightMin, false))
+
 	return b.String()
 }
 
@@ -607,6 +621,7 @@ func (n AstExprCall) Minify() string {
 	var b minifyBuilder
 
 	b.write(minifyExprPostfix(n.Func))
+
 	if n.TypeArguments != nil && len(*n.TypeArguments) > 0 {
 		b.write("<<")
 		b.write(minifyTypeOrPackList(*n.TypeArguments))
@@ -617,9 +632,11 @@ func (n AstExprCall) Minify() string {
 		b.write(minifyExpr(n.Args[0], 0, true))
 		return b.String()
 	}
+
 	b.writeByte('(')
 	b.write(minifyExprList(n.Args))
 	b.writeByte(')')
+
 	return b.String()
 }
 
@@ -637,8 +654,10 @@ func (n AstExprFunction) Minify() string {
 	if attrs := minifyAttrs(n.Attributes); attrs != "" {
 		b.write(attrs)
 	}
+
 	b.write("function")
 	b.write(minifyFunctionRest(n))
+
 	return b.String()
 }
 
@@ -655,18 +674,22 @@ func (n AstExprIfElse) minifyIf(keyword string) string {
 	var b minifyBuilder
 
 	b.write(keyword)
+
 	if n.ConditionLocal != nil {
 		if n.ConditionIsConst {
 			b.write("const")
 		} else {
 			b.write("local")
 		}
+
 		b.write(n.ConditionLocal.Name)
 		b.writeByte('=')
 	}
+
 	b.write(minifyExprPrec(n.Condition, 0))
 	b.write("then")
 	b.write(minifyExprOrNil(n.TrueExpr))
+
 	if falseExpr, ok := asIfElseExpr(sourceUnwrapGroup(n.FalseExpr)); ok {
 		b.write(falseExpr.minifyIf("elseif"))
 	} else {
@@ -684,6 +707,7 @@ func (n AstExprIndexExpr) Minify() string {
 	b.writeByte('[')
 	b.write(minifyExprPrec(n.Index, 0))
 	b.writeByte(']')
+
 	return b.String()
 }
 
@@ -693,6 +717,7 @@ func (n AstExprIndexName) Minify() string {
 	b.write(minifyExprPostfix(n.Expr))
 	b.writeByte(byte(n.Op))
 	b.write(n.Index)
+
 	return b.String()
 }
 
@@ -700,15 +725,19 @@ func (n AstExprInterpString) Minify() string {
 	var b minifyBuilder
 
 	b.writeByte('`')
+
 	for i, str := range n.Strings {
 		b.write(sourceInterpStringPart(str))
+
 		if i < len(n.Expressions) {
 			b.writeByte('{')
 			b.write(minifyExprPrec(n.Expressions[i], 0))
 			b.writeByte('}')
 		}
 	}
+
 	b.writeByte('`')
+
 	return b.String()
 }
 
@@ -719,6 +748,7 @@ func (n AstExprInstantiate) Minify() string {
 	b.write("<<")
 	b.write(minifyTypeOrPackList(n.TypeArguments))
 	b.write(">>")
+
 	return b.String()
 }
 
@@ -738,6 +768,7 @@ func (n AstExprTable) Minify() string {
 	b.writeByte('{')
 	b.write(strings.Join(parts, ","))
 	b.writeByte('}')
+
 	return b.String()
 }
 
@@ -751,6 +782,7 @@ func (n AstExprTypeAssertion) Minify() string {
 	b.write(minifyExpr(n.Expr, precPrimary, false))
 	b.write("::")
 	b.write(n.Annotation.Minify())
+
 	return b.String()
 }
 
@@ -759,6 +791,7 @@ func (n AstExprUnary) Minify() string {
 
 	b.write(minifyUnaryOp(n.Op))
 	b.write(minifyExpr(n.Expr, precUnaryOperand, false))
+
 	return b.String()
 }
 
@@ -789,6 +822,7 @@ func (n AstAttr) Minify() string {
 		b.write(minifyExprList(n.Args))
 		b.writeByte(')')
 		b.writeByte(']')
+
 		return b.String()
 	}
 
@@ -823,6 +857,7 @@ func (n AstLocal) Minify() string {
 	b.write(n.Name)
 	b.writeByte(':')
 	b.write(n.Annotation.Minify())
+
 	return b.String()
 }
 
@@ -834,6 +869,7 @@ func (n AstStatAssign) Minify() string {
 	b.write(minifyExprList(n.Vars))
 	b.writeByte('=')
 	b.write(minifyExprList(n.Values))
+
 	return b.String()
 }
 
@@ -847,6 +883,7 @@ func (n AstStatBlock) Minify() string {
 	b.write("do")
 	b.write(minifyBlockBody(n))
 	b.write("end")
+
 	return b.String()
 }
 
@@ -857,6 +894,7 @@ func (n AstStatCompoundAssign) Minify() string {
 	b.write(sourceBinaryOp(n.Op))
 	b.writeByte('=')
 	b.write(minifyExprPrec(n.Value, 0))
+
 	return b.String()
 }
 
@@ -866,17 +904,21 @@ func (n AstStatDeclareFunction) Minify() string {
 	if attrs := minifyAttrs(n.Attributes); attrs != "" {
 		b.write(attrs)
 	}
+
 	b.write("declare")
 	b.write("function")
 	b.write(n.Name)
+
 	if generics := minifyGenerics(n.Generics, n.GenericPacks); generics != "" {
 		b.writeByte('<')
 		b.write(generics)
 		b.writeByte('>')
 	}
+
 	b.writeByte('(')
 	b.write(minifyDeclareParams(n.Params, n.ParamNames, n.Vararg))
 	b.writeByte(')')
+
 	if n.RetTypes != nil {
 		b.writeByte(':')
 		b.write(n.RetTypes.Minify())
@@ -892,6 +934,7 @@ func (n AstStatDeclareGlobal) Minify() string {
 	b.write(n.Name)
 	b.writeByte(':')
 	b.write(n.Type.Minify())
+
 	return b.String()
 }
 
@@ -902,10 +945,12 @@ func (n AstStatDeclareExternType) Minify() string {
 	b.write("extern")
 	b.write("type")
 	b.write(n.Name)
+
 	if n.SuperName != nil {
 		b.write("extends")
 		b.write(*n.SuperName)
 	}
+
 	b.write("with")
 
 	parts := make([]string, 0, len(n.Props)+1)
@@ -921,7 +966,9 @@ func (n AstStatDeclareExternType) Minify() string {
 	if props := strings.Join(parts, " "); props != "" {
 		b.write(props)
 	}
+
 	b.write("end")
+
 	return b.String()
 }
 
@@ -934,6 +981,7 @@ func (n AstDeclaredExternTypeProperty) Minify() string {
 		b.write(name)
 		b.writeByte(':')
 		b.write(n.Ty.Minify())
+
 		return b.String()
 	}
 
@@ -954,6 +1002,7 @@ func (n AstDeclaredExternTypeProperty) Minify() string {
 		b.writeByte(')')
 		b.writeByte(':')
 		b.write(ret)
+
 		return b.String()
 	}
 
@@ -963,6 +1012,7 @@ func (n AstDeclaredExternTypeProperty) Minify() string {
 	b.write(name)
 	b.writeByte(':')
 	b.write(n.Ty.Minify())
+
 	return b.String()
 }
 
@@ -986,22 +1036,29 @@ func (n AstStatFor) Minify() string {
 	var b minifyBuilder
 
 	b.write("for")
+
 	if n.Var != nil {
 		b.write(n.Var.Minify())
 	}
+
 	b.writeByte('=')
 	b.write(minifyExprPrec(n.From, 0))
 	b.writeByte(',')
 	b.write(minifyExprPrec(n.To, 0))
+
 	if n.Step != nil {
 		b.writeByte(',')
 		b.write(minifyExprPrec(n.Step, 0))
 	}
+
 	b.write("do")
+
 	if n.Body != nil {
 		b.write(minifyBlockBody(*n.Body))
 	}
+
 	b.write("end")
+
 	return b.String()
 }
 
@@ -1017,14 +1074,18 @@ func (n AstStatForIn) Minify() string {
 			vars[i] = v.Minify()
 		}
 	}
+
 	b.write(strings.Join(vars, ","))
 	b.write("in")
 	b.write(minifyExprList(n.Values))
 	b.write("do")
+
 	if n.Body != nil {
 		b.write(minifyBlockBody(*n.Body))
 	}
+
 	b.write("end")
+
 	return b.String()
 }
 
@@ -1034,9 +1095,11 @@ func (n AstStatFunction) Minify() string {
 	if attrs := minifyAttrs(n.Func.Attributes); attrs != "" {
 		b.write(attrs)
 	}
+
 	b.write("function")
 	b.write(minifyExprPrec(n.Name, precPrimary))
 	b.write(minifyFunctionRest(n.Func))
+
 	return b.String()
 }
 
@@ -1049,18 +1112,22 @@ func (n AstStatIf) minifyIf(keyword string) string {
 	var b minifyBuilder
 
 	b.write(keyword)
+
 	if n.ConditionLocal != nil {
 		if n.ConditionIsConst {
 			b.write("const")
 		} else {
 			b.write("local")
 		}
+
 		b.write(n.ConditionLocal.Name)
 		b.writeByte('=')
 	}
+
 	b.write(minifyExprPrec(n.Condition, 0))
 	b.write("then")
 	b.write(minifyBlockBody(n.ThenBody))
+
 	switch {
 	case n.ElseBody == nil:
 		b.write("end")
@@ -1071,11 +1138,13 @@ func (n AstStatIf) minifyIf(keyword string) string {
 		b.write(elseIf.minifyIf("elseif"))
 	default:
 		b.write("else")
+
 		if elseBlock, ok := asBlock(n.ElseBody); ok {
 			b.write(minifyBlockBody(*elseBlock))
 		} else {
 			b.write(n.ElseBody.Minify())
 		}
+
 		b.write("end")
 	}
 
@@ -1103,7 +1172,9 @@ func (n AstStatLocal) Minify() string {
 	for i := range n.Vars {
 		vars[i] = n.Vars[i].Minify()
 	}
+
 	b.write(strings.Join(vars, ","))
+
 	if len(n.Values) > 0 {
 		b.writeByte('=')
 		b.write(minifyExprList(n.Values))
@@ -1130,8 +1201,10 @@ func (n AstStatLocalFunction) Minify() string {
 		b.write("local")
 		b.write("function")
 	}
+
 	b.write(n.Name.Name)
 	b.write(minifyFunctionRest(n.Func))
+
 	return b.String()
 }
 
@@ -1139,11 +1212,14 @@ func (n AstStatRepeat) Minify() string {
 	var b minifyBuilder
 
 	b.write("repeat")
+
 	if n.Body != nil {
 		b.write(minifyBlockBody(*n.Body))
 	}
+
 	b.write("until")
 	b.write(minifyExprPrec(n.Condition, 0))
+
 	return b.String()
 }
 
@@ -1156,6 +1232,7 @@ func (n AstStatReturn) Minify() string {
 
 	b.write("return")
 	b.write(minifyExprList(n.List))
+
 	return b.String()
 }
 
@@ -1165,15 +1242,19 @@ func (n AstStatTypeAlias) Minify() string {
 	if n.Exported {
 		b.write("export")
 	}
+
 	b.write("type")
 	b.write(n.Name)
+
 	if generics := minifyGenerics(n.Generics, n.GenericPacks); generics != "" {
 		b.writeByte('<')
 		b.write(generics)
 		b.writeByte('>')
 	}
+
 	b.writeByte('=')
 	b.write(n.Type.Minify())
+
 	return b.String()
 }
 
@@ -1183,10 +1264,12 @@ func (n AstStatTypeFunction) Minify() string {
 	if n.Exported {
 		b.write("export")
 	}
+
 	b.write("type")
 	b.write("function")
 	b.write(n.Name)
 	b.write(minifyFunctionRest(n.Body))
+
 	return b.String()
 }
 
@@ -1196,10 +1279,13 @@ func (n AstStatWhile) Minify() string {
 	b.write("while")
 	b.write(minifyExprPrec(n.Condition, 0))
 	b.write("do")
+
 	if n.Body != nil {
 		b.write(minifyBlockBody(*n.Body))
 	}
+
 	b.write("end")
+
 	return b.String()
 }
 
@@ -1214,11 +1300,13 @@ func (n AstTableIndexer) Minify() string {
 	case "Write":
 		b.write("write")
 	}
+
 	b.writeByte('[')
 	b.write(n.IndexType.Minify())
 	b.writeByte(']')
 	b.writeByte(':')
 	b.write(n.ResultType.Minify())
+
 	return b.String()
 }
 
@@ -1231,9 +1319,11 @@ func (n AstTableProp) Minify() string {
 	case "Write":
 		b.write("write")
 	}
+
 	b.write(n.Name.Value)
 	b.writeByte(':')
 	b.write(n.Type.Minify())
+
 	return b.String()
 }
 
@@ -1255,11 +1345,13 @@ func (n AstTypeFunction) Minify() string {
 		b.write(generics)
 		b.writeByte('>')
 	}
+
 	b.writeByte('(')
 	b.write(params)
 	b.writeByte(')')
 	b.write("->")
 	b.write(ret)
+
 	return b.String()
 }
 
@@ -1326,7 +1418,9 @@ func (n AstTypeReference) Minify() string {
 		b.write(*n.Prefix)
 		b.writeByte('.')
 	}
+
 	b.write(n.Name)
+
 	if n.HasParameterList || len(n.Parameters) > 0 {
 		b.writeByte('<')
 		b.write(minifyTypeOrPackList(n.Parameters))
@@ -1344,6 +1438,7 @@ func (n AstTypeTable) Minify() string {
 			b.writeByte('{')
 			b.write(n.Indexer.ResultType.Minify())
 			b.writeByte('}')
+
 			return b.String()
 		}
 	}
@@ -1367,6 +1462,7 @@ func (n AstTypeTable) Minify() string {
 	b.writeByte('{')
 	b.write(strings.Join(parts, ","))
 	b.writeByte('}')
+
 	return b.String()
 }
 
@@ -1377,6 +1473,7 @@ func (n AstTypeTypeof) Minify() string {
 	b.writeByte('(')
 	b.write(minifyExprPrec(n.Expr, 0))
 	b.writeByte(')')
+
 	return b.String()
 }
 

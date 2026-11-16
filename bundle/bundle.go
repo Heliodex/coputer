@@ -91,6 +91,7 @@ func Unbundle(b []byte) (fs []File, err error) {
 		// read file
 		c := b[i:][:l]
 		i += l
+
 		f, err := decompress(c)
 		if err != nil {
 			return nil, fmt.Errorf("bad bundle: %w", err)

@@ -27,7 +27,9 @@ func cmdInput(content []byte) error {
 	if err != nil {
 		return fmt.Errorf("encode AST: %w", err)
 	}
+
 	fmt.Print(newsource)
+
 	return nil
 }
 
@@ -55,14 +57,12 @@ func processFile(filepath string, stdout bool) error {
 	}
 
 	// fmt.Println(tree)
-
 	newsource, err := tree.Source(string(content))
 	if err != nil {
 		return fmt.Errorf("encode AST: %w", err)
 	}
 
 	// fmt.Println(new)
-
 	if stdout {
 		fmt.Print(newsource)
 		return nil
@@ -109,6 +109,7 @@ func cmdDir(dirarg string) error {
 
 	for _, file := range files {
 		fmt.Println("Processing file", file)
+
 		if err := processFile(file, false); err != nil {
 			fmt.Println("Error processing file:", err)
 		}
@@ -135,7 +136,6 @@ func cmdFile(filearg string) error {
 	}
 
 	// fmt.Println("Processing file", filearg)
-
 	if err = processFile(filearg, true); err != nil {
 		// fmt.Println("Error processing file:", err)
 		return fmt.Errorf("process file: %w", err)
@@ -148,6 +148,7 @@ func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: <command>")
 		fmt.Println("Available commands: file, dir, input")
+
 		return
 	}
 

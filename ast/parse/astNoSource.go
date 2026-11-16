@@ -166,6 +166,7 @@ type (
 	// node types (ok, real ast now)
 	AstAttr struct {
 		*NodeLoc
+
 		Type string
 		Args []AstExpr
 		Name *string
@@ -173,12 +174,14 @@ type (
 
 	AstExprBinary struct {
 		*NodeLoc
+
 		Op int
 		Left, Right AstExpr
 	}
 
 	AstExprCall struct {
 		*NodeLoc
+
 		Func AstExpr
 		Args []AstExpr
 		Self bool
@@ -188,11 +191,13 @@ type (
 
 	AstExprConstantBool struct {
 		*NodeLoc
+
 		Value bool
 	}
 
 	AstExprConstantInteger struct {
 		*NodeLoc
+
 		Value int64
 		ParseResult NumberParseResult
 	}
@@ -203,38 +208,45 @@ type (
 
 	AstExprConstantNumber struct {
 		*NodeLoc
+
 		Value float64
 	}
 
 	AstExprConstantString struct {
 		*NodeLoc
+
 		Value string
 		QuoteStyle QuoteStyle
 	}
 
 	AstExprError struct {
 		*NodeLoc
+
 		Expressions []AstExpr
 		MessageIndex int
 	}
 
 	AstExprGlobal struct {
 		*NodeLoc
+
 		Name string
 	}
 
 	AstExprGroup struct {
 		*NodeLoc
+
 		Expr AstExpr
 	}
 
 	AstExprIndexExpr struct {
 		*NodeLoc
+
 		Expr, Index AstExpr
 	}
 
 	AstExprIndexName struct {
 		*NodeLoc
+
 		Expr AstExpr
 		Index string
 		IndexLocation lex.Location
@@ -244,18 +256,21 @@ type (
 
 	AstExprInstantiate struct {
 		*NodeLoc
+
 		Expr AstExpr
 		TypeArguments []AstTypeOrPack
 	}
 
 	AstExprInterpString struct {
 		*NodeLoc
+
 		Strings []string
 		Expressions []AstExpr
 	}
 
 	AstExprTableItem struct {
 		*NodeLoc
+
 		Kind ExprTableItemKind
 		Key *AstExpr
 		Value AstExpr
@@ -263,12 +278,14 @@ type (
 
 	AstExprTypeAssertion struct {
 		*NodeLoc
+
 		Expr AstExpr
 		Annotation AstType
 	}
 
 	AstExprUnary struct {
 		*NodeLoc
+
 		Op UnaryOp
 		Expr AstExpr
 	}
@@ -279,18 +296,21 @@ type (
 
 	AstGenericType struct {
 		*NodeLoc
+
 		Name string
 		DefaultValue *AstType
 	}
 
 	AstGenericTypePack struct {
 		*NodeLoc
+
 		Name string
 		DefaultValue *AstTypePack
 	}
 
 	AstLocal struct {
 		*NodeLoc
+
 		Name string
 		Shadow *AstLocal
 		FunctionDepth, LoopDepth int
@@ -300,6 +320,7 @@ type (
 
 	AstExprIfElse struct {
 		*NodeLoc
+
 		Condition AstExpr
 		HasThen bool
 		TrueExpr AstExpr
@@ -313,23 +334,27 @@ type (
 
 	AstExprLocal struct {
 		*NodeLoc
+
 		Local AstLocal
 		Upvalue bool
 	}
 
 	AstStatAssign struct {
 		*NodeLoc
+
 		Vars, Values []AstExpr
 		HasSemicolon *bool
 	}
 
 	AstStatBreak struct {
 		*NodeLoc
+
 		HasSemicolon *bool
 	}
 
 	AstStatCompoundAssign struct {
 		*NodeLoc
+
 		Op BinaryOp
 		Var, Value AstExpr
 		HasSemicolon *bool
@@ -337,11 +362,13 @@ type (
 
 	AstStatContinue struct {
 		*NodeLoc
+
 		HasSemicolon *bool
 	}
 
 	AstStatDeclareExternType struct {
 		*NodeLoc
+
 		Name string
 		SuperName *string
 		Props []AstDeclaredExternTypeProperty
@@ -351,6 +378,7 @@ type (
 
 	AstStatDeclareFunction struct {
 		*NodeLoc
+
 		Attributes []AstAttr
 		Name string
 		NameLocation lex.Location
@@ -366,6 +394,7 @@ type (
 
 	AstStatDeclareGlobal struct {
 		*NodeLoc
+
 		Name string
 		NameLocation lex.Location
 		Type AstType
@@ -374,6 +403,7 @@ type (
 
 	AstStatError struct {
 		*NodeLoc
+
 		Expressions []AstExpr
 		Statements []AstStat
 		MessageIndex int
@@ -382,12 +412,14 @@ type (
 
 	AstStatExpr struct {
 		*NodeLoc
+
 		Expr AstExpr
 		HasSemicolon *bool
 	}
 
 	AstStatLocal struct {
 		*NodeLoc
+
 		Vars []AstLocal
 		Values []AstExpr
 		EqualsSignLocation *lex.Location
@@ -398,12 +430,14 @@ type (
 
 	AstStatReturn struct {
 		*NodeLoc
+
 		List []AstExpr
 		HasSemicolon *bool
 	}
 
 	AstStatTypeAlias struct {
 		*NodeLoc
+
 		Name string
 		NameLocation lex.Location
 		Generics []AstGenericType
@@ -416,6 +450,7 @@ type (
 	AstTableProp struct {
 		Name lex.AstName
 		*NodeLoc
+
 		Type AstType
 		Access string
 		AccessLocation *lex.Location
@@ -423,6 +458,7 @@ type (
 
 	AstTypeError struct {
 		*NodeLoc
+
 		Types []AstType
 		IsMissing bool
 		MessageIndex int
@@ -430,6 +466,7 @@ type (
 
 	AstTypeFunction struct {
 		*NodeLoc
+
 		Attributes []AstAttr
 		Generics []AstGenericType
 		GenericPacks []AstGenericTypePack
@@ -440,11 +477,13 @@ type (
 
 	AstTypeGroup struct {
 		*NodeLoc
+
 		Type AstType
 	}
 
 	AstTypeIntersection struct {
 		*NodeLoc
+
 		Types []AstType
 	}
 
@@ -454,22 +493,26 @@ type (
 
 	AstTypePackExplicit struct {
 		*NodeLoc
+
 		Types AstTypeList
 		TailType *AstTypePack
 	}
 
 	AstTypePackGeneric struct {
 		*NodeLoc
+
 		GenericName string
 	}
 
 	AstTypePackVariadic struct {
 		*NodeLoc
+
 		VariadicType AstType
 	}
 
 	AstTypeReference struct {
 		*NodeLoc
+
 		HasParameterList bool
 		Prefix *string
 		PrefixLocation *lex.Location
@@ -480,22 +523,26 @@ type (
 
 	AstTypeSingletonBool struct {
 		*NodeLoc
+
 		Value bool
 	}
 
 	AstTypeSingletonString struct {
 		*NodeLoc
+
 		Value string
 	}
 
 	// lol
 	AstTypeTypeof struct {
 		*NodeLoc
+
 		Expr AstExpr
 	}
 
 	AstTypeUnion struct {
 		*NodeLoc
+
 		Types []AstType
 	}
 
@@ -510,6 +557,7 @@ type (
 
 	AstExprTable struct {
 		*NodeLoc
+
 		Items []AstExprTableItem
 		// Comments contains the comments lexed within this table, in source order.
 		Comments []Comment
@@ -517,6 +565,7 @@ type (
 
 	AstStatBlock struct {
 		*NodeLoc
+
 		Body []AstStat
 		HasEnd bool
 		HasSemicolon *bool
@@ -526,6 +575,7 @@ type (
 
 	AstExprFunction struct {
 		*NodeLoc
+
 		Attributes []AstAttr
 		Generics []AstGenericType
 		GenericPacks []AstGenericTypePack
@@ -543,6 +593,7 @@ type (
 
 	AstStatFor struct {
 		*NodeLoc
+
 		Var *AstLocal
 		From, To, Step AstExpr
 		Body *AstStatBlock
@@ -553,6 +604,7 @@ type (
 
 	AstStatForIn struct {
 		*NodeLoc
+
 		Vars []*AstLocal
 		Values []AstExpr
 		Body *AstStatBlock
@@ -565,6 +617,7 @@ type (
 
 	AstStatFunction struct {
 		*NodeLoc
+
 		Name AstExpr
 		Func AstExprFunction
 		HasSemicolon *bool
@@ -572,6 +625,7 @@ type (
 
 	AstStatIf struct {
 		*NodeLoc
+
 		Condition AstExpr
 		ThenBody AstStatBlock
 		ElseBody AstStat
@@ -585,6 +639,7 @@ type (
 
 	AstStatLocalFunction struct {
 		*NodeLoc
+
 		Name AstLocal
 		Func AstExprFunction
 		IsConst bool
@@ -593,6 +648,7 @@ type (
 
 	AstStatRepeat struct {
 		*NodeLoc
+
 		Condition AstExpr
 		Body *AstStatBlock
 		HasUntil bool
@@ -601,6 +657,7 @@ type (
 
 	AstStatTypeFunction struct {
 		*NodeLoc
+
 		Name string
 		NameLocation lex.Location
 		Body AstExprFunction
@@ -610,6 +667,7 @@ type (
 
 	AstStatWhile struct {
 		*NodeLoc
+
 		Condition AstExpr
 		Body *AstStatBlock
 		HasDo bool
@@ -619,6 +677,7 @@ type (
 
 	AstTypeTable struct {
 		*NodeLoc
+
 		Props []AstTableProp
 		Indexer *AstTableIndexer
 		// Comments contains the comments lexed within this table, in source order.
@@ -1002,6 +1061,7 @@ func (n Comment) String() string {
 	b.WriteString("Comment\n")
 	b.WriteString(n.NodeLoc.String())
 	fmt.Fprintf(&b, "Type: %v\n", n.Type)
+
 	return b.String()
 }
 
@@ -1011,8 +1071,10 @@ func (n AstAttr) String() string {
 	b.WriteString("Attr\n")
 	b.WriteString(n.NodeLoc.String())
 	fmt.Fprintf(&b, "Type: %q\n", n.Type)
+
 	if len(n.Args) > 0 {
 		b.WriteString("Args:\n")
+
 		for _, arg := range n.Args {
 			b.WriteString(indentStart(arg.String(), 2))
 			b.WriteByte('\n')
@@ -1032,6 +1094,7 @@ func (n AstArgumentName) String() string {
 	b.WriteString("ArgumentName\n")
 	fmt.Fprintf(&b, "Name: %q\n", n.Name)
 	fmt.Fprintf(&b, "Location: %s\n", n.Location.String())
+
 	return b.String()
 }
 
@@ -1047,6 +1110,7 @@ func (n AstExprBinary) String() string {
 	b.WriteString("Right:\n")
 	b.WriteString(indentStart(n.Right.String(), 2))
 	b.WriteByte('\n')
+
 	return b.String()
 }
 
@@ -1058,17 +1122,22 @@ func (n AstExprCall) String() string {
 	b.WriteString("Func:\n")
 	b.WriteString(indentStart(n.Func.String(), 2))
 	b.WriteByte('\n')
+
 	if len(n.Args) > 0 {
 		b.WriteString("Args:\n")
+
 		for _, arg := range n.Args {
 			b.WriteString(indentStart(arg.String(), 2))
 			b.WriteByte('\n')
 		}
 	}
+
 	fmt.Fprintf(&b, "Self: %t\n", n.Self)
 	fmt.Fprintf(&b, "ArgLocation: %s\n", n.ArgLocation.String())
+
 	if n.TypeArguments != nil {
 		b.WriteString("TypeArguments:\n")
+
 		for _, typeArg := range *n.TypeArguments {
 			b.WriteString(indentStart(typeArg.String(), 2))
 			b.WriteByte('\n')
@@ -1084,6 +1153,7 @@ func (n AstExprConstantBool) String() string {
 	b.WriteString("ExprConstantBool\n")
 	b.WriteString(n.NodeLoc.String())
 	fmt.Fprintf(&b, "Value: %t\n", n.Value)
+
 	return b.String()
 }
 
@@ -1092,6 +1162,7 @@ func (n AstExprConstantNil) String() string {
 
 	b.WriteString("ExprConstantNil\n")
 	b.WriteString(n.NodeLoc.String())
+
 	return b.String()
 }
 
@@ -1101,6 +1172,7 @@ func (n AstExprConstantNumber) String() string {
 	b.WriteString("ExprConstantNumber\n")
 	b.WriteString(n.NodeLoc.String())
 	fmt.Fprintf(&b, "Value: %f\n", n.Value)
+
 	return b.String()
 }
 
@@ -1110,6 +1182,7 @@ func (n AstExprConstantInteger) String() string {
 	b.WriteString("ExprConstantInteger\n")
 	b.WriteString(n.NodeLoc.String())
 	fmt.Fprintf(&b, "Value: %d\n", n.Value)
+
 	return b.String()
 }
 
@@ -1120,6 +1193,7 @@ func (n AstExprConstantString) String() string {
 	b.WriteString(n.NodeLoc.String())
 	fmt.Fprintf(&b, "Value: %q\n", n.Value)
 	fmt.Fprintf(&b, "QuoteStyle: %v\n", n.QuoteStyle)
+
 	return b.String()
 }
 
@@ -1129,11 +1203,14 @@ func (n AstExprError) String() string {
 	b.WriteString("ExprError\n")
 	b.WriteString(n.NodeLoc.String())
 	b.WriteString("Expressions:\n")
+
 	for _, expr := range n.Expressions {
 		b.WriteString(indentStart(expr.String(), 2))
 		b.WriteByte('\n')
 	}
+
 	fmt.Fprintf(&b, "MessageIndex: %d\n", n.MessageIndex)
+
 	return b.String()
 }
 
@@ -1142,8 +1219,10 @@ func (n AstExprFunction) String() string {
 
 	b.WriteString("ExprFunction\n")
 	b.WriteString(n.NodeLoc.String())
+
 	if len(n.Attributes) > 0 {
 		b.WriteString("Attributes:\n")
+
 		for _, attr := range n.Attributes {
 			b.WriteString(indentStart(attr.String(), 2))
 			b.WriteByte('\n')
@@ -1152,6 +1231,7 @@ func (n AstExprFunction) String() string {
 
 	if len(n.Generics) > 0 {
 		b.WriteString("Generics:\n")
+
 		for _, generic := range n.Generics {
 			b.WriteString(indentStart(generic.String(), 2))
 			b.WriteByte('\n')
@@ -1160,6 +1240,7 @@ func (n AstExprFunction) String() string {
 
 	if len(n.GenericPacks) > 0 {
 		b.WriteString("GenericPacks:\n")
+
 		for _, genericPack := range n.GenericPacks {
 			b.WriteString(indentStart(genericPack.String(), 2))
 			b.WriteByte('\n')
@@ -1174,6 +1255,7 @@ func (n AstExprFunction) String() string {
 
 	if len(n.Args) > 0 {
 		b.WriteString("Args:\n")
+
 		for _, arg := range n.Args {
 			b.WriteString(indentStart(arg.String(), 2))
 			b.WriteByte('\n')
@@ -1185,18 +1267,22 @@ func (n AstExprFunction) String() string {
 		b.WriteString(indentStart((*n.ReturnAnnotation).String(), 2))
 		b.WriteByte('\n')
 	}
+
 	fmt.Fprintf(&b, "Vararg: %t\n", n.Vararg)
 	fmt.Fprintf(&b, "VarargLocation: %s\n", n.VarargLocation.String())
+
 	if n.VarargAnnotation != nil {
 		b.WriteString("VarargAnnotation:\n")
 		b.WriteString(indentStart((*n.VarargAnnotation).String(), 2))
 		b.WriteByte('\n')
 	}
+
 	b.WriteString("Body:\n")
 	b.WriteString(indentStart(n.Body.String(), 2))
 	b.WriteByte('\n')
 	fmt.Fprintf(&b, "FunctionDepth: %d\n", n.FunctionDepth)
 	fmt.Fprintf(&b, "Debugname: %q\n", n.Debugname)
+
 	if n.ArgLocation != nil {
 		fmt.Fprintf(&b, "ArgLocation: %s\n", n.ArgLocation.String())
 	}
@@ -1210,6 +1296,7 @@ func (n AstExprGlobal) String() string {
 	b.WriteString("ExprGlobal\n")
 	b.WriteString(n.NodeLoc.String())
 	fmt.Fprintf(&b, "Name: %q\n", n.Name)
+
 	return b.String()
 }
 
@@ -1220,6 +1307,7 @@ func (n AstExprGroup) String() string {
 	b.WriteString(n.NodeLoc.String())
 	b.WriteString("Expr:\n")
 	b.WriteString(indentStart(n.Expr.String(), 2))
+
 	return b.String()
 }
 
@@ -1239,6 +1327,7 @@ func (n AstExprIfElse) String() string {
 	b.WriteString("FalseExpr:\n")
 	b.WriteString(indentStart(n.FalseExpr.String(), 2))
 	b.WriteByte('\n')
+
 	return b.String()
 }
 
@@ -1253,6 +1342,7 @@ func (n AstExprIndexExpr) String() string {
 	b.WriteString("Index:\n")
 	b.WriteString(indentStart(n.Index.String(), 2))
 	b.WriteByte('\n')
+
 	return b.String()
 }
 
@@ -1267,6 +1357,7 @@ func (n AstExprIndexName) String() string {
 	fmt.Fprintf(&b, "Index: %q\n", n.Index)
 	fmt.Fprintf(&b, "IndexLocation: %s\n", n.IndexLocation.String())
 	fmt.Fprintf(&b, "Op: %c\n", n.Op)
+
 	return b.String()
 }
 
@@ -1275,8 +1366,10 @@ func (n AstExprInterpString) String() string {
 
 	b.WriteString("ExprInterpString\n")
 	b.WriteString(n.NodeLoc.String())
+
 	if len(n.Strings) > 0 {
 		b.WriteString("Strings:\n")
+
 		for _, s := range n.Strings {
 			b.WriteString(indentStart(fmt.Sprintf("%q", s), 2))
 			b.WriteByte('\n')
@@ -1285,6 +1378,7 @@ func (n AstExprInterpString) String() string {
 
 	if len(n.Expressions) > 0 {
 		b.WriteString("Expressions:\n")
+
 		for _, expr := range n.Expressions {
 			b.WriteString(indentStart(expr.String(), 2))
 			b.WriteByte('\n')
@@ -1302,8 +1396,10 @@ func (n AstExprInstantiate) String() string {
 	b.WriteString("Expr:\n")
 	b.WriteString(indentStart(n.Expr.String(), 2))
 	b.WriteByte('\n')
+
 	if len(n.TypeArguments) > 0 {
 		b.WriteString("TypeArguments:\n")
+
 		for _, typeArg := range n.TypeArguments {
 			b.WriteString(indentStart(typeArg.String(), 2))
 			b.WriteByte('\n')
@@ -1322,6 +1418,7 @@ func (n AstExprLocal) String() string {
 	b.WriteString(indentStart(n.Local.String(), 2))
 	b.WriteByte('\n')
 	fmt.Fprintf(&b, "Upvalue: %t\n", n.Upvalue)
+
 	return b.String()
 }
 
@@ -1330,8 +1427,10 @@ func (n AstExprTable) String() string {
 
 	b.WriteString("ExprTable\n")
 	b.WriteString(n.NodeLoc.String())
+
 	if len(n.Items) > 0 {
 		b.WriteString("Items:\n")
+
 		for _, item := range n.Items {
 			b.WriteString(indentStart(item.String(), 2))
 			b.WriteByte('\n')
@@ -1347,14 +1446,17 @@ func (n AstExprTableItem) String() string {
 	b.WriteString("ExprTableItem\n")
 	b.WriteString(n.NodeLoc.String())
 	fmt.Fprintf(&b, "Kind: %q\n", n.Kind)
+
 	if n.Key != nil {
 		b.WriteString("Key:\n")
 		b.WriteString(indentStart((*n.Key).String(), 2))
 		b.WriteByte('\n')
 	}
+
 	b.WriteString("Value:\n")
 	b.WriteString(indentStart(n.Value.String(), 2))
 	b.WriteByte('\n')
+
 	return b.String()
 }
 
@@ -1369,6 +1471,7 @@ func (n AstExprTypeAssertion) String() string {
 	b.WriteString("Annotation:\n")
 	b.WriteString(indentStart(n.Annotation.String(), 2))
 	b.WriteByte('\n')
+
 	return b.String()
 }
 
@@ -1377,6 +1480,7 @@ func (n AstExprVarargs) String() string {
 
 	b.WriteString("ExprVarargs\n")
 	b.WriteString(n.NodeLoc.String())
+
 	return b.String()
 }
 
@@ -1389,6 +1493,7 @@ func (n AstExprUnary) String() string {
 	b.WriteString("Expr:\n")
 	b.WriteString(indentStart(n.Expr.String(), 2))
 	b.WriteByte('\n')
+
 	return b.String()
 }
 
@@ -1398,6 +1503,7 @@ func (n AstGenericType) String() string {
 	b.WriteString("GenericType\n")
 	b.WriteString(n.NodeLoc.String())
 	fmt.Fprintf(&b, "Name: %q\n", n.Name)
+
 	if n.DefaultValue != nil {
 		b.WriteString("DefaultValue:\n")
 		b.WriteString(indentStart((*n.DefaultValue).String(), 2))
@@ -1413,6 +1519,7 @@ func (n AstGenericTypePack) String() string {
 	b.WriteString("GenericTypePack\n")
 	b.WriteString(n.NodeLoc.String())
 	fmt.Fprintf(&b, "Name: %q\n", n.Name)
+
 	if n.DefaultValue != nil {
 		b.WriteString("DefaultValue:\n")
 		b.WriteString(indentStart((*n.DefaultValue).String(), 2))
@@ -1428,6 +1535,7 @@ func (n AstLocal) String() string {
 	b.WriteString("Local\n")
 	b.WriteString(n.NodeLoc.String())
 	fmt.Fprintf(&b, "Name: %q\n", n.Name)
+
 	if n.Shadow != nil {
 		fmt.Fprintf(&b, "Shadow: %q\n", n.Shadow.Name)
 	}
@@ -1439,8 +1547,10 @@ func (n AstLocal) String() string {
 	if n.IsExported {
 		b.WriteString("IsExported: true\n")
 	}
+
 	fmt.Fprintf(&b, "FunctionDepth: %d\n", n.FunctionDepth)
 	fmt.Fprintf(&b, "LoopDepth: %d\n", n.LoopDepth)
+
 	if n.Annotation != nil {
 		b.WriteString("Annotation:\n")
 		b.WriteString(indentStart(n.Annotation.String(), 2))
@@ -1456,6 +1566,7 @@ func (n AstStatAssign) String() string {
 	b.WriteString("StatAssign\n")
 	b.WriteString(n.NodeLoc.String())
 	b.WriteString("Vars:\n")
+
 	for _, v := range n.Vars {
 		b.WriteString(indentStart(v.String(), 2))
 		b.WriteByte('\n')
@@ -1463,6 +1574,7 @@ func (n AstStatAssign) String() string {
 
 	if len(n.Values) > 0 {
 		b.WriteString("Values:\n")
+
 		for _, val := range n.Values {
 			b.WriteString(indentStart(val.String(), 2))
 			b.WriteByte('\n')
@@ -1477,14 +1589,18 @@ func (n AstStatBlock) String() string {
 
 	b.WriteString("StatBlock\n")
 	b.WriteString(n.NodeLoc.String())
+
 	if len(n.Body) > 0 {
 		b.WriteString("Body:\n")
+
 		for _, stat := range n.Body {
 			b.WriteString(indentStart(stat.String(), 2))
 			b.WriteByte('\n')
 		}
 	}
+
 	fmt.Fprintf(&b, "HasEnd: %t\n", n.HasEnd)
+
 	return b.String()
 }
 
@@ -1493,6 +1609,7 @@ func (n AstStatBreak) String() string {
 
 	b.WriteString("StatBreak\n")
 	b.WriteString(n.NodeLoc.String())
+
 	return b.String()
 }
 
@@ -1508,6 +1625,7 @@ func (n AstStatCompoundAssign) String() string {
 	b.WriteString("Value:\n")
 	b.WriteString(indentStart(n.Value.String(), 2))
 	b.WriteByte('\n')
+
 	return b.String()
 }
 
@@ -1516,6 +1634,7 @@ func (n AstStatContinue) String() string {
 
 	b.WriteString("StatContinue\n")
 	b.WriteString(n.NodeLoc.String())
+
 	return b.String()
 }
 
@@ -1524,17 +1643,22 @@ func (n AstStatDeclareFunction) String() string {
 
 	b.WriteString("StatDeclareFunction\n")
 	b.WriteString(n.NodeLoc.String())
+
 	if len(n.Attributes) > 0 {
 		b.WriteString("Attributes:\n")
+
 		for _, attr := range n.Attributes {
 			b.WriteString(indentStart(attr.String(), 2))
 			b.WriteByte('\n')
 		}
 	}
+
 	fmt.Fprintf(&b, "Name: %q\n", n.Name)
 	fmt.Fprintf(&b, "NameLocation: %s\n", n.NameLocation.String())
+
 	if len(n.Generics) > 0 {
 		b.WriteString("Generics:\n")
+
 		for _, generic := range n.Generics {
 			b.WriteString(indentStart(generic.String(), 2))
 			b.WriteByte('\n')
@@ -1543,23 +1667,29 @@ func (n AstStatDeclareFunction) String() string {
 
 	if len(n.GenericPacks) > 0 {
 		b.WriteString("GenericPacks:\n")
+
 		for _, genericPack := range n.GenericPacks {
 			b.WriteString(indentStart(genericPack.String(), 2))
 			b.WriteByte('\n')
 		}
 	}
+
 	b.WriteString("Params:\n")
 	b.WriteString(indentStart(n.Params.String(), 2))
 	b.WriteByte('\n')
+
 	if len(n.ParamNames) > 0 {
 		b.WriteString("ParamNames:\n")
+
 		for _, name := range n.ParamNames {
 			b.WriteString(indentStart(name.String(), 2))
 			b.WriteByte('\n')
 		}
 	}
+
 	fmt.Fprintf(&b, "Vararg: %t\n", n.Vararg)
 	fmt.Fprintf(&b, "VarargLocation: %s\n", n.VarargLocation.String())
+
 	if n.RetTypes != nil {
 		b.WriteString("RetTypes:\n")
 		b.WriteString(indentStart(n.RetTypes.String(), 2))
@@ -1579,6 +1709,7 @@ func (n AstStatDeclareGlobal) String() string {
 	b.WriteString("Type:\n")
 	b.WriteString(indentStart(n.Type.String(), 2))
 	b.WriteByte('\n')
+
 	return b.String()
 }
 
@@ -1588,12 +1719,14 @@ func (n AstStatDeclareExternType) String() string {
 	b.WriteString("StatDeclareExternType\n")
 	b.WriteString(n.NodeLoc.String())
 	fmt.Fprintf(&b, "Name: %q\n", n.Name)
+
 	if n.SuperName != nil {
 		fmt.Fprintf(&b, "SuperName: %q\n", *n.SuperName)
 	}
 
 	if len(n.Props) > 0 {
 		b.WriteString("Props:\n")
+
 		for _, prop := range n.Props {
 			b.WriteString(indentStart(prop.String(), 2))
 			b.WriteByte('\n')
@@ -1620,6 +1753,7 @@ func (n AstDeclaredExternTypeProperty) String() string {
 	b.WriteString(indentStart(n.Ty.String(), 2))
 	b.WriteByte('\n')
 	fmt.Fprintf(&b, "IsMethod: %t\n", n.IsMethod)
+
 	return b.String()
 }
 
@@ -1628,8 +1762,10 @@ func (n AstStatError) String() string {
 
 	b.WriteString("StatError\n")
 	b.WriteString(n.NodeLoc.String())
+
 	if len(n.Expressions) > 0 {
 		b.WriteString("Expressions:\n")
+
 		for _, expr := range n.Expressions {
 			b.WriteString(indentStart(expr.String(), 2))
 			b.WriteByte('\n')
@@ -1638,12 +1774,15 @@ func (n AstStatError) String() string {
 
 	if len(n.Statements) > 0 {
 		b.WriteString("Statements:\n")
+
 		for _, stat := range n.Statements {
 			b.WriteString(indentStart(stat.String(), 2))
 			b.WriteByte('\n')
 		}
 	}
+
 	fmt.Fprintf(&b, "MessageIndex: %d\n", n.MessageIndex)
+
 	return b.String()
 }
 
@@ -1655,6 +1794,7 @@ func (n AstStatExpr) String() string {
 	b.WriteString("Expr:\n")
 	b.WriteString(indentStart(n.Expr.String(), 2))
 	b.WriteByte('\n')
+
 	return b.String()
 }
 
@@ -1663,17 +1803,20 @@ func (n AstStatFor) String() string {
 
 	b.WriteString("StatFor\n")
 	b.WriteString(n.NodeLoc.String())
+
 	if n.Var != nil {
 		b.WriteString("Var:\n")
 		b.WriteString(indentStart(n.Var.String(), 2))
 		b.WriteByte('\n')
 	}
+
 	b.WriteString("From:\n")
 	b.WriteString(indentStart(n.From.String(), 2))
 	b.WriteByte('\n')
 	b.WriteString("To:\n")
 	b.WriteString(indentStart(n.To.String(), 2))
 	b.WriteByte('\n')
+
 	if n.Step != nil {
 		b.WriteString("Step:\n")
 		b.WriteString(indentStart(n.Step.String(), 2))
@@ -1685,8 +1828,10 @@ func (n AstStatFor) String() string {
 		b.WriteString(indentStart(n.Body.String(), 2))
 		b.WriteByte('\n')
 	}
+
 	fmt.Fprintf(&b, "HasDo: %t\n", n.HasDo)
 	fmt.Fprintf(&b, "DoLocation: %s\n", n.DoLocation.String())
+
 	return b.String()
 }
 
@@ -1695,8 +1840,10 @@ func (n AstStatForIn) String() string {
 
 	b.WriteString("StatForIn\n")
 	b.WriteString(n.NodeLoc.String())
+
 	if len(n.Vars) > 0 {
 		b.WriteString("Vars:\n")
+
 		for _, v := range n.Vars {
 			b.WriteString(indentStart(v.String(), 2))
 			b.WriteByte('\n')
@@ -1705,6 +1852,7 @@ func (n AstStatForIn) String() string {
 
 	if len(n.Values) > 0 {
 		b.WriteString("Values:\n")
+
 		for _, val := range n.Values {
 			b.WriteString(indentStart(val.String(), 2))
 			b.WriteByte('\n')
@@ -1716,10 +1864,12 @@ func (n AstStatForIn) String() string {
 		b.WriteString(indentStart(n.Body.String(), 2))
 		b.WriteByte('\n')
 	}
+
 	fmt.Fprintf(&b, "HasIn: %t\n", n.HasIn)
 	fmt.Fprintf(&b, "InLocation: %s\n", n.InLocation.String())
 	fmt.Fprintf(&b, "HasDo: %t\n", n.HasDo)
 	fmt.Fprintf(&b, "DoLocation: %s\n", n.DoLocation.String())
+
 	return b.String()
 }
 
@@ -1728,14 +1878,17 @@ func (n AstStatFunction) String() string {
 
 	b.WriteString("StatFunction\n")
 	b.WriteString(n.NodeLoc.String())
+
 	if n.Name != nil {
 		b.WriteString("Name:\n")
 		b.WriteString(indentStart(n.Name.String(), 2))
 	}
+
 	b.WriteByte('\n')
 	b.WriteString("Func:\n")
 	b.WriteString(indentStart(n.Func.String(), 2))
 	b.WriteByte('\n')
+
 	return b.String()
 }
 
@@ -1750,6 +1903,7 @@ func (n AstStatIf) String() string {
 	b.WriteString("ThenBody:\n")
 	b.WriteString(indentStart(n.ThenBody.String(), 2))
 	b.WriteByte('\n')
+
 	if n.ElseBody != nil {
 		b.WriteString("ElseBody:\n")
 		b.WriteString(indentStart(n.ElseBody.String(), 2))
@@ -1773,6 +1927,7 @@ func (n AstStatLocal) String() string {
 	b.WriteString("StatLocal\n")
 	b.WriteString(n.NodeLoc.String())
 	b.WriteString("Vars:\n")
+
 	for _, v := range n.Vars {
 		b.WriteString(indentStart(v.String(), 2))
 		b.WriteByte('\n')
@@ -1780,6 +1935,7 @@ func (n AstStatLocal) String() string {
 
 	if len(n.Values) > 0 {
 		b.WriteString("Values:\n")
+
 		for _, val := range n.Values {
 			b.WriteString(indentStart(val.String(), 2))
 			b.WriteByte('\n')
@@ -1804,6 +1960,7 @@ func (n AstStatLocalFunction) String() string {
 	b.WriteString("Func:\n")
 	b.WriteString(indentStart(n.Func.String(), 2))
 	b.WriteByte('\n')
+
 	return b.String()
 }
 
@@ -1815,12 +1972,15 @@ func (n AstStatRepeat) String() string {
 	b.WriteString("Condition:\n")
 	b.WriteString(indentStart(n.Condition.String(), 2))
 	b.WriteByte('\n')
+
 	if n.Body != nil {
 		b.WriteString("Body:\n")
 		b.WriteString(indentStart(n.Body.String(), 2))
 		b.WriteByte('\n')
 	}
+
 	fmt.Fprintf(&b, "HasUntil: %t\n", n.HasUntil)
+
 	return b.String()
 }
 
@@ -1829,8 +1989,10 @@ func (n AstStatReturn) String() string {
 
 	b.WriteString("StatReturn\n")
 	b.WriteString(n.NodeLoc.String())
+
 	if len(n.List) > 0 {
 		b.WriteString("List:\n")
+
 		for _, expr := range n.List {
 			b.WriteString(indentStart(expr.String(), 2))
 			b.WriteByte('\n')
@@ -1847,8 +2009,10 @@ func (n AstStatTypeAlias) String() string {
 	b.WriteString(n.NodeLoc.String())
 	fmt.Fprintf(&b, "Name: %q\n", n.Name)
 	fmt.Fprintf(&b, "NameLocation: %s\n", n.NameLocation.String())
+
 	if len(n.Generics) > 0 {
 		b.WriteString("Generics:\n")
+
 		for _, generic := range n.Generics {
 			b.WriteString(indentStart(generic.String(), 2))
 			b.WriteByte('\n')
@@ -1857,15 +2021,18 @@ func (n AstStatTypeAlias) String() string {
 
 	if len(n.GenericPacks) > 0 {
 		b.WriteString("GenericPacks:\n")
+
 		for _, genericPack := range n.GenericPacks {
 			b.WriteString(indentStart(genericPack.String(), 2))
 			b.WriteByte('\n')
 		}
 	}
+
 	b.WriteString("Type:\n")
 	b.WriteString(indentStart(n.Type.String(), 2))
 	b.WriteByte('\n')
 	fmt.Fprintf(&b, "Exported: %t\n", n.Exported)
+
 	return b.String()
 }
 
@@ -1881,6 +2048,7 @@ func (n AstStatTypeFunction) String() string {
 	b.WriteByte('\n')
 	fmt.Fprintf(&b, "Exported: %t\n", n.Exported)
 	fmt.Fprintf(&b, "HasErrors: %t\n", n.HasErrors)
+
 	return b.String()
 }
 
@@ -1892,13 +2060,16 @@ func (n AstStatWhile) String() string {
 	b.WriteString("Condition:\n")
 	b.WriteString(indentStart(n.Condition.String(), 2))
 	b.WriteByte('\n')
+
 	if n.Body != nil {
 		b.WriteString("Body:\n")
 		b.WriteString(indentStart(n.Body.String(), 2))
 		b.WriteByte('\n')
 	}
+
 	fmt.Fprintf(&b, "HasDo: %t\n", n.HasDo)
 	fmt.Fprintf(&b, "DoLocation: %s\n", n.DoLocation.String())
+
 	return b.String()
 }
 
@@ -1914,6 +2085,7 @@ func (n AstTableIndexer) String() string {
 	b.WriteString(indentStart(n.ResultType.String(), 2))
 	b.WriteByte('\n')
 	fmt.Fprintf(&b, "Access: %q\n", n.Access)
+
 	if n.AccessLocation != nil {
 		fmt.Fprintf(&b, "AccessLocation: %s\n", n.AccessLocation.String())
 	}
@@ -1931,6 +2103,7 @@ func (n AstTableProp) String() string {
 	b.WriteString(indentStart(n.Type.String(), 2))
 	b.WriteByte('\n')
 	fmt.Fprintf(&b, "Access: %q\n", n.Access)
+
 	if n.AccessLocation != nil {
 		fmt.Fprintf(&b, "AccessLocation: %s\n", n.AccessLocation.String())
 	}
@@ -1943,15 +2116,19 @@ func (n AstTypeError) String() string {
 
 	b.WriteString("TypeError\n")
 	b.WriteString(n.NodeLoc.String())
+
 	if len(n.Types) > 0 {
 		b.WriteString("Types:\n")
+
 		for _, ty := range n.Types {
 			b.WriteString(indentStart(ty.String(), 2))
 			b.WriteByte('\n')
 		}
 	}
+
 	fmt.Fprintf(&b, "IsMissing: %t\n", n.IsMissing)
 	fmt.Fprintf(&b, "MessageIndex: %d\n", n.MessageIndex)
+
 	return b.String()
 }
 
@@ -1960,8 +2137,10 @@ func (n AstTypeFunction) String() string {
 
 	b.WriteString("TypeFunction\n")
 	b.WriteString(n.NodeLoc.String())
+
 	if len(n.Attributes) > 0 {
 		b.WriteString("Attributes:\n")
+
 		for _, attr := range n.Attributes {
 			b.WriteString(indentStart(attr.String(), 2))
 			b.WriteByte('\n')
@@ -1970,6 +2149,7 @@ func (n AstTypeFunction) String() string {
 
 	if len(n.Generics) > 0 {
 		b.WriteString("Generics:\n")
+
 		for _, generic := range n.Generics {
 			b.WriteString(indentStart(generic.String(), 2))
 			b.WriteByte('\n')
@@ -1978,16 +2158,20 @@ func (n AstTypeFunction) String() string {
 
 	if len(n.GenericPacks) > 0 {
 		b.WriteString("GenericPacks:\n")
+
 		for _, genericPack := range n.GenericPacks {
 			b.WriteString(indentStart(genericPack.String(), 2))
 			b.WriteByte('\n')
 		}
 	}
+
 	b.WriteString("ArgTypes:\n")
 	b.WriteString(indentStart(n.ArgTypes.String(), 2))
 	b.WriteByte('\n')
+
 	if len(n.ArgNames) > 0 {
 		b.WriteString("ArgNames:\n")
+
 		for _, name := range n.ArgNames {
 			if name != nil {
 				b.WriteString(indentStart(name.String(), 2))
@@ -1995,9 +2179,11 @@ func (n AstTypeFunction) String() string {
 			}
 		}
 	}
+
 	b.WriteString("ReturnTypes:\n")
 	b.WriteString(indentStart(n.ReturnTypes.String(), 2))
 	b.WriteByte('\n')
+
 	return b.String()
 }
 
@@ -2009,6 +2195,7 @@ func (n AstTypeGroup) String() string {
 	b.WriteString("Type:\n")
 	b.WriteString(indentStart(n.Type.String(), 2))
 	b.WriteByte('\n')
+
 	return b.String()
 }
 
@@ -2018,6 +2205,7 @@ func (n AstTypeIntersection) String() string {
 	b.WriteString("TypeIntersection\n")
 	b.WriteString(n.NodeLoc.String())
 	b.WriteString("Types:\n")
+
 	for _, ty := range n.Types {
 		b.WriteString(indentStart(ty.String(), 2))
 		b.WriteByte('\n')
@@ -2030,8 +2218,10 @@ func (n AstTypeList) String() string {
 	var b strings.Builder
 
 	b.WriteString("TypeList\n")
+
 	if len(n.Types) > 0 {
 		b.WriteString("Types:\n")
+
 		for _, ty := range n.Types {
 			b.WriteString(indentStart(ty.String(), 2))
 			b.WriteByte('\n')
@@ -2052,6 +2242,7 @@ func (n AstTypeOptional) String() string {
 
 	b.WriteString("TypeOptional\n")
 	b.WriteString(n.NodeLoc.String())
+
 	return b.String()
 }
 
@@ -2059,6 +2250,7 @@ func (n AstTypeOrPack) String() string {
 	var b strings.Builder
 
 	b.WriteString("TypeOrPack\n")
+
 	if n.Type != nil {
 		b.WriteString("Type:\n")
 		b.WriteString(indentStart((*n.Type).String(), 2))
@@ -2082,6 +2274,7 @@ func (n AstTypePackExplicit) String() string {
 	b.WriteString("Types:\n")
 	b.WriteString(indentStart(n.Types.String(), 2))
 	b.WriteByte('\n')
+
 	if n.TailType != nil {
 		b.WriteString("TailType:\n")
 		b.WriteString(indentStart((*n.TailType).String(), 2))
@@ -2097,6 +2290,7 @@ func (n AstTypePackGeneric) String() string {
 	b.WriteString("TypePackGeneric\n")
 	b.WriteString(n.NodeLoc.String())
 	fmt.Fprintf(&b, "GenericName: %q\n", n.GenericName)
+
 	return b.String()
 }
 
@@ -2107,6 +2301,7 @@ func (n AstTypePackVariadic) String() string {
 	b.WriteString(n.NodeLoc.String())
 	b.WriteString("VariadicType:\n")
 	b.WriteString(indentStart(n.VariadicType.String(), 2))
+
 	return b.String()
 }
 
@@ -2116,6 +2311,7 @@ func (n AstTypeReference) String() string {
 	b.WriteString("TypeReference\n")
 	b.WriteString(n.NodeLoc.String())
 	fmt.Fprintf(&b, "HasParameterList: %t\n", n.HasParameterList)
+
 	if n.Prefix != nil {
 		fmt.Fprintf(&b, "Prefix: %q\n", *n.Prefix)
 	}
@@ -2123,10 +2319,13 @@ func (n AstTypeReference) String() string {
 	if n.PrefixLocation != nil {
 		fmt.Fprintf(&b, "PrefixLocation: %s\n", n.PrefixLocation.String())
 	}
+
 	fmt.Fprintf(&b, "Name: %q\n", n.Name)
 	fmt.Fprintf(&b, "NameLocation: %s\n", n.NameLocation.String())
+
 	if len(n.Parameters) > 0 {
 		b.WriteString("Parameters:\n")
+
 		for _, param := range n.Parameters {
 			b.WriteString(indentStart(param.String(), 2))
 			b.WriteByte('\n')
@@ -2142,6 +2341,7 @@ func (n AstTypeSingletonBool) String() string {
 	b.WriteString("TypeSingletonBool\n")
 	b.WriteString(n.NodeLoc.String())
 	fmt.Fprintf(&b, "Value: %t\n", n.Value)
+
 	return b.String()
 }
 
@@ -2151,6 +2351,7 @@ func (n AstTypeSingletonString) String() string {
 	b.WriteString("TypeSingletonString\n")
 	b.WriteString(n.NodeLoc.String())
 	fmt.Fprintf(&b, "Value: %q\n", n.Value)
+
 	return b.String()
 }
 
@@ -2159,8 +2360,10 @@ func (n AstTypeTable) String() string {
 
 	b.WriteString("TypeTable\n")
 	b.WriteString(n.NodeLoc.String())
+
 	if len(n.Props) > 0 {
 		b.WriteString("Props:\n")
+
 		for _, prop := range n.Props {
 			b.WriteString(indentStart(prop.String(), 2))
 			b.WriteByte('\n')
@@ -2183,6 +2386,7 @@ func (n AstTypeTypeof) String() string {
 	b.WriteString(n.NodeLoc.String())
 	b.WriteString("Expr:\n")
 	b.WriteString(indentStart(n.Expr.String(), 2))
+
 	return b.String()
 }
 
@@ -2192,6 +2396,7 @@ func (n AstTypeUnion) String() string {
 	b.WriteString("TypeUnion\n")
 	b.WriteString(n.NodeLoc.String())
 	b.WriteString("Types:\n")
+
 	for _, ty := range n.Types {
 		b.WriteString(indentStart(ty.String(), 2))
 		b.WriteByte('\n')

@@ -41,6 +41,7 @@ func addquoted(args Args, b *strings.Builder) {
 	s := args.GetString()
 
 	b.WriteByte('"')
+
 	for i, l := uint(0), len(s); l > 0; l-- {
 		switch w := s[i]; w {
 		case '\n', '"', '\\':
@@ -56,11 +57,13 @@ func addquoted(args Args, b *strings.Builder) {
 
 		i++
 	}
+
 	b.WriteByte('"')
 }
 
 func format(form string, formatIndicator byte, sub any) string {
 	f := fmt.Sprintf("%%%s%c", form, formatIndicator) // wow, real meta
+
 	return fmt.Sprintf(f, sub)
 }
 
@@ -88,6 +91,7 @@ func formatItem(args *Args, formatIndicator byte, form string, b *strings.Builde
 		if formatIndicator == 'u' {
 			formatIndicator = 'd'
 		}
+
 		b.WriteString(format(form, formatIndicator, v))
 	case 'E', 'G', 'e', 'f', 'g':
 		n := args.GetNumber()
@@ -103,6 +107,7 @@ func formatItem(args *Args, formatIndicator byte, form string, b *strings.Builde
 			b.WriteString(s)
 			break
 		}
+
 		b.WriteString(format(form, 's', s))
 	case '*':
 		//  %* is parsed above, so if we got here we must have a %...*
@@ -135,10 +140,12 @@ func add_s(caps *captures, b *strings.Builder, s string, si, ei int, news string
 		}
 
 		i++ // skip ESC
+
 		if !isdigit(news[i]) {
 			if news[i] != l_esc {
 				return fmt.Errorf("invalid use of '%c' in replacement string", l_esc)
 			}
+
 			b.WriteByte(l_esc) // always %?
 		} else if news[i] == '0' {
 			b.WriteString(s[si:ei])
@@ -147,6 +154,7 @@ func add_s(caps *captures, b *strings.Builder, s string, si, ei int, news string
 			if err != nil {
 				return err
 			}
+
 			b.WriteString(ToString(r)) // add capture to accumulated result
 		}
 	}
@@ -175,7 +183,6 @@ func add_value(caps *captures, b *strings.Builder, co *Coroutine, s string, si, 
 		}
 
 		// fmt.Println("typeofr", TypeOf(r))
-
 		val = n.GetHash(Str(ToString(r))) // we'll tostring here to be safe
 	}
 
@@ -190,6 +197,7 @@ func add_value(caps *captures, b *strings.Builder, co *Coroutine, s string, si, 
 
 	// add result to accumulator?
 	b.WriteString(ToString(val))
+
 	return
 }
 
@@ -236,6 +244,7 @@ func scanformat(strfrmt string) (byte, string, int, error) {
 
 	if isdigit(strfrmt[p]) {
 		p++ // skip width
+
 		if isdigit(strfrmt[p]) {
 			p++ // (2 digits at most)
 		}
@@ -246,6 +255,7 @@ func scanformat(strfrmt string) (byte, string, int, error) {
 
 		if isdigit(strfrmt[p]) {
 			p++ // skip precision
+
 			if isdigit(strfrmt[p]) {
 				p++ // (2 digits at most)
 			}
@@ -267,6 +277,7 @@ func Fmtstring(strfrmt string, args Args) (string, error) {
 			b.WriteByte(strfrmt[i])
 
 			i++
+
 			continue
 		}
 
@@ -274,7 +285,9 @@ func Fmtstring(strfrmt string, args Args) (string, error) {
 
 		if strfrmt[i] == l_esc {
 			b.WriteByte(l_esc) // %%
+
 			i++
+
 			continue
 		}
 
@@ -284,6 +297,7 @@ func Fmtstring(strfrmt string, args Args) (string, error) {
 			b.WriteString(ToString(a))
 
 			i++
+
 			continue
 		}
 
@@ -327,6 +341,7 @@ func string_find(args Args) (r []Val, err error) {
 
 func string_format(args Args) (r []Val, err error) {
 	strfrmt := args.GetString()
+
 	res, err := Fmtstring(strfrmt, args)
 	if err != nil {
 		return
@@ -344,6 +359,7 @@ func string_gmatch(args Args) (r []Val, err error) {
 	gmatch := func(args Args) (r []Val, err error) {
 		for caps := (&captures{}); start <= ls; start++ {
 			caps.level = 0
+
 			end, err := matchPos(s, p, start, 0, caps)
 			if err != nil {
 				return nil, err
@@ -370,6 +386,7 @@ func string_gsub(args Args) (r []Val, err error) {
 	src := args.GetString()
 	p := args.GetString()
 	next := args.GetAny()
+
 	if !IsString(next) && !IsFunction(next) && !IsTable(next) {
 		return nil, fmt.Errorf("invalid argument #3 to 'gsub' (string/function/table expected, got %s)", TypeOf(next))
 	}
@@ -394,6 +411,7 @@ func string_gsub(args Args) (r []Val, err error) {
 
 	for n < m {
 		caps.level = 0
+
 		e, err := matchPos(src, p, sis, pis, caps)
 		if err != nil {
 			return nil, err
@@ -464,6 +482,7 @@ func string_byte(args Args) (bytes []Val, err error) {
 	pose := string_posrelat(int(j), l)
 	posi, pose = max(posi, 1), min(pose, l)
 	n := pose - posi + 1
+
 	if n < 0 {
 		return // empty interval; return no values
 	}
@@ -491,6 +510,7 @@ func string_rep(args Args) (r []Val, err error) {
 func string_reverse(args Args) (r []Val, err error) {
 	s := args.GetString()
 	rs := []byte(s) // []rune(s)
+
 	for i, j := 0, len(rs)-1; i < j; i, j = i+1, j-1 {
 		rs[i], rs[j] = rs[j], rs[i]
 	}

@@ -43,6 +43,7 @@ func TestCancel(t *testing.T) {
 
 			time.Sleep(20 * time.Millisecond)
 			cancel()
+
 			select {
 			case <-done:
 			case <-time.After(2 * time.Second):

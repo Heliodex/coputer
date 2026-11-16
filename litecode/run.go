@@ -20,7 +20,6 @@ func startWeb(v Val) (rets WebRets, err error) {
 	}
 
 	// ahh, error checking beauty
-
 	var tstatuscode float64
 
 	if statuscode := t.GetHash(Str("statuscode")); IsNil(statuscode) {
@@ -69,6 +68,7 @@ func startWeb(v Val) (rets WebRets, err error) {
 
 		rets.Headers["content-type"] = "text/plain; charset=utf-8"
 		sm := http.StatusText(rets.StatusCode)
+
 		if sm == "" {
 			sm = fmt.Sprintf("Error %d", rets.StatusCode)
 		}

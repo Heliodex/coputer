@@ -56,7 +56,6 @@ func TestAST(t *testing.T) {
 		// 	t.Fatal("error decoding AST:", err)
 		// }
 		// o := ast.String()
-
 		out := getAST(t, filename)
 		o := out.String()
 
@@ -64,7 +63,6 @@ func TestAST(t *testing.T) {
 		// if err = os.WriteFile(filename+".txt", []byte(o), 0o644); err != nil {
 		// 	t.Fatal("error writing output file:", err)
 		// }
-
 		ogb, err := os.ReadFile(filename + ".txt")
 		if err != nil {
 			t.Fatal("error reading expected output:", err)
@@ -78,6 +76,7 @@ func TestAST(t *testing.T) {
 			// print mismatch
 			oLines, ogLines := strings.Split(o, "\n"), strings.Split(og, "\n")
 			olen, oglen := len(oLines), len(ogLines)
+
 			if olen != oglen {
 				t.Errorf("line count mismatch: expected %d, got %d", oglen, olen)
 			}
@@ -91,6 +90,7 @@ func TestAST(t *testing.T) {
 					t.Errorf("mismatched line, expected:\n%s\n%v\ngot:\n%s\n%v\n", ogline, []byte(ogline), oline, []byte(oline))
 				}
 			}
+
 			os.Exit(1)
 		}
 	}

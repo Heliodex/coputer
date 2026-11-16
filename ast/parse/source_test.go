@@ -697,12 +697,14 @@ func TestSourceNumberLiterals(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			src := "local n = " + tc.lit
 			ok, res := Parse(src, Options{})
+
 			if !ok {
 				t.Fatal("error parsing source:", res.Errors)
 			}
 
 			want := "local n = " + tc.want
 			got := res.Root.Source()
+
 			if got != want {
 				t.Errorf("unexpected source:\n-- Expected\n%s\n-- Got\n%s\n", want, got)
 			}
@@ -880,6 +882,7 @@ func sourceFiles(t *testing.T, dir string) {
 		}
 
 		name := trimext(fn)
+
 		content, err := os.ReadFile("../" + dir + "/" + name + Ext)
 		if err != nil {
 			t.Fatal("error reading file:", err)
@@ -893,13 +896,13 @@ func sourceFiles(t *testing.T, dir string) {
 
 		source := res.Root.Source()
 		ok, res2 := Parse(source, Options{})
+
 		if !ok {
 			t.Errorf("%s/%s: generated source failed to parse: %v\n--- source\n%s", dir, name, res2.Errors, source)
 			continue
 		}
 
 		// rendering the re-parsed AST should produce identical source
-
 		if source2 := res2.Root.Source(); source != source2 {
 			t.Errorf("%s/%s: generated source is not stable\n--- first\n%s\n--- second\n%s", dir, name, source, source2)
 		}

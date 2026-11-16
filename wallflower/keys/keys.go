@@ -55,6 +55,7 @@ type (
 
 	ThisPeer struct {
 		Peer
+
 		Kp Keypair
 	}
 )
@@ -147,6 +148,7 @@ func Decrypt(kp Keypair, emsg []byte) (from Peer, msg []byte, err error) {
 
 	encryptedKey, ct := emsg[:keyEnc], emsg[keyEnc:]
 	ppk, addrCount, ok := decryptKey(encryptedKey, pk, sk)
+
 	if !ok {
 		return Peer{}, nil, errors.New("key decryption failed")
 	}
@@ -162,6 +164,7 @@ func Decrypt(kp Keypair, emsg []byte) (from Peer, msg []byte, err error) {
 	// Addresses [16]...
 	encryptedAddrs, ct := ct[:addrsEnc], ct[addrsEnc:]
 	addrs, ok := decryptAddrs(encryptedAddrs, peerpk, sk)
+
 	if !ok {
 		return Peer{}, nil, errors.New("addresses decryption failed")
 	}
@@ -187,6 +190,7 @@ func Decrypt(kp Keypair, emsg []byte) (from Peer, msg []byte, err error) {
 		clen := min(chunkEnc, len(ct)) // we don't actually need to know the chunk size
 		chunk, ct = ct[:clen], ct[clen:]
 		dec, ok := box.Open(nil, chunk, ZeroNonce, peerpk, &sk)
+
 		if !ok {
 			return Peer{}, nil, errors.New("chunk decryption failed")
 		}
@@ -201,6 +205,7 @@ func encryptAddresses(p ThisPeer, pk *[32]byte, sk [32]byte) []byte {
 	c := p.MainAddr[:] // main address is always first
 
 	// Addresses [16]...
+
 	for _, addr := range p.AltAddrs {
 		c = append(c, addr[:]...)
 	}

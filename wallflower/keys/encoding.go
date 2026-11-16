@@ -102,7 +102,9 @@ func DecodePKNoPrefix(key string) (bf PK, err error) {
 	if bf, err = parseKey[PK]([]byte(key[:9] + key[10:19] + key[20:29] + key[30:39] + key[40:])); err != nil {
 		return
 	}
+
 	slices.Reverse(bf[:])
+
 	return
 }
 
@@ -125,7 +127,9 @@ func DecodeSKNoPrefix(key string) (bf SK, err error) {
 	if bf, err = parseKey[SK]([]byte(key[:10] + key[11:21] + key[22:32] + key[33:43] + key[44:])); err != nil {
 		return
 	}
+
 	slices.Reverse(bf[:])
+
 	return
 }
 
@@ -142,6 +146,7 @@ func section(res []byte, size int) string {
 
 	for i := range 5 {
 		b.Write(res[i*size:][:size])
+
 		if i < 4 {
 			b.WriteByte('-')
 		}

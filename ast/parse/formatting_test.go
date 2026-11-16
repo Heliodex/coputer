@@ -10,13 +10,16 @@ import (
 // compareSource reports a mismatch between a formatted source and its expected file, including a line-by-line diff.
 func compareSource(t *testing.T, name, got, expected string) bool {
 	t.Helper()
+
 	if got == expected {
 		return true
 	}
+
 	t.Errorf("%s: output mismatch:\n-- Expected\n%s\n-- Got\n%s\n", name, expected, got)
 
 	gotLines, expectedLines := strings.Split(got, "\n"), strings.Split(expected, "\n")
 	gotLen, expectedLen := len(gotLines), len(expectedLines)
+
 	if gotLen != expectedLen {
 		t.Errorf("%s: line count mismatch: expected %d, got %d", name, expectedLen, gotLen)
 	}
@@ -52,6 +55,7 @@ func TestFormatting(t *testing.T) {
 		t.Log(" -- Testing", name, "--")
 
 		filename := fmt.Sprintf("../%s/%s", FormattingDir, name)
+
 		content, err := os.ReadFile(filename + Ext)
 		if err != nil {
 			t.Fatal("error reading test file:", err)
@@ -65,6 +69,7 @@ func TestFormatting(t *testing.T) {
 
 		// formatted files are expected to end with a newline
 		got := formatAST(res).Root.Source() + "\n"
+
 		expectedBytes, err := os.ReadFile(filename + FormattingOutSuffix + Ext)
 		if err != nil {
 			t.Fatal("error reading expected output:", err)
@@ -100,6 +105,7 @@ func TestFormattingIdempotent(t *testing.T) {
 		t.Log(" -- Testing", name, "--")
 
 		filename := fmt.Sprintf("../%s/%s%s", FormattingDir, name, FormattingOutSuffix)
+
 		content, err := os.ReadFile(filename + Ext)
 		if err != nil {
 			t.Fatal("error reading formatted file:", err)
@@ -107,10 +113,12 @@ func TestFormattingIdempotent(t *testing.T) {
 
 		expected := strings.ReplaceAll(string(content), "\r\n", "\n")
 		ok, res := Parse(expected, Options{})
+
 		if !ok {
 			t.Errorf("%s: error parsing formatted file: %v", name, res.Errors)
 			continue
 		}
+
 		compareSource(t, name, formatAST(res).Root.Source()+"\n", expected)
 	}
 }

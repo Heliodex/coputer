@@ -101,6 +101,7 @@ func vector_ceil(args Args) (r []Val, err error) {
 func vector_clamp(args Args) (r []Val, err error) {
 	v := args.GetVector()
 	vmin, vmax := args.GetVector(), args.GetVector()
+
 	if vmin[0] > vmax[0] {
 		// return nil, errors.New("max.x must be greater than or equal to min.x")
 		vmin[0], vmax[0] = vmax[0], vmin[0]

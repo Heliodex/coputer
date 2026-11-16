@@ -27,5 +27,6 @@ func TestConcurrentParse(t *testing.T) {
 			}
 		})
 	}
+
 	wg.Wait()
 }

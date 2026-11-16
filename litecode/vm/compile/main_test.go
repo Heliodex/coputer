@@ -8,6 +8,7 @@ import (
 
 func Expect(t *testing.T, got, want any) {
 	t.Helper()
+
 	if got != want {
 		t.Errorf("Expected %v, got %v", want, got)
 	}
@@ -25,6 +26,7 @@ func TestDeserialise(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to deserialize bytecode: %v", err)
 	}
+
 	Expect(t, len(d.ProtoList), 1)
 	Expect(t, d.ProtoList[0], d.MainProto)
 	Expect(t, d.MainProto.Dbgname, "(main)")

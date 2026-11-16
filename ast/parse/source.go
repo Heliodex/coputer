@@ -142,7 +142,6 @@ func cleanHex(u uint64) (string, bool) {
 	}
 
 	// one hex digit followed only by whole zero nibbles
-
 	if nibbles := bits.TrailingZeros64(u) / 4; u>>(4*nibbles) < 16 {
 		return fmt.Sprintf("0x%x", u), true
 	}
@@ -319,6 +318,7 @@ func sortDirectives(comments []Comment) []Comment {
 		comment Comment
 		rank int
 	}
+
 	directives := make([]rankedDirective, 0, len(comments))
 	others := make([]Comment, 0, len(comments))
 
@@ -344,6 +344,7 @@ func sortDirectives(comments []Comment) []Comment {
 			rank: rank,
 		})
 	}
+
 	sort.SliceStable(directives, func(i, j int) bool {
 		return directives[i].rank < directives[j].rank
 	})
@@ -647,7 +648,6 @@ func sourceNumber(value float64) string {
 	}
 
 	// prefer the plain decimal form when it isn't longer than the exponent form
-
 	if plain := strconv.FormatFloat(value, 'f', -1, 64); len(plain) <= len(exp) {
 		return plain
 	}
@@ -893,9 +893,7 @@ func serviceDeclarationName(stat AstStat) (string, bool) {
 }
 
 // serviceSectionEnd returns the length of the leading run of `game:GetService` declarations, truncated at the first kind change. The run must be all const or all local, so a mixed run stops here.
-func serviceSectionEnd(units []sourceStatUnit) int {
-	var end int
-
+func serviceSectionEnd(units []sourceStatUnit) (end int) {
 	for end < len(units) {
 		if _, ok := serviceDeclarationName(units[end].stat); !ok {
 			break
@@ -908,7 +906,7 @@ func serviceSectionEnd(units []sourceStatUnit) int {
 		end++
 	}
 
-	return end
+	return
 }
 
 // sourceUnwrapGroup removes any parentheses groups around an expression.
@@ -1207,8 +1205,10 @@ func writeAnnotation(b *strings.Builder, annotation string) {
 	if strings.Contains(annotation, "\n") && !sourceTypeStartsInline(annotation) {
 		b.WriteString(":\n")
 		b.WriteString(sourceIndent(annotation, 1))
+
 		return
 	}
+
 	b.WriteString(": ")
 	b.WriteString(annotation)
 }
@@ -1219,6 +1219,7 @@ func writeByteEscape(b *strings.Builder, value string, i int) {
 		fmt.Fprintf(b, "\\%03d", value[i])
 		return
 	}
+
 	fmt.Fprintf(b, "\\%d", value[i])
 }
 
@@ -1236,11 +1237,14 @@ func sourceInterpStringPart(s string) string {
 				writeByteEscape(&b, s, i)
 
 				i++
+
 				continue
 			}
+
 			b.WriteString(s[i : i+size])
 
 			i += size
+
 			continue
 		}
 
@@ -1298,6 +1302,7 @@ func sourceString(value string, style QuoteStyle) string {
 	var b strings.Builder
 
 	b.WriteByte(quote)
+
 	for i := 0; i < len(value); {
 		ch := value[i]
 
@@ -1308,11 +1313,14 @@ func sourceString(value string, style QuoteStyle) string {
 				writeByteEscape(&b, value, i)
 
 				i++
+
 				continue
 			}
+
 			b.WriteString(value[i : i+size])
 
 			i += size
+
 			continue
 		}
 
@@ -1346,7 +1354,9 @@ func sourceString(value string, style QuoteStyle) string {
 
 		i++
 	}
+
 	b.WriteByte(quote)
+
 	return b.String()
 }
 
@@ -1414,6 +1424,7 @@ func renderScopedUnits(units []sourceStatUnit) string {
 		if unit.stat == nil {
 			// A trailing comment with no statement stays glued to the preceding code.
 			flush()
+
 			if len(blocks) > 0 {
 				blocks[len(blocks)-1] += "\n" + renderUnits([]sourceStatUnit{unit})
 			} else {
@@ -1427,12 +1438,15 @@ func renderScopedUnits(units []sourceStatUnit) string {
 			flush()
 
 			blocks = append(blocks, renderUnits([]sourceStatUnit{unit}))
+
 			continue
 		}
 
 		run = append(run, unit)
 	}
+
 	flush()
+
 	return strings.Join(blocks, "\n\n")
 }
 
@@ -1451,6 +1465,7 @@ func unitLines(unit sourceStatUnit) []string {
 	var src strings.Builder
 
 	src.WriteString(sourceStat(unit.stat))
+
 	for _, c := range unit.trailing {
 		src.WriteString(" " + sourceComment(c))
 	}
@@ -1500,9 +1515,11 @@ func renderRoot(units []sourceStatUnit) string {
 			},
 		}))
 	}
+
 	appendBlock(units[:serviceEnd])
 	appendBlock(units[serviceEnd:requireEnd])
 	appendBlock(units[requireEnd:])
+
 	return strings.Join(blocks, "\n\n")
 }
 
@@ -1653,10 +1670,12 @@ func sourceAttrs(attrs []AstAttr) string {
 // writeIfBranch writes an if-expression branch value on its own indented line, like an if statement body.
 func writeIfBranch(b *strings.Builder, expr AstExpr) {
 	b.WriteByte('\n')
+
 	if expr == nil {
 		b.WriteString(sourceIndent("nil", 1))
 		return
 	}
+
 	b.WriteString(sourceIndent(sourceExprPrec(expr, 0), 1))
 }
 
@@ -1667,8 +1686,10 @@ func writeAssignedValue(b *strings.Builder, exprs []AstExpr) {
 	if sourceHasIfExpr(exprs) {
 		b.WriteString(" =\n")
 		b.WriteString(sourceIndent(value, 1))
+
 		return
 	}
+
 	b.WriteString(" = ")
 	b.WriteString(value)
 }
@@ -1718,6 +1739,7 @@ func writeTypeAnnotation(b *strings.Builder, annotation AstType) {
 	if annotation == nil {
 		return
 	}
+
 	writeAnnotation(b, annotation.Source())
 }
 
@@ -1833,6 +1855,7 @@ func sourceUnionIntersection(types []AstType, op string) string {
 		if i > 0 {
 			b.WriteByte('\n')
 		}
+
 		b.WriteString(op)
 		b.WriteByte(' ')
 		b.WriteString(part)
@@ -1880,6 +1903,7 @@ func (n AstExprCall) Source() string {
 	var b strings.Builder
 
 	b.WriteString(sourceExprPostfix(n.Func))
+
 	if n.TypeArguments != nil && len(*n.TypeArguments) > 0 {
 		b.WriteString("<<")
 		b.WriteString(sourceTypeOrPackList(*n.TypeArguments))
@@ -1890,9 +1914,12 @@ func (n AstExprCall) Source() string {
 	if len(n.Args) == 1 && sourceCallSugar(n.Args[0]) {
 		b.WriteByte(' ')
 		b.WriteString(sourceExpr(n.Args[0], 0, true))
+
 		return b.String()
 	}
+
 	b.WriteString("(")
+
 	if args := sourceExprList(n.Args); strings.Contains(args, "\n") && !sourceHugsCallArg(n.Args) {
 		b.WriteString("\n")
 		b.WriteString(sourceIndent(args, 1))
@@ -1920,8 +1947,10 @@ func (n AstExprFunction) Source() string {
 		b.WriteString(attr.Source())
 		b.WriteByte(' ')
 	}
+
 	b.WriteString("function")
 	b.WriteString(n.sourceRest())
+
 	return b.String()
 }
 
@@ -1934,6 +1963,7 @@ func (n AstExprFunction) sourceRest() string {
 		b.WriteString(generics)
 		b.WriteString(">")
 	}
+
 	b.WriteString("(")
 
 	args := make([]string, 0, len(n.Args)+1)
@@ -1961,7 +1991,9 @@ func (n AstExprFunction) sourceRest() string {
 	if n.ReturnAnnotation != nil {
 		writeAnnotation(&b, (*n.ReturnAnnotation).Source())
 	}
+
 	b.WriteString(appendEnd(sourceBlockBody(n.Body)))
+
 	return b.String()
 }
 
@@ -1979,18 +2011,22 @@ func (n AstExprIfElse) sourceIf(keyword string) string {
 
 	b.WriteString(keyword)
 	b.WriteByte(' ')
+
 	if n.ConditionLocal != nil {
 		if n.ConditionIsConst {
 			b.WriteString("const ")
 		} else {
 			b.WriteString("local ")
 		}
+
 		b.WriteString(n.ConditionLocal.Name)
 		b.WriteString(" = ")
 	}
+
 	b.WriteString(sourceExprPrec(n.Condition, 0))
 	b.WriteString(" then")
 	writeIfBranch(&b, n.TrueExpr)
+
 	if falseExpr, ok := asIfElseExpr(sourceUnwrapGroup(n.FalseExpr)); ok {
 		// `else` + `if ...` renders as an `elseif ...` chain
 		b.WriteByte('\n')
@@ -2021,8 +2057,10 @@ func (n AstExprInterpString) Source() string {
 	var b strings.Builder
 
 	b.WriteByte('`')
+
 	for i, str := range n.Strings {
 		b.WriteString(sourceInterpStringPart(str))
+
 		if i < len(n.Expressions) {
 			if expr := sourceExprPrec(n.Expressions[i], 0); strings.Contains(expr, "\n") {
 				b.WriteString("{\n")
@@ -2035,7 +2073,9 @@ func (n AstExprInterpString) Source() string {
 			}
 		}
 	}
+
 	b.WriteByte('`')
+
 	return b.String()
 }
 
@@ -2115,6 +2155,7 @@ func (n AstLocal) Source() string {
 
 	b.WriteString(n.Name)
 	writeTypeAnnotation(&b, n.Annotation)
+
 	return b.String()
 }
 
@@ -2132,6 +2173,7 @@ func (n AstStatAssign) Source() string {
 
 	b.WriteString(sourceExprList(n.Vars))
 	writeAssignedValue(&b, n.Values)
+
 	return b.String()
 }
 
@@ -2171,14 +2213,17 @@ func (n AstStatDeclareFunction) Source() string {
 	b.WriteString(sourceAttrs(n.Attributes))
 	b.WriteString("declare function ")
 	b.WriteString(n.Name)
+
 	if generics := sourceGenerics(n.Generics, n.GenericPacks); generics != "" {
 		b.WriteString("<")
 		b.WriteString(generics)
 		b.WriteString(">")
 	}
+
 	b.WriteString("(")
 	b.WriteString(sourceDeclareParams(n.Params, n.ParamNames, n.Vararg))
 	b.WriteString(")")
+
 	if n.RetTypes != nil {
 		writeAnnotation(&b, n.RetTypes.Source())
 	}
@@ -2195,11 +2240,14 @@ func (n AstStatDeclareExternType) Source() string {
 
 	b.WriteString("declare extern type ")
 	b.WriteString(n.Name)
+
 	if n.SuperName != nil {
 		b.WriteString(" extends ")
 		b.WriteString(*n.SuperName)
 	}
+
 	b.WriteString(" with")
+
 	for _, prop := range n.Props {
 		b.WriteByte('\n')
 		b.WriteString(sourceIndent(prop.Source(), 1))
@@ -2209,7 +2257,9 @@ func (n AstStatDeclareExternType) Source() string {
 		b.WriteByte('\n')
 		b.WriteString(sourceIndent(n.Indexer.Source(), 1))
 	}
+
 	b.WriteString("\nend")
+
 	return b.String()
 }
 
@@ -2237,6 +2287,7 @@ func (n AstDeclaredExternTypeProperty) Source() string {
 		b.WriteString(params)
 		b.WriteString(")")
 		writeAnnotation(&b, ret)
+
 		return b.String()
 	}
 
@@ -2263,17 +2314,21 @@ func (n AstStatFor) Source() string {
 	var b strings.Builder
 
 	b.WriteString("for ")
+
 	if n.Var != nil {
 		b.WriteString(n.Var.Source())
 	}
+
 	b.WriteString(" = ")
 	b.WriteString(sourceExprPrec(n.From, 0))
 	b.WriteString(", ")
 	b.WriteString(sourceExprPrec(n.To, 0))
+
 	if n.Step != nil {
 		b.WriteString(", ")
 		b.WriteString(sourceExprPrec(n.Step, 0))
 	}
+
 	b.WriteString(" do")
 
 	var body string
@@ -2281,7 +2336,9 @@ func (n AstStatFor) Source() string {
 	if n.Body != nil {
 		body = sourceBlockBody(*n.Body)
 	}
+
 	b.WriteString(appendEnd(body))
+
 	return b.String()
 }
 
@@ -2297,6 +2354,7 @@ func (n AstStatForIn) Source() string {
 			vars[i] = v.Source()
 		}
 	}
+
 	b.WriteString(strings.Join(vars, ", "))
 	b.WriteString(" in ")
 	b.WriteString(sourceExprList(n.Values))
@@ -2307,7 +2365,9 @@ func (n AstStatForIn) Source() string {
 	if n.Body != nil {
 		body = sourceBlockBody(*n.Body)
 	}
+
 	b.WriteString(appendEnd(body))
+
 	return b.String()
 }
 
@@ -2318,6 +2378,7 @@ func (n AstStatFunction) Source() string {
 	b.WriteString("function ")
 	b.WriteString(sourceExprPrec(n.Name, precPrimary))
 	b.WriteString(n.Func.sourceRest())
+
 	return b.String()
 }
 
@@ -2331,17 +2392,21 @@ func (n AstStatIf) sourceIf(keyword string) string {
 
 	b.WriteString(keyword)
 	b.WriteByte(' ')
+
 	if n.ConditionLocal != nil {
 		if n.ConditionIsConst {
 			b.WriteString("const ")
 		} else {
 			b.WriteString("local ")
 		}
+
 		b.WriteString(n.ConditionLocal.Name)
 		b.WriteString(" = ")
 	}
+
 	b.WriteString(sourceExprPrec(n.Condition, 0))
 	b.WriteString(" then")
+
 	switch thenBody := sourceBlockBody(n.ThenBody); {
 	case n.ElseBody == nil:
 		b.WriteString(appendEnd(thenBody))
@@ -2363,6 +2428,7 @@ func (n AstStatIf) sourceIf(keyword string) string {
 		} else {
 			elseBody = "\n" + sourceIndent(sourceStat(n.ElseBody), 1)
 		}
+
 		b.WriteString(appendEnd(elseBody))
 	}
 
@@ -2388,7 +2454,9 @@ func (n AstStatLocal) Source() string {
 	for i := range n.Vars {
 		vars[i] = n.Vars[i].Source()
 	}
+
 	b.WriteString(strings.Join(vars, ", "))
+
 	if len(n.Values) > 0 {
 		writeAssignedValue(&b, n.Values)
 	}
@@ -2400,6 +2468,7 @@ func (n AstStatLocalFunction) Source() string {
 	var b strings.Builder
 
 	b.WriteString(sourceAttrs(n.Func.Attributes))
+
 	switch {
 	case n.Name.IsExported:
 		b.WriteString("export function ")
@@ -2408,8 +2477,10 @@ func (n AstStatLocalFunction) Source() string {
 	default:
 		b.WriteString("local function ")
 	}
+
 	b.WriteString(n.Name.Name)
 	b.WriteString(n.Func.sourceRest())
+
 	return b.String()
 }
 
@@ -2417,11 +2488,14 @@ func (n AstStatRepeat) Source() string {
 	var b strings.Builder
 
 	b.WriteString("repeat")
+
 	if n.Body != nil {
 		b.WriteString(sourceBlockBody(*n.Body))
 	}
+
 	b.WriteString("\nuntil ")
 	b.WriteString(sourceExprPrec(n.Condition, 0))
+
 	return b.String()
 }
 
@@ -2445,8 +2519,10 @@ func (n AstStatTypeAlias) Source() string {
 	if n.Exported {
 		b.WriteString("export ")
 	}
+
 	b.WriteString("type ")
 	b.WriteString(n.Name)
+
 	if generics := sourceGenerics(n.Generics, n.GenericPacks); generics != "" {
 		b.WriteString("<")
 		b.WriteString(generics)
@@ -2457,6 +2533,7 @@ func (n AstStatTypeAlias) Source() string {
 	typeSource := n.Type.Source()
 
 	b.WriteString(" =")
+
 	if strings.Contains(typeSource, "\n") && !sourceTypeStartsInline(typeSource) {
 		b.WriteByte('\n')
 		b.WriteString(sourceIndent(typeSource, 1))
@@ -2490,7 +2567,9 @@ func (n AstStatWhile) Source() string {
 	if n.Body != nil {
 		body = sourceBlockBody(*n.Body)
 	}
+
 	b.WriteString(appendEnd(body))
+
 	return b.String()
 }
 
@@ -2505,7 +2584,9 @@ func (n AstTableIndexer) Source() string {
 	case "Write":
 		b.WriteString("write ")
 	}
+
 	b.WriteString("[")
+
 	if index := n.IndexType.Source(); strings.Contains(index, "\n") {
 		b.WriteString("\n")
 		b.WriteString(sourceIndent(index, 1))
@@ -2514,7 +2595,9 @@ func (n AstTableIndexer) Source() string {
 		b.WriteString(index)
 		b.WriteString("]")
 	}
+
 	writeTypeAnnotation(&b, n.ResultType)
+
 	return b.String()
 }
 
@@ -2527,8 +2610,10 @@ func (n AstTableProp) Source() string {
 	case "Write":
 		b.WriteString("write ")
 	}
+
 	b.WriteString(n.Name.Value)
 	writeTypeAnnotation(&b, n.Type)
+
 	return b.String()
 }
 
@@ -2550,9 +2635,11 @@ func (n AstTypeFunction) Source() string {
 		b.WriteString(generics)
 		b.WriteString(">")
 	}
+
 	b.WriteString("(")
 	b.WriteString(params)
 	b.WriteString(")")
+
 	if strings.Contains(ret, "\n") && !sourceTypeStartsInline(ret) {
 		b.WriteString(" ->\n")
 		b.WriteString(sourceIndent(ret, 1))
@@ -2653,7 +2740,9 @@ func (n AstTypeReference) Source() string {
 		b.WriteString(*n.Prefix)
 		b.WriteByte('.')
 	}
+
 	b.WriteString(n.Name)
+
 	if n.HasParameterList || len(n.Parameters) > 0 {
 		b.WriteString("<")
 		b.WriteString(sourceTypeOrPackList(n.Parameters))
@@ -2737,6 +2826,7 @@ func sourceTypeTableItems(indexer *AstTableIndexer, props []AstTableProp, commen
 		var src strings.Builder
 
 		src.WriteString(entry.src + ",")
+
 		for _, c := range entry.trailing {
 			src.WriteString(" " + sourceComment(c))
 		}

@@ -41,6 +41,7 @@ var numberTests = []NumberTest{
 func TestNumberToSource(t *testing.T) {
 	for _, tt := range numberTests {
 		fmt.Println(tt.Out)
+
 		if out := NumberToSource(Number(tt.In)); tt.Out != out {
 			t.Errorf("expected %q, got %q", tt.Out, out)
 		}
@@ -68,6 +69,7 @@ func TestAST(t *testing.T) {
 		t.Log(" -- Testing", name, "--")
 
 		filename := fmt.Sprintf("../%s/%s", AstDir, name)
+
 		out, err := LuauAst(filename + Ext)
 		if err != nil {
 			t.Fatal("error running luau-ast:", err)
@@ -85,7 +87,6 @@ func TestAST(t *testing.T) {
 		// if err = os.WriteFile(filename+".txt", []byte(o), 0o644); err != nil {
 		// 	t.Fatal("error writing output file:", err)
 		// }
-
 		ogb, err := os.ReadFile(filename + ".txt")
 		if err != nil {
 			t.Fatal("error reading expected output:", err)
@@ -99,6 +100,7 @@ func TestAST(t *testing.T) {
 			// print mismatch
 			oLines, ogLines := strings.Split(o, "\n"), strings.Split(og, "\n")
 			olen, oglen := len(oLines), len(ogLines)
+
 			if olen != oglen {
 				t.Errorf("line count mismatch: expected %d, got %d", oglen, olen)
 			}
@@ -112,6 +114,7 @@ func TestAST(t *testing.T) {
 					t.Errorf("mismatched line, expected:\n%s\n%v\ngot:\n%s\n%v\n", ogline, []byte(ogline), oline, []byte(oline))
 				}
 			}
+
 			os.Exit(1)
 		}
 	}
@@ -138,6 +141,7 @@ func parseFile(t *testing.T, f os.DirEntry, dir string) {
 	if err != nil {
 		t.Fatal("error running luau-ast:", err)
 	}
+
 	fmt.Println("luau-ast completed")
 
 	st := time.Now()
@@ -146,6 +150,7 @@ func parseFile(t *testing.T, f os.DirEntry, dir string) {
 	if _, err = DecodeAST(out); err != nil {
 		t.Fatal("error decoding AST:", err)
 	}
+
 	fmt.Println("decoded in", time.Since(st))
 }
 
@@ -187,10 +192,10 @@ func sourceFiles(t *testing.T, dir string) {
 		// if name == "abomination" {
 		// 	continue
 		// }
-
 		t.Log(" -- Testing", name, "--")
 
 		filename := fmt.Sprintf("../%s/%s", dir, name)
+
 		content, err := os.ReadFile(filename + Ext)
 		if err != nil {
 			t.Fatal("error reading test file:", err)
@@ -211,6 +216,7 @@ func sourceFiles(t *testing.T, dir string) {
 		if err != nil {
 			t.Fatal("error getting source from AST:", err)
 		}
+
 		fmt.Println(src)
 	}
 }

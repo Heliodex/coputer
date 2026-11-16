@@ -139,6 +139,7 @@ func global_next(args Args) (r []Val, err error) {
 	t := args.GetTable()
 	fk := args.GetAny(NilVal)
 	k, v, found, ok := t.Next(fk)
+
 	if !found {
 		return nil, errors.New("invalid key to 'next'") // erroring probably not great here but whatever, given it's rarely used
 	}
@@ -160,6 +161,7 @@ func global_tonumber(args Args) (r []Val, err error) {
 	value := args.GetAny()
 	radix := uint64(args.GetNumber(10))
 	str, ok := AsString(value)
+
 	if !ok || radix < 2 || radix > 36 {
 		return args.Rets(NilVal), nil
 		// panic("base out of range") // invalid argument #2
@@ -200,6 +202,7 @@ func global_tonumber(args Args) (r []Val, err error) {
 	for _, c := range str {
 		n *= radix
 		index := strings.IndexRune(radixChars, c)
+
 		if index == -1 {
 			return args.Rets(NilVal), nil
 		}
@@ -253,7 +256,6 @@ func global_require(args Args) (r []Val, err error) {
 	path = strings.ReplaceAll(path, "\\", "/")
 
 	// fmt.Println("REQUIRING", path)
-
 	if path == fp {
 		return nil, errors.New("cyclic module dependency: file requires itself")
 	}
@@ -292,6 +294,7 @@ typeof: not much use without metatables
 func ipairs_iter(args Args) (r []Val, err error) {
 	a := args.GetTable()
 	i := args.GetNumber() + 1
+
 	if a.List == nil || int(i) > len(a.List) {
 		return
 	}
@@ -488,6 +491,7 @@ func num2str2(exponent int, fraction uint64, buf *bufPos) string {
 	const decend = 20 // significand needs at most 17 digits; the rest of the buffer may be copied using fixed length memcpy
 	// convert binary to decimal using Schubfach
 	// fmt.Print("Schubfach: ", exponent, fraction, "\n")
+
 	s, k := schubfach(exponent, fraction)
 	dec := &bufPos{[48]byte{}, decend}
 
@@ -506,6 +510,7 @@ func num2str2(exponent int, fraction uint64, buf *bufPos) string {
 		buf.pos += declen + 1
 
 		trimzero(buf)
+
 		if buf.Get(-1) == '.' {
 			buf.pos--
 		}
@@ -517,14 +522,17 @@ func num2str2(exponent int, fraction uint64, buf *bufPos) string {
 	if dot <= 0 {
 		buf.Set0('0')
 		buf.Set(1, '.')
+
 		for i := range -dot {
 			buf.Set(i+2, '0')
 		}
+
 		copy(buf.buf[buf.pos+2-dot:], dec.buf[dec.pos:])
 
 		buf.pos += 2 + -dot + declen
 
 		trimzero(buf)
+
 		return buf.String()
 	}
 
@@ -533,7 +541,6 @@ func num2str2(exponent int, fraction uint64, buf *bufPos) string {
 		copy(buf.buf[buf.pos:], dec.buf[dec.pos:])
 
 		// fmt.Println("no dot", dec, buf, dot, declen)
-
 		buf.pos += dot
 
 		return buf.String()
@@ -542,6 +549,7 @@ func num2str2(exponent int, fraction uint64, buf *bufPos) string {
 	if dot > declen {
 		// fmt.Println("no dot, zero padding", declen, dot)
 		copy(buf.buf[buf.pos:], dec.buf[dec.pos:])
+
 		for i := range dot - declen {
 			buf.Set(i+declen, '0')
 		}
@@ -557,6 +565,7 @@ func num2str2(exponent int, fraction uint64, buf *bufPos) string {
 	buf.pos += declen + 1
 
 	trimzero(buf)
+
 	return buf.String()
 }
 

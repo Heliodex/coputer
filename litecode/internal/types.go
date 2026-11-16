@@ -57,6 +57,7 @@ type (
 
 	Deserpath struct {
 		Deserialised
+
 		Dbgpath string
 	}
 

@@ -16,6 +16,7 @@ type (
 	Coroutine struct {
 		Function
 		Env
+
 		Filepath, Dbgpath string // actually does well here
 		RequireHistory []string // prevents cyclic module dependencies
 		YieldChan chan internal.Yield
@@ -26,6 +27,7 @@ type (
 		ProgramArgs // idk how
 
 		// rets is a reusable buffer for native function results, so returning a small list does not allocate. The caller must consume the returned slice before the next native call on this coroutine.
+
 		rets []Val
 	}
 )

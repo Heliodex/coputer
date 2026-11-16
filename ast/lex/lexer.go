@@ -132,7 +132,6 @@ func (l *Lexer) fixupMultilineString(data *[]byte) {
 
 	// This makes the string parsing behavior consistent with general lexing behavior - a standalone \r isn't considered a new line from the line
 	// tracking perspective
-
 	src := *data
 
 	// skip leading newline
@@ -171,6 +170,7 @@ func (l *Lexer) FixupMultilineString(data []byte) []byte {
 
 	copy(result, data)
 	l.fixupMultilineString(&result)
+
 	return result
 }
 
@@ -197,15 +197,18 @@ func (l *Lexer) position() Position {
 func (l *Lexer) readBackslashInString() {
 	LUAU_ASSERT(l.peekch0() == '\\')
 	l.consume()
+
 	switch l.peekch0() {
 	case '\r':
 		l.consume()
+
 		if l.peekch0() == '\n' {
 			l.consumeAny()
 		}
 	case 0:
 	case 'z':
 		l.consume()
+
 		for isSpace(l.peekch0()) {
 			l.consumeAny()
 		}
@@ -230,8 +233,10 @@ func (l *Lexer) readInterpolatedStringSection(start Position, formatType, endTyp
 				l.consume() // backslash
 				l.consume() // u
 				l.consume() // {
+
 				break
 			}
+
 			l.readBackslashInString()
 		case '{':
 			l.braceStack = append(l.braceStack, InterpolatedString)
@@ -246,9 +251,12 @@ func (l *Lexer) readInterpolatedStringSection(start Position, formatType, endTyp
 
 				l.consume()
 				l.consume()
+
 				return brokenDoubleBrace
 			}
+
 			l.consume()
+
 			return Lexeme{
 				Location: Location{start, l.position()},
 				Type: formatType,
@@ -259,7 +267,9 @@ func (l *Lexer) readInterpolatedStringSection(start Position, formatType, endTyp
 			l.consume()
 		}
 	}
+
 	l.consume()
+
 	return Lexeme{
 		Location: Location{start, l.position()},
 		Type: endType,
@@ -274,6 +284,7 @@ func (l *Lexer) readInterpolatedStringBegin() Lexeme {
 	start := l.position()
 
 	l.consume()
+
 	return l.readInterpolatedStringSection(start, InterpStringBegin, InterpStringSimple)
 }
 
@@ -284,6 +295,7 @@ func (l *Lexer) readName() NameTypePair {
 
 	for {
 		l.consume()
+
 		if !(isAlpha(l.peekch0()) || isDigit(l.peekch0()) || l.peekch0() == '_') {
 			break
 		}
@@ -304,6 +316,7 @@ func (l *Lexer) readNumber(start Position, startOffset uint32) Lexeme {
 	// to a number with proper verification.
 	for {
 		l.consume()
+
 		if !(isDigit(l.peekch0()) || l.peekch0() == '.' || l.peekch0() == '_') {
 			break
 		}
@@ -311,6 +324,7 @@ func (l *Lexer) readNumber(start Position, startOffset uint32) Lexeme {
 
 	if l.peekch0() == 'e' || l.peekch0() == 'E' {
 		l.consume()
+
 		if l.peekch0() == '+' || l.peekch0() == '-' {
 			l.consume()
 		}
@@ -350,6 +364,7 @@ func (l *Lexer) readQuotedString() Lexeme {
 			l.consume()
 		}
 	}
+
 	l.consume()
 
 	var aux int
@@ -389,12 +404,15 @@ func (l *Lexer) readUtf8Error() Lexeme {
 		codepoint = uint32(l.peekch0() & 0b111)
 	} else {
 		l.consume()
+
 		return Lexeme{
 			Location: Location{start, l.position()},
 			Type: BrokenUnicode,
 		}
 	}
+
 	l.consume()
+
 	for range size {
 		if l.peekch0()&0b11000000 != 0b10000000 {
 			return Lexeme{
@@ -459,6 +477,7 @@ func (l *Lexer) readLongString(start Position, sep int, ok, broken LexemeType) L
 				endOffset := l.offset - uint32(sep) - 2
 
 				LUAU_ASSERT(endOffset >= startOffset)
+
 				return Lexeme{
 					Location: Location{start, l.position()},
 					Type: ok,
@@ -534,6 +553,7 @@ func (l *Lexer) readNext() Lexeme {
 		case '>':
 			l.consume()
 			l.consume()
+
 			return Lexeme{
 				Location: LocationLen(start, 2),
 				Type: SkinnyArrow,
@@ -541,6 +561,7 @@ func (l *Lexer) readNext() Lexeme {
 		case '=':
 			l.consume()
 			l.consume()
+
 			return Lexeme{
 				Location: LocationLen(start, 2),
 				Type: SubAssign,
@@ -548,7 +569,9 @@ func (l *Lexer) readNext() Lexeme {
 		case '-':
 			return l.readCommentBody()
 		}
+
 		l.consume()
+
 		return Lexeme{
 			Location: LocationLen(start, 1),
 			Type: '-',
@@ -572,6 +595,7 @@ func (l *Lexer) readNext() Lexeme {
 		}
 	case '{':
 		l.consume()
+
 		if len(l.braceStack) != 0 {
 			l.braceStack = append(l.braceStack, Normal)
 		}
@@ -582,6 +606,7 @@ func (l *Lexer) readNext() Lexeme {
 		}
 	case '}':
 		l.consume()
+
 		if len(l.braceStack) == 0 {
 			return Lexeme{
 				Location: LocationLen(start, 1),
@@ -602,8 +627,10 @@ func (l *Lexer) readNext() Lexeme {
 		return l.readInterpolatedStringSection(start, InterpStringMid, InterpStringEnd)
 	case '=':
 		l.consume()
+
 		if l.peekch0() == '=' {
 			l.consume()
+
 			return Lexeme{
 				Location: LocationLen(start, 2),
 				Type: Equal,
@@ -616,8 +643,10 @@ func (l *Lexer) readNext() Lexeme {
 		}
 	case '<':
 		l.consume()
+
 		if l.peekch0() == '=' {
 			l.consume()
+
 			return Lexeme{
 				Location: LocationLen(start, 2),
 				Type: LessEqual,
@@ -630,8 +659,10 @@ func (l *Lexer) readNext() Lexeme {
 		}
 	case '>':
 		l.consume()
+
 		if l.peekch0() == '=' {
 			l.consume()
+
 			return Lexeme{
 				Location: LocationLen(start, 2),
 				Type: GreaterEqual,
@@ -644,8 +675,10 @@ func (l *Lexer) readNext() Lexeme {
 		}
 	case '~':
 		l.consume()
+
 		if l.peekch0() == '=' {
 			l.consume()
+
 			return Lexeme{
 				Location: LocationLen(start, 2),
 				Type: NotEqual,
@@ -662,17 +695,21 @@ func (l *Lexer) readNext() Lexeme {
 		return l.readInterpolatedStringBegin()
 	case '.':
 		l.consume()
+
 		if l.peekch0() == '.' {
 			l.consume()
+
 			switch l.peekch0() {
 			case '.':
 				l.consume()
+
 				return Lexeme{
 					Location: LocationLen(start, 3),
 					Type: Dot3,
 				}
 			case '=':
 				l.consume()
+
 				return Lexeme{
 					Location: LocationLen(start, 3),
 					Type: ConcatAssign,
@@ -695,8 +732,10 @@ func (l *Lexer) readNext() Lexeme {
 		}
 	case '+':
 		l.consume()
+
 		if l.peekch0() == '=' {
 			l.consume()
+
 			return Lexeme{
 				Location: LocationLen(start, 2),
 				Type: AddAssign,
@@ -709,17 +748,21 @@ func (l *Lexer) readNext() Lexeme {
 		}
 	case '/':
 		l.consume()
+
 		switch l.peekch0() {
 		case '=':
 			l.consume()
+
 			return Lexeme{
 				Location: LocationLen(start, 2),
 				Type: DivAssign,
 			}
 		case '/':
 			l.consume()
+
 			if l.peekch0() == '=' {
 				l.consume()
+
 				return Lexeme{
 					Location: LocationLen(start, 3),
 					Type: FloorDivAssign,
@@ -738,8 +781,10 @@ func (l *Lexer) readNext() Lexeme {
 		}
 	case '*':
 		l.consume()
+
 		if l.peekch0() == '=' {
 			l.consume()
+
 			return Lexeme{
 				Location: LocationLen(start, 2),
 				Type: MulAssign,
@@ -752,8 +797,10 @@ func (l *Lexer) readNext() Lexeme {
 		}
 	case '%':
 		l.consume()
+
 		if l.peekch0() == '=' {
 			l.consume()
+
 			return Lexeme{
 				Location: LocationLen(start, 2),
 				Type: ModAssign,
@@ -766,8 +813,10 @@ func (l *Lexer) readNext() Lexeme {
 		}
 	case '^':
 		l.consume()
+
 		if l.peekch0() == '=' {
 			l.consume()
+
 			return Lexeme{
 				Location: LocationLen(start, 2),
 				Type: PowAssign,
@@ -780,8 +829,10 @@ func (l *Lexer) readNext() Lexeme {
 		}
 	case ':':
 		l.consume()
+
 		if l.peekch0() == ':' {
 			l.consume()
+
 			return Lexeme{
 				Location: LocationLen(start, 2),
 				Type: DoubleColon,
@@ -796,6 +847,7 @@ func (l *Lexer) readNext() Lexeme {
 		ch := l.peekch0()
 
 		l.consume()
+
 		return Lexeme{
 			Location: LocationLen(start, 1),
 			Type: LexemeType(ch),
@@ -835,6 +887,7 @@ func (l *Lexer) readNext() Lexeme {
 	ch := l.peekch0()
 
 	l.consume()
+
 	return Lexeme{
 		Location: LocationLen(start, 1),
 		Type: LexemeType(ch),
@@ -983,6 +1036,7 @@ func (l *Lexer) fixupQuotedString(data *[]byte) bool {
 			(*data)[write] = (*data)[i]
 			write++
 			i++
+
 			continue
 		}
 
@@ -1089,6 +1143,7 @@ func (l *Lexer) fixupQuotedString(data *[]byte) bool {
 
 			i++
 			utf8 := toUtf8((*data)[write:][:4], code)
+
 			if utf8 == 0 {
 				return false
 			}
@@ -1119,6 +1174,7 @@ func (l *Lexer) fixupQuotedString(data *[]byte) bool {
 			}
 		}
 	}
+
 	LUAU_ASSERT(write <= size)
 
 	*data = (*data)[:write]

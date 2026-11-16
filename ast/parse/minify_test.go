@@ -31,6 +31,7 @@ func TestMinification(t *testing.T) {
 		t.Log(" -- Testing", name, "--")
 
 		filename := fmt.Sprintf("../%s/%s", FormattingDir, name)
+
 		content, err := os.ReadFile(filename + Ext)
 		if err != nil {
 			t.Fatal("error reading test file:", err)
@@ -44,6 +45,7 @@ func TestMinification(t *testing.T) {
 
 		// minified files are expected to end with a newline
 		got := formatAST(res).Root.Minify() + "\n"
+
 		expectedBytes, err := os.ReadFile(filename + MinifiedOutSuffix + Ext)
 		if err != nil {
 			t.Fatal("error reading expected output:", err)
@@ -78,6 +80,7 @@ func TestMinificationIdempotent(t *testing.T) {
 		t.Log(" -- Testing", name, "--")
 
 		filename := fmt.Sprintf("../%s/%s%s", FormattingDir, name, MinifiedOutSuffix)
+
 		content, err := os.ReadFile(filename + Ext)
 		if err != nil {
 			t.Fatal("error reading minified file:", err)
@@ -85,10 +88,12 @@ func TestMinificationIdempotent(t *testing.T) {
 
 		expected := strings.ReplaceAll(string(content), "\r\n", "\n")
 		ok, res := Parse(expected, Options{})
+
 		if !ok {
 			t.Errorf("%s: error parsing minified file: %v", name, res.Errors)
 			continue
 		}
+
 		compareSource(t, name, formatAST(res).Root.Minify()+"\n", expected)
 	}
 }
@@ -412,6 +417,7 @@ func minifyFiles(t *testing.T, dir string) {
 		}
 
 		name := trimext(fn)
+
 		content, err := os.ReadFile("../" + dir + "/" + name + Ext)
 		if err != nil {
 			t.Fatal("error reading file:", err)
@@ -425,6 +431,7 @@ func minifyFiles(t *testing.T, dir string) {
 
 		minified := formatAST(res).Root.Minify()
 		ok, res2 := Parse(minified, Options{})
+
 		if !ok {
 			t.Errorf("%s/%s: generated minified code failed to parse: %v\n--- minified\n%s", dir, name, res2.Errors, minified)
 			continue

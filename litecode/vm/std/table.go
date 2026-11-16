@@ -38,7 +38,6 @@ func bumpelements(t *Table, start int) {
 	// fmt.Println("BEFORE", start)
 	// fmt.Println(t)
 	// fmt.Println()
-
 	var keys int
 
 	for i := start; ; i++ {
@@ -50,7 +49,6 @@ func bumpelements(t *Table, start int) {
 	}
 
 	// fmt.Println("keys", keys)
-
 	for k := keys; k >= start; k-- {
 		// fmt.Println("moving key", k+1, "=", t.Get(k))
 		t.SetInt(k+1, t.GetInt(k))
@@ -99,7 +97,6 @@ func maxHash(hash map[Val]Val) (maxn float64) {
 func sort_less(t *Table, i, j int, c comp) (res bool, err error) {
 	a, n := t.List, len(t.List)
 	// LUAU_ASSERT(unsigned(i) < unsigned(n) && unsigned(j) < unsigned(n)) // contract maintained in sort_less after predicate call
-
 	res, err = c(a[i], a[j])
 
 	// predicate call may resize the table, which is invalid
@@ -148,6 +145,7 @@ func sort_siftheap(t *Table, l, u int, c comp, root int) (err error) {
 		if next == root {
 			break
 		}
+
 		sort_swap(t, l+root, l+next)
 
 		root = next
@@ -201,6 +199,7 @@ func sort_rec(t *Table, l, u, limit int, c comp) (err error) {
 		}
 
 		m := l + (u-l)>>1 // midpoint
+
 		if r, err := sort_less(t, m, l, c); err != nil {
 			return err
 		} else if r { // a[m]<a[l]?
@@ -221,6 +220,7 @@ func sort_rec(t *Table, l, u, limit int, c comp) (err error) {
 		sort_swap(t, m, u-1) // pivot is now (and always) at u-1
 
 		// a[l] <= P == a[u-1] <= a[u], only need to sort from l+1 to u-2
+
 		i := l
 		j := u - 1
 
@@ -259,6 +259,7 @@ func sort_rec(t *Table, l, u, limit int, c comp) (err error) {
 			if j < i {
 				break
 			}
+
 			sort_swap(t, i, j)
 		}
 
@@ -310,6 +311,7 @@ func table_concat(args Args) (r []Val, err error) {
 	sep := args.GetString("")
 	i := args.GetNumber(1)
 	j := args.GetNumber(float64(t.Len()))
+
 	if i > j {
 		return args.Rets(Str("")), nil
 	}
@@ -319,11 +321,14 @@ func table_concat(args Args) (r []Val, err error) {
 	for ; i <= j; i++ {
 		v := t.GetFloat(i)
 		sv, ok := AsString(v)
+
 		if !ok {
 			// return nil, errors.New("attempt to concatenate non-string value")
 			return nil, fmt.Errorf("invalid value (%s) at index %d in table for 'concat'", TypeOf(v), int(i))
 		}
+
 		b.WriteString(sv)
+
 		if i < j {
 			b.WriteString(sep)
 		}
@@ -368,6 +373,7 @@ func table_find(args Args) (r []Val, err error) {
 	haystack := args.GetTable()
 	needle := args.GetAny()
 	init := args.GetNumber(1)
+
 	if init < 1 {
 		return nil, errors.New("invalid argument #3 to 'find' (index out of range)")
 	}
@@ -408,6 +414,7 @@ func table_insert(args Args) (r []Val, err error) {
 
 		// fmt.Println("bumping elements up", pos)
 		// move elements up if necessary
+
 		if pos = int(p); n > 0 && 1 <= pos && pos <= n {
 			bumpelements(t, pos)
 		}
@@ -418,6 +425,7 @@ func table_insert(args Args) (r []Val, err error) {
 	v := args.GetAny()
 
 	t.SetInt(pos, v)
+
 	return
 }
 
@@ -451,6 +459,7 @@ func table_move(args Args) (r []Val, err error) {
 	src := args.GetTable()
 	a, b, t := int(args.GetNumber()), int(args.GetNumber()), int(args.GetNumber())
 	dst := args.GetTable(src)
+
 	if dst.Readonly {
 		return nil, errReadonly
 	}
@@ -485,6 +494,7 @@ func table_remove(args Args) (r []Val, err error) {
 		for i := ipos; i < l; i++ {
 			t.SetInt(i, t.GetInt(i+1))
 		}
+
 		t.SetInt(l, NilVal)
 	}
 
@@ -529,6 +539,7 @@ func table_unpack(args Args) (r []Val, err error) {
 	list := args.GetTable()
 	i := args.GetNumber(1)
 	e := args.GetNumber(float64(list.Len()))
+
 	if i > e {
 		return // empty range
 	}

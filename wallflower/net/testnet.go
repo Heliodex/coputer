@@ -21,6 +21,7 @@ func (n *TestNet) sendToReceiver(addr keys.Address, msg EncryptedMsg) {
 func (n *TestNet) receiveFromSender(s Sender) {
 	for msg := range s {
 		addr := msg.Peer.MainAddr // TestNet only uses main addresses
+
 		n.sendToReceiver(addr, msg.EncryptedMsg)
 	}
 }

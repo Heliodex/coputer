@@ -13,6 +13,7 @@ import (
 
 type Program struct {
 	internal.Deserpath
+
 	Filepath string
 	Compiler Compiler
 	RequireHistory []string

@@ -134,12 +134,12 @@ func (t *Table) setHash(k, v Val) {
 // SetInt sets a value at an integer index, placing it into the List part or the Hash part and resizing each as appropriate.
 func (t *Table) SetInt(i int, v Val) {
 	// fmt.Println("SetInt", i, v)
-
 	if t.List == nil {
 		if i == 1 {
 			t.List = []Val{v}
 
 			t.moveToList(0)
+
 			return
 		}
 	} else if l := len(t.List); 0 < i && i < l+1 {
@@ -165,6 +165,7 @@ func (t *Table) SetInt(i int, v Val) {
 		t.List = append(t.List, v)
 
 		t.moveToList(l)
+
 		return
 	}
 
@@ -182,10 +183,13 @@ func (t *Table) Set(k, v Val) {
 
 				return
 			}
+
 			t.SetInt(ik, v)
+
 			return
 		}
 	}
+
 	t.setHash(k, v)
 }
 
@@ -274,6 +278,7 @@ func (t *Table) orderedKeys() []orderedKey {
 	for k := range t.Hash {
 		keys = append(keys, newOrderedKey(k))
 	}
+
 	slices.SortFunc(keys, compareOrderedKeys)
 
 	t.orderedHash = keys

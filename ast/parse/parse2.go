@@ -43,6 +43,7 @@ func (p *Parser) parse() {
 	result := p.parseBlockNoScope()
 
 	p.restoreLocals(localsBegin)
+
 	if p.token_type != lex.Eof {
 		p.expectAndConsumeFail(lex.Eof, nil)
 	}

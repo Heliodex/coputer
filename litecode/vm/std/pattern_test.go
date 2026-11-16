@@ -49,6 +49,7 @@ func benchFind(b *testing.B, p string) {
 	s := strings.Repeat("a", 1<<20)
 
 	b.SetBytes(int64(len(s)))
+
 	for b.Loop() {
 		r, err := stringFindAux(s, p, 1, false, true)
 		if err != nil {

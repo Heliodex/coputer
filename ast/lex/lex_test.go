@@ -315,7 +315,6 @@ func TestLookahead(t *testing.T) {
 	}
 
 	lexer.Next0() // must call next() before reading data from lexer at least once
-
 	CHECK_EQ(t, lexer.Current().Type, Name)
 	CHECK_EQ(t, *lexer.Current().name, "foo")
 	CHECK_EQ(t, lexer.Lookahead().Type, Name)
@@ -373,6 +372,7 @@ func TestQuotedStringHexEscape(t *testing.T) {
 	if !ok {
 		t.Fatal("expected hex escape sequence to be valid")
 	}
+
 	CHECK_EQ(t, string(fixed), "A\x00")
 }
 

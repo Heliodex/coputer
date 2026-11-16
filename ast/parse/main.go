@@ -17,10 +17,13 @@ func main() {
 	ok, res := Parse(string(content), Options{})
 	if !ok {
 		fmt.Fprintln(os.Stderr, "parse failed with errors:")
+
 		for _, err := range res.Errors {
 			fmt.Fprintf(os.Stderr, "- %s at %s\n", err.Message, err.Location)
 		}
+
 		os.Exit(1)
 	}
+
 	fmt.Println(formatAST(res).Root.Source())
 }

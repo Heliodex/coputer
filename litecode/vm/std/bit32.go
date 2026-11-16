@@ -59,6 +59,7 @@ func b_shift(r uint32, i int) uint32 {
 func bit32_arshift(args Args) (r []Val, err error) {
 	x := uint32(args.GetNumber())
 	i := int(args.GetNumber())
+
 	if i < 0 || x&(1<<(nbits-1)) == 0 {
 		return args.Rets(Num(float64(b_shift(x, -i)))), nil
 	}
@@ -178,6 +179,7 @@ func fieldargs(args Args) (f, w int, err error) {
 
 func bit32_extract(args Args) (r []Val, err error) {
 	x := uint32(args.GetNumber())
+
 	f, w, err := fieldargs(args)
 	if err != nil {
 		return args.Rets(Str(err.Error()), Bool(false)), nil
@@ -189,6 +191,7 @@ func bit32_extract(args Args) (r []Val, err error) {
 func bit32_replace(args Args) (r []Val, err error) {
 	x := uint32(args.GetNumber())
 	v := uint32(args.GetNumber())
+
 	f, w, err := fieldargs(args)
 	if err != nil {
 		return args.Rets(Str(err.Error()), Bool(false)), nil
@@ -196,5 +199,6 @@ func bit32_replace(args Args) (r []Val, err error) {
 
 	m := bitmask(w)
 	v &= m // erase bits outside given width
+
 	return args.Rets(Num(float64(x & ^(m<<f) | v<<f)), Bool(true)), nil
 }
