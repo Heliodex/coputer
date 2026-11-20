@@ -1,6 +1,4 @@
-local function deserialise(
-	s: string
-): Thing
+local function deserialise(s: string): Thing
 	if string.sub(s, 1, 1) ~= "{" then
 		local n = tonumber(s)
 
