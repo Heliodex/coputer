@@ -36,7 +36,7 @@ type Parser struct {
 	pendingComments []Comment
 	hotcomments []HotComment
 	parseErrors []ParseError
-	cstNodes map[AstNode]CstNode
+	cstNodes map[CstKey]CstNode
 	recursionCounter int
 	hotcommentHeader bool
 

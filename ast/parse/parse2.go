@@ -17,7 +17,7 @@ func (p *Parser) parse() {
 	p.pendingComments = nil
 	p.hotcomments = nil
 	p.parseErrors = nil
-	p.cstNodes = map[AstNode]CstNode{}
+	p.cstNodes = map[CstKey]CstNode{}
 	p.declaredExportBindings = map[string]lex.Location{}
 	p.hasModuleReturn = false
 	p.hotcommentHeader = true

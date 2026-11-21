@@ -52,7 +52,7 @@ type (
 		Root AstStatBlock
 		CommentLocations []Comment
 		HotComments []HotComment
-		CstNodeMap map[AstNode]CstNode
+		CstNodeMap map[CstKey]CstNode
 		Errors []ParseError
 	}
 )

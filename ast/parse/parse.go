@@ -820,7 +820,7 @@ func (p *Parser) parseNumber() AstExprConstantNumberOrError {
 		}
 
 		if p.storeCstData {
-			p.cstNodes[node] = CstExprConstantInteger{
+			p.cstNodes[cstKeyOf(node)] = CstExprConstantInteger{
 				Value: sourceData,
 			}
 		}
@@ -944,7 +944,7 @@ func (p *Parser) parseNumber() AstExprConstantNumberOrError {
 	}
 
 	if p.storeCstData {
-		p.cstNodes[node] = CstExprConstantNumber{
+		p.cstNodes[cstKeyOf(node)] = CstExprConstantNumber{
 			Value: sourceData,
 		}
 	}
@@ -994,7 +994,7 @@ func (p *Parser) parseString() AstExprConstantStringOrError {
 		}
 
 		if p.storeCstData {
-			p.cstNodes[node] = CstExprConstantString{
+			p.cstNodes[cstKeyOf(node)] = CstExprConstantString{
 				SourceString: originalString,
 				QuoteStyle: int(fullStyle),
 				BlockDepth: blockDepth,
@@ -2014,7 +2014,7 @@ func (p *Parser) parseRepeat() *AstStatRepeat {
 	}
 
 	if p.storeCstData {
-		p.cstNodes[node] = CstStatRepeat{
+		p.cstNodes[cstKeyOf(node)] = CstStatRepeat{
 			UntilPosition: untilPosition,
 		}
 	}
@@ -2040,7 +2040,7 @@ func (p *Parser) parseDo() *AstStatBlock {
 	}
 
 	if p.storeCstData {
-		p.cstNodes[body] = CstStatDo{
+		p.cstNodes[cstKeyOf(body)] = CstStatDo{
 			EndPosition: endLocation.Begin,
 		}
 	}
@@ -2118,7 +2118,7 @@ func (p *Parser) parseFor() AstStatForOrForIn {
 		}
 
 		if p.storeCstData {
-			p.cstNodes[node] = CstStatFor{
+			p.cstNodes[cstKeyOf(node)] = CstStatFor{
 				AnnotationColonPosition: varname.ColonPosition,
 				EqualsPosition: equalsPosition,
 				EndCommaPosition: endCommaPosition,
@@ -2191,7 +2191,7 @@ func (p *Parser) parseFor() AstStatForOrForIn {
 	}
 
 	if p.storeCstData {
-		p.cstNodes[node] = CstStatForIn{
+		p.cstNodes[cstKeyOf(node)] = CstStatForIn{
 			VarsAnnotationColonPositions: extractAnnotationColonPositions(*names),
 			VarsCommaPositions: *varsCommaPosition,
 			ValuesCommaPositions: *varsCommaPosition, // TODO: check lel
@@ -2231,7 +2231,7 @@ func (p *Parser) parseFunctionStat(attributes Attrs) *AstStatFunction {
 	}
 
 	if p.storeCstData {
-		p.cstNodes[node] = CstStatFunction{
+		p.cstNodes[cstKeyOf(node)] = CstStatFunction{
 			FunctionKeywordPosition: matchFunction.Location.Begin,
 		}
 	}
@@ -2527,7 +2527,7 @@ func (p *Parser) parseLocal(start lex.Location, keywordPosition lex.Position, at
 		}
 
 		if p.storeCstData {
-			p.cstNodes[node] = CstStatLocalFunction{
+			p.cstNodes[cstKeyOf(node)] = CstStatLocalFunction{
 				LocalKeywordPosition: localKeywordPosition,
 				FunctionKeywordPosition: functionKeywordPosition,
 			}
@@ -2610,7 +2610,7 @@ func (p *Parser) parseLocal(start lex.Location, keywordPosition lex.Position, at
 	}
 
 	if p.storeCstData {
-		p.cstNodes[node] = CstStatLocal{
+		p.cstNodes[cstKeyOf(node)] = CstStatLocal{
 			VarsAnnotationColonPositions: extractAnnotationColonPositions(names),
 			VarsCommaPositions: varsCommaPositions,
 			ValuesCommaPositions: valuesCommaPositions,
@@ -2669,7 +2669,7 @@ func (p *Parser) parseReturn() *AstStatReturn {
 	}
 
 	if p.storeCstData {
-		p.cstNodes[node] = CstStatReturn{
+		p.cstNodes[cstKeyOf(node)] = CstStatReturn{
 			CommaPositions: commaPositions,
 		}
 	}
@@ -2743,7 +2743,7 @@ func (p *Parser) parseTypeAlias(start lex.Location, exported bool, typeKeywordPo
 	}
 
 	if p.storeCstData {
-		p.cstNodes[node] = CstStatTypeAlias{
+		p.cstNodes[cstKeyOf(node)] = CstStatTypeAlias{
 			TypeKeywordPosition: typeKeywordPosition,
 			GenericsOpenPosition: genericsOpenPosRef,
 			GenericsCommaPositions: genericsCommaPos,
@@ -2801,7 +2801,7 @@ func (p *Parser) parseTypeFunction(start lex.Location, exported bool, typeKeywor
 	}
 
 	if p.storeCstData {
-		p.cstNodes[node] = CstStatTypeFunction{
+		p.cstNodes[cstKeyOf(node)] = CstStatTypeFunction{
 			TypeKeywordPosition: typeKeywordPosition,
 			FunctionKeywordPosition: matchFn.Location.Begin,
 		}
@@ -2888,7 +2888,7 @@ func (p *Parser) parseAssignment(initial AstExpr) *AstStatAssign {
 	}
 
 	if p.storeCstData {
-		p.cstNodes[node] = CstStatAssign{
+		p.cstNodes[cstKeyOf(node)] = CstStatAssign{
 			VarsCommaPositions: varsCommaPositions,
 			EqualsPosition: equalsPosition,
 			ValuesCommaPositions: valuesCommaPositions,
@@ -2922,7 +2922,7 @@ func (p *Parser) parseCompoundAssignment(initial AstExpr, op BinaryOp) *AstStatC
 	}
 
 	if p.storeCstData {
-		p.cstNodes[node] = CstStatCompoundAssign{
+		p.cstNodes[cstKeyOf(node)] = CstStatCompoundAssign{
 			OpPosition: opPosition,
 		}
 	}
@@ -3119,7 +3119,7 @@ func (p *Parser) parseFunctionBody(hasself bool, matchFunction lex.Lexeme, debug
 
 	if p.storeCstData && cstExprFunc != nil {
 		cstExprFunc.ArgsAnnotationColonPositions = extractAnnotationColonPositions(args)
-		p.cstNodes[node] = *cstExprFunc
+		p.cstNodes[cstKeyOf(node)] = *cstExprFunc
 	}
 
 	return node, funLocal
@@ -3385,7 +3385,7 @@ func (p *Parser) parseReturnType() AstTypePack {
 		}
 
 		if p.storeCstData {
-			p.cstNodes[node] = CstTypePackExplicit{
+			p.cstNodes[cstKeyOf(node)] = CstTypePackExplicit{
 				OpenParenthesesPosition: openPos,
 				CloseParenthesesPosition: closePos,
 			}
@@ -3464,7 +3464,7 @@ func (p *Parser) parseReturnType() AstTypePack {
 
 			if openPos := begin.Location.Begin; p.storeCstData {
 				cp := commaPositions
-				p.cstNodes[node] = CstTypePackExplicit{
+				p.cstNodes[cstKeyOf(node)] = CstTypePackExplicit{
 					OpenParenthesesPosition: &openPos,
 					CloseParenthesesPosition: &closeParenPos,
 					CommaPositions: &cp,
@@ -3502,7 +3502,7 @@ func (p *Parser) parseReturnType() AstTypePack {
 
 		if p.storeCstData {
 			cp := commaPositions
-			p.cstNodes[node] = CstTypePackExplicit{
+			p.cstNodes[cstKeyOf(node)] = CstTypePackExplicit{
 				OpenParenthesesPosition: &openPos,
 				CloseParenthesesPosition: &closeParenPos,
 				CommaPositions: &cp,
@@ -3537,14 +3537,14 @@ func (p *Parser) parseReturnType() AstTypePack {
 
 	if p.storeCstData {
 		cp := commaPositions
-		p.cstNodes[node] = CstTypePackExplicit{
+		p.cstNodes[cstKeyOf(node)] = CstTypePackExplicit{
 			OpenParenthesesPosition: &openPos,
 			CloseParenthesesPosition: &closeParenPos,
 			CommaPositions: &cp,
 		}
 
 		// Override function type CST with return-type position info
-		p.cstNodes[tail] = CstTypeFunction{
+		p.cstNodes[cstKeyOf(tail)] = CstTypeFunction{
 			OpenArgsPosition: begin.Location.Begin,
 			ArgumentNameColonPositions: nameColonPositions,
 			ArgumentsCommaPositions: commaPositions,
@@ -3806,7 +3806,7 @@ func (p *Parser) parseTableType(inDeclarationContext bool) AstTypeTable {
 	p.attachTypeTableComments(&node)
 
 	if p.storeCstData {
-		p.cstNodes[node] = CstTypeTable{
+		p.cstNodes[cstKeyOf(node)] = CstTypeTable{
 			Items: cstItems,
 			IsArray: indexer != nil && len(props) == 0,
 		}
@@ -3885,7 +3885,7 @@ func (p *Parser) parseFunctionType(allowPack bool, attributes Attrs) (AstType, A
 			}
 
 			if openPos := paramStart.Location.Begin; p.storeCstData {
-				p.cstNodes[node] = CstTypePackExplicit{
+				p.cstNodes[cstKeyOf(node)] = CstTypePackExplicit{
 					OpenParenthesesPosition: &openPos,
 					CloseParenthesesPosition: &closeArgsPos,
 					CommaPositions: &cp,
@@ -3928,7 +3928,7 @@ func (p *Parser) parseFunctionType(allowPack bool, attributes Attrs) (AstType, A
 		}
 
 		if openPos := paramStart.Location.Begin; p.storeCstData {
-			p.cstNodes[node] = CstTypePackExplicit{
+			p.cstNodes[cstKeyOf(node)] = CstTypePackExplicit{
 				OpenParenthesesPosition: &openPos,
 				CloseParenthesesPosition: &closeArgsPos,
 				CommaPositions: &cp,
@@ -3949,7 +3949,7 @@ func (p *Parser) parseFunctionType(allowPack bool, attributes Attrs) (AstType, A
 	node := p.parseFunctionTypeTail(begin, attributes, generics, genericPacks, params, names, tailPtr)
 
 	if p.storeCstData {
-		p.cstNodes[node] = CstTypeFunction{
+		p.cstNodes[cstKeyOf(node)] = CstTypeFunction{
 			OpenGenericsPosition: openGenPosRef,
 			GenericsCommaPositions: genCommaPos,
 			CloseGenericsPosition: closeGenPosRef,
@@ -4124,7 +4124,7 @@ loop:
 		}
 
 		if p.storeCstData {
-			p.cstNodes[node] = CstTypeUnion{
+			p.cstNodes[cstKeyOf(node)] = CstTypeUnion{
 				LeadingPosition: leadingPosition,
 				SeparatorPositions: separatorPositions,
 			}
@@ -4139,7 +4139,7 @@ loop:
 	}
 
 	if p.storeCstData {
-		p.cstNodes[node] = CstTypeIntersection{
+		p.cstNodes[cstKeyOf(node)] = CstTypeIntersection{
 			LeadingPosition: leadingPosition,
 			SeparatorPositions: separatorPositions,
 		}
@@ -4269,7 +4269,7 @@ func (p *Parser) parseSimpleType(allowPack, inDeclarationContext bool) (AstType,
 			}
 
 			if p.storeCstData {
-				p.cstNodes[node] = CstTypeTypeof{
+				p.cstNodes[cstKeyOf(node)] = CstTypeTypeof{
 					OpenPosition: typeofBegin.Location.Begin,
 					ClosePosition: endLoc.Begin,
 				}
@@ -4313,7 +4313,7 @@ func (p *Parser) parseSimpleType(allowPack, inDeclarationContext bool) (AstType,
 		}
 
 		if p.storeCstData {
-			p.cstNodes[node] = CstTypeReference{
+			p.cstNodes[cstKeyOf(node)] = CstTypeReference{
 				PrefixPointPosition: prefixPointPos,
 				OpenParametersPosition: openPosRef,
 				ParametersCommaPositions: commaPos,
@@ -4372,7 +4372,7 @@ func (p *Parser) parseVariadicArgumentTypePack() AstTypePackVariadicOrGeneric {
 		}
 
 		if p.storeCstData {
-			p.cstNodes[node] = CstTypePackGeneric{
+			p.cstNodes[cstKeyOf(node)] = CstTypePackGeneric{
 				EllipsisPosition: ellipsisPos,
 			}
 		}
@@ -4426,7 +4426,7 @@ func (p *Parser) parseTypePack() AstTypePackVariadicOrGeneric {
 		}
 
 		if p.storeCstData {
-			p.cstNodes[node] = CstTypePackGeneric{
+			p.cstNodes[cstKeyOf(node)] = CstTypePackGeneric{
 				EllipsisPosition: ellipsisPos,
 			}
 		}
@@ -4544,7 +4544,7 @@ func (p *Parser) parseExpr(limit int) (expr AstExpr) {
 		}
 
 		if p.storeCstData {
-			p.cstNodes[node] = CstExprOp{
+			p.cstNodes[cstKeyOf(node)] = CstExprOp{
 				OpPosition: opPosition,
 			}
 		}
@@ -4581,7 +4581,7 @@ func (p *Parser) parseExpr(limit int) (expr AstExpr) {
 		}
 
 		if p.storeCstData {
-			p.cstNodes[node] = CstExprOp{
+			p.cstNodes[cstKeyOf(node)] = CstExprOp{
 				OpPosition: opPosition,
 			}
 		}
@@ -4689,7 +4689,7 @@ func (p *Parser) parseExplicitTypeInstantiationExpr(start lex.Position, basedOnE
 	}
 
 	if p.storeCstData {
-		p.cstNodes[expr] = CstExprExplicitTypeInstantiation{
+		p.cstNodes[cstKeyOf(expr)] = CstExprExplicitTypeInstantiation{
 			Instantiation: cstInstantiation,
 		}
 	}
@@ -4748,7 +4748,7 @@ func (p *Parser) parsePrimaryExpr(asStatement bool) AstExpr {
 			}
 
 			if p.storeCstData {
-				p.cstNodes[e] = CstExprIndexExpr{
+				p.cstNodes[cstKeyOf(e)] = CstExprIndexExpr{
 					OpenBracketPosition: openBracket,
 					CloseBracketPosition: closeBracket,
 				}
@@ -4799,9 +4799,9 @@ func (p *Parser) parsePrimaryExpr(asStatement bool) AstExpr {
 
 				if p.storeCstData && cstInstantiation != nil {
 					if ce, ok := callExpr.(AstExprCall); ok {
-						if cstCall, ok2 := p.cstNodes[ce].(CstExprCall); ok2 {
+						if cstCall, ok2 := p.cstNodes[cstKeyOf(ce)].(CstExprCall); ok2 {
 							cstCall.ExplicitTypes = cstInstantiation
-							p.cstNodes[ce] = cstCall
+							p.cstNodes[cstKeyOf(ce)] = cstCall
 						}
 					}
 				}
@@ -4857,7 +4857,7 @@ func (p *Parser) parseAssertionExpr() AstExpr {
 		}
 
 		if p.storeCstData {
-			p.cstNodes[node] = CstExprTypeAssertion{
+			p.cstNodes[cstKeyOf(node)] = CstExprTypeAssertion{
 				OpPosition: opPos,
 			}
 		}
@@ -4998,7 +4998,7 @@ func (p *Parser) parseFunctionArgs(funcExpr AstExpr, selfCall bool) AstExpr {
 		}
 
 		if p.storeCstData {
-			p.cstNodes[result] = CstExprCall{
+			p.cstNodes[cstKeyOf(result)] = CstExprCall{
 				OpenParens: &parenBegin,
 				CloseParens: &closeParen,
 				CommaPositions: commaPositions,
@@ -5027,7 +5027,7 @@ func (p *Parser) parseFunctionArgs(funcExpr AstExpr, selfCall bool) AstExpr {
 		}
 
 		if p.storeCstData {
-			p.cstNodes[result] = CstExprCall{
+			p.cstNodes[cstKeyOf(result)] = CstExprCall{
 				CommaPositions: []lex.Position{},
 			}
 		}
@@ -5050,7 +5050,7 @@ func (p *Parser) parseFunctionArgs(funcExpr AstExpr, selfCall bool) AstExpr {
 		}
 
 		if p.storeCstData {
-			p.cstNodes[result] = CstExprCall{
+			p.cstNodes[cstKeyOf(result)] = CstExprCall{
 				CommaPositions: []lex.Position{},
 			}
 		}
@@ -5237,7 +5237,7 @@ func (p *Parser) parseTableConstructor() AstExprTable {
 	p.attachTableComments(&node)
 
 	if p.storeCstData {
-		p.cstNodes[node] = CstExprTable{
+		p.cstNodes[cstKeyOf(node)] = CstExprTable{
 			Items: cstItems,
 		}
 	}
@@ -5287,7 +5287,7 @@ func (p *Parser) parseIfElseExpr() AstExprIfElse {
 	}
 
 	if p.storeCstData {
-		p.cstNodes[node] = CstExprIfElse{
+		p.cstNodes[cstKeyOf(node)] = CstExprIfElse{
 			ThenPosition: thenPosition,
 			ElsePosition: elsePosition,
 			IsElseIf: isElseIf,
@@ -5360,7 +5360,7 @@ func (p *Parser) parseIfElseExprLocalCondition(start lex.Location) AstExprIfElse
 	}
 
 	if p.storeCstData {
-		p.cstNodes[node] = CstExprIfElse{
+		p.cstNodes[cstKeyOf(node)] = CstExprIfElse{
 			ThenPosition: thenPosition,
 			ElsePosition: elsePosition,
 			IsElseIf: isElseIf,
@@ -5475,7 +5475,7 @@ func (p *Parser) parseInterpString() AstExprInterpStringOrError {
 			}
 
 			if p.storeCstData {
-				p.cstNodes[node] = CstExprInterpString{
+				p.cstNodes[cstKeyOf(node)] = CstExprInterpString{
 					SourceStrings: sourceStrings,
 					StringPositions: stringPositions,
 				}
@@ -5514,7 +5514,7 @@ func (p *Parser) parseInterpString() AstExprInterpStringOrError {
 	}
 
 	if p.storeCstData {
-		p.cstNodes[node] = CstExprInterpString{
+		p.cstNodes[cstKeyOf(node)] = CstExprInterpString{
 			SourceStrings: sourceStrings,
 			StringPositions: stringPositions,
 		}
