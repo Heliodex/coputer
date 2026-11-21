@@ -204,7 +204,7 @@ func run(paths []string, write bool) error {
 
 // usage prints how to use the formatter.
 func usage() {
-	fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [-w] [-semicolons] [path]\n\nFormat Luau source read from stdin, or the .luau file at path.\nWith -w, write the result back in place instead of printing it. When path is a directory, format every .luau file inside it, in its subdirectories too.\nWith -semicolons, the commas of a table on one line are written as semicolons, so migrating code keeps its diffs small.\n\n", filepath.Base(os.Args[0]))
+	fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [-w] [-semicolons] [-split-logical] [path]\n\nFormat Luau source read from stdin, or the .luau file at path.\nWith -w, write the result back in place instead of printing it. When path is a directory, format every .luau file inside it, in its subdirectories too.\nWith -semicolons, the commas of a table on one line are written as semicolons, so migrating code keeps its diffs small.\nWith -split-logical, an and or or chain of two or more operators that is already on several lines is split with one operand to a line.\n\n", filepath.Base(os.Args[0]))
 	flag.PrintDefaults()
 }
 
@@ -212,11 +212,13 @@ func usage() {
 func main() {
 	write := flag.Bool("w", false, "write formatted files in place instead of printing them")
 	semicolons := flag.Bool("semicolons", false, "write the commas of a table on one line as semicolons")
+	splitLogical := flag.Bool("split-logical", false, "split an and or or chain of two or more operators that is already on several lines, one operand to a line")
 
 	flag.Usage = usage
 	flag.Parse()
 
 	semicolonsOnOneLine = *semicolons
+	splitMultilineLogical = *splitLogical
 
 	if err := run(flag.Args(), *write); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)

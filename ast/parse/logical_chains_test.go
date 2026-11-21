@@ -30,3 +30,35 @@ func TestLogicalChains(t *testing.T) {
 		}
 	}
 }
+
+// TestLogicalChainsMultiline checks -split-logical: a chain of two or more operators that is already on several lines is split, and one on a single line is not, even when it starts with true.
+func TestLogicalChainsMultiline(t *testing.T) {
+	cases := []struct {
+		name string
+		src string
+		flag bool
+		want string
+	}{
+		{name: "a multi-line chain is split with the flag", src: "local a = x and\n\ty and\n\tz\n", flag: true, want: "local a = x\n\tand y\n\tand z"},
+		{name: "a multi-line chain is kept without the flag", src: "local a = x and\n\ty and\n\tz\n", flag: false, want: "local a = x and y and z"},
+		{name: "a chain of two operands is not split", src: "local a = x and\n\ty\n", flag: true, want: "local a = x and y"},
+		{name: "a single-line chain is not split", src: "local a = x or y or z\n", flag: true, want: "local a = x or y or z"},
+	}
+
+	for _, tc := range cases {
+		splitMultilineLogical = tc.flag
+
+		got, err := formatSource(tc.src)
+
+		splitMultilineLogical = false
+
+		if err != nil {
+			t.Errorf("%s: error formatting: %v", tc.name, err)
+			continue
+		}
+
+		if got != tc.want {
+			t.Errorf("%s: expected %q, got %q", tc.name, tc.want, got)
+		}
+	}
+}

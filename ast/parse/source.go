@@ -2008,13 +2008,19 @@ func sourceChainOperands(expr AstExpr, op int) []AstExpr {
 	return append(sourceChainOperands(bin.Left, op), bin.Right)
 }
 
+// splitMultilineLogical, set by -split-logical, also splits an and or or chain of two or more operators that is already on several lines in the source. Such a chain is split whatever its first operand is.
+var splitMultilineLogical bool
+
 // sourceLogicalChain renders an `and` chain that starts with `true`, or an `or` chain that starts with `false`, with each operand on a line of its own and the operator leading the line. It reports false for any other expression, which renders on one line.
 func sourceLogicalChain(n AstExprBinary) (string, bool) {
 	op := BinaryOp(n.Op)
 	operands := sourceChainOperands(n, n.Op)
 
 	// `and` starts with true, which does not change it; `or` starts with false, which does not change it either
-	if !sourceIsBoolConstant(operands[0], op == BinaryOp_And) {
+	startsWithConstant := sourceIsBoolConstant(operands[0], op == BinaryOp_And)
+	multiline := splitMultilineLogical && len(operands) > 2 && n.NodeLoc != nil && n.Location.Begin.Line != n.Location.End.Line
+
+	if !startsWithConstant && !multiline {
 		return "", false
 	}
 
