@@ -2945,34 +2945,70 @@ func (n AstTypeReference) Source() string {
 	return b.String()
 }
 
-// sourceTypeTableInline renders a type table's entries on one line, the indexer first, separated by semicolons. The last entry has no separator.
+// sourceTypeTableInline renders a type table's entries on one line, the indexer first. Each entry keeps the separator written after it, and the last entry has none.
 func sourceTypeTableInline(indexer *AstTableIndexer, props []AstTableProp) string {
-	var parts []string
+	type entry struct {
+		src string
+		sep TableSeparator
+	}
+
+	var entries []entry
 
 	if indexer != nil {
-		parts = append(parts, indexer.Source())
+		entries = append(entries, entry{indexer.Source(), indexer.Separator})
 	}
 
 	for i := range props {
-		parts = append(parts, props[i].Source())
+		entries = append(entries, entry{props[i].Source(), props[i].Separator})
 	}
 
-	return strings.Join(parts, "; ")
+	parts := make([]string, len(entries))
+
+	for i, e := range entries {
+		parts[i] = e.src
+
+		if i < len(entries)-1 {
+			parts[i] += ","
+
+			if e.sep == SemicolonSeparator {
+				parts[i] = e.src + ";"
+			}
+		}
+	}
+
+	return strings.Join(parts, " ")
 }
 
-// sourceOneLineTypeTable reports whether a type table is written on one line, by the same rule as a table value.
-func sourceOneLineTypeTable(indexer *AstTableIndexer, props []AstTableProp, comments []Comment) bool {
-	var seps []TableSeparator
+// sourceTypeTableLastSeparator gives the separator of the last entry of a type table in source order, or nil for a table with no entries.
+func sourceTypeTableLastSeparator(indexer *AstTableIndexer, props []AstTableProp) *TableSeparator {
+	var (
+		last *TableSeparator
+		lastBegin lex.Position
+	)
+
+	consider := func(begin lex.Position, sep *TableSeparator) {
+		if last == nil || lastBegin.Before(begin) {
+			last = sep
+			lastBegin = begin
+		}
+	}
 
 	if indexer != nil {
-		seps = append(seps, indexer.Separator)
+		consider(indexer.Location.Begin, &indexer.Separator)
 	}
 
-	for _, prop := range props {
-		seps = append(seps, prop.Separator)
+	for i := range props {
+		consider(props[i].Location.Begin, &props[i].Separator)
 	}
 
-	return sourceOneLineSeparators(seps, comments)
+	return last
+}
+
+// sourceOneLineTypeTable reports whether a type table is written on one line. It is, unless it has comments or its last entry is followed by a semicolon, which keeps it split.
+func sourceOneLineTypeTable(indexer *AstTableIndexer, props []AstTableProp, comments []Comment) bool {
+	last := sourceTypeTableLastSeparator(indexer, props)
+
+	return last != nil && len(comments) == 0 && *last != SemicolonSeparator
 }
 
 func (n AstTypeTable) Source() string {
@@ -2983,8 +3019,9 @@ func (n AstTypeTable) Source() string {
 		}
 	}
 
-	if sourceOneLineTypeTable(n.Indexer, n.Props, n.Comments) {
-		return "{ " + sourceTypeTableInline(n.Indexer, n.Props) + " }"
+	// a table with an entry over several lines is split, whatever its separators
+	if inline := sourceTypeTableInline(n.Indexer, n.Props); sourceOneLineTypeTable(n.Indexer, n.Props, n.Comments) && !strings.Contains(inline, "\n") {
+		return "{ " + inline + " }"
 	}
 
 	body := sourceTypeTableItems(n.Indexer, n.Props, n.Comments)
@@ -3058,9 +3095,10 @@ func sourceTypeTableItems(indexer *AstTableIndexer, props []AstTableProp, commen
 			lines = append(lines, sourceComment(c))
 		}
 
+		// a semicolon is kept, even after the last entry, since it is what splits the table
 		sep := ","
 
-		if entry.sep == SemicolonSeparator && !last {
+		if entry.sep == SemicolonSeparator {
 			sep = ";"
 		}
 

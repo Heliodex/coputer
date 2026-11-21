@@ -333,10 +333,7 @@ func TestSourceEmptyDoBlocks(t *testing.T) {
 // TestSourceFormatting checks the formatted output for a representative mix of declarations, functions, tables, if-local statements and types.
 func TestSourceFormatting(t *testing.T) {
 	const (
-		expected string = `export type Point = {
-	x: number,
-	y: number,
-}
+		expected string = `export type Point = { x: number, y: number }
 type Callback<T> = (T) -> ()
 
 local function map<T, U>(list: { T }, f: (T) -> U): { U }

@@ -3588,15 +3588,16 @@ func (p *Parser) parseTableIndexer(access string, accessLoc *lex.Location, begin
 	}
 }
 
-// parseTableType parses `{' PropList `}'
-// semicolonTypeEntries writes the comma after each entry of a type table as a semicolon.
+// semicolonTypeEntries writes the comma after each entry of a type table as a semicolon. The last entry in source order keeps its comma, so the table is not split by a trailing semicolon.
 func semicolonTypeEntries(indexer *AstTableIndexer, props []AstTableProp) {
-	if indexer != nil && indexer.Separator == CommaSeparator {
+	last := sourceTypeTableLastSeparator(indexer, props)
+
+	if indexer != nil && &indexer.Separator != last && indexer.Separator == CommaSeparator {
 		indexer.Separator = SemicolonSeparator
 	}
 
 	for i := range props {
-		if props[i].Separator == CommaSeparator {
+		if &props[i].Separator != last && props[i].Separator == CommaSeparator {
 			props[i].Separator = SemicolonSeparator
 		}
 	}
