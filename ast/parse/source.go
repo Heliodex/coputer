@@ -1980,8 +1980,15 @@ func (n AstExprFunction) sourceRest() string {
 		}
 	}
 
-	b.WriteString(strings.Join(args, ", "))
-	b.WriteString(")")
+	// parameters share a line unless one of them has a type that itself spans lines, in which case the whole list breaks so the split type stays readable
+	if list := strings.Join(args, ", "); strings.Contains(list, "\n") {
+		b.WriteString("\n")
+		b.WriteString(sourceIndent(strings.Join(args, ",\n"), 1))
+		b.WriteString("\n)")
+	} else {
+		b.WriteString(list)
+		b.WriteString(")")
+	}
 
 	if n.ReturnAnnotation != nil {
 		writeAnnotation(&b, (*n.ReturnAnnotation).Source())
