@@ -86,7 +86,7 @@ func printFormattedFile(path string) error {
 
 // usage prints how to use the formatter.
 func usage() {
-	fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [-w] [-semicolons] [-split-logical] [-leading-symbol] [path]\n\nFormat Luau source read from stdin, or the .luau file at path.\nWith -w, write the result back in place instead of printing it. When path is a directory, format every .luau file inside it, in its subdirectories too.\nWith -semicolons, the commas of a table on one line are written as semicolons, so migrating code keeps its diffs small.\nWith -split-logical, an and or or chain of two or more operators that is already on several lines is split with one operand to a line.\nWith -leading-symbol, a union or intersection that is over several lines is split with a leading | or &.\n\n", filepath.Base(os.Args[0]))
+	fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [-w] [-compat] [path]\n\nFormat Luau source read from stdin, or the .luau file at path.\nWith -w, write the result back in place instead of printing it. When path is a directory, format every .luau file inside it, in its subdirectories too.\nWith -compat, code from less strict formatters is migrated with small diffs: the commas of a table on one line are written as semicolons, an and or or chain of two or more operators that is already on several lines gets a leading true or false and is split, and a union or intersection that is over several lines is split with a leading | or &.\n\n", filepath.Base(os.Args[0]))
 	flag.PrintDefaults()
 }
 
@@ -215,16 +215,14 @@ func run(paths []string, write bool) error {
 // main formats the Luau source read from stdin and writes it to stdout, or formats the files given with -w in place.
 func main() {
 	write := flag.Bool("w", false, "write formatted files in place instead of printing them")
-	semicolons := flag.Bool("semicolons", false, "write the commas of a table on one line as semicolons")
-	splitLogical := flag.Bool("split-logical", false, "split an and or or chain of two or more operators that is already on several lines, one operand to a line")
-	leadingSymbol := flag.Bool("leading-symbol", false, "split a union or intersection that is over several lines, with a leading | or &")
+	compat := flag.Bool("compat", false, "migrate code from less strict formatters with small diffs: semicolons for tables on one line, leading true or false for multi-line and/or chains, and leading | or & for multi-line unions and intersections")
 	flag.Usage = usage
 
 	flag.Parse()
 
-	semicolonsOnOneLine = *semicolons
-	splitMultilineLogical = *splitLogical
-	splitMultilineTypes = *leadingSymbol
+	semicolonsOnOneLine = *compat
+	splitMultilineLogical = *compat
+	splitMultilineTypes = *compat
 
 	if err := run(flag.Args(), *write); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
