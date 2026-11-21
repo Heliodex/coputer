@@ -10,7 +10,9 @@ type CstKey struct {
 
 // cstKeyOf gives the key of a node in the CST map.
 func cstKeyOf(node AstNode) CstKey {
-	key := CstKey{Kind: reflect.TypeOf(node)}
+	key := CstKey{
+		Kind: reflect.TypeOf(node),
+	}
 	value := reflect.ValueOf(node)
 
 	if value.Kind() != reflect.Struct {
@@ -27,5 +29,6 @@ func cstKeyOf(node AstNode) CstKey {
 // Cst gives the CST of a node, and whether the node has one. The CST is only stored when Options.StoreCstData is set.
 func (r Result) Cst(node AstNode) (CstNode, bool) {
 	cst, ok := r.CstNodeMap[cstKeyOf(node)]
+
 	return cst, ok
 }

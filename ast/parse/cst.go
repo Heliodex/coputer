@@ -274,6 +274,17 @@ func (CstExprIndexExpr) isCstNode() {}
 func (CstExprInterpString) isCstNode() {}
 func (CstExprOp) isCstNode() {}
 func (CstExprTable) isCstNode() {}
+
+// SeparatorIsComma reports whether the item is followed by a comma. An item with no separator, such as the last item of a table without a trailing separator, reports false.
+func (item CstExprTableItem) SeparatorIsComma() bool {
+	return item.Separator == &pzero
+}
+
+// SeparatorIsSemicolon reports whether the item is followed by a semicolon. An item with no separator reports false.
+func (item CstExprTableItem) SeparatorIsSemicolon() bool {
+	return item.Separator == &pone
+}
+
 func (CstExprTableItem) isCstNode() {}
 func (CstExprTypeAssertion) isCstNode() {}
 func (CstGenericType) isCstNode() {}
@@ -302,13 +313,3 @@ func (CstTypeTable) isCstNode() {}
 func (CstTypeTableItem) isCstNode() {}
 func (CstTypeTypeof) isCstNode() {}
 func (CstTypeUnion) isCstNode() {}
-
-// SeparatorIsComma reports whether the item is followed by a comma. An item with no separator, such as the last item of a table without a trailing separator, reports false.
-func (item CstExprTableItem) SeparatorIsComma() bool {
-	return item.Separator == &pzero
-}
-
-// SeparatorIsSemicolon reports whether the item is followed by a semicolon. An item with no separator reports false.
-func (item CstExprTableItem) SeparatorIsSemicolon() bool {
-	return item.Separator == &pone
-}

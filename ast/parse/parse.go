@@ -1554,6 +1554,29 @@ func isLiteralTable(aexpr AstExpr) bool {
 	return true
 }
 
+// parseTableConstructor parses `{' [fieldlist] `}'
+// semicolonTableItems writes the comma after each item of a table value as a semicolon.
+func semicolonTableItems(items []AstExprTableItem) {
+	for i := range items {
+		if items[i].Separator == CommaSeparator {
+			items[i].Separator = SemicolonSeparator
+		}
+	}
+}
+
+// semicolonTypeEntries writes the comma after each entry of a type table as a semicolon, the last entry included, so the table stays on one line.
+func semicolonTypeEntries(indexer *AstTableIndexer, props []AstTableProp) {
+	if indexer != nil && indexer.Separator == CommaSeparator {
+		indexer.Separator = SemicolonSeparator
+	}
+
+	for i := range props {
+		if props[i].Separator == CommaSeparator {
+			props[i].Separator = SemicolonSeparator
+		}
+	}
+}
+
 // The core of the code
 
 func (p *Parser) parseBinding(isConst bool) Binding {
@@ -3588,19 +3611,6 @@ func (p *Parser) parseTableIndexer(access string, accessLoc *lex.Location, begin
 	}
 }
 
-// semicolonTypeEntries writes the comma after each entry of a type table as a semicolon, the last entry included, so the table stays on one line.
-func semicolonTypeEntries(indexer *AstTableIndexer, props []AstTableProp) {
-	if indexer != nil && indexer.Separator == CommaSeparator {
-		indexer.Separator = SemicolonSeparator
-	}
-
-	for i := range props {
-		if props[i].Separator == CommaSeparator {
-			props[i].Separator = SemicolonSeparator
-		}
-	}
-}
-
 func (p *Parser) parseTableType(inDeclarationContext bool) AstTypeTable {
 	p.incrementRecursionCounter("type annotation")
 
@@ -3617,8 +3627,8 @@ func (p *Parser) parseTableType(inDeclarationContext bool) AstTypeTable {
 
 	for p.token_type != '}' {
 		propsBefore := len(props)
-		indexerBefore := indexer != nil
 		access := "ReadWrite"
+		indexerBefore := indexer != nil
 
 		var accessLoc *lex.Location
 
@@ -5132,16 +5142,6 @@ func (p *Parser) parseCallList(commaPositions *[]lex.Position) ([]AstExpr, lex.L
 	expr := p.parseString()
 
 	return []AstExpr{expr}, argLoc, expr.GetLocation()
-}
-
-// parseTableConstructor parses `{' [fieldlist] `}'
-// semicolonTableItems writes the comma after each item of a table value as a semicolon.
-func semicolonTableItems(items []AstExprTableItem) {
-	for i := range items {
-		if items[i].Separator == CommaSeparator {
-			items[i].Separator = SemicolonSeparator
-		}
-	}
 }
 
 func (p *Parser) parseTableConstructor() AstExprTable {

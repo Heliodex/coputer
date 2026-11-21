@@ -47,7 +47,13 @@ const (
 	precPrimary = 12
 	precUnary = 9
 	precUnaryOperand = 8
+
+	// rawNewline stands in for a newline inside a multi-line raw string while a block is indented, so the indentation leaves the string's lines alone. restoreRawNewlines turns it back into a newline at the root. It is not valid UTF-8, so it cannot appear in a valid source or in a valid value.
+	rawNewline = "\xff"
 )
+
+// splitMultilineLogical, set by -split-logical, also splits an and or or chain of two or more operators that is already on several lines in the source. Such a chain is split whatever its first operand is.
+var splitMultilineLogical bool
 
 func (n AstArgumentName) Source() string {
 	return n.Name
@@ -99,6 +105,11 @@ func (n AstTypeSingletonBool) Source() string {
 	}
 
 	return "false"
+}
+
+// appendEnd appends an `end` on its own line to a block body, so nested blocks each close on their own line.
+func appendEnd(body string) string {
+	return body + "\nend"
 }
 
 func asBlock(stat AstStat) (*AstStatBlock, bool) {
@@ -289,6 +300,11 @@ func normalizeCommentContent(content string, indent uint32) string {
 	return strings.Join(lines, "\n")
 }
 
+// restoreRawNewlines turns each rawNewline in s back into a newline. The root chunk does this last, after all its indentation.
+func restoreRawNewlines(s string) string {
+	return strings.ReplaceAll(s, rawNewline, "\n")
+}
+
 // sameIdentifier reports whether a and b are the same variable reference: the same local or the same-named global. Because both occurrences sit in the same expression, a matching name and kind always resolve to the same binding.
 func sameIdentifier(a, b AstExpr) bool {
 	switch x := a.(type) {
@@ -368,6 +384,25 @@ func sortHeaderDirectives(units []sourceStatUnit) {
 	units[0].leading = sortDirectives(units[0].leading)
 }
 
+// -------------------------------------------------------------------------------- -- EXPRESSIONS --------------------------------------------------------------------------------
+
+// sourceBinaryMins gives the least precedence the left and the right operand of op need.
+func sourceBinaryMins(op BinaryOp) (leftMin, rightMin int) {
+	priorities := BinaryPriority[op]
+	leftMin = priorities[0]
+	rightMin = priorities[1]
+
+	if priorities[1] < priorities[0] {
+		// right-associative: only the left operand can repeat the operator
+		leftMin++
+	} else {
+		// left-associative: only the right operand can repeat the operator
+		rightMin++
+	}
+
+	return leftMin, rightMin
+}
+
 // sourceBinaryOp renders a binary operator.
 func sourceBinaryOp(op BinaryOp) string {
 	switch op {
@@ -408,6 +443,31 @@ func sourceBinaryOp(op BinaryOp) string {
 	return "?"
 }
 
+// sourceCanSpanLines reports whether a value can be a multi-line raw string: it has a newline, and no carriage return, rawNewline or invalid UTF-8.
+func sourceCanSpanLines(value string) bool {
+	return strings.Contains(value, "\n") && !strings.ContainsAny(value, "\r") && !strings.Contains(value, rawNewline) && utf8.ValidString(value)
+}
+
+// sourceChainOperands gives the operands of a chain of op, from the left. The parser nests a chain to the left, so `a and b and c` is `(a and b) and c`.
+func sourceChainOperands(expr AstExpr, op int) []AstExpr {
+	var bin AstExprBinary
+
+	switch e := expr.(type) {
+	case *AstExprBinary:
+		bin = *e
+	case AstExprBinary:
+		bin = e
+	default:
+		return []AstExpr{expr}
+	}
+
+	if bin.Op != op {
+		return []AstExpr{expr}
+	}
+
+	return append(sourceChainOperands(bin.Left, op), bin.Right)
+}
+
 // sourceCompoundOp returns the compound assignment operator for a binary operator, if it has one.
 func sourceCompoundOp(op BinaryOp) (BinaryOp, bool) {
 	switch op {
@@ -416,11 +476,6 @@ func sourceCompoundOp(op BinaryOp) (BinaryOp, bool) {
 	}
 
 	return 0, false
-}
-
-// appendEnd appends an `end` on its own line to a block body, so nested blocks each close on their own line.
-func appendEnd(body string) string {
-	return body + "\nend"
 }
 
 // sourceExprExpands reports whether a bare expression can expand to multiple values, i.e. a call or `...`.
@@ -551,6 +606,18 @@ func sourceIsBlock(stat AstStat) bool {
 	return false
 }
 
+// sourceIsBoolConstant reports whether expr is the constant true, or the constant false, as value says.
+func sourceIsBoolConstant(expr AstExpr, value bool) bool {
+	switch e := expr.(type) {
+	case *AstExprConstantBool:
+		return e.Value == value
+	case AstExprConstantBool:
+		return e.Value == value
+	}
+
+	return false
+}
+
 // sourceIsIdentifier reports whether s is a valid Luau identifier.
 func sourceIsIdentifier(s string) bool {
 	if s == "" {
@@ -568,6 +635,16 @@ func sourceIsIdentifier(s string) bool {
 	return true
 }
 
+// sourceIsTypeAssertion reports whether expr is a cast, written with `::`.
+func sourceIsTypeAssertion(expr AstExpr) bool {
+	switch expr.(type) {
+	case *AstExprTypeAssertion, AstExprTypeAssertion:
+		return true
+	}
+
+	return false
+}
+
 // sourceLongString renders a long (`[[...]]`) string with enough equals signs to avoid an accidental terminator.
 func sourceLongString(value string) string {
 	for eq := 0; ; eq++ {
@@ -577,25 +654,6 @@ func sourceLongString(value string) string {
 			return "[" + eqs + "[" + value + strend
 		}
 	}
-}
-
-// rawNewline stands in for a newline inside a multi-line raw string while a block is indented, so the indentation leaves the string's lines alone. restoreRawNewlines turns it back into a newline at the root. It is not valid UTF-8, so it cannot appear in a valid source or in a valid value.
-const rawNewline = "\xff"
-
-// sourceCanSpanLines reports whether a value can be a multi-line raw string: it has a newline, and no carriage return, rawNewline or invalid UTF-8.
-func sourceCanSpanLines(value string) bool {
-	return strings.Contains(value, "\n") && !strings.ContainsAny(value, "\r") && !strings.Contains(value, rawNewline) && utf8.ValidString(value)
-}
-
-// sourceLongStringMarked renders a raw string whose value has newlines, with each newline written as rawNewline.
-func sourceLongStringMarked(value string) string {
-	// Luau drops the newline straight after the opening bracket, so one is written there: the string keeps its line after the bracket, and a value that starts with a newline keeps it too
-	return strings.ReplaceAll(sourceLongString("\n"+value), "\n", rawNewline)
-}
-
-// restoreRawNewlines turns each rawNewline in s back into a newline. The root chunk does this last, after all its indentation.
-func restoreRawNewlines(s string) string {
-	return strings.ReplaceAll(s, rawNewline, "\n")
 }
 
 // sourceComment renders a comment.
@@ -611,6 +669,12 @@ func sourceComment(comment Comment) string {
 	}
 
 	return "--" + comment.Content
+}
+
+// sourceLongStringMarked renders a raw string whose value has newlines, with each newline written as rawNewline.
+func sourceLongStringMarked(value string) string {
+	// Luau drops the newline straight after the opening bracket, so one is written there: the string keeps its line after the bracket, and a value that starts with a newline keeps it too
+	return strings.ReplaceAll(sourceLongString("\n"+value), "\n", rawNewline)
 }
 
 // sourceNumber renders a numeric literal.
@@ -683,6 +747,15 @@ func sourceSameLocal(a, b AstLocal) bool {
 	return a.NodeLoc == b.NodeLoc
 }
 
+// sourceSeparatorText gives the text of a separator written after an entry of a table: a semicolon, or otherwise a comma.
+func sourceSeparatorText(sep TableSeparator) string {
+	if sep == SemicolonSeparator {
+		return ";"
+	}
+
+	return ","
+}
+
 // sourceStatUnits splits statements and comments into per-statement units, preserving the existing comment attachment rules: comments before a statement lead it, comments on the statement's end line trail it, and comments after the last statement become a trailing commentless unit.
 func sourceStatUnits(stats []AstStat, comments []Comment) []sourceStatUnit {
 	units := make([]sourceStatUnit, 0, len(stats))
@@ -745,6 +818,38 @@ func sourceTableItemStart(item AstExprTableItem) lex.Position {
 // sourceTypeStartsInline reports whether a multi-line type should stay on the current line, e.g. a table type's opening brace.
 func sourceTypeStartsInline(s string) bool {
 	return strings.HasPrefix(s, "{")
+}
+
+// sourceTypeTableLastSeparator gives the separator of the last entry of a type table in source order, or nil for a table with no entries.
+func sourceTypeTableLastSeparator(indexer *AstTableIndexer, props []AstTableProp) *TableSeparator {
+	var (
+		last *TableSeparator
+		lastBegin lex.Position
+	)
+
+	consider := func(begin lex.Position, sep *TableSeparator) {
+		if last == nil || lastBegin.Before(begin) {
+			last = sep
+			lastBegin = begin
+		}
+	}
+
+	if indexer != nil {
+		consider(indexer.Location.Begin, &indexer.Separator)
+	}
+
+	for i := range props {
+		consider(props[i].Location.Begin, &props[i].Separator)
+	}
+
+	return last
+}
+
+// sourceOneLineTypeTable reports whether a type table is written on one line. It is, unless it has comments or its last entry is followed by a comma, which keeps it split.
+func sourceOneLineTypeTable(indexer *AstTableIndexer, props []AstTableProp, comments []Comment) bool {
+	last := sourceTypeTableLastSeparator(indexer, props)
+
+	return last != nil && len(comments) == 0 && *last != CommaSeparator
 }
 
 // sourceTypeTableStart returns the position where a prop starts, used to place comments.
@@ -1555,16 +1660,6 @@ func requireDeclaration(stat AstStat) (key string, isString, ok bool) {
 	return arg.Source(), false, true
 }
 
-// sourceIsTypeAssertion reports whether expr is a cast, written with `::`.
-func sourceIsTypeAssertion(expr AstExpr) bool {
-	switch expr.(type) {
-	case *AstExprTypeAssertion, AstExprTypeAssertion:
-		return true
-	}
-
-	return false
-}
-
 // sourceExpr renders expr in a context requiring at least minPrec. When expand is true the expression sits where a bare call or `...` would expand to multiple values, so parentheses around one are kept. Groups are dropped when they affect neither operator precedence nor the number of values.
 func sourceExpr(expr AstExpr, minPrec int, expand bool) string {
 	var group *AstExprGroup
@@ -1590,7 +1685,7 @@ func sourceExpr(expr AstExpr, minPrec int, expand bool) string {
 	s := expr.Source()
 
 	// a cast is written bare only where a whole expression is. As an operand, its type would run into the operator after it, as in `x :: number < 0`, so it is wrapped
-	if sourceExprPrecedence(expr) < minPrec || (minPrec > 0 && sourceIsTypeAssertion(expr)) {
+	if sourceExprPrecedence(expr) < minPrec || minPrec > 0 && sourceIsTypeAssertion(expr) {
 		return sourceParens(expr, s)
 	}
 
@@ -1804,15 +1899,6 @@ func sourceTableItemsInline(items []AstExprTableItem) string {
 	return strings.Join(parts, " ")
 }
 
-// sourceSeparatorText gives the text of a separator written after an entry of a table: a semicolon, or otherwise a comma.
-func sourceSeparatorText(sep TableSeparator) string {
-	if sep == SemicolonSeparator {
-		return ";"
-	}
-
-	return ","
-}
-
 // sourceTableItems renders a table's items with their comments, one per line, each item followed by a comma. An item followed by a semicolon keeps the next item on its line, unless a comment comes between them.
 func sourceTableItems(items []AstExprTableItem, comments []Comment) string {
 	var (
@@ -1836,7 +1922,6 @@ func sourceTableItems(items []AstExprTableItem, comments []Comment) string {
 
 		// a comment before the item means it cannot join the line before it
 		joins := joinNext && ci == before
-
 		sep := ","
 
 		if item.Separator == SemicolonSeparator && !last {
@@ -1848,7 +1933,7 @@ func sourceTableItems(items []AstExprTableItem, comments []Comment) string {
 		src.WriteString(sourceTableItem(item, last && item.Kind == List) + sep)
 
 		// comments on the same line as the end of the item stay there
-		trailing := false
+		var trailing bool
 
 		for ci < len(comments) && comments[ci].Location.Begin.Line == end.Line && (last || comments[ci].Location.Begin.Before(sourceTableItemStart(items[i+1]))) {
 			src.WriteString(" " + sourceComment(comments[ci]))
@@ -1939,60 +2024,6 @@ func sourceUnionIntersection(types []AstType, op string) string {
 	return b.String()
 }
 
-// -------------------------------------------------------------------------------- -- EXPRESSIONS --------------------------------------------------------------------------------
-
-// sourceBinaryMins gives the least precedence the left and the right operand of op need.
-func sourceBinaryMins(op BinaryOp) (leftMin, rightMin int) {
-	priorities := BinaryPriority[op]
-	leftMin = priorities[0]
-	rightMin = priorities[1]
-
-	if priorities[1] < priorities[0] {
-		// right-associative: only the left operand can repeat the operator
-		leftMin++
-	} else {
-		// left-associative: only the right operand can repeat the operator
-		rightMin++
-	}
-
-	return leftMin, rightMin
-}
-
-// sourceIsBoolConstant reports whether expr is the constant true, or the constant false, as value says.
-func sourceIsBoolConstant(expr AstExpr, value bool) bool {
-	switch e := expr.(type) {
-	case *AstExprConstantBool:
-		return e.Value == value
-	case AstExprConstantBool:
-		return e.Value == value
-	}
-
-	return false
-}
-
-// sourceChainOperands gives the operands of a chain of op, from the left. The parser nests a chain to the left, so `a and b and c` is `(a and b) and c`.
-func sourceChainOperands(expr AstExpr, op int) []AstExpr {
-	var bin AstExprBinary
-
-	switch e := expr.(type) {
-	case *AstExprBinary:
-		bin = *e
-	case AstExprBinary:
-		bin = e
-	default:
-		return []AstExpr{expr}
-	}
-
-	if bin.Op != op {
-		return []AstExpr{expr}
-	}
-
-	return append(sourceChainOperands(bin.Left, op), bin.Right)
-}
-
-// splitMultilineLogical, set by -split-logical, also splits an and or or chain of two or more operators that is already on several lines in the source. Such a chain is split whatever its first operand is.
-var splitMultilineLogical bool
-
 // sourceLogicalChain renders an `and` chain that starts with `true`, or an `or` chain that starts with `false`, with each operand on a line of its own and the operator leading the line. It reports false for any other expression, which renders on one line.
 func sourceLogicalChain(n AstExprBinary) (string, bool) {
 	op := BinaryOp(n.Op)
@@ -2000,9 +2031,7 @@ func sourceLogicalChain(n AstExprBinary) (string, bool) {
 
 	// `and` starts with true, which does not change it; `or` starts with false, which does not change it either
 	startsWithConstant := sourceIsBoolConstant(operands[0], op == BinaryOp_And)
-	multiline := splitMultilineLogical && len(operands) > 2 && n.NodeLoc != nil && n.Location.Begin.Line != n.Location.End.Line
-
-	if !startsWithConstant && !multiline {
+	if multiline := splitMultilineLogical && len(operands) > 2 && n.NodeLoc != nil && n.Location.Begin.Line != n.Location.End.Line; !startsWithConstant && !multiline {
 		return "", false
 	}
 
@@ -2061,9 +2090,7 @@ func sourceBinaryOperand(expr AstExpr, minPrec int, left bool, op BinaryOp) stri
 }
 
 func (n AstExprBinary) Source() string {
-	op := BinaryOp(n.Op)
-
-	if op == BinaryOp_And || op == BinaryOp_Or {
+	if op := BinaryOp(n.Op); op == BinaryOp_And || op == BinaryOp_Or {
 		if split, ok := sourceLogicalChain(n); ok {
 			return split
 		}
@@ -2972,38 +2999,6 @@ func sourceTypeTableInline(indexer *AstTableIndexer, props []AstTableProp) strin
 	return strings.Join(parts, " ")
 }
 
-// sourceTypeTableLastSeparator gives the separator of the last entry of a type table in source order, or nil for a table with no entries.
-func sourceTypeTableLastSeparator(indexer *AstTableIndexer, props []AstTableProp) *TableSeparator {
-	var (
-		last *TableSeparator
-		lastBegin lex.Position
-	)
-
-	consider := func(begin lex.Position, sep *TableSeparator) {
-		if last == nil || lastBegin.Before(begin) {
-			last = sep
-			lastBegin = begin
-		}
-	}
-
-	if indexer != nil {
-		consider(indexer.Location.Begin, &indexer.Separator)
-	}
-
-	for i := range props {
-		consider(props[i].Location.Begin, &props[i].Separator)
-	}
-
-	return last
-}
-
-// sourceOneLineTypeTable reports whether a type table is written on one line. It is, unless it has comments or its last entry is followed by a comma, which keeps it split.
-func sourceOneLineTypeTable(indexer *AstTableIndexer, props []AstTableProp, comments []Comment) bool {
-	last := sourceTypeTableLastSeparator(indexer, props)
-
-	return last != nil && len(comments) == 0 && *last != CommaSeparator
-}
-
 func (n AstTypeTable) Source() string {
 	// array-style tables, e.g. { number }
 	if len(n.Props) == 0 && n.Indexer != nil && len(n.Comments) == 0 {
@@ -3075,10 +3070,12 @@ func sourceTypeTableItems(indexer *AstTableIndexer, props []AstTableProp, commen
 		return entries[i].indexer && !entries[j].indexer
 	})
 
-	var lines []string
+	var (
+		lines []string
 
-	// an entry followed by a semicolon keeps the next entry on its line, unless a comment comes between them
-	joinNext := false
+		// an entry followed by a semicolon keeps the next entry on its line, unless a comment comes between them
+		joinNext bool
+	)
 
 	for i, entry := range entries {
 		last := i == len(entries)-1
@@ -3090,7 +3087,6 @@ func sourceTypeTableItems(indexer *AstTableIndexer, props []AstTableProp, commen
 
 		// a semicolon is kept, even after the last entry, since it is what splits the table
 		sep := ","
-
 		if entry.sep == SemicolonSeparator {
 			sep = ";"
 		}

@@ -7,6 +7,18 @@ import (
 	"testing"
 )
 
+// readTestFile reports the contents of the file at path.
+func readTestFile(t *testing.T, path string) string {
+	t.Helper()
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal("error reading test file:", err)
+	}
+
+	return string(content)
+}
+
 // writeTestFile writes content to a file named name inside dir, creating it with the given permissions, and returns its path.
 func writeTestFile(t *testing.T, dir, name, content string, mode os.FileMode) string {
 	t.Helper()
@@ -24,27 +36,14 @@ func writeTestFile(t *testing.T, dir, name, content string, mode os.FileMode) st
 	return path
 }
 
-// readTestFile reports the contents of the file at path.
-func readTestFile(t *testing.T, path string) string {
-	t.Helper()
-
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal("error reading test file:", err)
-	}
-
-	return string(content)
-}
-
 // TestFormatDir checks that every .luau file inside a directory, including those in its subdirectories, is formatted in place, leaving other files alone.
 func TestFormatDir(t *testing.T) {
 	dir := t.TempDir()
-
 	unformatted := writeTestFile(t, dir, "a.luau", "local x=1\n", 0o644)
 	formatted := writeTestFile(t, dir, "b.luau", "local y = 2\n", 0o644)
 	other := writeTestFile(t, dir, "notes.txt", "local x=1\n", 0o644)
-
 	nestedDir := filepath.Join(dir, "nested")
+
 	if err := os.Mkdir(nestedDir, 0o755); err != nil {
 		t.Fatal("error making test directory:", err)
 	}
@@ -77,29 +76,9 @@ func TestFormatDir(t *testing.T) {
 	}
 }
 
-// TestFormatDirKeepsMode checks that formatting a file in place preserves its permissions.
-func TestFormatDirKeepsMode(t *testing.T) {
-	dir := t.TempDir()
-	path := writeTestFile(t, dir, "private.luau", "local x=1\n", 0o600)
-
-	if _, err := formatDir(dir); err != nil {
-		t.Fatal("error formatting directory:", err)
-	}
-
-	info, err := os.Stat(path)
-	if err != nil {
-		t.Fatal("error getting file info:", err)
-	}
-
-	if mode := info.Mode().Perm(); mode != 0o600 {
-		t.Errorf("expected permissions 0600, got %04o", mode)
-	}
-}
-
 // TestFormatDirCarriesOnPastErrors checks that a file that fails to parse doesn't stop the rest of the directory from being formatted.
 func TestFormatDirCarriesOnPastErrors(t *testing.T) {
 	dir := t.TempDir()
-
 	broken := writeTestFile(t, dir, "broken.luau", "local = 1\n", 0o644)
 	unformatted := writeTestFile(t, dir, "a.luau", "local x=1\n", 0o644)
 
@@ -122,6 +101,25 @@ func TestFormatDirCarriesOnPastErrors(t *testing.T) {
 
 	if got, want := readTestFile(t, broken), "local = 1\n"; got != want {
 		t.Errorf("expected the file that failed to parse to be unchanged, expected %q, got %q", want, got)
+	}
+}
+
+// TestFormatDirKeepsMode checks that formatting a file in place preserves its permissions.
+func TestFormatDirKeepsMode(t *testing.T) {
+	dir := t.TempDir()
+	path := writeTestFile(t, dir, "private.luau", "local x=1\n", 0o600)
+
+	if _, err := formatDir(dir); err != nil {
+		t.Fatal("error formatting directory:", err)
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal("error getting file info:", err)
+	}
+
+	if mode := info.Mode().Perm(); mode != 0o600 {
+		t.Errorf("expected permissions 0600, got %04o", mode)
 	}
 }
 

@@ -8,6 +8,9 @@ import (
 )
 
 type (
+	// TableSeparator is the separator written after a table item or a type table entry: nothing, a comma, or a semicolon.
+	TableSeparator uint8
+
 	AstArgumentName struct {
 		Name string
 		Location lex.Location
@@ -707,6 +710,12 @@ const (
 	List
 )
 
+const (
+	NoSeparator TableSeparator = iota
+	CommaSeparator
+	SemicolonSeparator
+)
+
 var (
 	_ AstExpr = AstExprGroup{}
 	_ AstExpr = AstExprConstantNil{}
@@ -1023,15 +1032,6 @@ func (AstTypeTypeof) isAstNode() {}
 func (AstTypeTypeof) isAstType() {}
 func (AstTypeUnion) isAstNode() {}
 func (AstTypeUnion) isAstType() {}
-
-// TableSeparator is the separator written after a table item or a type table entry: nothing, a comma, or a semicolon.
-type TableSeparator uint8
-
-const (
-	NoSeparator TableSeparator = iota
-	CommaSeparator
-	SemicolonSeparator
-)
 
 func (e ExprTableItemKind) String() string {
 	switch e {

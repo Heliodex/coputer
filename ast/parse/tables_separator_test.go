@@ -5,9 +5,7 @@ import "testing"
 // TestTableSeparators checks how a table is laid out from the separators written in it: a table of only semicolons goes on one line, a comma keeps the table on one item per line, and a semicolon in a split table keeps the next item on its line unless a comment comes between them.
 func TestTableSeparators(t *testing.T) {
 	cases := []struct {
-		name string
-		src string
-		want string
+		name, src, want string
 	}{
 		{
 			name: "semicolons on one line",
@@ -48,7 +46,6 @@ func TestTableSeparators(t *testing.T) {
 
 	for _, tc := range cases {
 		got, err := formatSource(tc.src)
-
 		if err != nil {
 			t.Errorf("%s: error formatting: %v", tc.name, err)
 			continue

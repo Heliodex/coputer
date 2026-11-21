@@ -15,6 +15,10 @@ import (
 // LuauExt is the extension of the Luau source files the formatter handles.
 const LuauExt = ".luau"
 
+// formatSource formats Luau source, returning its formatted form.
+// semicolonsOnOneLine, set by -semicolons, writes the separators of a table that is on one line as semicolons, so it stays on one line.
+var semicolonsOnOneLine bool
+
 // parseErrors renders the parser's errors as one error listing each failure.
 func parseErrors(errs []ParseError) error {
 	var b strings.Builder
@@ -28,17 +32,15 @@ func parseErrors(errs []ParseError) error {
 	return errors.New(b.String())
 }
 
-// formatSource formats Luau source, returning its formatted form.
-// semicolonsOnOneLine, set by -semicolons, writes the separators of a table that is on one line as semicolons, so it stays on one line.
-var semicolonsOnOneLine bool
-
 func formatSource(src string) (string, error) {
 	// the formatter marks newlines in raw strings with a byte that is never valid UTF-8, so the source must be valid UTF-8 for that byte to be unambiguous
 	if !utf8.ValidString(src) {
 		return "", errors.New("source is not valid UTF-8")
 	}
 
-	ok, res := Parse(src, Options{SemicolonsOnOneLine: semicolonsOnOneLine})
+	ok, res := Parse(src, Options{
+		SemicolonsOnOneLine: semicolonsOnOneLine,
+	})
 	if !ok {
 		return "", parseErrors(res.Errors)
 	}
@@ -59,6 +61,33 @@ func formatFile(path string) (formatted, original string, err error) {
 	}
 
 	return formatted + "\n", string(content), nil
+}
+
+// plural renders a count with its noun, adding an s to the noun for any count but one.
+func plural(count int, noun string) string {
+	if count == 1 {
+		return fmt.Sprintf("%d %s", count, noun)
+	}
+
+	return fmt.Sprintf("%d %ss", count, noun)
+}
+
+// printFormattedFile prints the formatted source of the .luau file at path.
+func printFormattedFile(path string) error {
+	formatted, _, err := formatFile(path)
+	if err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+
+	fmt.Print(formatted)
+
+	return nil
+}
+
+// usage prints how to use the formatter.
+func usage() {
+	fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [-w] [-semicolons] [-split-logical] [path]\n\nFormat Luau source read from stdin, or the .luau file at path.\nWith -w, write the result back in place instead of printing it. When path is a directory, format every .luau file inside it, in its subdirectories too.\nWith -semicolons, the commas of a table on one line are written as semicolons, so migrating code keeps its diffs small.\nWith -split-logical, an and or or chain of two or more operators that is already on several lines is split with one operand to a line.\n\n", filepath.Base(os.Args[0]))
+	flag.PrintDefaults()
 }
 
 // writeFormattedFile formats the .luau file at path in place, reporting whether it changed, and leaving a file that already matches untouched so its timestamp and permissions survive.
@@ -84,18 +113,6 @@ func writeFormattedFile(path string) (bool, error) {
 	return true, nil
 }
 
-// printFormattedFile prints the formatted source of the .luau file at path.
-func printFormattedFile(path string) error {
-	formatted, _, err := formatFile(path)
-	if err != nil {
-		return fmt.Errorf("%s: %w", path, err)
-	}
-
-	fmt.Print(formatted)
-
-	return nil
-}
-
 // formatDir writes the formatted version of every .luau file inside dir, including those in its subdirectories, carrying on past files that fail so one bad file doesn't hold up the rest. It returns the number of files changed and an error listing every failure.
 func formatDir(dir string) (int, error) {
 	var (
@@ -103,9 +120,10 @@ func formatDir(dir string) (int, error) {
 		errs []error
 	)
 
-	err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
+	if err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			errs = append(errs, err)
+
 			return nil
 		}
 
@@ -116,6 +134,7 @@ func formatDir(dir string) (int, error) {
 		wrote, err := writeFormattedFile(path)
 		if err != nil {
 			errs = append(errs, err)
+
 			return nil
 		}
 
@@ -124,21 +143,11 @@ func formatDir(dir string) (int, error) {
 		}
 
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		errs = append(errs, fmt.Errorf("walk directory: %w", err))
 	}
 
 	return changed, errors.Join(errs...)
-}
-
-// plural renders a count with its noun, adding an s to the noun for any count but one.
-func plural(count int, noun string) string {
-	if count == 1 {
-		return fmt.Sprintf("%d %s", count, noun)
-	}
-
-	return fmt.Sprintf("%d %ss", count, noun)
 }
 
 // formatPath formats the .luau file at path, or every .luau file directly inside it when it is a directory.
@@ -167,6 +176,7 @@ func formatPath(path string, write bool) error {
 
 	if write {
 		_, err := writeFormattedFile(path)
+
 		return err
 	}
 
@@ -202,19 +212,13 @@ func run(paths []string, write bool) error {
 	return formatPath(paths[0], write)
 }
 
-// usage prints how to use the formatter.
-func usage() {
-	fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [-w] [-semicolons] [-split-logical] [path]\n\nFormat Luau source read from stdin, or the .luau file at path.\nWith -w, write the result back in place instead of printing it. When path is a directory, format every .luau file inside it, in its subdirectories too.\nWith -semicolons, the commas of a table on one line are written as semicolons, so migrating code keeps its diffs small.\nWith -split-logical, an and or or chain of two or more operators that is already on several lines is split with one operand to a line.\n\n", filepath.Base(os.Args[0]))
-	flag.PrintDefaults()
-}
-
 // main formats the Luau source read from stdin and writes it to stdout, or formats the files given with -w in place.
 func main() {
 	write := flag.Bool("w", false, "write formatted files in place instead of printing them")
 	semicolons := flag.Bool("semicolons", false, "write the commas of a table on one line as semicolons")
 	splitLogical := flag.Bool("split-logical", false, "split an and or or chain of two or more operators that is already on several lines, one operand to a line")
-
 	flag.Usage = usage
+
 	flag.Parse()
 
 	semicolonsOnOneLine = *semicolons

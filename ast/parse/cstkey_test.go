@@ -4,8 +4,9 @@ import "testing"
 
 // TestCstTableSeparators checks that the CST of a table records each item's separator, a comma or a semicolon, and that a table parses without a CST panicking when no CST data is asked for.
 func TestCstTableSeparators(t *testing.T) {
-	ok, res := Parse("local t = {1, 2; 3,}\n", Options{StoreCstData: true})
-
+	ok, res := Parse("local t = {1, 2; 3,}\n", Options{
+		StoreCstData: true,
+	})
 	if !ok {
 		t.Fatal("expected the table to parse")
 	}
