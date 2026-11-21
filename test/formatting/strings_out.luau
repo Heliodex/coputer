@@ -1,6 +1,7 @@
 local a = "double"
 local b = "single"
-local c = [[long
+local c = [[
+long
 string]]
 local d = 'escapes: \n \t " \\'
 local e = `interpolated {a} string`

@@ -14,9 +14,9 @@ func TestStringStyles(t *testing.T) {
 		{name: "single quotes become double", src: "local a = 'single'\n", want: "local a = \"single\""},
 		{name: "a value with a double quote keeps single quotes", src: "local a = 'say \"hi\"'\n", want: "local a = 'say \"hi\"'"},
 		{name: "interpolated strings become double quoted", src: "local a = `tick`\n", want: "local a = \"tick\""},
-		{name: "a multi-line raw string stays raw", src: "local a = [[\nline one\nline two]]\n", want: "local a = [[line one\nline two]]"},
-		{name: "a multi-line raw string keeps the depth its value needs", src: "local a = [=[x\n]]y]=]\n", want: "local a = [=[x\n]]y]=]"},
-		{name: "a multi-line raw string keeps its lines unindented in a block", src: "local function f()\n\tlocal s = [[\nline one\nline two]]\nend\n", want: "local function f()\n\tlocal s = [[line one\nline two]]\nend"},
+		{name: "a multi-line raw string stays raw", src: "local a = [[\nline one\nline two]]\n", want: "local a = [[\nline one\nline two]]"},
+		{name: "a multi-line raw string keeps the depth its value needs", src: "local a = [=[x\n]]y]=]\n", want: "local a = [=[\nx\n]]y]=]"},
+		{name: "a multi-line raw string keeps its lines unindented in a block", src: "local function f()\n\tlocal s = [[\nline one\nline two]]\nend\n", want: "local function f()\n\tlocal s = [[\nline one\nline two]]\nend"},
 		{name: "a multi-line raw string that starts with a newline keeps it", src: "local a = [[\n\nabc\ndef]]\n", want: "local a = [[\n\nabc\ndef]]"},
 	}
 

@@ -588,14 +588,8 @@ func sourceCanSpanLines(value string) bool {
 
 // sourceLongStringMarked renders a raw string whose value has newlines, with each newline written as rawNewline.
 func sourceLongStringMarked(value string) string {
-	// Luau drops a newline straight after the opening bracket, so one more is written to keep a value that starts with one
-	body := value
-
-	if strings.HasPrefix(value, "\n") {
-		body = "\n" + value
-	}
-
-	return strings.ReplaceAll(sourceLongString(body), "\n", rawNewline)
+	// Luau drops the newline straight after the opening bracket, so one is written there: the string keeps its line after the bracket, and a value that starts with a newline keeps it too
+	return strings.ReplaceAll(sourceLongString("\n"+value), "\n", rawNewline)
 }
 
 // restoreRawNewlines turns each rawNewline in s back into a newline. The root chunk does this last, after all its indentation.
