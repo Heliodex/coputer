@@ -2095,6 +2095,16 @@ func sourceBinaryInline(n AstExprBinary) string {
 	return left + " " + sourceBinaryOp(op) + " " + right
 }
 
+// sourceIsComparison reports whether op is a comparison: ==, ~=, <, <=, > or >=.
+func sourceIsComparison(op BinaryOp) bool {
+	switch op {
+	case BinaryOp_CompareEq, BinaryOp_CompareNe, BinaryOp_CompareLt, BinaryOp_CompareLe, BinaryOp_CompareGt, BinaryOp_CompareGe:
+		return true
+	}
+
+	return false
+}
+
 // sourceBinaryOperand renders an operand of a binary expression on one line. Only a chain at the top of an expression is split, so an operand is never.
 func sourceBinaryOperand(expr AstExpr, minPrec int, left bool, op BinaryOp) string {
 	inner := sourceUnwrapGroup(expr)
@@ -2117,6 +2127,11 @@ func sourceBinaryOperand(expr AstExpr, minPrec int, left bool, op BinaryOp) stri
 		bin = e
 	default:
 		return sourceExpr(expr, minPrec, false)
+	}
+
+	// the linter flags two comparisons in a row without parentheses, so a comparison under a comparison is wrapped
+	if sourceIsComparison(op) && sourceIsComparison(BinaryOp(bin.Op)) {
+		return sourceParens(inner, sourceBinaryInline(bin))
 	}
 
 	s := sourceBinaryInline(bin)
