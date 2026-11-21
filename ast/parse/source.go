@@ -1789,46 +1789,28 @@ func sourceTableItem(item AstExprTableItem, expand bool) string {
 	return value
 }
 
-// sourceOneLineSeparators applies the one-line rule to the separators of a table's entries. A table is written on one line when it has no comments, no entry is followed by a comma, and at least one is followed by a semicolon. It is the same rule for a table value and a type table.
-func sourceOneLineSeparators(seps []TableSeparator, comments []Comment) bool {
-	if len(comments) > 0 {
-		return false
-	}
+// sourceTableItemsInline renders a table's items on one line, each keeping the separator written after it. The last item has none.
+func sourceTableItemsInline(items []AstExprTableItem) string {
+	parts := make([]string, len(items))
 
-	semicolons := false
+	for i, item := range items {
+		parts[i] = sourceTableItem(item, i == len(items)-1 && item.Kind == List)
 
-	for _, sep := range seps {
-		switch sep {
-		case CommaSeparator:
-			return false
-		case SemicolonSeparator:
-			semicolons = true
+		if i < len(items)-1 {
+			parts[i] += sourceSeparatorText(item.Separator)
 		}
 	}
 
-	return semicolons
+	return strings.Join(parts, " ")
 }
 
-// oneLineTable reports whether a table value is written on one line.
-func oneLineTable(items []AstExprTableItem, comments []Comment) bool {
-	seps := make([]TableSeparator, len(items))
-
-	for i, item := range items {
-		seps[i] = item.Separator
+// sourceSeparatorText gives the text of a separator written after an entry of a table: a semicolon, or otherwise a comma.
+func sourceSeparatorText(sep TableSeparator) string {
+	if sep == SemicolonSeparator {
+		return ";"
 	}
 
-	return sourceOneLineSeparators(seps, comments)
-}
-
-// sourceTableItemsInline renders a table's items on one line, separated by semicolons. The last item has no separator.
-func sourceTableItemsInline(items []AstExprTableItem) string {
-	parts := make([]string, 0, len(items))
-
-	for i, item := range items {
-		parts = append(parts, sourceTableItem(item, i == len(items)-1 && item.Kind == List))
-	}
-
-	return strings.Join(parts, "; ")
+	return ","
 }
 
 // sourceTableItems renders a table's items with their comments, one per line, each item followed by a comma. An item followed by a semicolon keeps the next item on its line, unless a comment comes between them.
@@ -2273,8 +2255,11 @@ func (n AstExprInstantiate) Source() string {
 }
 
 func (n AstExprTable) Source() string {
-	if oneLineTable(n.Items, n.Comments) {
-		return "{ " + sourceTableItemsInline(n.Items) + " }"
+	// a table is on one line unless it has a comment, a trailing comma, or an item over several lines
+	if len(n.Items) > 0 && len(n.Comments) == 0 && n.Items[len(n.Items)-1].Separator != CommaSeparator {
+		if inline := sourceTableItemsInline(n.Items); !strings.Contains(inline, "\n") {
+			return "{ " + inline + " }"
+		}
 	}
 
 	body := sourceTableItems(n.Items, n.Comments)
@@ -2282,7 +2267,6 @@ func (n AstExprTable) Source() string {
 		return "{}"
 	}
 
-	// tables are always split across multiple lines, one item per line
 	return "{\n" + sourceIndent(body, 1) + "\n}"
 }
 
@@ -3004,11 +2988,11 @@ func sourceTypeTableLastSeparator(indexer *AstTableIndexer, props []AstTableProp
 	return last
 }
 
-// sourceOneLineTypeTable reports whether a type table is written on one line. It is, unless it has comments or its last entry is followed by a semicolon, which keeps it split.
+// sourceOneLineTypeTable reports whether a type table is written on one line. It is, unless it has comments or its last entry is followed by a comma, which keeps it split.
 func sourceOneLineTypeTable(indexer *AstTableIndexer, props []AstTableProp, comments []Comment) bool {
 	last := sourceTypeTableLastSeparator(indexer, props)
 
-	return last != nil && len(comments) == 0 && *last != SemicolonSeparator
+	return last != nil && len(comments) == 0 && *last != CommaSeparator
 }
 
 func (n AstTypeTable) Source() string {

@@ -21,6 +21,10 @@ type Singleton =
 	| "hello"
 	| true
 export type Exported<T = number> = T
-type Cells = { [number]: { number }, h: number, w: number }
+type Cells = {
+	[number]: { number },
+	h: number,
+	w: number,
+}
 type Nested = { x: { y: number }, z: string }
 local tb: { [any]: any } = {}

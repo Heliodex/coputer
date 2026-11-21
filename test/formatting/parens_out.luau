@@ -18,13 +18,8 @@ local nestedlit = (1).k
 local calladd = f() + 1
 local truncate = f((g()))
 local notruncate = f(g())
-local tablelast = {
-	(f()),
-}
-local tablenotlast = {
-	f(),
-	(g()),
-}
+local tablelast = { (f()) }
+local tablenotlast = { f(), (g()) }
 local assertion = (a :: number) + 1
 local assertindex = (a :: number).x
 local ifexpr = (

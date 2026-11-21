@@ -20,9 +20,9 @@ func TestTableSeparators(t *testing.T) {
 			want: "local t = { 1; 2 }",
 		},
 		{
-			name: "commas keep one item per line",
+			name: "commas on one line stay on one line",
 			src: "local t = {1, 2, 3}\n",
-			want: "local t = {\n\t1,\n\t2,\n\t3,\n}",
+			want: "local t = { 1, 2, 3 }",
 		},
 		{
 			name: "a trailing comma keeps the table split, with the semicolon joining the item before it",

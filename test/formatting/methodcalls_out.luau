@@ -2,9 +2,7 @@ local x = {}
 x:func(whatever)
 x:func()
 x:func "str"
-x:func {
-	a = 1,
-}
+x:func { a = 1 }
 self:method(1, 2)
 x:func(1)
 x:func<<number>>(1)

@@ -480,7 +480,7 @@ func TestSourceMethodCalls(t *testing.T) {
 		{
 			name: "sugar is preserved for a single table argument",
 			src: "x.func(x, { a = 1 })",
-			want: "x:func {\n\ta = 1,\n}",
+			want: "x:func { a = 1 }",
 		},
 		{
 			name: "self is treated like any other identifier",

@@ -35,7 +35,7 @@ func TestSemicolonsOnOneLine(t *testing.T) {
 	}
 }
 
-// TestCommasWithoutFlag checks that without -semicolons a table on one line keeps its commas.
+// TestCommasWithoutFlag checks that without -semicolons a table on one line keeps its commas, and stays on one line.
 func TestCommasWithoutFlag(t *testing.T) {
 	got, err := formatSource("local t = {1, 2, 3}\n")
 
@@ -43,7 +43,7 @@ func TestCommasWithoutFlag(t *testing.T) {
 		t.Fatal("error formatting:", err)
 	}
 
-	if want := "local t = {\n\t1,\n\t2,\n\t3,\n}"; got != want {
+	if want := "local t = { 1, 2, 3 }"; got != want {
 		t.Errorf("expected %q, got %q", want, got)
 	}
 }

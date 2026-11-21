@@ -3,7 +3,7 @@ const function portSignature(
 	c: Cell,
 	slot: number,
 	pi: {
-		[Cell]: Cell;
+		[Cell]: Cell,
 	}?,
 	a: A,
 	b: B,
