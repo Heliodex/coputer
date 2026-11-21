@@ -5,6 +5,8 @@ coverage.html
 .vscode
 xc
 ast/ast.json
+ast/parse/parse
+ast/parse/parse.exe
 litecode/litecode
 litecode/litecode.exe
 wallflower/wallflower
