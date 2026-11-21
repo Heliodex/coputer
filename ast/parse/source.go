@@ -1947,11 +1947,11 @@ func sourceUnionIntersection(types []AstType, op string) string {
 
 // -------------------------------------------------------------------------------- -- EXPRESSIONS --------------------------------------------------------------------------------
 
-func (n AstExprBinary) Source() string {
-	op := BinaryOp(n.Op)
+// sourceBinaryMins gives the least precedence the left and the right operand of op need.
+func sourceBinaryMins(op BinaryOp) (leftMin, rightMin int) {
 	priorities := BinaryPriority[op]
-	leftMin := priorities[0]
-	rightMin := priorities[1]
+	leftMin = priorities[0]
+	rightMin = priorities[1]
 
 	if priorities[1] < priorities[0] {
 		// right-associative: only the left operand can repeat the operator
@@ -1961,10 +1961,106 @@ func (n AstExprBinary) Source() string {
 		rightMin++
 	}
 
-	left := sourceExpr(n.Left, leftMin, false)
-	right := sourceExpr(n.Right, rightMin, false)
+	return leftMin, rightMin
+}
+
+// sourceIsBoolConstant reports whether expr is the constant true, or the constant false, as value says.
+func sourceIsBoolConstant(expr AstExpr, value bool) bool {
+	switch e := expr.(type) {
+	case *AstExprConstantBool:
+		return e.Value == value
+	case AstExprConstantBool:
+		return e.Value == value
+	}
+
+	return false
+}
+
+// sourceChainOperands gives the operands of a chain of op, from the left. The parser nests a chain to the left, so `a and b and c` is `(a and b) and c`.
+func sourceChainOperands(expr AstExpr, op int) []AstExpr {
+	var bin AstExprBinary
+
+	switch e := expr.(type) {
+	case *AstExprBinary:
+		bin = *e
+	case AstExprBinary:
+		bin = e
+	default:
+		return []AstExpr{expr}
+	}
+
+	if bin.Op != op {
+		return []AstExpr{expr}
+	}
+
+	return append(sourceChainOperands(bin.Left, op), bin.Right)
+}
+
+// sourceLogicalChain renders an `and` chain that starts with `true`, or an `or` chain that starts with `false`, with each operand on a line of its own and the operator leading the line. It reports false for any other expression, which renders on one line.
+func sourceLogicalChain(n AstExprBinary) (string, bool) {
+	op := BinaryOp(n.Op)
+	operands := sourceChainOperands(n, n.Op)
+
+	// `and` starts with true, which does not change it; `or` starts with false, which does not change it either
+	if !sourceIsBoolConstant(operands[0], op == BinaryOp_And) {
+		return "", false
+	}
+
+	leftMin, rightMin := sourceBinaryMins(op)
+	first := sourceBinaryOperand(operands[0], leftMin)
+	rest := make([]string, 0, len(operands)-1)
+
+	for _, operand := range operands[1:] {
+		rest = append(rest, sourceBinaryOp(op)+" "+sourceBinaryOperand(operand, rightMin))
+	}
+
+	return first + "\n" + sourceIndent(strings.Join(rest, "\n"), 1), true
+}
+
+// sourceBinaryInline renders a binary expression on one line.
+func sourceBinaryInline(n AstExprBinary) string {
+	op := BinaryOp(n.Op)
+	leftMin, rightMin := sourceBinaryMins(op)
+	left := sourceBinaryOperand(n.Left, leftMin)
+	right := sourceBinaryOperand(n.Right, rightMin)
 
 	return left + " " + sourceBinaryOp(op) + " " + right
+}
+
+// sourceBinaryOperand renders an operand of a binary expression on one line. Only a chain at the top of an expression is split, so an operand is never.
+func sourceBinaryOperand(expr AstExpr, minPrec int) string {
+	inner := sourceUnwrapGroup(expr)
+
+	var bin AstExprBinary
+
+	switch e := inner.(type) {
+	case *AstExprBinary:
+		bin = *e
+	case AstExprBinary:
+		bin = e
+	default:
+		return sourceExpr(expr, minPrec, false)
+	}
+
+	s := sourceBinaryInline(bin)
+
+	if sourceExprPrecedence(inner) < minPrec {
+		return sourceParens(inner, s)
+	}
+
+	return s
+}
+
+func (n AstExprBinary) Source() string {
+	op := BinaryOp(n.Op)
+
+	if op == BinaryOp_And || op == BinaryOp_Or {
+		if split, ok := sourceLogicalChain(n); ok {
+			return split
+		}
+	}
+
+	return sourceBinaryInline(n)
 }
 
 func (n AstExprCall) Source() string {
