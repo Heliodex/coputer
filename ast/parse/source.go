@@ -1625,6 +1625,17 @@ func sourceExprList(exprs []AstExpr) string {
 	return strings.Join(parts, ", ")
 }
 
+// sourceExprListLines renders comma-separated expressions one per line, for a list that has to break.
+func sourceExprListLines(exprs []AstExpr) string {
+	parts := make([]string, len(exprs))
+
+	for i, expr := range exprs {
+		parts[i] = sourceExpr(expr, 0, i == len(exprs)-1)
+	}
+
+	return strings.Join(parts, ",\n")
+}
+
 // sourceTypeOrPackList renders comma-separated types/type packs.
 func sourceTypeOrPackList(items []AstTypeOrPack) string {
 	parts := make([]string, len(items))
@@ -1921,8 +1932,9 @@ func (n AstExprCall) Source() string {
 	b.WriteString("(")
 
 	if args := sourceExprList(n.Args); strings.Contains(args, "\n") && !sourceHugsCallArg(n.Args) {
+		// one argument per line, so an argument that spans lines doesn't drag its neighbours onto its own lines
 		b.WriteString("\n")
-		b.WriteString(sourceIndent(args, 1))
+		b.WriteString(sourceIndent(sourceExprListLines(n.Args), 1))
 		b.WriteString("\n)")
 	} else {
 		b.WriteString(args)
