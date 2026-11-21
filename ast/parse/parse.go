@@ -5210,6 +5210,14 @@ func (p *Parser) parseTableConstructor() AstExprTable {
 		}
 
 		if p.token_type == ',' || p.token_type == ';' {
+			if len(items) > 0 {
+				items[len(items)-1].Separator = CommaSeparator
+
+				if p.token_type == ';' {
+					items[len(items)-1].Separator = SemicolonSeparator
+				}
+			}
+
 			p.nextLexeme()
 		} else if (p.token_type == '[' || p.token_type == lex.Name) && p.token_location.Begin.Column == lastElementIndent {
 			p.report(p.snapshot(), "Expected ',' after table constructor element")

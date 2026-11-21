@@ -274,6 +274,8 @@ type (
 		Kind ExprTableItemKind
 		Key *AstExpr
 		Value AstExpr
+		// Separator is the separator written after the item. The last item of a table may have none.
+		Separator ExprTableSeparator
 	}
 
 	AstExprTypeAssertion struct {
@@ -1017,6 +1019,15 @@ func (AstTypeTypeof) isAstNode() {}
 func (AstTypeTypeof) isAstType() {}
 func (AstTypeUnion) isAstNode() {}
 func (AstTypeUnion) isAstType() {}
+
+// ExprTableSeparator is the separator written after a table item: nothing, a comma, or a semicolon.
+type ExprTableSeparator uint8
+
+const (
+	NoSeparator ExprTableSeparator = iota
+	CommaSeparator
+	SemicolonSeparator
+)
 
 func (e ExprTableItemKind) String() string {
 	switch e {

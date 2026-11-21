@@ -1753,35 +1753,89 @@ func sourceTableItem(item AstExprTableItem, expand bool) string {
 	return value
 }
 
-// sourceTableItems renders a table's items with their comments, one per line, each item followed by a comma.
+// oneLineTable reports whether a table is written on one line. That is when it has no comments, no item is followed by a comma, and at least one item is followed by a semicolon.
+func oneLineTable(items []AstExprTableItem, comments []Comment) bool {
+	if len(comments) > 0 {
+		return false
+	}
+
+	semicolons := false
+
+	for _, item := range items {
+		switch item.Separator {
+		case CommaSeparator:
+			return false
+		case SemicolonSeparator:
+			semicolons = true
+		}
+	}
+
+	return semicolons
+}
+
+// sourceTableItemsInline renders a table's items on one line, separated by semicolons. The last item has no separator.
+func sourceTableItemsInline(items []AstExprTableItem) string {
+	parts := make([]string, 0, len(items))
+
+	for i, item := range items {
+		parts = append(parts, sourceTableItem(item, i == len(items)-1 && item.Kind == List))
+	}
+
+	return strings.Join(parts, "; ")
+}
+
+// sourceTableItems renders a table's items with their comments, one per line, each item followed by a comma. An item followed by a semicolon keeps the next item on its line, unless a comment comes between them.
 func sourceTableItems(items []AstExprTableItem, comments []Comment) string {
 	var (
 		lines []string
 		ci int
+		joinNext bool
 	)
 
 	for i, item := range items {
 		start := sourceTableItemStart(item)
 		end := sourceTableItemEnd(item)
+		last := i == len(items)-1
 
 		// comments that start before this item go on their own line
+		before := ci
+
 		for ci < len(comments) && !comments[ci].Location.Begin.After(start) {
 			lines = append(lines, sourceComment(comments[ci]))
 			ci++
 		}
 
+		// a comment before the item means it cannot join the line before it
+		joins := joinNext && ci == before
+
+		sep := ","
+
+		if item.Separator == SemicolonSeparator && !last {
+			sep = ";"
+		}
+
 		var src strings.Builder
 
-		src.WriteString(sourceTableItem(item, i == len(items)-1 && item.Kind == List) + ",")
+		src.WriteString(sourceTableItem(item, last && item.Kind == List) + sep)
 
 		// comments on the same line as the end of the item stay there
-		for ci < len(comments) && comments[ci].Location.Begin.Line == end.Line && (i+1 >= len(items) || comments[ci].Location.Begin.Before(sourceTableItemStart(items[i+1]))) {
+		trailing := false
+
+		for ci < len(comments) && comments[ci].Location.Begin.Line == end.Line && (last || comments[ci].Location.Begin.Before(sourceTableItemStart(items[i+1]))) {
 			src.WriteString(" " + sourceComment(comments[ci]))
 
 			ci++
+			trailing = true
 		}
 
-		lines = append(lines, src.String())
+		// the item joins the line of the item before it, when that one ends with a semicolon and no comment came between them
+		if joins {
+			lines[len(lines)-1] += " " + src.String()
+		} else {
+			lines = append(lines, src.String())
+		}
+
+		joinNext = item.Separator == SemicolonSeparator && !last && !trailing
 	}
 
 	// comments after the last item
@@ -2070,6 +2124,10 @@ func (n AstExprInstantiate) Source() string {
 }
 
 func (n AstExprTable) Source() string {
+	if oneLineTable(n.Items, n.Comments) {
+		return "{" + sourceTableItemsInline(n.Items) + "}"
+	}
+
 	body := sourceTableItems(n.Items, n.Comments)
 	if body == "" {
 		return "{}"
