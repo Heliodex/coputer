@@ -29,13 +29,16 @@ func parseErrors(errs []ParseError) error {
 }
 
 // formatSource formats Luau source, returning its formatted form.
+// semicolonsOnOneLine, set by -semicolons, writes the separators of a table that is on one line as semicolons, so it stays on one line.
+var semicolonsOnOneLine bool
+
 func formatSource(src string) (string, error) {
 	// the formatter marks newlines in raw strings with a byte that is never valid UTF-8, so the source must be valid UTF-8 for that byte to be unambiguous
 	if !utf8.ValidString(src) {
 		return "", errors.New("source is not valid UTF-8")
 	}
 
-	ok, res := Parse(src, Options{})
+	ok, res := Parse(src, Options{SemicolonsOnOneLine: semicolonsOnOneLine})
 	if !ok {
 		return "", parseErrors(res.Errors)
 	}
@@ -201,16 +204,19 @@ func run(paths []string, write bool) error {
 
 // usage prints how to use the formatter.
 func usage() {
-	fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [-w] [path]\n\nFormat Luau source read from stdin, or the .luau file at path.\nWith -w, write the result back in place instead of printing it. When path is a directory, format every .luau file inside it, in its subdirectories too.\n\n", filepath.Base(os.Args[0]))
+	fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [-w] [-semicolons] [path]\n\nFormat Luau source read from stdin, or the .luau file at path.\nWith -w, write the result back in place instead of printing it. When path is a directory, format every .luau file inside it, in its subdirectories too.\nWith -semicolons, the commas of a table on one line are written as semicolons, so migrating code keeps its diffs small.\n\n", filepath.Base(os.Args[0]))
 	flag.PrintDefaults()
 }
 
 // main formats the Luau source read from stdin and writes it to stdout, or formats the files given with -w in place.
 func main() {
 	write := flag.Bool("w", false, "write formatted files in place instead of printing them")
+	semicolons := flag.Bool("semicolons", false, "write the commas of a table on one line as semicolons")
 
 	flag.Usage = usage
 	flag.Parse()
+
+	semicolonsOnOneLine = *semicolons
 
 	if err := run(flag.Args(), *write); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)

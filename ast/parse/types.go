@@ -37,6 +37,8 @@ type (
 	Options struct {
 		// CaptureComments reports the parsed comment locations in Result. Comments are always collected internally so that Source() can reproduce them.
 		CaptureComments, StoreCstData bool
+		// SemicolonsOnOneLine writes the separator of each item in a table that is on one line as a semicolon, so the table is kept on one line with semicolons. A table over several lines keeps its separators.
+		SemicolonsOnOneLine bool
 	}
 
 	// --------------------------------------------------------------------------------

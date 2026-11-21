@@ -4,7 +4,7 @@ import "github.com/Heliodex/coputer/ast/lex"
 
 // Parser holds all mutable state for a single parse. Keeping the state on a struct (instead of package-level globals) means each Parse call gets an isolated parser, and parsing no longer relies on shared mutable globals.
 type Parser struct {
-	captureComments, storeCstData bool
+	captureComments, storeCstData, semicolonsOnOneLine bool
 	lexer lex.Lexer
 
 	// Current token
@@ -55,6 +55,7 @@ func newParser(src string, opts Options) *Parser {
 	p := &Parser{
 		captureComments: opts.CaptureComments,
 		storeCstData: opts.StoreCstData,
+		semicolonsOnOneLine: opts.SemicolonsOnOneLine,
 		lexer: lex.NewLexer(src),
 	}
 	p.matchRecovery[lex.Eof] = 1

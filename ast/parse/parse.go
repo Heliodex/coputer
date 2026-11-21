@@ -3589,6 +3589,19 @@ func (p *Parser) parseTableIndexer(access string, accessLoc *lex.Location, begin
 }
 
 // parseTableType parses `{' PropList `}'
+// semicolonTypeEntries writes the comma after each entry of a type table as a semicolon.
+func semicolonTypeEntries(indexer *AstTableIndexer, props []AstTableProp) {
+	if indexer != nil && indexer.Separator == CommaSeparator {
+		indexer.Separator = SemicolonSeparator
+	}
+
+	for i := range props {
+		if props[i].Separator == CommaSeparator {
+			props[i].Separator = SemicolonSeparator
+		}
+	}
+}
+
 func (p *Parser) parseTableType(inDeclarationContext bool) AstTypeTable {
 	p.incrementRecursionCounter("type annotation")
 
@@ -3805,6 +3818,10 @@ func (p *Parser) parseTableType(inDeclarationContext bool) AstTypeTable {
 	searchTrue := true
 
 	p.expectMatchAndConsume('}', matchBrace.Type, matchBrace.Location.Begin, &searchTrue)
+
+	if p.semicolonsOnOneLine && start.Begin.Line == endLoc.End.Line {
+		semicolonTypeEntries(indexer, props)
+	}
 
 	node := AstTypeTable{
 		NodeLoc: &NodeLoc{
@@ -5119,6 +5136,15 @@ func (p *Parser) parseCallList(commaPositions *[]lex.Position) ([]AstExpr, lex.L
 }
 
 // parseTableConstructor parses `{' [fieldlist] `}'
+// semicolonTableItems writes the comma after each item of a table value as a semicolon.
+func semicolonTableItems(items []AstExprTableItem) {
+	for i := range items {
+		if items[i].Separator == CommaSeparator {
+			items[i].Separator = SemicolonSeparator
+		}
+	}
+}
+
 func (p *Parser) parseTableConstructor() AstExprTable {
 	var (
 		items []AstExprTableItem
@@ -5244,6 +5270,10 @@ func (p *Parser) parseTableConstructor() AstExprTable {
 
 	if !p.expectMatchAndConsume('}', braceType, braceBegin, nil) {
 		end = p.getprev()
+	}
+
+	if p.semicolonsOnOneLine && start.Begin.Line == end.End.Line {
+		semicolonTableItems(items)
 	}
 
 	node := AstExprTable{
