@@ -1554,6 +1554,16 @@ func requireDeclaration(stat AstStat) (key string, isString, ok bool) {
 	return arg.Source(), false, true
 }
 
+// sourceIsTypeAssertion reports whether expr is a cast, written with `::`.
+func sourceIsTypeAssertion(expr AstExpr) bool {
+	switch expr.(type) {
+	case *AstExprTypeAssertion, AstExprTypeAssertion:
+		return true
+	}
+
+	return false
+}
+
 // sourceExpr renders expr in a context requiring at least minPrec. When expand is true the expression sits where a bare call or `...` would expand to multiple values, so parentheses around one are kept. Groups are dropped when they affect neither operator precedence nor the number of values.
 func sourceExpr(expr AstExpr, minPrec int, expand bool) string {
 	var group *AstExprGroup
@@ -1578,7 +1588,8 @@ func sourceExpr(expr AstExpr, minPrec int, expand bool) string {
 
 	s := expr.Source()
 
-	if sourceExprPrecedence(expr) < minPrec {
+	// a cast is written bare only where a whole expression is. As an operand, its type would run into the operator after it, as in `x :: number < 0`, so it is wrapped
+	if sourceExprPrecedence(expr) < minPrec || (minPrec > 0 && sourceIsTypeAssertion(expr)) {
 		return sourceParens(expr, s)
 	}
 

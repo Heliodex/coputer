@@ -25,7 +25,7 @@ local tablenotlast = {
 	f(),
 	(g()),
 }
-local assertion = a :: number + 1
+local assertion = (a :: number) + 1
 local assertindex = (a :: number).x
 local ifexpr = (
 	if c then
