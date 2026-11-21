@@ -35,6 +35,14 @@ func TestCstTableSeparators(t *testing.T) {
 		}
 	}
 
+	if !items[0].SeparatorIsComma() || items[0].SeparatorIsSemicolon() {
+		t.Error("expected the first item to be followed by a comma")
+	}
+
+	if !items[1].SeparatorIsSemicolon() || items[1].SeparatorIsComma() {
+		t.Error("expected the second item to be followed by a semicolon")
+	}
+
 	if ok, _ := Parse("local t = {1, 2}\n", Options{}); !ok {
 		t.Error("expected a table to parse without CST data")
 	}
