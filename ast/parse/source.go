@@ -2007,11 +2007,11 @@ func sourceLogicalChain(n AstExprBinary) (string, bool) {
 	}
 
 	leftMin, rightMin := sourceBinaryMins(op)
-	first := sourceBinaryOperand(operands[0], leftMin)
+	first := sourceBinaryOperand(operands[0], leftMin, true, op)
 	rest := make([]string, 0, len(operands)-1)
 
 	for _, operand := range operands[1:] {
-		rest = append(rest, sourceBinaryOp(op)+" "+sourceBinaryOperand(operand, rightMin))
+		rest = append(rest, sourceBinaryOp(op)+" "+sourceBinaryOperand(operand, rightMin, false, op))
 	}
 
 	return first + "\n" + sourceIndent(strings.Join(rest, "\n"), 1), true
@@ -2021,15 +2021,24 @@ func sourceLogicalChain(n AstExprBinary) (string, bool) {
 func sourceBinaryInline(n AstExprBinary) string {
 	op := BinaryOp(n.Op)
 	leftMin, rightMin := sourceBinaryMins(op)
-	left := sourceBinaryOperand(n.Left, leftMin)
-	right := sourceBinaryOperand(n.Right, rightMin)
+	left := sourceBinaryOperand(n.Left, leftMin, true, op)
+	right := sourceBinaryOperand(n.Right, rightMin, false, op)
 
 	return left + " " + sourceBinaryOp(op) + " " + right
 }
 
 // sourceBinaryOperand renders an operand of a binary expression on one line. Only a chain at the top of an expression is split, so an operand is never.
-func sourceBinaryOperand(expr AstExpr, minPrec int) string {
+func sourceBinaryOperand(expr AstExpr, minPrec int, left bool, op BinaryOp) string {
 	inner := sourceUnwrapGroup(expr)
+
+	// a cast ends where its type does, and the operator after it binds to the cast. Only a < after a type is a problem: the type parser reads it as type arguments, so a cast that is the left operand of < is wrapped.
+	if sourceIsTypeAssertion(inner) {
+		if left && op == BinaryOp_CompareLt {
+			return sourceParens(inner, inner.Source())
+		}
+
+		return inner.Source()
+	}
 
 	var bin AstExprBinary
 
