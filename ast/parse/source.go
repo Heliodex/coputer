@@ -24,6 +24,7 @@ type (
 		start, end lex.Position
 		src string
 		indexer bool
+		sep TableSeparator
 		leading, trailing []Comment
 	}
 )
@@ -1788,16 +1789,16 @@ func sourceTableItem(item AstExprTableItem, expand bool) string {
 	return value
 }
 
-// oneLineTable reports whether a table is written on one line. That is when it has no comments, no item is followed by a comma, and at least one item is followed by a semicolon.
-func oneLineTable(items []AstExprTableItem, comments []Comment) bool {
+// sourceOneLineSeparators applies the one-line rule to the separators of a table's entries. A table is written on one line when it has no comments, no entry is followed by a comma, and at least one is followed by a semicolon. It is the same rule for a table value and a type table.
+func sourceOneLineSeparators(seps []TableSeparator, comments []Comment) bool {
 	if len(comments) > 0 {
 		return false
 	}
 
 	semicolons := false
 
-	for _, item := range items {
-		switch item.Separator {
+	for _, sep := range seps {
+		switch sep {
 		case CommaSeparator:
 			return false
 		case SemicolonSeparator:
@@ -1806,6 +1807,17 @@ func oneLineTable(items []AstExprTableItem, comments []Comment) bool {
 	}
 
 	return semicolons
+}
+
+// oneLineTable reports whether a table value is written on one line.
+func oneLineTable(items []AstExprTableItem, comments []Comment) bool {
+	seps := make([]TableSeparator, len(items))
+
+	for i, item := range items {
+		seps[i] = item.Separator
+	}
+
+	return sourceOneLineSeparators(seps, comments)
 }
 
 // sourceTableItemsInline renders a table's items on one line, separated by semicolons. The last item has no separator.
@@ -2256,7 +2268,7 @@ func (n AstExprInstantiate) Source() string {
 
 func (n AstExprTable) Source() string {
 	if oneLineTable(n.Items, n.Comments) {
-		return "{" + sourceTableItemsInline(n.Items) + "}"
+		return "{ " + sourceTableItemsInline(n.Items) + " }"
 	}
 
 	body := sourceTableItems(n.Items, n.Comments)
@@ -2927,12 +2939,46 @@ func (n AstTypeReference) Source() string {
 	return b.String()
 }
 
+// sourceTypeTableInline renders a type table's entries on one line, the indexer first, separated by semicolons. The last entry has no separator.
+func sourceTypeTableInline(indexer *AstTableIndexer, props []AstTableProp) string {
+	var parts []string
+
+	if indexer != nil {
+		parts = append(parts, indexer.Source())
+	}
+
+	for i := range props {
+		parts = append(parts, props[i].Source())
+	}
+
+	return strings.Join(parts, "; ")
+}
+
+// sourceOneLineTypeTable reports whether a type table is written on one line, by the same rule as a table value.
+func sourceOneLineTypeTable(indexer *AstTableIndexer, props []AstTableProp, comments []Comment) bool {
+	var seps []TableSeparator
+
+	if indexer != nil {
+		seps = append(seps, indexer.Separator)
+	}
+
+	for _, prop := range props {
+		seps = append(seps, prop.Separator)
+	}
+
+	return sourceOneLineSeparators(seps, comments)
+}
+
 func (n AstTypeTable) Source() string {
 	// array-style tables, e.g. { number }
 	if len(n.Props) == 0 && n.Indexer != nil && len(n.Comments) == 0 {
 		if ref, ok := n.Indexer.IndexType.(AstTypeReference); ok && ref.Prefix == nil && ref.Name == "number" && len(ref.Parameters) == 0 {
 			return "{ " + n.Indexer.ResultType.Source() + " }"
 		}
+	}
+
+	if sourceOneLineTypeTable(n.Indexer, n.Props, n.Comments) {
+		return "{ " + sourceTypeTableInline(n.Indexer, n.Props) + " }"
 	}
 
 	body := sourceTypeTableItems(n.Indexer, n.Props, n.Comments)
@@ -2954,6 +3000,7 @@ func sourceTypeTableItems(indexer *AstTableIndexer, props []AstTableProp, commen
 			end: indexer.Location.End,
 			src: indexer.Source(),
 			indexer: true,
+			sep: indexer.Separator,
 		})
 	}
 
@@ -2962,6 +3009,7 @@ func sourceTypeTableItems(indexer *AstTableIndexer, props []AstTableProp, commen
 			start: sourceTypeTableStart(props[i]),
 			end: sourceTypeTableEnd(props[i]),
 			src: props[i].Source(),
+			sep: props[i].Separator,
 		})
 	}
 
@@ -2993,20 +3041,38 @@ func sourceTypeTableItems(indexer *AstTableIndexer, props []AstTableProp, commen
 
 	var lines []string
 
-	for _, entry := range entries {
+	// an entry followed by a semicolon keeps the next entry on its line, unless a comment comes between them
+	joinNext := false
+
+	for i, entry := range entries {
+		last := i == len(entries)-1
+		joins := joinNext && len(entry.leading) == 0
+
 		for _, c := range entry.leading {
 			lines = append(lines, sourceComment(c))
 		}
 
+		sep := ","
+
+		if entry.sep == SemicolonSeparator && !last {
+			sep = ";"
+		}
+
 		var src strings.Builder
 
-		src.WriteString(entry.src + ",")
+		src.WriteString(entry.src + sep)
 
 		for _, c := range entry.trailing {
 			src.WriteString(" " + sourceComment(c))
 		}
 
-		lines = append(lines, src.String())
+		if joins {
+			lines[len(lines)-1] += " " + src.String()
+		} else {
+			lines = append(lines, src.String())
+		}
+
+		joinNext = entry.sep == SemicolonSeparator && !last && len(entry.trailing) == 0
 	}
 
 	// comments after the last entry

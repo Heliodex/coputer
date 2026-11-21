@@ -3604,6 +3604,8 @@ func (p *Parser) parseTableType(inDeclarationContext bool) AstTypeTable {
 	p.expectAndConsume('{', new("table type"))
 
 	for p.token_type != '}' {
+		propsBefore := len(props)
+		indexerBefore := indexer != nil
 		access := "ReadWrite"
 
 		var accessLoc *lex.Location
@@ -3781,6 +3783,18 @@ func (p *Parser) parseTableType(inDeclarationContext bool) AstTypeTable {
 		}
 
 		if p.token_type == ',' || p.token_type == ';' {
+			sep := CommaSeparator
+
+			if p.token_type == ';' {
+				sep = SemicolonSeparator
+			}
+
+			if len(props) > propsBefore {
+				props[len(props)-1].Separator = sep
+			} else if indexer != nil && !indexerBefore {
+				indexer.Separator = sep
+			}
+
 			p.nextLexeme()
 		} else if p.token_type != '}' {
 			break

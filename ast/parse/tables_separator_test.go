@@ -12,12 +12,12 @@ func TestTableSeparators(t *testing.T) {
 		{
 			name: "semicolons on one line",
 			src: "local t = {1; 2; 3}\n",
-			want: "local t = {1; 2; 3}",
+			want: "local t = { 1; 2; 3 }",
 		},
 		{
 			name: "a trailing semicolon is dropped on one line",
 			src: "local t = {1; 2;}\n",
-			want: "local t = {1; 2}",
+			want: "local t = { 1; 2 }",
 		},
 		{
 			name: "commas keep one item per line",

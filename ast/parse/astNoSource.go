@@ -124,6 +124,8 @@ type (
 		IndexType, ResultType AstType
 		Access string
 		AccessLocation *lex.Location
+		// Separator is the separator written after the indexer. The last entry of a type table may have none.
+		Separator TableSeparator
 	}
 
 	// --------------------------------------------------------------------------------
@@ -275,7 +277,7 @@ type (
 		Key *AstExpr
 		Value AstExpr
 		// Separator is the separator written after the item. The last item of a table may have none.
-		Separator ExprTableSeparator
+		Separator TableSeparator
 	}
 
 	AstExprTypeAssertion struct {
@@ -456,6 +458,8 @@ type (
 		Type AstType
 		Access string
 		AccessLocation *lex.Location
+		// Separator is the separator written after the property. The last entry of a type table may have none.
+		Separator TableSeparator
 	}
 
 	AstTypeError struct {
@@ -1020,11 +1024,11 @@ func (AstTypeTypeof) isAstType() {}
 func (AstTypeUnion) isAstNode() {}
 func (AstTypeUnion) isAstType() {}
 
-// ExprTableSeparator is the separator written after a table item: nothing, a comma, or a semicolon.
-type ExprTableSeparator uint8
+// TableSeparator is the separator written after a table item or a type table entry: nothing, a comma, or a semicolon.
+type TableSeparator uint8
 
 const (
-	NoSeparator ExprTableSeparator = iota
+	NoSeparator TableSeparator = iota
 	CommaSeparator
 	SemicolonSeparator
 )
