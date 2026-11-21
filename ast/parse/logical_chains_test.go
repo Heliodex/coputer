@@ -52,7 +52,7 @@ func TestLogicalChains(t *testing.T) {
 	}
 }
 
-// TestLogicalChainsMultiline checks -split-logical: a chain of two or more operators that is already on several lines is split, and one on a single line is not, even when it starts with true.
+// TestLogicalChainsMultiline checks -split-logical: a chain of two or more operators that is already on several lines gets a leading true for and, or false for or, and is then split. One on a single line is not touched.
 func TestLogicalChainsMultiline(t *testing.T) {
 	cases := []struct {
 		name, src string
@@ -60,10 +60,16 @@ func TestLogicalChainsMultiline(t *testing.T) {
 		want string
 	}{
 		{
-			name: "a multi-line chain is split with the flag",
+			name: "a multi-line chain gets a leading true with the flag",
 			src: "local a = x and\n\ty and\n\tz\n",
 			flag: true,
-			want: "local a = x\n\tand y\n\tand z",
+			want: "local a = true\n\tand x\n\tand y\n\tand z",
+		},
+		{
+			name: "a multi-line or chain gets a leading false with the flag",
+			src: "local a = x or\n\ty or\n\tz\n",
+			flag: true,
+			want: "local a = false\n\tor x\n\tor y\n\tor z",
 		},
 		{
 			name: "a multi-line chain is kept without the flag",

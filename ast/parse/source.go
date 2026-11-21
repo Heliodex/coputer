@@ -2036,10 +2036,23 @@ func sourceLogicalChain(n AstExprBinary) (string, bool) {
 	}
 
 	leftMin, rightMin := sourceBinaryMins(op)
-	first := sourceBinaryOperand(operands[0], leftMin, true, op)
-	rest := make([]string, 0, len(operands)-1)
+	var first string
 
-	for _, operand := range operands[1:] {
+	if startsWithConstant {
+		first = sourceBinaryOperand(operands[0], leftMin, true, op)
+		operands = operands[1:]
+	} else {
+		// a chain that is already on several lines gets a leading true for and, or false for or, which does not change its value
+		first = "true"
+
+		if op == BinaryOp_Or {
+			first = "false"
+		}
+	}
+
+	rest := make([]string, 0, len(operands))
+
+	for _, operand := range operands {
 		rest = append(rest, sourceBinaryOp(op)+" "+sourceBinaryOperand(operand, rightMin, false, op))
 	}
 
