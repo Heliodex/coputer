@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -86,32 +87,37 @@ func printFormattedFile(path string) error {
 	return nil
 }
 
-// formatDir writes the formatted version of every .luau file directly inside dir, carrying on past files that fail so one bad file doesn't hold up the rest. It returns the number of files changed and an error listing every failure.
+// formatDir writes the formatted version of every .luau file inside dir, including those in its subdirectories, carrying on past files that fail so one bad file doesn't hold up the rest. It returns the number of files changed and an error listing every failure.
 func formatDir(dir string) (int, error) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return 0, fmt.Errorf("read directory: %w", err)
-	}
-
 	var (
 		changed int
-		errs []error
+		errs    []error
 	)
 
-	for _, entry := range entries {
-		if entry.IsDir() || filepath.Ext(entry.Name()) != LuauExt {
-			continue
-		}
-
-		wrote, err := writeFormattedFile(filepath.Join(dir, entry.Name()))
+	err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			errs = append(errs, err)
-			continue
+			return nil
+		}
+
+		if entry.IsDir() || filepath.Ext(entry.Name()) != LuauExt {
+			return nil
+		}
+
+		wrote, err := writeFormattedFile(path)
+		if err != nil {
+			errs = append(errs, err)
+			return nil
 		}
 
 		if wrote {
 			changed++
 		}
+
+		return nil
+	})
+	if err != nil {
+		errs = append(errs, fmt.Errorf("walk directory: %w", err))
 	}
 
 	return changed, errors.Join(errs...)
@@ -189,7 +195,7 @@ func run(paths []string, write bool) error {
 
 // usage prints how to use the formatter.
 func usage() {
-	fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [-w] [path]\n\nFormat Luau source read from stdin, or the .luau file at path.\nWith -w, write the result back in place instead of printing it. When path is a directory, format every .luau file directly inside it.\n\n", filepath.Base(os.Args[0]))
+	fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [-w] [path]\n\nFormat Luau source read from stdin, or the .luau file at path.\nWith -w, write the result back in place instead of printing it. When path is a directory, format every .luau file inside it, in its subdirectories too.\n\n", filepath.Base(os.Args[0]))
 	flag.PrintDefaults()
 }
 

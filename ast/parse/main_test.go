@@ -36,7 +36,7 @@ func readTestFile(t *testing.T, path string) string {
 	return string(content)
 }
 
-// TestFormatDir checks that every .luau file directly inside a directory is formatted in place, leaving other files and nested directories alone.
+// TestFormatDir checks that every .luau file inside a directory, including those in its subdirectories, is formatted in place, leaving other files alone.
 func TestFormatDir(t *testing.T) {
 	dir := t.TempDir()
 
@@ -56,8 +56,8 @@ func TestFormatDir(t *testing.T) {
 		t.Fatal("error formatting directory:", err)
 	}
 
-	if count != 1 {
-		t.Errorf("expected 1 file changed, got %d", count)
+	if count != 2 {
+		t.Errorf("expected 2 files changed, got %d", count)
 	}
 
 	if got, want := readTestFile(t, unformatted), "local x = 1\n"; got != want {
@@ -72,8 +72,8 @@ func TestFormatDir(t *testing.T) {
 		t.Errorf("expected a file that isn't Luau to be unchanged, expected %q, got %q", want, got)
 	}
 
-	if got, want := readTestFile(t, nested), "local z=3\n"; got != want {
-		t.Errorf("expected a nested file to be unchanged, expected %q, got %q", want, got)
+	if got, want := readTestFile(t, nested), "local z = 3\n"; got != want {
+		t.Errorf("expected a file in a subdirectory to be formatted, expected %q, got %q", want, got)
 	}
 }
 
