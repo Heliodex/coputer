@@ -417,36 +417,8 @@ func sourceCompoundOp(op BinaryOp) (BinaryOp, bool) {
 	return 0, false
 }
 
-// sourceEndChain reports whether line consists solely of `end` keywords, e.g.
-// "end" or "end end end".
-func sourceEndChain(line string) bool {
-	fields := strings.Fields(line)
-	if len(fields) == 0 {
-		return false
-	}
-
-	for _, field := range fields {
-		if field != "end" {
-			return false
-		}
-	}
-
-	return true
-}
-
-// appendEnd appends an `end` to a block body, collapsing it onto the previous line when that line already ends a nested block. The collapsed line is unindented one level, so a chain of ends lines up with the outermost block.
+// appendEnd appends an `end` on its own line to a block body, so nested blocks each close on their own line.
 func appendEnd(body string) string {
-	if body == "" {
-		return "\nend"
-	}
-
-	lines := strings.Split(body, "\n")
-	if last := len(lines) - 1; sourceEndChain(lines[last]) {
-		lines[last] = strings.TrimPrefix(lines[last], "\t") + " end"
-
-		return strings.Join(lines, "\n")
-	}
-
 	return body + "\nend"
 }
 
