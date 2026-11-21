@@ -1,5 +1,5 @@
 local a = "double"
-local b = 'single'
+local b = "single"
 local c = "long\nstring"
 local d = 'escapes: \n \t " \\'
 local e = `interpolated {a} string`

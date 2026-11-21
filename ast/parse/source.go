@@ -1333,7 +1333,14 @@ func sourceString(value string, style QuoteStyle) string {
 }
 
 func (n AstExprConstantString) Source() string {
-	return sourceString(n.Value, n.QuoteStyle)
+	// only a raw string keeps its style, so a single-quoted string is written with double quotes
+	style := n.QuoteStyle
+
+	if style == QuoteStyle_QuotedSingle {
+		style = QuoteStyle_QuotedSimple
+	}
+
+	return sourceString(n.Value, style)
 }
 
 func (n AstTypeSingletonString) Source() string {
