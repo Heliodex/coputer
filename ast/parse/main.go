@@ -91,7 +91,7 @@ func printFormattedFile(path string) error {
 func formatDir(dir string) (int, error) {
 	var (
 		changed int
-		errs    []error
+		errs []error
 	)
 
 	err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {

@@ -4,7 +4,7 @@ import "reflect"
 
 // CstKey identifies a node in the CST map. It is the node's location record, which is a pointer unique to that node, and the node's type. Both are comparable, so the key works for a node that holds slices, which cannot be a map key itself.
 type CstKey struct {
-	Loc  *NodeLoc
+	Loc *NodeLoc
 	Kind reflect.Type
 }
 
