@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 )
 
 // LuauExt is the extension of the Luau source files the formatter handles.
@@ -29,6 +30,11 @@ func parseErrors(errs []ParseError) error {
 
 // formatSource formats Luau source, returning its formatted form.
 func formatSource(src string) (string, error) {
+	// the formatter marks newlines in raw strings with a byte that is never valid UTF-8, so the source must be valid UTF-8 for that byte to be unambiguous
+	if !utf8.ValidString(src) {
+		return "", errors.New("source is not valid UTF-8")
+	}
+
 	ok, res := Parse(src, Options{})
 	if !ok {
 		return "", parseErrors(res.Errors)

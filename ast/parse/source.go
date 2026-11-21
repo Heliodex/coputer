@@ -578,6 +578,31 @@ func sourceLongString(value string) string {
 	}
 }
 
+// rawNewline stands in for a newline inside a multi-line raw string while a block is indented, so the indentation leaves the string's lines alone. restoreRawNewlines turns it back into a newline at the root. It is not valid UTF-8, so it cannot appear in a valid source or in a valid value.
+const rawNewline = "\xff"
+
+// sourceCanSpanLines reports whether a value can be a multi-line raw string: it has a newline, and no carriage return, rawNewline or invalid UTF-8.
+func sourceCanSpanLines(value string) bool {
+	return strings.Contains(value, "\n") && !strings.ContainsAny(value, "\r") && !strings.Contains(value, rawNewline) && utf8.ValidString(value)
+}
+
+// sourceLongStringMarked renders a raw string whose value has newlines, with each newline written as rawNewline.
+func sourceLongStringMarked(value string) string {
+	// Luau drops a newline straight after the opening bracket, so one more is written to keep a value that starts with one
+	body := value
+
+	if strings.HasPrefix(value, "\n") {
+		body = "\n" + value
+	}
+
+	return strings.ReplaceAll(sourceLongString(body), "\n", rawNewline)
+}
+
+// restoreRawNewlines turns each rawNewline in s back into a newline. The root chunk does this last, after all its indentation.
+func restoreRawNewlines(s string) string {
+	return strings.ReplaceAll(s, rawNewline, "\n")
+}
+
 // sourceComment renders a comment.
 func sourceComment(comment Comment) string {
 	if comment.Type == lex.BlockComment || comment.Type == lex.BrokenComment {
@@ -1333,14 +1358,12 @@ func sourceString(value string, style QuoteStyle) string {
 }
 
 func (n AstExprConstantString) Source() string {
-	// only a raw string keeps its style, so a single-quoted string is written with double quotes
-	style := n.QuoteStyle
-
-	if style == QuoteStyle_QuotedSingle {
-		style = QuoteStyle_QuotedSimple
+	// a raw string stays raw only when its value spans lines, since a quoted string can hold any value. Every other string is quoted.
+	if n.QuoteStyle == QuoteStyle_QuotedRaw && sourceCanSpanLines(n.Value) {
+		return sourceLongStringMarked(n.Value)
 	}
 
-	return sourceString(n.Value, style)
+	return sourceString(n.Value, QuoteStyle_QuotedSimple)
 }
 
 func (n AstTypeSingletonString) Source() string {
@@ -2231,7 +2254,7 @@ func (n AstStatAssign) Source() string {
 func (n AstStatBlock) Source() string {
 	if !n.HasEnd {
 		// the root chunk: sort leading game:GetService declarations
-		return sourceStatListSorted(n.Body, n.Comments, true)
+		return restoreRawNewlines(sourceStatListSorted(n.Body, n.Comments, true))
 	}
 
 	return "do" + appendEnd(sourceBlockBody(n))
