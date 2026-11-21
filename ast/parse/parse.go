@@ -4084,12 +4084,11 @@ loop:
 
 			isUnion = true
 
-			if p.storeCstData {
-				if type_ == nil && leadingPosition == nil {
-					leadingPosition = &separatorPosition
-				} else {
-					separatorPositions = append(separatorPositions, separatorPosition)
-				}
+			// a separator with no type before it is a leading one, which is recorded whether or not CST data is stored
+			if type_ == nil && leadingPosition == nil {
+				leadingPosition = &separatorPosition
+			} else if p.storeCstData {
+				separatorPositions = append(separatorPositions, separatorPosition)
 			}
 		case '?':
 			loc := p.snapshot()
@@ -4114,12 +4113,11 @@ loop:
 
 			isIntersection = true
 
-			if p.storeCstData {
-				if type_ == nil && leadingPosition == nil {
-					leadingPosition = &separatorPosition
-				} else {
-					separatorPositions = append(separatorPositions, separatorPosition)
-				}
+			// a separator with no type before it is a leading one, which is recorded whether or not CST data is stored
+			if type_ == nil && leadingPosition == nil {
+				leadingPosition = &separatorPosition
+			} else if p.storeCstData {
+				separatorPositions = append(separatorPositions, separatorPosition)
 			}
 		case lex.Dot3:
 			p.report(p.snapshot(), "Unexpected '...' after type annotation")
@@ -4161,6 +4159,7 @@ loop:
 		node := AstTypeUnion{
 			NodeLoc: &NodeLoc{loc},
 			Types: parts,
+			LeadingSymbol: leadingPosition != nil,
 		}
 
 		if p.storeCstData {
@@ -4176,6 +4175,7 @@ loop:
 	node := AstTypeIntersection{
 		NodeLoc: &NodeLoc{loc},
 		Types: parts,
+		LeadingSymbol: leadingPosition != nil,
 	}
 
 	if p.storeCstData {

@@ -1,9 +1,2 @@
-return function(
-	props: {
-		[
-			| string
-			| number
-		]: any,
-	}
-)
+return function(props: { [string | number]: any })
 end

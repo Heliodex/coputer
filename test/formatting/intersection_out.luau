@@ -1,6 +1,4 @@
-type intersection =
-	& string
-	& number
+type intersection = string & number
 type intersection =
 	& A
 	& B

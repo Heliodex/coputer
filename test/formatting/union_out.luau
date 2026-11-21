@@ -1,6 +1,4 @@
-type union =
-	| string
-	| number
+type union = string | number
 type union =
 	| A
 	| B

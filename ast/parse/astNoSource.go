@@ -494,6 +494,8 @@ type (
 		*NodeLoc
 
 		Types []AstType
+		// LeadingSymbol is set when the intersection is written with a leading &.
+		LeadingSymbol bool
 	}
 
 	AstTypeOptional struct {
@@ -553,6 +555,8 @@ type (
 		*NodeLoc
 
 		Types []AstType
+		// LeadingSymbol is set when the union is written with a leading |.
+		LeadingSymbol bool
 	}
 
 	// ast

@@ -1962,7 +1962,20 @@ func sourceTableItems(items []AstExprTableItem, comments []Comment) string {
 }
 
 // sourceUnionIntersection renders union and intersection types. Types are always split across multiple lines, one per line, each prefixed by op.
-func sourceUnionIntersection(types []AstType, op string) string {
+// splitMultilineTypes, set by -leading-symbol, splits a union or intersection that is over several lines in the source, with a leading symbol.
+var splitMultilineTypes bool
+
+// sourceSplitsOperands reports whether a union or intersection is split onto several lines, one operand to a line. It is when its source had a leading symbol, or, with -leading-symbol, when it spans several lines.
+func sourceSplitsOperands(leading bool, loc *NodeLoc) bool {
+	if leading {
+		return true
+	}
+
+	return splitMultilineTypes && loc != nil && loc.Location.Begin.Line != loc.Location.End.Line
+}
+
+// sourceUnionIntersection renders the operands of a union or intersection, on one line unless split is set.
+func sourceUnionIntersection(types []AstType, op string, split bool) string {
 	var (
 		nonOptional []AstType
 		seenOptional bool
@@ -1991,13 +2004,26 @@ func sourceUnionIntersection(types []AstType, op string) string {
 		if seenOptional {
 			// `(A | B)?` is the same type as `A | B?`, so a parenthesised union formats without the parentheses and converges with the bare form. Intersections keep theirs: `&` mixed with the `nil` the marker stands for would be rejected.
 			if inner, innerOp, ok := unwrapOptionalGroup(nonOptional[0]); ok && innerOp == "|" {
-				return sourceUnionIntersection(append(inner, AstTypeOptional{}), innerOp)
+				return sourceUnionIntersection(append(inner, AstTypeOptional{}), innerOp, split)
 			}
 
 			return parts[0] + "?"
 		}
 
 		return parts[0]
+	}
+
+	// on one line, a union takes its trailing ? on its last part, so `(A | B)?` is written `A | B?`. Intersections, and a union whose last part is a function type, keep the split form for the ?.
+	_, lastIsFunction := nonOptional[len(nonOptional)-1].(AstTypeFunction)
+
+	if !split && (!seenOptional || (op == "|" && !lastIsFunction)) {
+		inline := strings.Join(parts, " "+op+" ")
+
+		if seenOptional {
+			return inline + "?"
+		}
+
+		return inline
 	}
 
 	var b strings.Builder
@@ -2908,7 +2934,7 @@ func (n AstTypeGroup) Source() string {
 }
 
 func (n AstTypeIntersection) Source() string {
-	return sourceUnionIntersection(n.Types, "&")
+	return sourceUnionIntersection(n.Types, "&", sourceSplitsOperands(n.LeadingSymbol, n.NodeLoc))
 }
 
 func (n AstTypeList) Source() string {
@@ -3135,7 +3161,7 @@ func (n AstTypeTypeof) Source() string {
 }
 
 func (n AstTypeUnion) Source() string {
-	return sourceUnionIntersection(n.Types, "|")
+	return sourceUnionIntersection(n.Types, "|", sourceSplitsOperands(n.LeadingSymbol, n.NodeLoc))
 }
 
 // -------------------------------------------------------------------------------- -- HELPERS FOR VALUE/POINTER UNION CASES --------------------------------------------------------------------------------
